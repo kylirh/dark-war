@@ -6,6 +6,10 @@ node_modules
 .DS_Store
 *.log
 
+# TypeScript build artifacts
+app/game.js
+app/game.js.map
+
 # globs
 Makefile.in
 *.userprefs

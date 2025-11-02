@@ -1,219 +1,192 @@
-# Dark War - System Instructions
+# Dark War - AI Coding Instructions
 
-You are assisting in the ongoing development of Dark War, a modern remake and spiritual successor to the 1992 roguelike Mission Thunderbolt. Your task is to help the developer write clean, consistent, performant code that expands the game with well-structured, modular architecture and modern development practices.
-
----
-
-## Project Overview
-
-Dark War is a modernized roguelike built as an Electron application that runs fully offline. It features retro 1990s-style sprite rendering, procedural dungeons, and turn-based combat with a modular, well-organized codebase.
-
-### Stack
-
-- TypeScript (transitioning from vanilla JavaScript)
-- HTML5 Canvas for sprite-based rendering
-- Electron shell for desktop deployment (macOS, Windows, Linux)
-- Modern ES modules with proper import/export
-- Build tooling for development and distribution
-- Persistent saves via JSON file or localStorage
-
-### Key Design Goals
-
-- Well-structured, modular architecture prioritizing developer readability
-- Retro 1990s aesthetic with sprite-based graphics
-- Modern TypeScript development with proper module organization
-- Playable both in a web browser and within Electron
-- Deterministic gameplay and procedural consistency
-- Embrace modern frameworks and tools when beneficial
+You are assisting in the development of Dark War, a modern remake of the 1992 roguelike Mission Thunderbolt. Help write clean, performant TypeScript code that follows the established modular architecture.
 
 ---
 
-## Architecture
+## Current Architecture
 
-### Core Structure
+**Project Structure:**
 
 ```
 dark-war/
+├─ app/
+│  ├─ index.html       # Clean HTML/CSS, loads game.js
+│  └─ game.js          # Bundled TypeScript output (build artifact)
 ├─ electron/
-│  ├─ main.js          # App window + persistent save API
-│  └─ preload.js       # Exposes window.native.saveWrite/saveRead
-├─ src/                # Main game source code
-│  ├─ core/            # Core game systems
-│  ├─ entities/        # Player, enemies, items
-│  ├─ rendering/       # Sprite rendering and graphics
-│  ├─ ui/              # User interface components
-│  ├─ utils/           # Utility functions and helpers
-│  └─ main.ts          # Main game entry point
-├─ assets/             # Sprites, sounds, data files
-│  ├─ sprites/         # 1990s-style sprite graphics
-│  ├─ audio/           # Sound effects and music
-│  └─ data/            # Game data and configuration
-├─ .github/
-│  └─ copilot-instructions.md
-├─ package.json
-└─ tsconfig.json
+│  ├─ main.js          # Electron window + save/load IPC handlers
+│  └─ preload.js       # Exposes window.native.saveWrite/saveRead API
+├─ src/                # TypeScript source code
+│  ├─ core/
+│  │  ├─ Game.ts       # Central game state manager & coordinator
+│  │  └─ Map.ts        # Dungeon generation (BSP rooms + corridors)
+│  ├─ entities/
+│  │  ├─ Player.ts     # Player entity factory
+│  │  ├─ Monster.ts    # Monster entity factory
+│  │  └─ Item.ts       # Item entity factory
+│  ├─ systems/
+│  │  ├─ FOV.ts        # Field of view via ray casting
+│  │  ├─ Combat.ts     # Melee, ranged combat, reload mechanics
+│  │  ├─ AI.ts         # Monster AI with greedy + BFS pathfinding
+│  │  ├─ Input.ts      # Keyboard input handling
+│  │  ├─ Renderer.ts   # Canvas rendering system
+│  │  └─ UI.ts         # UI updates (stats, log, inventory)
+│  ├─ utils/
+│  │  ├─ RNG.ts        # Deterministic RNG (SFC32 algorithm)
+│  │  └─ helpers.ts    # Coordinate math, tile queries, entity lookups
+│  ├─ types/
+│  │  └─ index.ts      # All TypeScript types, interfaces, enums
+│  └─ main.ts          # Entry point, bootstraps game
+├─ tsconfig.json       # TypeScript compiler config
+├─ vite.config.ts      # Vite bundler config
+└─ package.json        # Dependencies and build scripts
 ```
 
-### Components
+**Key Implementation Details:**
 
-**Game Architecture**
-
-- Modular TypeScript architecture with clear separation of concerns
-- ES modules with proper import/export statements
-- Sprite-based rendering system using Canvas
-- Component-based entities and systems
-- Turn-based game loop with clean state management
-- Save/load system integrated with Electron IPC
-
-**Electron Wrapper**
-
-- `main.js`: sets up BrowserWindow and IPC handlers for persistent save
-- `preload.js`: bridges save API into renderer via contextBridge
-- Saves stored as JSON at `app.getPath('userData')/darkwar-save.json`
-
-### Persistence
-
-```javascript
-await window.native.saveWrite(JSON.stringify(gameState)); // Save
-const data = await window.native.saveRead(); // Load
-```
-
-- Save format must remain backward compatible
-- Missing or corrupt files → graceful new-game fallback
+- **Game Loop**: `Game.ts` orchestrates turn-based flow via `endTurn()` → monster AI → FOV update
+- **Entity System**: Discriminated union types with `EntityKind` enum (Player | Monster | Item)
+- **Map Storage**: 1D array accessed via `idx(x,y) = x + y * MAP_WIDTH` helper
+- **FOV**: Ray casting from player position using Bresenham line algorithm
+- **AI**: Monsters chase player using greedy step with BFS fallback for pathfinding
+- **Rendering**: Canvas-based with ASCII characters, prepared for sprite upgrade
+- **Save System**: Serializes to JSON, supports both Electron IPC and localStorage
 
 ---
 
 ## Development Workflows
 
-### Run / Build
+**Build Commands:**
 
 ```bash
-npm run dev    # Launch Electron app for testing
-npm run build  # Build distributables for mac/win/linux
-npm run type-check  # TypeScript type checking
-npm run lint   # Code linting and formatting
+npm run dev          # Build TypeScript and launch Electron app
+npm run build        # Build distributables (macOS/Windows/Linux)
+npm run build:ts     # Compile TypeScript and bundle with Vite
+npm run type-check   # Type check without building
+npm run watch        # Watch mode for development
 ```
 
-### Conventions
+**Save System API:**
 
-- **TypeScript**: Modern ES modules with proper import/export
-- **Architecture**: Modular design with clear separation of concerns
-- **Naming**: Keep consistent naming: "Dark War", not "Mission Thunderbolt"
-- **Code Organization**: Group related functionality into logical modules
+```typescript
+// Electron (persistent)
+await window.native.saveWrite(JSON.stringify(gameState));
+const result = await window.native.saveRead();
 
-### Debugging
+// Browser fallback (localStorage)
+localStorage.setItem("darkwar-save", JSON.stringify(gameState));
+localStorage.getItem("darkwar-save");
+```
 
-- Use Chrome DevTools (F12) inside Electron for live inspection
-- TypeScript source maps for debugging compiled code
-- Test packaged builds across OS targets: DMG, NSIS, AppImage
+**Critical Patterns:**
 
----
-
-## Vision for Dark War
-
-### Short-Term Goals
-
-- Transition from single-file to modular TypeScript architecture
-- Implement sprite-based rendering system with 1990s aesthetic
-- Expand combat: melee, ranged, and reloading systems
-- Add new enemies (drones, mutants, turrets, security bots)
-- Introduce procedural loot and more meaningful inventory
-- Implement locked doors, terminals, and environmental hazards
-- Themed dungeon floors with improved FOV and AI
-
-### Long-Term Vision
-
-- A rich, atmospheric, retro-futuristic roguelike exploring the aftermath of a failed military experiment beneath a research facility
-- Maintain single-player, offline focus
-- Support modding, procedural storytelling, and multiple endings
-- Preserve a feeling of claustrophobic tension and emergent narrative
-- Deliver authentic 1990s pixel art aesthetic with atmospheric sound design
-- Well-organized, readable codebase that's easy to extend and modify
+- **State Management**: `Game.getState()` returns immutable GameState interface
+- **Entity Filtering**: Use `entities.filter(e => e.kind === EntityKind.MONSTER)` pattern
+- **Tile Queries**: Use `tileAt(map, x, y)`, `passable(map, x, y)`, `isWalkable()` helpers
+- **RNG Usage**: `RNG.int(n)`, `RNG.choose(array)`, `RNG.chance(probability)`
+- **Message Logging**: `game.addLog(message)` → automatically updates UI
 
 ---
 
-## Code & Style Guidelines
+## Code Style & Conventions
 
-- Write readable, modular code — clarity over cleverness
-- Embrace modern TypeScript features and proper typing
-- Use appropriate frameworks and tools when they improve development experience
-- Keep deterministic random generation (use a consistent RNG module)
-- Ensure performance on low-power systems
-- Respect the turn-based loop; avoid real-time animation unless specifically needed
-- When adding features, always maintain save compatibility
-- Document new systems with clear TypeScript interfaces and JSDoc comments
-- Use modern ES module imports/exports throughout the codebase
+- **TypeScript**: Strict mode enabled, use explicit types for function signatures
+- **Imports**: Always use named imports with full relative paths
+- **Organization**: One class/system per file, grouped by logical domain
+- **Naming**: PascalCase for classes/types, camelCase for functions/variables
+- **Architecture**: Favor composition over inheritance, pure functions where possible
 
 ### Example Patterns
 
-**Module Structure**
+**Adding a New System:**
 
 ```typescript
-import { Entity } from "./Entity";
-import { Vector2 } from "../utils/Vector2";
+// src/systems/NewSystem.ts
+import { GameState, Player } from "../types";
 
-export class Player extends Entity {
-  constructor(position: Vector2) {
-    super(position);
-  }
+export function processNewSystem(state: GameState): void {
+  // System logic here
 }
 ```
 
-**State Management**
+**Creating New Entity Type:**
 
 ```typescript
-export interface GameState {
-  player: Player;
-  floor: Floor;
-  entities: Entity[];
-  items: Item[];
-  log: string[];
-  depth: number;
+// Update src/types/index.ts
+export enum EntityKind {
+  PLAYER = "player",
+  DRONE = "drone", // Add new type
+  // ...
+}
+
+export interface Drone extends BaseEntity {
+  kind: EntityKind.DRONE;
+  // Drone-specific properties
+}
+
+// Create factory in src/entities/Drone.ts
+export function createDrone(x: number, y: number): Drone {
+  return {
+    kind: EntityKind.DRONE,
+    x,
+    y,
+    ch: "D",
+    color: "#5ad1ff",
+    // ...
+  };
 }
 ```
 
-**Electron Bridge**
+**Integrating with Game Loop:**
 
-```javascript
-contextBridge.exposeInMainWorld("native", {
-  saveWrite: (data) => ipcRenderer.invoke("save:write", data),
-  saveRead: () => ipcRenderer.invoke("save:read"),
-});
+```typescript
+// In src/core/Game.ts
+import { createDrone } from "../entities/Drone";
+
+// Add to entity spawning in reset()
+for (let i = 0; i < 5; i++) {
+  const [x, y] = RNG.choose(freeTiles);
+  this.state.entities.push(createDrone(x, y));
+}
 ```
 
 ---
 
-## Copilot Behavior Guidelines
+## Next Steps & Roadmap
 
-- Act as a collaborative teammate, not a tutor
-- Propose changes that integrate cleanly with the current architecture
-- Embrace modular design and suggest proper TypeScript module organization
-- Recommend appropriate frameworks, tools, or libraries when they improve the codebase
-- Default to modern TypeScript patterns with proper ES module imports/exports
-- Maintain tone and atmosphere consistent with Dark War's retro-futuristic setting
-- Prioritize code readability and maintainability over brevity
+**Current Priorities:**
 
----
+1. **Sprite Rendering**: Replace ASCII with pixel art sprites (keep existing Canvas system)
+2. **More Enemy Types**: Drones, turrets, security bots with varied behaviors
+3. **Enhanced Items**: Weapon variety (SMG, shotgun), armor, consumables
+4. **Level Theming**: Visual distinction between lab, storage, reactor floors
+5. **Terminal System**: Interactable computer terminals with lore and unlock mechanics
 
-## Example Prompts Copilot Should Handle Well
+**Long-Term Vision:**
 
-- "Add a new enemy type called Drone that patrols corridors and attacks from range"
-- "Refactor the rendering system to use sprite-based graphics with 1990s aesthetic"
-- "Create a modular inventory system with TypeScript interfaces"
-- "Implement a terminal interface that displays procedural lore entries"
-- "Set up a build system for TypeScript compilation and asset bundling"
+- Atmospheric retro-futuristic roguelike set in underground research facility
+- Modular, well-documented codebase easy to extend
+- Support for modding via data files
+- Maintain single-player offline focus
+- Procedural storytelling through terminals and environmental details
 
 ---
 
-## Metadata
+## Copilot Guidelines
 
-**Language**: TypeScript (transitioning from JavaScript)  
-**Frameworks**: Open to modern frameworks and game engines  
-**Distribution**: macOS (.dmg), Windows (.exe/.zip), Linux (.AppImage/.deb)  
-**License**: Proprietary (Closed source by default)
+- Propose changes that fit cleanly into existing architecture
+- Reference specific files/modules when suggesting modifications
+- Consider type safety and maintain strict TypeScript compliance
+- Preserve the turn-based game loop structure
+- Keep save format backward compatible when possible
+- Suggest appropriate abstractions without over-engineering
+- Maintain performance on low-powered systems
+- Write self-documenting code with clear naming
 
----
+When adding features, always consider:
 
-## Copilot's Objective
-
-Help evolve Dark War into a cohesive, moddable, atmospheric roguelike with well-structured TypeScript architecture, 1990s-style sprite graphics, and modern development practices while maintaining its retro-futuristic atmosphere and turn-based gameplay.
+- Which module should own this logic?
+- How does this integrate with the turn-based loop?
+- What TypeScript types need updating?
+- Does this affect save/load serialization?
+- Are there existing helper functions to reuse?
