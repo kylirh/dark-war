@@ -1,0 +1,42 @@
+{
+  "name": "dark-war",
+  "version": "0.1.0",
+  "private": true,
+  "main": "electron/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "electron .",
+    "build": "electron-builder -mwl"
+  },
+  "devDependencies": {
+    "electron": "^31.3.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.kylir.darkwar",
+    "files": [
+      "electron/**/*",
+      "app/**/*",
+      "!**/*.map"
+    ],
+    "mac": {
+      "category": "public.app-category.games",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  }
+}

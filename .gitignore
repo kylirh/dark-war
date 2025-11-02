@@ -1,3 +1,11 @@
+# npm and electron artifacts
+node_modules
+/dist
+/out
+/packages
+.DS_Store
+*.log
+
 # globs
 Makefile.in
 *.userprefs

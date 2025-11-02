@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dark War</title>
+    <style>
+      :root {
+        --bg: #0c0f12;
+        --panel: #141922;
+        --ink: #e6edf3;
+        --ink-dim: #a9b1bb;
+        --accent: #5ad1ff;
+        --danger: #ff6b6b;
+        --ok: #7bd88f;
+        --warn: #ffd166;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto,
+          "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      }
+      .wrap {
+        display: grid;
+        grid-template-columns: 1fr 320px;
+        gap: 12px;
+        height: 100%;
+        padding: 12px;
+      }
+      .left {
+        display: grid;
+        grid-template-rows: auto 1fr;
+        gap: 8px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        background: var(--panel);
+        border-radius: 10px;
+      }
+      header h1 {
+        font-size: 16px;
+        margin: 0;
+        letter-spacing: 0.3px;
+        color: var(--ink);
+      }
+      header .sub {
+        color: var(--ink-dim);
+        font-size: 12px;
+      }
+      #view {
+        background: #0b0e12;
+        border-radius: 10px;
+        padding: 8px;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+      }
+      aside {
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: 8px;
+      }
+      .panel {
+        background: var(--panel);
+        border-radius: 10px;
+        padding: 10px;
+      }
+      .row {
+        display: flex;
+        justify-content: space-between;
+        margin: 4px 0;
+      }
+      .hpbar {
+        height: 8px;
+        background: #1d2633;
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .hpbar > i {
+        display: block;
+        height: 100%;
+        background: linear-gradient(90deg, #ff6b6b, #ffd166);
+        width: 50%;
+      }
+      .stat {
+        color: var(--ink-dim);
+      }
+      .inv {
+        display: grid;
+        gap: 6px;
+      }
+      .pill {
+        background: #0f1420;
+        border: 1px solid #222a36;
+        padding: 6px 8px;
+        border-radius: 8px;
+      }
+      .log {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+        max-height: 40vh;
+        overflow: auto;
+        white-space: pre-wrap;
+      }
+      kbd {
+        background: #0f1420;
+        border: 1px solid #222a36;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+      .controls code {
+        color: var(--ink-dim);
+      }
+      .btnrow {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      button {
+        background: #0f1420;
+        color: var(--ink);
+        border: 1px solid #222a36;
+        border-radius: 8px;
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: #2d3748;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="left">
+        <header>
+          <h1>Dark War</h1>
+          <span class="sub">Choose thy fate, mortal...</span>
+        </header>
+        <div id="view">
+          <canvas
+            id="game"
+            width="960"
+            height="576"
+            aria-label="Game canvas"
+            role="img"
+          ></canvas>
+        </div>
+      </div>
+      <aside>
+        <section class="panel" id="stats">
+          <div class="row"><strong>Floor</strong><span id="floor">1</span></div>
+          <div class="row"><strong>HP</strong><span id="hp">—</span></div>
+          <div class="hpbar"><i id="hpbar"></i></div>
+          <div class="row"><strong>Ammo</strong><span id="ammo">—</span></div>
+          <div class="row">
+            <strong>Weapon</strong><span id="weapon">—</span>
+          </div>
+          <div class="row"><strong>Keys</strong><span id="keys">0</span></div>
+          <div class="row"><strong>Score</strong><span id="score">0</span></div>
+        </section>
+        <section class="panel inv" id="inventory">
+          <strong>Inventory</strong>
+          <div id="invList" class="pill">Empty</div>
+        </section>
+        <section class="panel log" id="log" aria-live="polite"></section>
+        <section class="panel controls">
+          <div class="btnrow">
+            <button id="btnNew">New run</button>
+            <button id="btnSave">Save</button>
+            <button id="btnLoad">Load</button>
+          </div>
+          <p>
+            <strong>Controls</strong><br />
+            Move: <kbd>WASD</kbd>/<kbd>Arrows</kbd> • Wait: <kbd>.</kbd><br />
+            Interact: <kbd>G</kbd> pickup, <kbd>O</kbd> open/close door,
+            <kbd>&lt;</kbd> descend stairs<br />
+            Fire: <kbd>F</kbd> then direction • Reload: <kbd>R</kbd><br />
+            Toggle FOV: <kbd>V</kbd> • Fullscreen: <kbd>F11</kbd>
+          </p>
+          <p>
+            <code>Goal:</code> Reach deeper floors, survive, and collect
+            keycards to open locked doors.
+          </p>
+        </section>
+      </aside>
+    </div>
+
+    <script>
+      // === Dark War — bare-bones roguelike scaffold ===
+      // Single-file, modern JS, no dependencies, no backend.
+      // Features: room/corridor dungeon, FOV, fog, doors (open/closed/locked), stairs,
+      // items (pistol, ammo, medkit, keycard), simple inventory, ranged fire, melee bump,
+      // simple monster AI, message log, save/load system.
+
+      (function () {
+        "use strict";
+
+        // ---------- Utility & RNG ----------
+        const RNG = (() => {
+          let seed = (Date.now() ^ 0x9e3779b1) >>> 0;
+          function sfc32() {
+            let a = seed,
+              b = 0x6c8e9cf5,
+              c = 0xb5297a4d,
+              d = 0x1b56c4e9;
+            return function () {
+              a |= 0;
+              b |= 0;
+              c |= 0;
+              d |= 0;
+              let t = (((a + b) | 0) + d) | 0;
+              d = (d + 1) | 0;
+              a = b ^ (b >>> 9);
+              b = (c + (c << 3)) | 0;
+              c = (c << 21) | (c >>> 11);
+              c = (c + t) | 0;
+              return (t >>> 0) / 4294967296;
+            };
+          }
+          let rand = sfc32();
+          return {
+            reseed(n) {
+              seed = n >>> 0 || seed;
+              rand = sfc32();
+            },
+            int(n) {
+              return (rand() * n) | 0;
+            },
+            float() {
+              return rand();
+            },
+            choose(arr) {
+              return arr[(rand() * arr.length) | 0];
+            },
+            chance(p) {
+              return rand() < p;
+            },
+          };
+        })();
+
+        // ---------- Tile & Map ----------
+        const T = {
+          WALL: 0,
+          FLOOR: 1,
+          DOOR_C: 2,
+          DOOR_O: 3,
+          DOOR_L: 4,
+          STAIRS: 5,
+        };
+        const TILE = {
+          [T.WALL]: {
+            ch: "#",
+            color: "#2b3342",
+            bg: "#0b0e12",
+            block: true,
+            opaque: true,
+          },
+          [T.FLOOR]: {
+            ch: "·",
+            color: "#2c89c9",
+            bg: "#0b0e12",
+            block: false,
+            opaque: false,
+          },
+          [T.DOOR_C]: {
+            ch: "+",
+            color: "#caa472",
+            bg: "#0b0e12",
+            block: true,
+            opaque: true,
+          },
+          [T.DOOR_O]: {
+            ch: "/",
+            color: "#caa472",
+            bg: "#0b0e12",
+            block: false,
+            opaque: false,
+          },
+          [T.DOOR_L]: {
+            ch: "×",
+            color: "#d08770",
+            bg: "#0b0e12",
+            block: true,
+            opaque: true,
+          },
+          [T.STAIRS]: {
+            ch: "<",
+            color: "#7bd88f",
+            bg: "#0b0e12",
+            block: false,
+            opaque: false,
+          },
+        };
+
+        const W = 64,
+          H = 36; // map size in tiles (fits 960x576 at 15x16 cell)
+        const CELL = { w: 15, h: 16, padX: 8, padY: 8 };
+
+        function rectRoomsDungeon() {
+          // BSP-lite rooms + corridors
+          const map = new Array(W * H).fill(T.WALL);
+          const rooms = [];
+          const tries = 120;
+          for (let i = 0; i < tries; i++) {
+            const rw = 5 + RNG.int(10);
+            const rh = 4 + RNG.int(8);
+            const rx = 2 + RNG.int(W - rw - 4);
+            const ry = 2 + RNG.int(H - rh - 4);
+            const r = { x: rx, y: ry, w: rw, h: rh };
+            let collides = rooms.some(
+              (o) =>
+                !(
+                  r.x + r.w < o.x ||
+                  o.x + o.w < r.x ||
+                  r.y + r.h < o.y ||
+                  o.y + o.h < r.y
+                )
+            );
+            if (!collides) {
+              rooms.push(r);
+              for (let y = ry; y < ry + rh; y++)
+                for (let x = rx; x < rx + rw; x++) map[x + y * W] = T.FLOOR;
+            }
+          }
+          // Corridors
+          rooms.sort((a, b) => a.x + b.y - (b.x + a.y));
+          for (let i = 1; i < rooms.length; i++) {
+            const a = rooms[i - 1],
+              b = rooms[i];
+            const ax = (a.x + a.w / 2) | 0,
+              ay = (a.y + a.h / 2) | 0;
+            const bx = (b.x + b.w / 2) | 0,
+              by = (b.y + b.h / 2) | 0;
+            if (RNG.chance(0.5)) carveH(ax, bx, ay);
+            else carveV(ay, by, ax);
+            carveV(ay, by, bx);
+            carveH(ax, bx, by);
+          }
+          function carveH(x1, x2, y) {
+            for (let x = Math.min(x1, x2); x <= Math.max(x1, x2); x++)
+              map[x + y * W] = T.FLOOR;
+          }
+          function carveV(y1, y2, x) {
+            for (let y = Math.min(y1, y2); y <= Math.max(y1, y2); y++)
+              map[x + y * W] = T.FLOOR;
+          }
+
+          // sprinkle doors on floor-wall-floor transitions
+          for (let y = 1; y < H - 1; y++)
+            for (let x = 1; x < W - 1; x++) {
+              if (map[x + y * W] !== T.WALL) continue;
+              const n = map[x + (y - 1) * W],
+                s = map[x + (y + 1) * W],
+                e = map[x + 1 + y * W],
+                w = map[x - 1 + y * W];
+              const ns = n === T.FLOOR && s === T.FLOOR,
+                ew = e === T.FLOOR && w === T.FLOOR;
+              if (ns ^ ew) {
+                // XOR: corridor separation
+                if (RNG.chance(0.25))
+                  map[x + y * W] = RNG.chance(0.85) ? T.DOOR_C : T.DOOR_L;
+              }
+            }
+
+          // ensure start & stairs
+          const start = rooms[0];
+          const stairRoom = RNG.choose(
+            rooms.slice(Math.max(1, rooms.length - 6))
+          );
+          const sx = (start.x + start.w / 2) | 0,
+            sy = (start.y + start.h / 2) | 0;
+          let tx = (stairRoom.x + stairRoom.w / 2) | 0,
+            ty = (stairRoom.y + stairRoom.h / 2) | 0;
+          map[tx + ty * W] = T.STAIRS;
+
+          return { map, start: [sx, sy], stairs: [tx, ty], rooms };
+        }
+
+        // ---------- Entities & Items ----------
+        const ET = {
+          PLAYER: "player",
+          MONSTER: "mutant",
+          BULLET: "bullet",
+          ITEM: "item",
+        };
+        const IT = {
+          PISTOL: "pistol",
+          AMMO: "ammo",
+          MED: "medkit",
+          KEY: "keycard",
+        };
+
+        function makePlayer(pos) {
+          return {
+            kind: ET.PLAYER,
+            x: pos[0],
+            y: pos[1],
+            ch: "@",
+            color: "#e6edf3",
+            hpMax: 20,
+            hp: 20,
+            sight: 9,
+            weapon: IT.PISTOL,
+            ammo: 12,
+            ammoReserve: 24,
+            keys: 0,
+            score: 0,
+          };
+        }
+        function makeMutant(x, y, depth) {
+          return {
+            kind: ET.MONSTER,
+            x,
+            y,
+            ch: "M",
+            color: "#ff9f9f",
+            hp: 6 + depth,
+            dmg: 2 + Math.floor(depth / 2),
+          };
+        }
+        function makeItem(x, y, type, amt = 0) {
+          const meta = {
+            [IT.PISTOL]: { ch: ")", color: "#b8d1ff", name: "Pistol" },
+            [IT.AMMO]: {
+              ch: "‧",
+              color: "#7bd88f",
+              name: "Ammo",
+              amount: amt || 8 + RNG.int(10),
+            },
+            [IT.MED]: {
+              ch: "!",
+              color: "#ffd166",
+              name: "Medkit",
+              heal: 6 + RNG.int(8),
+            },
+            [IT.KEY]: { ch: "¤", color: "#eab3ff", name: "Keycard" },
+          }[type];
+          return { kind: ET.ITEM, x, y, type, ...meta };
+        }
+
+        // ---------- Game State ----------
+        const Game = {
+          depth: 1,
+          map: [],
+          visible: new Set(),
+          explored: new Set(),
+          entities: [],
+          bullets: [],
+          player: null,
+          stairs: [0, 0],
+          log: [],
+          options: { fov: true },
+        };
+
+        function reset(depth = 1) {
+          Game.depth = depth;
+          const d = rectRoomsDungeon();
+          Game.map = d.map;
+          Game.stairs = d.stairs;
+          Game.visible.clear();
+          Game.explored.clear();
+          Game.entities.length = 0;
+          Game.bullets.length = 0;
+          Game.log.length = 0;
+          Game.player = makePlayer(d.start);
+          Game.entities.push(Game.player);
+
+          // place monsters & loot
+          const freeTiles = [];
+          for (let y = 1; y < H - 1; y++)
+            for (let x = 1; x < W - 1; x++)
+              if (isWalkable(x, y)) freeTiles.push([x, y]);
+          RNG.choose; // no-op just to keep linter happy
+          for (let i = 0; i < 30; i++) {
+            const [x, y] = freeTiles[RNG.int(freeTiles.length)];
+            if (dist([x, y], d.start) > 8)
+              Game.entities.push(makeMutant(x, y, Game.depth));
+          }
+          for (let i = 0; i < 10; i++) {
+            const [x, y] = freeTiles[RNG.int(freeTiles.length)];
+            Game.entities.push(makeItem(x, y, IT.AMMO));
+          }
+          for (let i = 0; i < 6; i++) {
+            const [x, y] = freeTiles[RNG.int(freeTiles.length)];
+            Game.entities.push(makeItem(x, y, IT.MED));
+          }
+          for (let i = 0; i < 3; i++) {
+            const [x, y] = freeTiles[RNG.int(freeTiles.length)];
+            Game.entities.push(makeItem(x, y, IT.KEY));
+          }
+
+          log(`You descend into level ${Game.depth}.`);
+          computeFOV();
+          render();
+          syncUI();
+        }
+
+        // ---------- Helpers ----------
+        function idx(x, y) {
+          return x + y * W;
+        }
+        function inBounds(x, y) {
+          return x >= 0 && y >= 0 && x < W && y < H;
+        }
+        function tileAt(x, y) {
+          return Game.map[idx(x, y)];
+        }
+        function setTile(x, y, t) {
+          Game.map[idx(x, y)] = t;
+        }
+        function passable(x, y) {
+          const t = TILE[tileAt(x, y)];
+          return t && !t.block;
+        }
+        function isWalkable(x, y) {
+          if (!inBounds(x, y)) return false;
+          if (!passable(x, y)) return false;
+          if (entityAt(x, y)) return false;
+          return true;
+        }
+        function entityAt(x, y, filter) {
+          return Game.entities.find(
+            (e) => e.x === x && e.y === y && (!filter || filter(e))
+          );
+        }
+        function entitiesAt(x, y) {
+          return Game.entities.filter((e) => e.x === x && e.y === y);
+        }
+        function dist(a, b) {
+          return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+        }
+
+        function log(msg) {
+          Game.log.unshift(msg);
+          if (Game.log.length > 200) Game.log.pop();
+          drawLog();
+        }
+
+        // ---------- FOV (Bresenham ray per tile) ----------
+        function line(x0, y0, x1, y1) {
+          const points = [];
+          let dx = Math.abs(x1 - x0),
+            sx = x0 < x1 ? 1 : -1;
+          let dy = -Math.abs(y1 - y0),
+            sy = y0 < y1 ? 1 : -1;
+          let err = dx + dy,
+            e2;
+          while (true) {
+            points.push([x0, y0]);
+            if (x0 === x1 && y0 === y1) break;
+            e2 = 2 * err;
+            if (e2 >= dy) {
+              err += dy;
+              x0 += sx;
+            }
+            if (e2 <= dx) {
+              err += dx;
+              y0 += sy;
+            }
+          }
+          return points;
+        }
+        function computeFOV() {
+          Game.visible.clear();
+          const r = Game.player.sight;
+          for (let y = Game.player.y - r; y <= Game.player.y + r; y++)
+            for (let x = Game.player.x - r; x <= Game.player.x + r; x++) {
+              if (!inBounds(x, y)) continue;
+              if ((x - Game.player.x) ** 2 + (y - Game.player.y) ** 2 > r * r)
+                continue;
+              let seen = false;
+              const pts = line(Game.player.x, Game.player.y, x, y);
+              for (let i = 0; i < pts.length; i++) {
+                const [px, py] = pts[i];
+                const tt = TILE[tileAt(px, py)];
+                if (i === pts.length - 1) {
+                  seen = true;
+                  break;
+                }
+                if (
+                  tt &&
+                  tt.opaque &&
+                  !(px === Game.player.x && py === Game.player.y)
+                ) {
+                  break;
+                }
+              }
+              if (seen) {
+                Game.visible.add(idx(x, y));
+                Game.explored.add(idx(x, y));
+              }
+            }
+        }
+
+        // ---------- Combat & Items ----------
+        function bumpOrMove(dx, dy) {
+          const nx = Game.player.x + dx,
+            ny = Game.player.y + dy;
+          const t = tileAt(nx, ny);
+          // closed/locked doors: handle interact via O or with key
+          if (t === T.DOOR_C) {
+            log("The closed door blocks your way. Press O to open.");
+            return;
+          }
+          if (t === T.DOOR_L) {
+            log("A locked door. You need a keycard.");
+            return;
+          }
+          const foe = entityAt(nx, ny, (e) => e.kind === ET.MONSTER);
+          if (foe) {
+            const dmg = 1 + RNG.int(3);
+            foe.hp -= dmg;
+            log(`You hit the mutant for ${dmg}.`);
+            if (foe.hp <= 0) {
+              Game.player.score += 10;
+              log("Mutant defeated.");
+              removeEntity(foe);
+            }
+            endPlayerTurn();
+            return;
+          }
+          if (passable(nx, ny)) {
+            Game.player.x = nx;
+            Game.player.y = ny;
+            endPlayerTurn();
+            return;
+          }
+        }
+
+        function openCloseDoor() {
+          const dirs = [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ];
+          for (const [dx, dy] of dirs) {
+            const x = Game.player.x + dx,
+              y = Game.player.y + dy;
+            const t = tileAt(x, y);
+            if (t === T.DOOR_C) {
+              setTile(x, y, T.DOOR_O);
+              log("You open the door.");
+              endPlayerTurn();
+              return;
+            }
+            if (t === T.DOOR_O) {
+              setTile(x, y, T.DOOR_C);
+              log("You close the door.");
+              endPlayerTurn();
+              return;
+            }
+            if (t === T.DOOR_L) {
+              if (Game.player.keys > 0) {
+                setTile(x, y, T.DOOR_C);
+                Game.player.keys--;
+                log("You unlock the door with a keycard.");
+                endPlayerTurn();
+                return;
+              } else {
+                log("Locked. You need a keycard.");
+                return;
+              }
+            }
+          }
+          log("No door adjacent.");
+        }
+
+        function tryPickup() {
+          const items = entitiesAt(Game.player.x, Game.player.y).filter(
+            (e) => e.kind === ET.ITEM
+          );
+          if (items.length === 0) {
+            log("Nothing to pick up.");
+            return;
+          }
+          for (const it of items) {
+            switch (it.type) {
+              case IT.AMMO:
+                Game.player.ammoReserve += it.amount;
+                log(`Picked up ${it.amount} ammo.`);
+                break;
+              case IT.MED:
+                Game.player.hp = Math.min(
+                  Game.player.hpMax,
+                  Game.player.hp + it.heal
+                );
+                log(`Used a medkit (+${it.heal} HP).`);
+                break;
+              case IT.KEY:
+                Game.player.keys++;
+                log("Picked up a keycard.");
+                break;
+              case IT.PISTOL:
+                log("You already have a pistol.");
+                break;
+            }
+            removeEntity(it);
+          }
+          syncUI();
+          render();
+        }
+
+        function fire(dir) {
+          if (Game.player.weapon !== IT.PISTOL) {
+            log("You have nothing to fire.");
+            return;
+          }
+          if (Game.player.ammo <= 0) {
+            log("*Click*. No ammo. Press R to reload.");
+            return;
+          }
+          Game.player.ammo--;
+          const [dx, dy] = dir;
+          let x = Game.player.x + dx,
+            y = Game.player.y + dy;
+          log("Bang!");
+          // travel until wall/door or hit monster (max range 12)
+          for (let i = 0; i < 12; i++) {
+            if (!inBounds(x, y)) break;
+            const tt = TILE[tileAt(x, y)];
+            if (tt.block || tt.opaque) {
+              break;
+            }
+            const foe = entityAt(x, y, (e) => e.kind === ET.MONSTER);
+            if (foe) {
+              const dmg = 3 + RNG.int(5);
+              foe.hp -= dmg;
+              log(`You shoot the mutant for ${dmg}.`);
+              if (foe.hp <= 0) {
+                Game.player.score += 15;
+                log("Mutant drops.");
+                removeEntity(foe);
+              }
+              break;
+            }
+            x += dx;
+            y += dy;
+          }
+          endPlayerTurn();
+        }
+
+        function reload() {
+          if (Game.player.weapon !== IT.PISTOL)
+            return log("Nothing to reload.");
+          const cap = 12;
+          if (Game.player.ammo === cap) return log("Magazine already full.");
+          const need = cap - Game.player.ammo;
+          const take = Math.min(need, Game.player.ammoReserve);
+          if (take <= 0) return log("No reserve ammo.");
+          Game.player.ammo += take;
+          Game.player.ammoReserve -= take;
+          log(`Reloaded ${take}.`);
+          syncUI();
+        }
+
+        function removeEntity(e) {
+          const i = Game.entities.indexOf(e);
+          if (i >= 0) Game.entities.splice(i, 1);
+        }
+
+        // ---------- Monsters ----------
+        function monsterTurn() {
+          for (const e of [...Game.entities]) {
+            if (e.kind !== ET.MONSTER) continue;
+            const dx = Game.player.x - e.x;
+            const dy = Game.player.y - e.y;
+            const ad = Math.abs(dx) + Math.abs(dy);
+            // if adjacent -> attack
+            if (ad === 1) {
+              const dmg = 1 + RNG.int(e.dmg);
+              Game.player.hp -= dmg;
+              log(`Mutant hits you for ${dmg}.`);
+              if (Game.player.hp <= 0) {
+                gameOver();
+                return;
+              }
+              continue;
+            }
+            // if in sight (simple LOS ignoring doors open/closed handled by FOV line)
+            const pts = line(e.x, e.y, Game.player.x, Game.player.y);
+            let blocked = false;
+            for (let i = 1; i < pts.length; i++) {
+              const [px, py] = pts[i];
+              if (TILE[tileAt(px, py)].opaque) {
+                blocked = true;
+                break;
+              }
+            }
+            if (!blocked && ad < 12) {
+              // chase using greedy step with small BFS fallback
+              const step =
+                greedyStep(e.x, e.y, Game.player.x, Game.player.y) ||
+                bfsStep(e.x, e.y, Game.player.x, Game.player.y, 10);
+              if (step && isWalkable(step[0], step[1])) {
+                e.x = step[0];
+                e.y = step[1];
+              }
+            } else {
+              // idle wander
+              if (RNG.chance(0.2)) {
+                const dirs = [
+                  [1, 0],
+                  [-1, 0],
+                  [0, 1],
+                  [0, -1],
+                ];
+                const d = RNG.choose(dirs);
+                const nx = e.x + d[0],
+                  ny = e.y + d[1];
+                if (isWalkable(nx, ny)) {
+                  e.x = nx;
+                  e.y = ny;
+                }
+              }
+            }
+          }
+        }
+
+        function greedyStep(x, y, tx, ty) {
+          const opts = [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ]
+            .map((d) => [x + d[0], y + d[1]])
+            .filter(
+              (p) =>
+                inBounds(p[0], p[1]) &&
+                passable(p[0], p[1]) &&
+                !entityAt(p[0], p[1])
+            );
+          opts.sort(
+            (a, b) =>
+              Math.abs(a[0] - tx) +
+              Math.abs(a[1] - ty) -
+              (Math.abs(b[0] - tx) + Math.abs(b[1] - ty))
+          );
+          return opts[0];
+        }
+        function bfsStep(sx, sy, tx, ty, limit = 14) {
+          const q = [[sx, sy]];
+          const came = new Map();
+          const seen = new Set([idx(sx, sy)]);
+          while (q.length) {
+            const [x, y] = q.shift();
+            if (x === tx && y === ty) break;
+            const dirs = [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+            ];
+            for (const [dx, dy] of dirs) {
+              const nx = x + dx,
+                ny = y + dy;
+              const id = idx(nx, ny);
+              if (
+                !inBounds(nx, ny) ||
+                seen.has(id) ||
+                !passable(nx, ny) ||
+                entityAt(nx, ny)
+              )
+                continue;
+              seen.add(id);
+              came.set(id, [x, y]);
+              q.push([nx, ny]);
+              if (seen.size > limit * limit) break;
+            }
+          }
+          let cur = [tx, ty];
+          if (!came.size) return null;
+          const path = [];
+          while (cur && (cur[0] !== sx || cur[1] !== sy)) {
+            path.push(cur);
+            cur = came.get(idx(cur[0], cur[1]));
+            if (!cur) break;
+          }
+          return path.length ? path[path.length - 1] : null;
+        }
+
+        // ---------- Turn handling ----------
+        function endPlayerTurn() {
+          computeFOV();
+          monsterTurn();
+          computeFOV();
+          render();
+          syncUI();
+          saveAuto();
+        }
+
+        function descend() {
+          if (
+            Game.player.x === Game.stairs[0] &&
+            Game.player.y === Game.stairs[1]
+          ) {
+            reset(Game.depth + 1);
+            saveAuto();
+          } else log("You are not standing on the stairs.");
+        }
+
+        function gameOver() {
+          log("You died. Press 'New run' to try again.");
+          render(true);
+        }
+
+        // ---------- Rendering ----------
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        const vw = canvas.width,
+          vh = canvas.height;
+        const ox = CELL.padX,
+          oy = CELL.padY;
+
+        function drawChar(ch, x, y, color = "#e6edf3") {
+          ctx.fillStyle = color;
+          ctx.fillText(ch, x, y);
+        }
+
+        ctx.font = `${
+          CELL.h - 2
+        }px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`;
+        ctx.textBaseline = "top";
+
+        function render(dead = false) {
+          ctx.fillStyle = "#0b0e12";
+          ctx.fillRect(0, 0, vw, vh);
+
+          for (let y = 0; y < H; y++)
+            for (let x = 0; x < W; x++) {
+              const id = idx(x, y);
+              const t = tileAt(x, y);
+              const tile = TILE[t];
+              const sx = ox + x * CELL.w,
+                sy = oy + y * CELL.h;
+              const vis = Game.options.fov ? Game.visible.has(id) : true;
+              const exp = Game.explored.has(id);
+              if (!exp) continue; // hide unseen
+              // floor bg
+              ctx.fillStyle = vis ? "#0b0e12" : "#0b0e12";
+              ctx.fillRect(sx, sy, CELL.w, CELL.h);
+              // walls/doors
+              if (tile) {
+                let c = tile.color;
+                if (!vis) c = shade(c, 0.45);
+                drawChar(tile.ch, sx, sy, c);
+              }
+            }
+          // items & entities
+          const drawList = Game.entities
+            .slice()
+            .sort((a, b) => (a.kind === ET.ITEM) - (b.kind === ET.ITEM));
+          for (const e of drawList) {
+            const id = idx(e.x, e.y);
+            if (Game.options.fov && !Game.visible.has(id)) continue;
+            const sx = ox + e.x * CELL.w,
+              sy = oy + e.y * CELL.h;
+            drawChar(e.ch, sx, sy, e.color || "#fff");
+          }
+
+          // player last (even if dead)
+          const px = ox + Game.player.x * CELL.w,
+            py = oy + Game.player.y * CELL.h;
+          drawChar("@", px, py, dead ? "#555" : "#e6edf3");
+        }
+
+        function shade(hex, k) {
+          // k in [0,1] toward black
+          const c = parseInt(hex.replace("#", ""), 16);
+          const r = (c >> 16) & 255,
+            g = (c >> 8) & 255,
+            b = c & 255;
+          const rr = (r * k) | 0,
+            gg = (g * k) | 0,
+            bb = (b * k) | 0;
+          return `rgb(${rr},${gg},${bb})`;
+        }
+
+        function drawLog() {
+          const el = document.getElementById("log");
+          el.textContent = Game.log.slice(0, 20).join("\n");
+        }
+
+        function syncUI() {
+          const p = Game.player;
+          document.getElementById("floor").textContent = String(Game.depth);
+          document.getElementById("hp").textContent = `${p.hp}/${p.hpMax}`;
+          document.getElementById(
+            "ammo"
+          ).textContent = `${p.ammo} | ${p.ammoReserve}`;
+          document.getElementById("weapon").textContent = p.weapon
+            ? "Pistol"
+            : "—";
+          document.getElementById("keys").textContent = String(p.keys);
+          document.getElementById("score").textContent = String(p.score);
+          const hpPct = Math.max(0, Math.min(1, p.hp / p.hpMax));
+          document.getElementById("hpbar").style.width = `${hpPct * 100}%`;
+
+          // inventory view (simple summary)
+          const inv = [
+            p.weapon ? `Weapon: Pistol (${p.ammo}/12)` : null,
+            p.ammoReserve ? `Ammo reserve: ${p.ammoReserve}` : null,
+            p.keys ? `Keycards: ${p.keys}` : null,
+            p.hp < p.hpMax ? `Med need: ${p.hpMax - p.hp}` : null,
+          ].filter(Boolean);
+          document.getElementById("invList").textContent = inv.length
+            ? inv.join("  •  ")
+            : "Empty";
+        }
+
+        // ---------- Input ----------
+        const DIRS = {
+          ArrowUp: [0, -1],
+          ArrowDown: [0, 1],
+          ArrowLeft: [-1, 0],
+          ArrowRight: [1, 0],
+          w: [0, -1],
+          s: [0, 1],
+          a: [-1, 0],
+          d: [1, 0],
+        };
+        let fireMode = false;
+        window.addEventListener("keydown", (e) => {
+          const key = e.key;
+          if (key in DIRS) {
+            e.preventDefault();
+            if (fireMode) {
+              fireMode = false;
+              fire(DIRS[key]);
+            } else {
+              bumpOrMove(...DIRS[key]);
+            }
+            return;
+          }
+          if (key === ".") {
+            e.preventDefault();
+            endPlayerTurn();
+            return;
+          }
+          if (key === "g" || key === "G") {
+            e.preventDefault();
+            tryPickup();
+            return;
+          }
+          if (key === "o" || key === "O") {
+            e.preventDefault();
+            openCloseDoor();
+            return;
+          }
+          if (key === "<") {
+            e.preventDefault();
+            descend();
+            return;
+          }
+          if (key === "f" || key === "F") {
+            e.preventDefault();
+            fireMode = true;
+            log("Choose a direction to fire.");
+            drawLog();
+            return;
+          }
+          if (key === "r" || key === "R") {
+            e.preventDefault();
+            reload();
+            return;
+          }
+          if (key === "v" || key === "V") {
+            e.preventDefault();
+            Game.options.fov = !Game.options.fov;
+            render();
+            return;
+          }
+        });
+
+        // ---------- Save / Load ----------
+        const SAVE_KEY = "mtb-lite-save-v1";
+        function saveAuto() {
+          try {
+            localStorage.setItem(SAVE_KEY, JSON.stringify(serialize()));
+          } catch {}
+        }
+        function serialize() {
+          return {
+            depth: Game.depth,
+            map: Game.map,
+            stairs: Game.stairs,
+            player: Game.player,
+            entities: Game.entities.filter((e) => e !== Game.player),
+            explored: [...Game.explored],
+            rng: undefined, // intentionally not saving RNG for simplicity
+            log: Game.log.slice(0, 50),
+          };
+        }
+        function loadSave() {
+          try {
+            const raw = localStorage.getItem(SAVE_KEY);
+            if (!raw) return false;
+            const s = JSON.parse(raw);
+            Game.depth = s.depth;
+            Game.map = s.map;
+            Game.stairs = s.stairs;
+            Game.explored = new Set(s.explored);
+            Game.visible.clear();
+            Game.entities = [s.player, ...s.entities];
+            Game.player = Game.entities[0];
+            Game.log = s.log || [];
+            computeFOV();
+            render();
+            syncUI();
+            return true;
+          } catch {
+            return false;
+          }
+        }
+
+        document.getElementById("btnNew").onclick = () => reset(1);
+        document.getElementById("btnSave").onclick = () => {
+          localStorage.setItem(SAVE_KEY, JSON.stringify(serialize()));
+          log("Saved.");
+        };
+        document.getElementById("btnLoad").onclick = () => {
+          if (loadSave()) log("Loaded.");
+          else log("No save found.");
+        };
+
+        // ---------- Interaction helpers ----------
+        function tryOpenAt(x, y) {
+          const t = tileAt(x, y);
+          if (t === T.DOOR_C) {
+            setTile(x, y, T.DOOR_O);
+            return true;
+          }
+          return false;
+        }
+
+        // ---------- Start ----------
+        if (!loadSave()) reset(1);
+      })();
+    </script>
+
+    <!--
+      ================================================
+        Roadmap to a full Mission Thunderstorm remake
+      ================================================
+      - Refactor code into modules
+      - Terminals/computers: place interactable consoles that show messages, unlock doors, trigger alarms.
+      - Distinct weapons (SMG, shotgun, grenades) & ammo types; noise system that attracts enemies.
+      - Proper inventory grid with equip/use/drop, encumbrance, and hotbar.
+      - Varied enemy types (melee/ranged/elite), field-of-view cones, patrol behaviors.
+      - Level theming: labs, storage, reactors; tileset sprites; lighting.
+      - Quests/keys: card colors (red/blue/yellow), objective items to proceed.
+      - Damage types, armor, accuracy, cover bonuses.
+      - Better FOV (shadowcasting) & performance; mouse targeting; UI polish.
+      - Meta-progression: seed entry, permadeath runs, scoreboard persisted locally.
+      - Audio: footstep, gunshot, door sfx (WebAudio), subtle ambience.
+      - Export save/import; cloud later when backend exists.
+    -->
+  </body>
+</html>
