@@ -4,8 +4,8 @@ const fs = require("fs");
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1024,
-    height: 640,
+    width: 1440,
+    height: 920,
     useContentSize: true,
     backgroundColor: "#0b0e12",
     webPreferences: {
