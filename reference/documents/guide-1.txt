@@ -1,0 +1,843 @@
+Mission Thunderbolt
+
+Below I include my much improved list of hints for Mission Thunderbolt.
+Please do not read this if you don't want spoilers.  Note that this edition
+contains spoilers from a board discussion with the author!  SPOILERS!
+
+My thanks go to all the people who posted this information.  I did not credit
+each person since there were so many and it would take up space.  Some of the
+hints were added by me.
+
+           Sterling
+
+                                                               ___
+ _____                                                        (o o)      _____
+( ___ )-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=w=-U-=w=-=-( ___ )
+ |   |  Mission Thunderbolt I:    Version  5/18/93                       |   |
+ |   |                                                                   |   |
+ |   |  A compilation of hints, tips, and techniques from many users     |   |
+ |   |  posts to news groups.                                            |   |
+ |   |                                                                   |   |
+ |___|  Please send any hints or corrections to: jdsb@ee.egr.duke.edu    |___|
+(_____)-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-(_____)
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=       Index           =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+    General Information
+    Unanswered questions
+    Monsters
+    Objects  - Devices
+    Objects  - Armor
+    Objects  - Weapons
+    Objects  - Pills
+    Objects  - Things
+    The Player
+    Facilities
+    Message Meanings
+    Favorite Hacks
+    General Hints
+    Cheats
+    Using Less Disk Space
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  General Information  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+NOTE: All hints presented here are from players experiences.  Therefore they
+      are NOT guaranteed in any way shape or form.  That player may have lied,
+      been mistaken, or the information may not have been correctly
+      transcribed.  I take no responsibility if your player is killed.
+
+NOTICE! NOTE! ATTENTION:  Any reference to 'I' in ALL of the following text
+does NOT mean Mr. Babcock.  These notes were collected from many posts.
+Each 'I' refers to a different person and as such represents the advice of
+many different people.  I don't remember who contributed what.
+
+> What is Mission Thunderbolt? A few reviews:
+Mission T-bolt is a game similar in play to the classic UNIX game NetHack.
+Instead of NetHack's character-graphic interface, Mission Thunderbolt has
+a fairly nice graphic interface.  It's no 3-D shoot-em-up, but rather a
+turn-by-turn sci-fi role-playing/adventure game.
+
+The graphics are not spectacular but are very nice and effective.  Actually
+they fit the game rather well.  The sounds are excellent (even if they aren't
+async).  The game is very playable, with some of the commands being identical
+to those in NetHack.  The game world is _huge_, as are the variety of weapons,
+armor, and creatures you encounter along the way.  The game is very addictive-
+and you can play it for around 2 hrs. a day for 3 weeks and not finish solving
+it.  Also, each time you play a new character, a different world is generated.
+The game also has a great sense of humor, with creatures named things like
+icky lumps, two-headed radioactive swamp creatures,  and giant tentacular
+horrors.  I highly recommend it.
+
+One thing I really like about the game is the fact that your movement is not
+a race against time.  Each move is a unit of time, so if the phone rings I can
+leave the game without fear of something killing me.
+
+> What version is available now?
+Mission Thunderbolt is up to version 1.0.6.  However, unless you have problems
+with the copy protection not working, you probably only "need" to get 1.0.3
+(1.0.1 and 1.0.2 fixed game problems).
+
+Version:1.0   - RELEASE VERSION
+        1.0.1 - Fixed a Vending Machine problem
+        1.0.2 - Fixed a Small Generator problem
+        1.0.3 - Consolidated copy protection information to a single window
+        1.0.4 - Fixed a creature name bestowing problem
+        1.0.5 - Automatic correction of inconsistent data in earlier versions
+        1.0.6 - Fixed installation window centering for 9" screens
+                Menu bar now disabled while saving character
+                Added "Request replay" preference to simplify game relaunch
+
+> I hear rumor of a sequel to Mission: Thunderbolt!
+Yes, this is true!  From the New Mac Games List 4/2/93:
+Mission: ??            Winter 1993   (FR) The sequel to Mission: Thunderbolt
+(Casady&Greene)
+There is a detailed discussion with the MTB author in Inside Mac Games, May,
+1993 issue (this is a software magazine available on sumex).
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Unanswered questions  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+> Anybody found monsters that can be befriended by tossing them items OTHER
+  than the dogs, snagglepi, and troglodytes?
+> What to the "sweet" and "sour" pills do?
+> How can towels be used to wipe off armor/paint?
+> If you shoot a cybercop with a paint pellet, why doesn't it become visible?
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Monsters  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+> FRIENDS: Making friends
+o You have to know what the monster wants before you can give it to him.
+  I only know of a couple beasts that can be tamed by gifts.
+  The snagglepus likes cookies and the dogs like bones.
+o If you have enough charisma, you can befriend troglodytes with cookies.
+o Use Put/Toss into adjacent location to give them the item.
+o The best way to make friends is to use a little electrical stimulation.
+  The stimmer is a short range weapon which sometimes requires several
+  applications to change a monster into a friend, sometimes whacking them
+  upside the head before stimming helps.
+
+> STIMMERS: What animals are susceptible to stimmers?
+o Becomes friendly: Giant Tentacular Horrors, Tentacular Horrors, Snagglepus,
+                    Wild dogs, fangwings (a wonderful "friend" to have!)
+o docile: floating eye, radioactive swamp monsters?, flutterbangs?
+o Not: robots
+
+> ICKY LUMPS - reproduction
+o They will reproduce when you get near, even when you are near in a region
+  past where they are.  They don't multiply if you're not close to them.
+o If an infestation is only on part of a region, and you don't have the tools
+  to destroy them, use holocubes or a door (they can't open them) to close
+  them off.
+o Lumps *will* fall through holes and down stairs and step on teleport
+  traps (including the kind that teleport you to other regions), so it's
+  important to get rid of infestations that are near any of these things.
+o Never rest near lumps. Never rest in another region near the lumps.
+
+> ICKY LUMPS - killing with weapons
+o They are easy to kill and carry money.
+o Icky Lumps are best killed from a distance, with a laser rifle.
+o Close up work requires good weapons (antique sword or vibra knife) and
+  good armor (Mark X Forcefield Pack plus Macro metal Armor). In a pinch,
+  properly placed land mines and grenades can help out somewhat. Advice:
+  leave 'em alone until you get good weapons/armor.
+o Find a vibra-knife possible. They kill lumps better than a macro-metal knife.
+o Failing a vibra-knife, get lot's and lot's of large powercells,
+  a laser rifle and start blasting the little lumps to oblivion.
+  BTW - the vending machines do not have an unlimited supply of powercells.
+  Be sure to go to that region with full hit points and NEVER, NEVER
+  rest in the same region as the lumps. That seems to cause them to
+  multiple rapidly. Always leave the region and rest in a region that
+  has no lumps in it.
+o Poison gas cannisters will kill quite a few, but it has a limited range.
+o You can also use a cameleon circuit if you can find one.  It makes you
+  invisible to most monsters, including lumps.  They don't multiply or
+  attack you while you're invisible (well, they attack by accident every
+  once in a while).  The c.c. is like a forcepack - requires charges.
+
+> ICKY LUMPS - killing with friends
+o Befriend a tentacular horror and let if follow you to the icky lumps.
+  Once there, the 'lil horror will do most of the work for you.
+o Even better, befriend a Giant Tentacular Horror who will clean things
+  up in short order.
+o Friends are always good.  The best anti-lump technique is to get a 
+  "friend" with a big "activation radius" (the distance from you that a
+  friendly monster will consider an unfriendly monster to be a threat,
+  and go after it), like a snagglepuss, and go to the lump region.
+  Get close enough to the lumps so that the snagglepuss will go kill them,
+  but far enough away so that the lumps don't multiply.  This makes very
+  quick work of lump infestations.
+
+> ICKY LUMP FARMING: What is "Icky Lump Farming"?
+o Once you have sufficiently powerful weaponry and protective gear, it
+  can become quite lucrative to "farm" lumps, rather than killing them
+  off.  Let 'em grow, reduce their numbers back down to something
+  manageable, and then gather the coinage they've dropped along the way.
+
+> BUG EYED MONSTERS: Bug eyed monsters - What do these guys want?
+o Watch out for them -- if they shake your hand, you can lose dexterity.
+o In my experience, these guys are beyond redemption. They shake you until
+  they injure you or cause you to drop something that either goes off (like
+  an activated grenade/canister) or gets damaged in some other fashion.
+  Just say no and blow them away.
+o I believe bug-eyed monsters are merely monsters with a special attack.
+  I don't believe they want anything in particular, though I suppose you
+  could say they are asking for a good sword through the teeth.
+
+> MOPPETTS: What's a good way to kill off moppetts?
+o These things take your inventory and then disappear.
+o Personally I like to shoot them with a blaster rifle.  :-)
+o I found that if I hit it initially with my best weapon, he tickles me and I
+  drop my weapon, and then I just wail on him with my bare hands until he dies.
+  He seems less inclined to pop away if I'm bare-fisted and he gets in too many
+  licks if I spend my turns trying trying to pickup/wield some weapon.
+  Your mileage may vary depending on your character's characteristics.
+
+> THE SHIMMERING HAZE: What do I do about the shimmering haze?
+o Don't touch them, they permanently drain constitution.  They follow you!
+o Your best hope is to use the "run" command and get to another floor fast,
+  because you can outrun the things.  Best bet, kill them at a distance.
+o Kill with a blaster(~3 shots) or blaster rifle(~1 shot).
+o Faining a blaster,  try to lead it past traps.  It will be caught in them and
+  detained for awhile. A trap that delivers an electric jolt will kill it.
+o "friends" can hurt it.
+o If you think these guys are bad, wait until you run into a Vampire Mist.
+
+> VAMPIRE MISTS: What does one do about those darned vampire mists?
+o These things drain experience points.
+o Try using a friendly android, snagglepus, or giant tentacular horror.
+o Try using a blaster.
+o vampire clouds can be killed with non-light based energy weapons (blaster,
+  disflorger, disintegrator, but not laser), and friends.
+
+> DREADNOUGHT: Killing a Dreadnaughts?
+o Well, it takes quite a bit more than 8 grenades, 1 LAWs, 1 landmine and an
+  antique sword.  Use a lot of landmines, more grenades, and befriend powerful
+  monsters to lead to the dreadnought. Really, though, I didn't find it worth it
+  to kill the dreadnought. You may gain a level, but you will use everything up.
+  Now, I just lead them to regions that I am finished with and lose them there.
+o The only way I've ever seen one die was when I used a panic button:
+  instead of teleporting to region 1, once it gave me 5 friendly 'jaunt
+  troopers', who demolished the Dreadnought in 3 shots and 2 hits.  The
+  jaunt troopers disappear after something like 50 ticks.
+o It's not that tough.  First, get an antique sword.  These things kick ass!
+  Second, get a pill of speed.  Eat the pill when the dreadnaught is near you.
+  Then proceed to whale on him.  You can hit, then backup, then hit, etc.
+o If you can get them, either pills of speed or a time dilator work well.
+  Befriend TH or GTH (or 3) and lead it to the Dreadnought.
+  What you want to do is have the TH soften the Dreadnought up a bit.
+  After the "appropriate" amount of time, take a pill or activate the dilator.
+  Lob 3 or 4 grenades at Dreadnought.  If you have the dilator, you can now go 
+  and whack away at the Dread, preferable with an antique sword.
+  If you are using pills, take a whack or two and then take a step back.
+  You will get hit once in a while, but with a reasonable number of HP you
+  should be able to outlast the Dread. If you are using pills, you may do 
+  better to use a laser rifle instead of the sword.  You can get off a shot or
+  two, take a step back, etc. and stay out of reach.
+o Saving beforehand is mandatory; this all takes a little practice.
+o Carry two loaded gyrojet scatter guns and grenades.  Don't use the
+  blaster, use the laser rifle.  Landmines are good things to have the
+  Dreadnought run over too.
+o Have as many hit points as possible (min 150+ hps, over 200 is better)
+  Method 1: hand-to-hand combat: Mark X; macrometal armour (battle armour is
+  better); battle helmet; preferred weapon: vibra knife, and about 20 to 30
+  healing pills.
+  Method 2: Jauntbox; laws rockets, laser rifle, blaster rifle; lots of
+  batteries. Basically a run and shoot tactic with the jauntbox to teleport
+  you to different positions on the level so the dreadnaught can't catch you.
+  Method 3: Take whatever friends down that you can find (androids, techs,
+  bots, etc.) and engage the dreadnaught from a distance (your friends will
+  break off their attack from time to time to heal, and as long as you are
+  able to distract the dreadnaught from them while they heal you'll still
+  have friends left, just make sure that you fire the final shot to kill the
+  dreadnaught or else you won't get the points). 
+
+
+> TWO-HEADED MUTANT RADIOACTIVE THINGS.
+o Don't carry pills near them unless in a CLOSED container.
+o VERY VERY painful. It takes about 4 grenades and 30 gyrojets to kill.
+o These monsters seem quite vulnerable to laser rifles.
+o Grenades and landmines are good, too.  Sometimes stimmers work, as well.
+o Just stay out of range and attack from distance.
+o Don't go into warrens until you have good weapons and a forcefield pack.
+
+> FANGWINGS
+o These will poison when you get close and they hide in the dark and
+  behind doors
+o I usually do have something like a gyrojet rifle so I shoot them from far.
+
+> KIDDIE KOMMANDO UNITS: What is the best way to deal with them?
+o Shoot them with the air gun.
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Objects  - Devices  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+> STRANGE DEVICE: How do i figure out what a "Strange Device" is?
+o Go to a Library.  (I think 100 coins per an item from you bank account).
+o Here's what I do when I get a strange device.
+   1. I inspect it.
+   2. I try and wear it.
+   3. I try to charge it.
+   4. I activate it.
+   5. If I can't wear it and it will activate, I throw it far away from me.
+  Usually one of these actions will tell me of what exactly the strange device
+  is.  It's not a perfect routine though, I accidentally broke a chronograph,
+  when I threw it. Try this at your own risk.
+
+> Sonic Screwdriver  --  What and how do you use this thing?
+o Charge this up and use it to open any locked thing that you don't have a 
+  keycard for.  When prompted to "Open with what?...", select the charged 
+  sonic screwdriver and you'll hear a click.  That's the lock being unlocked.
+o You use a sonic screwdriver to try and disable "diamond" traps - ie, gravity
+  wells, etc.  Use the screwdriver to 'deactivate' a trap'.  Success is _never_
+  guaranteed, and it is _totally_ random.  I have saved games, then tried to 
+  deactivate, and sometimes I will only need 1 try, and others I give up after 
+  4 bad attempts.  If you fail to succeed, you get shocks for something like 
+  20-40 points.
+
+> What are stasis bags?
+o Things inside closed stasis bags are not subject to "mysterious power drains."
+
+> time dilator
+o The time dilator is terrific, but so short lived and non-rechargable as to
+  make it not worth carrying.
+
+> Chronograph  --  What do the numbers mean?
+o It's the current time in the game.  Since it the "watch" has a stopwatch, 
+  I assume that is needed later.  And for the current time, the factory outlet 
+  will sometimes close and give you a time that it will open again.
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Objects  - Armor  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+> FIX/REPAIR: How do you fix: Armor?
+o My friendly (healthy) mech will sometimes repair my battered armor.
+  I suggest saving before trying since the mech often destroy the armor
+  in the 'fixing' process.
+
+> FORCE FIELD PACKS: What are Force field packs?
+o It improves your armor class.  Don't forget to charge it, wear it and
+  activate it.  The packs come in different flavors, offering different levels 
+  of protection.  Your AC will increase by an amount comparable to the Mark _ 
+  rating.  i.e. 
+  Mark I Forcefield Pack < Mark V Forcefield Pack < Mark X Forcefield Pack
+    Adds about 5 to AC       Adds about __ to AC       Adds about __ to AC
+  With a Mark X pack and good armor, you should be able to see AC ratings in 
+  the 30s.  As a practical matter, I don't activate mine until I get into 
+  battle; this saves on the batteries.
+o I've heard it claimed they lessened the damage you take on 
+  the electrical traps, but I haven't tried to verify this yet.
+
+>  Biochem Jumpsuit  --  Extra protection against stuff?? (AC 12)
+o This lets you go "swimming" in those green pools that you find in the warrens.
+  You won't get poisoned.  You must be carrying about 1/2 of max or you will 
+  sink to the bottom and lose 1 point per turn.  Even if the game says you are 
+  carrying too much, you can still walk (takes about 4-5 keypresses to move 1 
+  square) and get out, and you won't be poisoned.
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Objects  - Weapons  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+> Is a vibra-knife really better than an antique sword?
+o A Vibra-knife causes the same damage as the sword, (identical attack point
+  value) but it is much lighter to carry.
+o This is not correct.  The sword has a lower weapon class, meaning it
+  is slightly less likely to hit, but it does do more damage.
+
+> Is a vibra knife better than a macro metal knife? They have the same
+  weapons class.
+o I found it to be a better weapon. Remember that weapon class is not
+  really a measure of how much damage a weapon does, but a measure of
+  how likely you are to hit with the weapon.
+o The vibro-knife seems to be better at killing things.
+
+> NEEDLES: What are needles for?
+o Needles can be loaded into the needler (a weapon).
+o A Needler can stick Fangwings (and other flying things) in one location.
+
+> DISCOMBOBULATOR: Anybody find any use for the discombobulator?
+o It 'confuses' monsters so that they start attacking other monsters.
+  Try it on a fangwing or a snagglepuss.  I use the discombobulator to kill
+  shimmering hazes.  Just shoot another monster with the discombobulator
+  and it will start killing the shimmering haze.  It is kind of like a
+  temporary stimmer.
+o This appears to work on creatures that have a kind of mind (ie: not icky
+  lumps or radioactive monsters).  It confuses them for a while so you can
+  just beat them into submission.
+
+> LAWS Rocket
+o The LAWS Rocket looked like it would be fantastic when I tried it out outside
+  the factory and blew half the floor away.  I then toted two of them down to
+  the 16th region (dropping almost everything else to be able to carry them),
+  but found the walls there were so tough that it didn't do nearly the damage
+  I had hoped for.
+
+> LANDMINES: Landmines:
+o If found that if the landmines are side by side, then when one blows up, it
+  destroys all adjacent landmines. The adjacent landmines did not appear
+  to add to the damage points of the exploding landmines, and thus were wasted.
+o Thus, I put the mines down in an every other square fashion, and then entice
+  the dreadnaught to cross the mine field to reach me.
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Objects  - Pills  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+> How do I find out what a pill does?
+o collect several pills. Save your character.  Write down ALL your status.
+  Eat the pills you have.  Take notes of on which pills do what including
+  changes to your HP, constitution, etc.  Restore the 'saved' character.
+  Decide what pills to eat now, save for later, or drop.
+o Note that some pills will seem to do nothing. These are likely to be pills
+  that cure poison, restore hit points, cure illnesses, etc. So, you might hang
+  onto them and try them will ill, poisoned, low on hit points, and so on.
+o A library will tell you what anything is for a price.
+
+> PILLS IN TOXIC WASTE: How do you save your pills when thrown into toxic waste?
+o Put the pills in a chest and *close* it.
+
+o Pill of:     Affects:
+  good health  +Hit points
+  invigoration +Constitution
+  dexterity     Cure klutzyness
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Objects  - Things  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+> CROWBARS: Always carry a crowbar.
+o MT tip for the day: always carry a crowbar.  This item can do triple
+  (or even quadruple) duty.  First, in the very early stages of the game,
+  it may be your best hand to hand weapon.  Second, you can carry it
+  instead of all those crazy keycards and use it to open locked doors and
+  boxes.  Third, you can use it to deactivate traps on boxes.  And
+  finally, you can use it to tear down walls (albeit slowly) - don't use
+  your main weapon to do this, as tearing down walls dulls weapons quickly.
+
+> STEPLADDER: What in the world is a stepladder good for?
+o If there is a hole in the ceiling above you, placing a stepladder under
+  it greatly improves your chance of success when trying to go up.
+o Suppose you have a region with dangerous things by the stairwell.  Well, 
+  don't use the stairwell!  Go to to a corner of the map.  Dig a hole and
+  go down there.  Carry a stepladder and drop it after you get to the new
+  region to remind you where to go up and to make an escape route.
+o The stepladder is ideally suited for moving between floors when you are
+  heavily encumbered.  You can go up or down through holes in the floor
+  without fear of falling.
+
+> SOFT PILLOW: Has any figured out what to do with the soft pillow?
+o This can be used for helping you go down stairs, and for dropping objects
+  down through holes without fear of doing them harm.
+o If you rest on a square that has a soft pillow, you heal faster.  This
+  can be important for minimizing the number of "crackling energy fields"
+  or "mysterious power drains" during the game.  It doesn't seem to help
+  if you carry the pillow; it's got to be on the floor.  I've also only
+  tried this with "rest soundly" - I assume it works for "rest".
+
+> FLARE: Is there some way to toss a flare so that it illuminates a region?
+o Yes.  Try throwing it somewhere where it won't land in liquid.
+
+> TRASH CAN: What are the trash can and trash can lid for?
+o You can wear the trash can lid for +1 armor protection.
+o I use the can as a repository to hold a lot of stuff in one place.
+o Try putting something in the can near a utility bot.
+
+> SKULLS:
+o I've seen skulls used as weapons by snaglepusses and have heard
+  mention that it is effective agains other humans (terrorist
+  collaborators i think)
+
+> TOWELS: Can towels be used to wipe off armor/paint?
+o You can wear them for an extra armor point.
+o You can wear up to four.
+
+> SECURITY PASSES: How useful are security passes?
+o If you are wearing the pass corresponding to the region number
+  then the CyberCops will not attack you.  Wearing it is VERY important.  
+  Just having it in your possession is not enough.  When a CyberCop runs into 
+  you on a level you are "badged" for, you may see messages come up like "Thank
+  you for properly displaying your badge" or "Sir, we are on security alert.  
+  Have you seen any suspicious persons lurking about."  Then, of course, a 
+  Snagglepuss sneaks up on you, steals the badge, and the CyberCop turns on you 
+  like last month's milk.
+
+> HOLOCUBES: What are holocubes for?
+o The holocubes can be useful for penning up things when they get out of hand.
+  Especially icky lumps and Zzyts in regions which you've taken a pill of
+  perception and can see that there's nothing interesting in some area.
+o There does not seem to be any way to deactivate them.
+o Beware: You may need to get rid of all the Zzyts in region 16.
+
+> FIX/REPAIR: How do you fix: Generator?
+o A sonic screwdriver will fix a generator (and many other things too)).
+  Use the FIX command (tab -F or something like that).
+o Try a mech if you dare.
+
+> ODDLY SHAPED COINS: What can the oddly shaped coins be used for?
+o Get money for them at the reclamation center.
+o throw them at things that collect coins (I only know one thing that this
+  works for...it is a creature that chortles and giggles a lot)
+o the oddly shaped coins are for use in possible future Mission #4, also known
+  as Mission: BLUEJAUNT.  If it ever comes out you may want to have saved
+  those coins.
+
+> What are the eggs for?
+o I have heard that they confuse creatures which are hit by them.
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  The Player  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+> Poisoned?
+o If you are at max hit points, often you will survive.
+o Try a cure poison pill, or an Auto Doc, or a pill of healing to wait it out.
+o Running around improves your chances of surviving poison over standing or
+  walking.
+
+> Fixing klutzyness?
+o Try finding a water fountain and taking a drink.
+o Try an AutoDoc or eat a pill of dexterity.
+
+> How do you cure fuzzy Headedness or the spotted disease?
+o Fuzzy headedness -- Water fountain.
+o Spotted Disease  -- pills of restore or improve charisma (glamor).
+
+> PAINT SPLATTERED: Does it matter if you're paint spattered?
+o Get a utility 'bot to 'scrub you vigorously'.
+o I don't believe it hurts to be splattered, but the chances of your friendly
+  monster remaining friendly are related to his ability to recognize you.
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Facilities  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+> MECHS: Can they fix things?
+o Sometimes.  Sometimes they break them (thus the "oops!" sound).
+  The robots have a 50/50 (?) chance of fixing things
+
+> UTILITY BOTS: What are they for?
+o Why they keep the regions (and player) neat and tidy!
+o What's the deal with the group of bots at mid region that aren't activated?
+  Well, that is formally called a "Utility Closet", and is where
+  MegaCorp stores it's un-needed Utility 'bots.  Kind of on call.
+o Can they be activated?
+  Yep, As with everything else in the game, there is at least a little
+  logic behind the solutions.  In this case, what do those 'bots
+  typically do?  They clean up the place.  So ... just toss a
+  deactivated 'bot a bit of rubbish, and he'll wake up all anxious
+  to help you do some house cleaning (can be a REAL PAIN at times!)
+
+>Is there anyway to befriend a Cybercop?
+o Not that I'm aware of.
+
+> JAUNT TROUPERS: What are Jaunt troupers?
+o I get the impression that a jaunt trouper is a player that finished the
+  game.
+o A panic button will occasionally summon several friendly 'jaunt troopers',
+  who will demolished your enemy.  They disappear after about 50 ticks.
+o When these friendly jaunt troopers appear via panic button, can they be
+  killed and disarmed (it's a cruel world)?
+  Sure ... but let me explain ... Dem's duh good guys, just like you!
+  Only lots tougher, and VERY busy, so they pop in briefly to lend a
+  hand, and then jaunt out again.  Heavily armed and armored.  Sure,
+  you can attack them to steal their gear, but be ready for a DEADLY
+  battle if they decide you have turned against the Terran Freedom Forces!!!
+o Do you only see the friendly commandos with use of the panic button?
+  yes, the 'porting in of the JauntTroop Hunter Killer team is directly tied
+  to the panic button, the state of the current battle, and how injured you
+  are.  You can't really count on them ever coming, but they're
+  hell on wheels when they arrive!
+
+> JAIL: What do I do when thrown in jail?
+o What you do is while your still tied down in a chair, you just hit yourself
+  against a wall.  After a while, the chair will splinter.  Then use the rubble
+  from your chair and throw at the door repeatedly to break the door.  Then You
+  have to find a way out (explore the lower region completely). Don't worry,
+  in any game you only go there once (you get killed after the first capture).
+  If it seems like their is no exit, try banging on a wall (with the
+  appropriate utensil).
+o If I ever get thrown in jail, I quit.  It's not worth trying to get 
+  out.  Once you get thrown in jail, you lose access to your bank account 
+  because "the bank thinks you're dead" and you have to open a new account 
+  with no balance!
+
+> FACILITIES: What facilities are there?
+o data port, reclaimation center, library, autodoc, bank,
+  vending machine, factory outlet, transmat booth.
+
+> RECLAIMATION CENTERS: reclaimation centers
+o Dead CyberCops have great resale value at the reclaimation centers.
+
+> FACTORY OUTLET: How does the factory outlet inventory change?
+o Who's stocking the machine?
+  Why ...Sly MegaCorp service personnel ... of course.
+o The outlet will restock itself at various times based on various
+  factors ... including refilling empty slots/shelves.  Savy players
+  learn how to force the machine to restock to give them good turnover
+  for selection purposes (yet another freebie hint).
+  What would cause a store to restock its inventory? That's the answer.
+o The outlet will close for a time while restocking; you can set the alarm on
+  the Chronograph (one of the strange devices) to alert you when it reopens.
+o So I can expect to find better stuff based on my skill level????
+  (I see, buy the cheap stuff first)
+
+> VENDING MACHINES: Do vending machines ever get restocked?
+o Yes, they get restocked either by happenstance or by design
+  ... and you can cause it to happen.
+o An officially designated MegaCorp Service Agent (Mech) can restock the
+  vending machine before/after it happens to empty.  Find one and lead him
+  to the machine needing servicing.
+
+> BANK: Bank information:
+o If you are thrown in jail the bank will think you are dead.
+  Start a new bank account with a balance of 0.
+  If you can find a reclamation center, you can live without a working bank.
+
+> BANK: Whats a good way to get a LOT of money (~20,000)?
+o Reclamation center.  Keep an eye on values.  Panic buttons are worth 400 or 
+  so, scrapmetal from the robots is worth quite a bit, machete's are worth 190,
+  some other things are worth well more than you think they would be.  20,000 
+  will take you a while, though, unless you've been to the lower levels and 
+  have lots of stuff to recycle.
+
+> FLOORS/LEVELS: Just how many regions are there?
+o There are 30 floors in each MTB complex.  16 main regions, followed by
+  2 detention regions.  There are ? warren regions.
+  The 2 detention regions are below the the 16th floor.
+  The LAMB is on the 16th region.
+
+> STAIRWELL: Blocked stairwell?
+o Stand over stairwell.  Activate grenade.  Drop grenade.  End Problem.
+
+> TRAPS: Floor barriers: Can you get by them?
+o One can fix, or rather unfix some of them.
+
+> GRAVITY WELL: How do you get out of gravity wells?
+o Try dropping everything.  If nothing (other than yourself) is currently
+  on the floor over the gravity well, drop something useless there first,
+  so that some useful item doesn't end up trapped over it.  After you've
+  dropped everything, you should be able to get away.
+o give it the "sonic" screwdriver treatment.
+o dig through it (if it is a diggable square).
+o use your panic button (if you are in region 1-15).
+o Activating a gravbelt will not work.
+o Disable the trap with a sharp edged object (very expensive in terms
+  of hit points - it can easily suck up 50+ hp.
+o Rocks thrown at Gravity well's will fall different.
+
+> FOUNTAINS: What do the water fountains do?
+o If you drink from them, they will cure the "fuzzy headedness" you get from
+  eating most monster corpses.
+o They may cure klutzyness. (or try a pill of dexterity or an autodoc)
+o You can fill certain things (milk cartons, but not beer cans, apparently),
+  and use it (the water-filled object) as a weapon against the various robots.
+  A milk carton, however, isn't enough to even kill a widget.  Maybe a trash can
+
+> TOXIC WASTE: Toxic Waste
+o Did you know that it's possible to build a walkway over the toxic lakes if 
+  you repeatedly dump rubble (or possibly other junk) into them. If you're
+  lacking rubble, use you pick axe to make some.  It takes A LOT of rubble to
+  fill one pool square.
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Message Meanings  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+>  MESSAGE: You hear a sudden crackling of energy
+o An energy storm breaks loose in this region. Everything within it
+  gets severely damaged or destroyed (including walls).
+
+>  MESSAGE: You feel a sudden power drain on your equipment
+o All your items which carry charges are reduced in charge by one.
+  Includes power cells, light globes, lasers, stimmer, panic button, ...
+
+>  MESSAGE: The air is briefly electrified by strange forces
+
+>  MESSAGE: You aren't feeling very well.
+o Carrying any rags with you? Drop 'em.
+
+>  MESSAGE: Problem reading cache. Then the program bombs.
+o I'm not sure, but try saving more often.  The program creates cache files
+  for each level you move into and it needs a LOT of extra hard disk space.
+  Saved files reach over 1 Mb and you need about 200K over that.
+o A message from Dave Scheifler, author of Mission Thunderbolt:
+  If you are having "cache" problems or seeing crashs with Mission Thunderbolt,
+  and have a version earlier than v1.0.5, then we suggest you contact Casady &
+  Greene (the publisher) for an update.
+  Prior to v1.0.5 there were bugs that could cause the kind of difficulties and
+  crashes that some of you folks have encountered.  A major cause was incorrect
+  usage of string pointers by the creature naming feature, which could in turn
+  potentially result in data corruption in the character file.  Hence it is 
+  recommended that players with pre-1.0.5 versions avoid giving names to 
+  creatures and acquire an update before using that feature.  To determine
+  your specific version, click on the Thunderbolt application file to highlight
+  it, then from the File menubar entry select Get Info.
+  Please contact Casady & Greene directly for details on how to acquire a 
+  product update.  They can be reached at 408-484-9228.
+  
+  If you are having caching problems or seeing crashes with v1.0.5 or later, 
+  then we would be interested in receiving a copy of your saved character for
+  analysis; it will help in identifying the source of the problem and enable us
+  to issue an appropriate update.  Please send it to the address given below, 
+  together with a description of the problem and suggestions on how to 
+  reproduce it.
+  
+  Lastly, v1.0.5 and later releases contain special code to automatically scan
+  older characters when they are invoke, and effect repairs as needed.  If you
+  have a damaged character that v1.0.5 (et al) is unable to repair, or if you
+  have (or think you have) a damaged character and would like it fixed in 
+  advance of receiving an update from C&G, then we will be happy to make 
+  appropriate repairs for you here at MegaCorp and return the data files to you.
+  Disks with saved games (character file with its folder of companion files) 
+  can be mailed to the following address.  Saved characters/folders can also 
+  be compressed and sent as binary mail on CompuServe or America OnLine by 
+  folks who have access to those services.
+
+  Dave Scheifler                AOL: MEGACORP  CompuServe: 71441,2065
+  MegaCorp International, Inc.
+  251 West Central Street, Suite 182
+  Natick, MA  01760-3758
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Favorite Hacks  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+> Creating your own pocket-nukes
+o Try activating five grenades, putting them in a small chest (leave the lid
+  open) and throwing the chest at something.  By the way, 2 back to back hits
+  with these 'pocket-nukes' did NOT take out a Dreadnought, nor did four
+  consecutive (preloaded) gyrojet scattergun blasts.
+
+> what is the favorite hack people have encountered ?
+o fill an empty milk carton with industrial waste fluids ...
+  use it as a hurled weapon ... or dump it on a trap ...
+
+> How do I collect money?
+o Take spare items to a reclaimation center.
+o See ICKY LUMP FARMING: What is "Icky Lump Farming"?
+
+> Using Warrens as shortcuts:
+o Some warrens have holes not only to the region you cam from, but also to
+  another region.  At times, that region can be 5 or 6 regions away.  This
+  may be a good shortcut and also cut down on security alerts.
+o To facilitate this, when I am not strong enough to survive a warren for long,
+  I stick my head up and back down, thus "marking" the warren, so I recognize
+  it when I get to it later.
+
+> What is your favorite collection of things to carry/general hints?
+o After beating Thunderbolt for the 6th time as a level 26 JauntTrooper with
+  10,938,865 points I have some observations and questions on the game.  In
+  respect to weapons I usually carry a vibraknife, laser rifle & blaster
+  rifle.  Armor consists of Mark X forcefield pack, macrometal jacket and
+  helmet.  Misc. items; plenty of batteries, healing pills, sonic screwdriver,
+  jaunt box.  I have found that pills of perception used on lower levels make
+  it very easy to dematerialize, lockon a location, materialize, get an item,
+  and split again to safety.  Jumping between transmat booths to reclamation
+  centers provides large sums of money available at the ATMs.  Saving pills of
+  learning till you get to the higher levels is great for advancement at the
+  end when you need all the hitpoints possible.
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  General Hints  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+>General Hints/poison
+o Always keep you hit points as close to their maximum as possible.
+  Don't wander around with low hit points.
+o If you're poisoned, and have maximum or near maximum hit points, you'll 
+  probably survive poisoning. It will often wear off before you reach zero
+  hit points.
+o Pills of healing will often boost low hit points long enough for the poison
+  to wear off.
+o There are pills that will cure poisoning.
+
+> Hints on saving the game
+o Once you are near winning in region 16, save the game in several different
+  files.  I get the impression that once the LAMB is found, you cannot save
+  the game.  Also, once you complete the game, your character cannot reenter
+  the game.  (I wanted to go back and look at the warrens.)
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Cheats  -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+> How do I improve my statistics in Mission Thunderbolt?
+o Open your save game (the file named after your character) and edit the DATA
+  fork (as in use something other than ResEdit).  About 8 bytes after the end 
+  of your characters name (which will begin about 3 bytes after "Captain 
+  Hazard", your statistics will start.  They are NOT word aligned, so pay 
+  close attention.  Each statistic, except for speed, is repeated in Hex form 
+  twice.  I don't know the ordering, but I would guess that one byte is for the 
+  maximum and one is for the current value.  If this assumption holds then 
+  nothing should be able to "semi-permanently" reduce your speed.
+  From: s178@cs.utexas.edu (Billy Harris)
+o For file editing, one needs to have a file editor, naturally.  The personal 
+  attributes of the character are stored in the beginning of the file in 
+  hexadecimal form.  All but speed are duplicated and stored in two bytes:
+  i.e., Str 21, Dex 22, Spd 23 and Con 24 will be: 1515 1616 1718 18.  
+  Level, total armor class, total weapon class and hit points are tricker 
+  and requires experimentation. But they are definitely stored before the 
+  attributes. Bank savings is found by performing a search for the amount in 
+  hexadecimal form.
+  From: "POU LEE: THE MUG@UH FELLOW" 
+
+> What about editing items?
+o Concerning items editing, I have not really look into it. The reason is I
+  usually can get the items I want by another file management trick: before
+  going into a cavern, save the game. Then go on in, look around for randomly
+  generated items that are preset to be present in that specific cavern, if none
+  of them interests me, abort and try again. Again, with patience, I can usually
+  get nice items in the first cavern that I venture into.
+  From: "POU LEE: THE MUG@UH FELLOW" 
+
+> What is the finder file management trick?
+o The finder file management trick is as follows:
+  First make a copy of just the character file to another folder (that is, not
+  the character folder).  Start the game from your normal location.  Drop 
+  whatever you want to duplicate or mass-produce on the floor.  Quit the game.
+  Take the copy of the character file that you made and replace your character
+  file.  When one starts the game, on the floor will still be the items you 
+  have previously discarded, at the same time, copies of them also are still 
+  present in the character's inventory.  Voila.  As long as one has the 
+  patience, one may duplicate/mass produce items that one has found.  Usually 
+  I switch to black&white to expedite the process.
+  From: "POU LEE: THE MUG@UH FELLOW" 
+
+> Is there any way to kill the copy protection on Mission Thunderbolt?
+o CODE $000B+280C
+  find:    67F6
+  replace: 60F6
+  This will allow you to just hit return instead of typing in the passkeys.
+o For version 1.02:  It totally eliminates the dialog box.
+  Just change CODE 4, offset 711C from 4E56 to 4E75.
+
+> What about invulnerability?
+o For invulnerability, change CODE $001F+592C to 4E71 4E71
+o Another person's invulnerability patch for v 1.02:
+  CODE segment 31, offset 56E4: change from 9F6D D312 to 4E71 4E71
+
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=  Using Less Disk Space  =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+From: derek@netcom.com (Derek LeLash)
+To slim down your copy of Thunderbolt, you can use ResEdit to remove the 
+picture resources that you won't use.  For example, if you're running it on
+a black & white machine, you can remove the 16- and 256- color graphics.
+
+To do this, open each of the Resource files in the MTB folder and cut or
+clear the PICT resources as follows:
+
+1-bit (B/W) resources           number ends with 1 or 2
+4-bit (16 color) resources      number ends with 4 or 5
+8-bit (256 color) resources     number ends with 8 or 9
+
+As you'll notice, the resource files contain 3 copies of each item, at different
+bit depths.  The game will run fine if you remove the pictures for 2 of the 3
+depths.
+
+(Standard ResEdit warning: work only on copies of your files!  Also, don't 
+fire up the game with your best character right away, until you're sure things
+are running okay.)
+
+I'm not sure what happens if you try to run the game at a bit depth for which 
+pictures are not available... so, for now, don't do it!  And remember that
+you've modified the files; if you trade up to a different Mac, you should
+reinstall the game from the master disks.
+ _____                                                                   _____
+( ___ )-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-( ___ )
+ |___|  jdsb@ee.egr.duke.edu                   Please email corrections. |___|
+(_____)-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-(_____)

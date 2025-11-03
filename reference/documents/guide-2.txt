@@ -1,0 +1,545 @@
+Mission: Thunderbolt FAQ Version 0.1
+Copyright 2002 Mike Sheley (mikesheley@yahoo.com / mrwiz@aol.com)
+
+
+Mission: Thunderbolt is a sci-fi "roguelike" game, with graphics and sound.  It 
+was originally released and tested on DEC mainframes and was later ported to 
+both Mac OS and Windows.  Unfortunately, the game was not a commercial success 
+and only parts 1 and 2 were released on the mac, and part 1 on the PC.  The 
+original game had 4 parts.  It remains to this day a challenging, yet balanced 
+game, filled with many secrets and very replayable.  I wrote this FAQ because 
+there's no FAQ out there, and since I get about 1 e-mail a month about it, I 
+thought I would try to put a site on the internet where people can go to get 
+information about these great games.
+
+Where can I acquire the game?
+Unfortunately, you can no longer purchase Mission: Thunderbolt or Mission: 
+Firestorm.  You can try contacting MegaCorp@aol.com (the game's author) and see 
+if he is willing to sell you any spares he may have around his house, but as 
+things currently stand the game is no longer for sale.
+
+
+Version History
+-----
+0.1 First release.  Got sick of having all of this sitting on my hard drive, 
+unfinished, so decided to release what I had and see if anyone is even going to 
+read it.
+
+Table of Contents
+-----
+1.0 Statistics
+ 1a Strength
+ 1b Dexterity
+ 1c Constitution
+ 1d Speed
+ 1e Wisdom
+ 1f Intelligance
+ 1g Charisma
+2.0 Status Effects
+ 2a Overburdened
+ 2b Paint Splattered
+ 2c Slimy
+ 2d Poisoned
+ 2e Irradiated
+ 2f Speeded up
+ 2g Weakened
+ 2h Fuzzy 
+ 2i Ill
+ 2j Clumsy
+ 2k Spotted
+ 2l Uncoordinated
+ 2m Keen eyed
+3.0 Traps
+ 3a Gravity well
+ 3b Air traps
+ 3c Radiation Trap
+4.0 Buildings
+ 4a AutoDoc
+ 4b Vending Machine
+ 4c Bank
+ 4d Library
+ 4e Reclamation Center
+ 4f MegaCorp Factory Outlet
+ 4g Transmat Booth
+5.0 Items
+6.0 General Strategies
+7.0 Secrets
+8.0 Pills 
+9.0 Regions
+ 9a Region 1
+ 9b Region 2
+ 9c Region 3
+ 9d Region 4
+ 9e Region 5
+ 9f Region 6
+ 9g Region 7
+ 9h Region 8
+ 9i Region 9
+ 9j Region 10
+ 9k Region 11
+ 9l Region 12
+ 9m Region 13
+ 9n Region 14
+ 9o Region 15
+ 9p Region 16
+ 9q DetCom1
+ 9r DetCom2
+ 9s Warren 2
+ 9t Warren 3
+ 9u Warren 6
+ 9v Warren 7
+ 9w Warren 8
+ 9x Warren 12
+10.0 Random Happenings 
+
+1.0 Statistics
+-----
+1a Strength (STR) - Determines how much you can carry and how hard your melee 
+attacks hit.  Your carrying capacity is 10*STR.  You become overburdened at 
+9*STR.
+
+1b Dexterity (DEX) - Nimbleness and coordination.  Helps a lot with melee 
+ability and several trap checks.  The manual suggests a very high starting dex, 
+as missing at melee at the beginning can spell an early death, as can falling 
+down holes.
+
+1c Constitution (CON) - General Health and heartiness.  I believe it affects how 
+quickly you recover from poison and radiation sickness.  CON also determines the 
+bonus to hps received each level (1 extra hp for every 2 point of CON above 10).  
+The bonus is not retroactive, however, so having a high CON as early as possible 
+for the quick and easy "early" levels is quite desirable.
+
+1d Speed (SPD) - Quickness.  Determines your run speed.  A high speed is 
+obviously useful for getting out of trouble.  Supposedly a really high speed 
+lets you get extra attacks in.
+
+1e Wisdom (WIS) - Practical knowledge and common sense.  I believe it may help 
+with your "saving throw" when traps go off, or when a monster uses any kind of 
+mind altering ability on you, but I am not totally sure.  Together with 
+intelligence determines what one sees when examining an unidentified strange 
+device.
+
+1f Intelligence (INT) - Book learning and reasoning ability.  Together with 
+Wisdom determines what one sees when examining an unidentified strange device.
+
+1g Charisma (CHR) - Personal charm and general likeableness.  May assist gaining 
+friends, not sure though.  If your charisma changes either through a pill of 
+beauty or a pill of ugliness, any current friends you have made will no longer 
+recognize you after several turns and have to be re-befriended.
+
+
+2.0 Status ailments
+-----
+
+2a Overburdened - You become overburdened when you are carrying 9*STR weight in 
+stones.  This makes pretty much everything more difficult.  Be very careful 
+going down stairs or walking over holes while overburdened.  If you do fall down 
+a hole of the stairs there is a chance you will drop either your main weapon or 
+your reserve.  This can cause damage to the weapons.  To cure this ailment, 
+simply drop some weight until below 9*STR.
+
+2b Paint Splattered - This occurs after getting shot by a kiddie kommando unit's 
+paintball gun.  When you are initially shot, there is a chance you will be 
+blinded.  I am not sure of the effects that being paint splatter have on you.  I 
+suspect it has a small effect on fighting skills, but am not really sure.  To 
+cure this ailment, have a utility bot scrub you clean.
+
+2c Slimy - This occurs have getting slimed by a slimy thing.  This prevents you 
+from running (annoying).  In addition, be careful walking over holes and 
+staircases, as there is an increased chance of slipping, falling, and dropping 
+your weapons.  When you initially get slimed there is a chance
+
+2d Poisoned - You've been poisoned, generally from a pill of poison, a viper, or 
+a fangwing.  Fangwing poison is especially deadly at the time it is encountered.  
+Your choices are to wait out the poison, find an autodoc, or eat a pill of 
+neutralize poison.
+
+2e Irradiated - You've been exposed to radiation!  This happens when you step 
+into certain traps.  Your only choice is to wait it out, though having pills of 
+healing handy or an autodoc can make this easier.
+
+2f Speeded up - You are FAAAST!  When you first pop a pill of speed, it will 
+speed you up a whole bunch in the short term!  This allows you to get 2, 
+sometimes 3 actions before opponents can respond.  Great for those tough fights.  
+Wears off by itself before long.
+
+2g Weakened - Your str has been lowered from its natural maximum, thanks to a 
+Giant Ant.  You can get this fixed back up at an autodoc, or you can eat a pill 
+of strength.  I'd suggest getting things fixed up at the autodoc before eating 
+any pills of strength, however.
+
+2h Fuzzy - Drinking from a water fountain will clear this up.
+
+2i Ill - 
+
+2j Clumsy - You are clumsy and tend to drop things.  This happens after getting 
+pricked by a prickly orb.  Be very careful around holes, staircases, and 
+industrial sludge.  It is a good idea to unequip your weapons until the 
+clumsiness has worn off, as you are quite likely to drop them.
+
+2k Spotted - Strange spots cover your body.  This occurs when you eat a pill of 
+beastliness.  I haven't determined what this affects, usually since I don't go 
+around eating pills of beastliness.  Maybe you can go into a berzerker rage and 
+kill everything RAWWWWWRRR!!!!!  Then again, maybe not. ; )
+
+2l Uncoordinated - Your dex has been lowered from its natural maximum, usually 
+thanks to a ????.  This can be fixed up at an autodoc.
+
+2m Keen eyed - Occurs by munching a pill of keen sightedness.  Allows you to see 
+as far as a fully charged light globe.  If, however, you combine it with a lit 
+light globe.... well, then you can see a bit further.  In fact, a lot 
+further..... and walls? HAH!  walls are nothing for your keen eyes lit up by the 
+power of the light globe!
+
+
+3.0 Traps
+-----
+
+3a Gravity well - "You are slammed to the floor by a gravity well!"  Gravity 
+wells generally are not deadly, but are almost always annoying.  A gravity well 
+prevents you from moving and from using a melee weapon.  If you try to do either 
+you get "slammed to the floor by the gravity well!" as well as a nice bruise or 
+two.  A gravbelt doesn't help with this.  Basically, you have 3 options.  1) 
+Disarm the gravity well.  This is fairly difficult and will probably require a 
+sonic screwdriver, though it may be possible with a crowbar at high levels of 
+skill.  2)  Destroy the gravity well.  While it is impossible to move, it is 
+still possible to attack the floor with a melee weapon.  If one destroys the 
+floor with several well placed attacks, the gravity well will explode and 
+usually knock you around a bit, possibly dropping you through a hole in the 
+floor.  This is a bit risky, but can get you out.  3)  Drop everything you are 
+carrying.  If you are carrying nothing (weight is 0 stones) you can usually 
+squirm out after a few turns.  This is usually the best option for getting out, 
+but you have to be careful when dropping equipment on the ground in order to 
+ensure that it doesnt fall down holes / stairs / radioactive goo.  Also, at 
+least 1 item must be dropped on the gravity well itself and will be 
+unretrievable.
+
+3b Air Traps - "A blast of cool/hot air drifts up from the floor"  These traps 
+are BAAAD news.  They often destroy portions of your carried equipment outright.  
+Whatever is not destroyed is often damaged.  These traps are the main reason 
+that it is important to have backup stashes of equipment handy.  These traps are 
+make it prudent to be very careful moving around the levels.  AutoSearch is 
+extremely handy when exploring a new zone for the first time.  I must admit -- 
+these traps are the ones that usually make me want to reload a saved game.  It's 
+very frustrating to see all of your favorite equipment go up in smoke, but 
+despite the frustration it is usually not a game ending problem and keeps things 
+exciting as you may be stuck using "sub-par" weaponry for awhile.
+
+3c Radiation Trap - "Your skin feels flushed with warmth..."  Raidiation 
+poisoning!  This sounds better, but its actually one of the better traps to set 
+off, because it doesnt hose your equipment.  Once this goes off its best to find 
+a nice quiet corner to recover in, as there's no direct way to cure it.  Just 
+have to wait it out.  A pill of healing or 2 will ensure you don't die. ; )
+
+
+4.0 Buildings
+-----
+
+There are a wide variety of handy little shows in Thunderbolt and firestorm.  Be 
+sure to inspect them before using them, however, as a damaged shop can have some 
+fairly adverse effects.  While a few of the booths can be moved, you cannot 
+enter a warren or another booth while you are carrying one.  
+
+4a AutoDoc - Your local chop shop!  For a fee you can get health restored, 
+poison cured, strength restored, dexterity restored, as well as constitution 
+restored.  If you have enough strength, you can pick up an AutoDoc and move it 
+around.  A damaged autodoc will ZOT you if you try to use it.  Autodoc's are a 
+dark blue.
+
+4b Vending Machine - Ahhh, vending machines....  what would life be like without 
+them?  Here you can pickup gyrojets, flares, small powercells, large powercells, 
+and the ever popular medicinal tablets.  Vending machines do have a limited 
+stock on hand, but it is difficult to scrounge up enough coin to buy out a 
+vending machine until after one has found the reclamation center.  Occasionally 
+when purchasing a medicinal tablet, the vending machine will toss out a random 
+pill instead of one of the set "healing" ones.  Vending machines can be picked 
+up and moved around with enough strength.  Veding Machines are orange.  The 
+general pills a vending machine gives out includes the following:
+Pill of healing
+Pill of cure clumsiness
+Pill of neutralize poison
+Pill of good health
+Pill of cure confusion
+
+
+4c Bank - Banks allow you to make deposits, withdrawals, and get the balance 
+statement on your account.  Service with a smile, citizen!  If you happened to 
+get captured and have your bank account closed, you can come here to open up a 
+new account.  Some places only deal with your bank account, such as libraries, 
+reclamation centers, and the MegaCorp Factory outlet.  Banks are yellow.
+
+4d Library - Libraries are handy places indeed.  For 50 coins a pop from your 
+bank account, they will identify any one item and return a brief, albeit 
+scientific, description of it.  This is a great way to learn what pills do 
+without having to result to experimentation or (boo!!!!!) save scumming.  In 
+addition, if you find a strange device and cannot figure out what it is for, a 
+trip to the library can usually solve that problem.  There is always a library 
+on region 7.  (figure out what the pills of cure poison are before the fangwings 
+get you...)  Libraries are a dark green.
+
+4e Reclamation Center - Reclamation centers are wonderful places.  This is where 
+you can dump all of the extra trash you arent using in exchange for a nice boost 
+to your bank account.  Without a reclamation center it is virtually impossible 
+to raise enough money to buy some of the more expensive things at the MegaCorp 
+Factory Outlet.  I've found that melee weapons and strange devices and armor 
+tend to bring in the most cash.  Ranged weapons offer much less.  Scrap metal 
+can be turned in for 1 coin per stone in weight.  There is 1 reclamation center 
+in the first 16 regions, and 1 more in the deeper (firestorm only) regions.  
+These are a dark red.
+
+4f MegaCorp Factory Outlet - The ultimate in 1 stop shopping.  This place is 
+like a vending machine that's been popping back the pills of learning.  A wide 
+variety of items are available here.  If you dont find anything you are 
+interested in, it can be a good idea to "buy out" the cheap stuff...  If there 
+are several slots out of stock the factory will often close and restock and then 
+reopen with fun new toys to purchase!  I haven't managed to get enough strength 
+to life one of these badboys just yet ; ).  There is 1 MegaCorp Factory Outlet 
+in the first 16 regions, and at least 1 more in the deeper (firestorm only) 
+regions.  Factory Outlets are a bright green color.
+
+4g Transmat Booth - Ah yes, transmat booths.  These will teleport you to other 
+regions at the cost of 1 coin per floor.  Useful for moving quickly between 
+regions...  The only problem is that they are never located in the regions you 
+want one in...  Fortunately, Trasmat Booths can be picked up and moved around if 
+you have enough strength.  They are purple.
+
+
+5.0 Items
+-----
+
+The huge variety of items and creative ways of using them is one of the most 
+appealing things about Thunderbolt and Firestorm.  I will try to hit the high 
+points here, feel free to mail me with missing information, as I am sure there 
+is always more to learn.
+
+Dirty Rags - Radioactive rags that will kill you if you don't drop them.  One of 
+the first red herrings you will run into it.  I haven't found a use for them, 
+mostly because I havent picked them up since my first game. ; )
+
+Soft Pillow - Doubles the rate that health is recovered while resting.  It has 
+to be dropped onto the ground to take effect.
+
+Gravebelt - when worn, charged, and activated, will allow the user to float 
+above the ground, thereby avoiding industrial sludge and falls down holes.  It 
+also becomes possible to float up holes.
+
+Light globes - extends the range of vision around the user.  When combined with 
+a pill of keen sightedness, will allow the user to see twice as far as a light 
+globe or pill of keen sightedness alone, as well as through wells.  Can be 
+charged by powercells, but not large powercells.  1 charge from the powercell = 
+30 turns of light.  Generally found around region 2 or so.  One of the first 
+strange devices you will find.  Weighs 3 stones and often comes with a hundred 
+or so charges when found.
+
+Sonic screwdriver - A great device for disarming traps as well as repairing 
+equipment.  Each use expends a charge in the screwdriver.  Can be charged by 
+powercells, large powercells, and powerpaks.  10 charges from the powercell = 1 
+charge in the screwdriver.  Weighs 2???(maybe 3) stones.
+
+Stasis bag - A great device for carrying around powercells and charged tools 
+like panic buttons and sonic screwdrivers.  Anything inside a closed stasis bag 
+will not suffer from those mysterious power drains that occur all too often.  
+Can be opened and closed.  Weighs ??? stones.
+
+Holocube - A strange device used to create an artificial, indestructible wall.  
+When activated and thrown or tossed on the ground, creates a shimmering, 
+invincible wall.  Not very useful in thunderbolt, but can be handy in firestorm.  
+Weighs 3 stones.
+
+Crowbow -  One of the most useful of all items.  Can be used to jimmy locks, 
+disarm traps, knock down walls (using your primary weapon for this dulls the 
+edge) and even as a weapon early in the game.  Always carry one as soon as you 
+find one.  This will be your primary means of opening locks for most of the game 
+(if it says you aren't strong enough to force the lock, give the door/crate a 
+few whacks with the crowbar and then try again, this should weaken the lock).  
+Weighs 7 stones.
+
+Colns - Money!  1 coin weighs 1 stone.  Some booths (AutoDoc, Vending Machine, 
+and transmat booth) require you to have cash on hands for services.  Some 
+monsters (such as moppits) have an affinity for coins.
+
+Oddly Shaped Coin - The currency of the Zytts?  These are, for the most part, 
+worthless.  Though moppits also have an affinity for oddly shaped coins.
+
+
+6.0 General Strategies
+-----
+
+Traps are DEADLY - In the later regions especially, it pays to tread carefully 
+and slowly.  If you are trying to win without "save scumming", this is 
+especially important.  Falling into a gravity well at the wrong time (especially 
+in a warren) can really put a damper on things.  Traps that destory your hardwon 
+equipment can be equally frustrating.
+
+Stay organized - keep your equipment charged and carry tools with you.  A light 
+globe, panic button, crowbow, sonic screwdriver, gravbelt, forcefield pack, 
+stasis bag, knife of some kind, can all come in handy, but generally don't do 
+much if they aren't charged and ready to go.  When entering unexplored territory, 
+it is very helpful to keep your light globe up, and the forcefield pack active 
+if it looks like you will be engaging in combat.  Just remember to turn them off 
+when you are done exploring / fighting and before resting.
+
+Don't get too attached to your equipment - There are many things that can mess 
+up your equipment....  Traps, monsters, falling, getting captured, falling into 
+radioactive sludge, etc....  Thunderbolt is not like most roguelikes where you 
+can get the 'uber' items and then just coast through the game, pretty much 
+invincible...  Even if you are burning the monsters into slag with your Helgun 
+and then chopping them into tiny bits with some SuperSlicerDicer sword, if you 
+hit a trap, fall in some goo, or get a weapon stolen / knocked out of your hand, 
+you'll need some backup items to fall back on.  it can be a good idea to make a 
+few "stashes" in out of the way areas with doors, where you gather up all the 
+items in the region in case you need to come back for some new equipment.
+
+Know when to run - Oftentimes you will run into a monster (or sometimes even an 
+entire region) that you can't handle.  It can be good to run from the monster 
+and ditch him somewhere (like a cleared warren or a region you don't go to much), 
+or if its the region that is too nasty, make your own staircase with a hole in 
+the floor and a stepladder underneathe.  Come back once you find some better 
+equipment, or never come back, if it is too risky.  Completing the mission is 
+your #1 priority, not exterminating everything in sight.
+
+Utilize the tools availible - Don't waste what's around...  If there's a lot of 
+loose change around, round it up and put it in a bank, or near a vending machine 
+/ autodoc.  Make sure to identify all the pills you find as soon as you can.  
+Clean up dangerous things like holes with utility bots.  Pickup a few bones and 
+keep them handy if you ever need to get a dog friend.  If you're feeling lucky, 
+find a mech and drag him on over to a broken piece of equipment.
+
+Prepare for tough battles - If you hear the imposing sounds of a dreadnaught 
+nearby (walls and equipment disintergrating and such), it's usually a good idea 
+to leave the region until you are ready for the fight.  Eat a pill of perception 
+if you can, so you know where the dreadnaught is.  Take all those grenades 
+you've been saving, activate them, and put them in an open container.... if you 
+then throw this container, every grenade in it will go off in the time it would 
+normally take to throw 1 grenade.  7 or so grenades can you can easily take down 
+a dreadnaught, or at least soften him up for the melee.... ; )  If that fails, 
+break out the ole stimmer, make as many friends as you possibly can, especially 
+good melee friends like Giant Tentacular Horrors.  They can prove a nice 
+distraction while you sit back and take pot shots.  If you are forced to melee, 
+make sure you have all the best armor you can afford.... 3 towels, a trash can 
+lid, a suit, and an forcefield pack.  A high AC really does help a lot in those 
+tough fights!
+
+
+7.0 Secrets
+-----
+Bug-Eyed Monster Alliance - It is possible to ally with the Bug-Eyed Monsters.  
+You'll notice as a way to "attack", the BGMs sometimes shake your hand 
+(sometimes causing you to drop things) and say "Taykk Mee Tu Yor Leedur?" (or 
+something like that ; ) )  Well, if you use a stimmer on one to make it friendly 
+(it can take awhile), they will stop attacking you and shaking your hand and 
+instead occasionally tap you on the shoulder and again ask to see your leader.   
+Run one back up to region one, then go up the stairs like you would normally do 
+after winning or wimping out.  You'll get whisked back to headquarters with your 
+newfound friend and General Claibourne will want to have a few words with you....
+
+Jaunt Troopers - Very rarely (I've only seen it happen once in about 10 years of 
+playing t-bolt on and off, and it was about 9 years ago), when you push a panic 
+button it will call up a squad of jaunt troopers into the region instead of 
+teleporting you back to region 1.  These fellows then proceed to blast all 
+nearby baddies into pure slag.  Very fun if it can happen....  Always raises the 
+question, are they killable?  And what do they drop if they are? =)  If anyone 
+finds out, let me know.
+
+
+8.0 Pills
+-----
+
+Pill            Function        Vending Machine?     Notes:
+-----           -----
+Healing	        Restores HP     Yes             Always useful to stockpile 
+from vending machines
+Cure Poison	Cures Poison	Yes             Very handy to have at least 1 
+before Region 7 (where fangwings become common)
+Cure Conf.	Cures Confusion	Yes             Useful around lots of floating 
+eyes (region 12+ or a warren) and around toxic waste / lots of traps / holes
+Good Health	Increases Max HPYes             Emptying out vending machine should 
+provide enough of these to get another dozen max hps or so.
+Learning	Increases Level	No              These give you enough EPS to 
+increase your level by one.  Generally worth saving until just after you gain a 
+level normally in order to earn maximum EPS from them.
+Keen Sight	Keen Sight
+
+9.0 Regions
+-----
+9a Region 1:  Where it all begins.  This is a randomized region that can be 
+different every time.  Going up from here with the L.A.M.B. will complete 
+Mission Thunderbolt, and going up after killing the Queen Zytt with complete 
+Mission: Firestorm.  This is where a panic button usually dumps you.  There is 
+often an AutoDoc and/or a Transmat Booth on Region 1.  Possible warren enemies 
+from here include Grekles, Vipers, Troglodytes, and Razorsnouts.
+
+9b Region 2:  This region has the same layout every time.  Look for lots of 
+giant ants and wild dogs on this region, as well as the occasional slimy thing.  
+It is a good idea to find a small wooden crate asap to stuff your pills in, 
+otherwise the slimy things will dissolve them away upon sliming you.  There is 
+often a Bank on this region.  It is possible here for the warren to have 
+fangwings (though quite rare).
+
+9c Region 3:  Another random region.  The warren can have Troglodytes.
+
+9d Region 4:  This region has the same layout every time.  Moppets show up here, 
+as well as lots of kiddie commando units.
+
+9e Region 5:
+
+9f Region 6:
+
+9g Region 7:  Library.  Needlenose warren.
+
+9h Region 8:  Random.  Flutterbang warren is possible.
+
+9i Region 9:
+
+9j Region 10:
+
+9k Region 11:
+
+9l Region 12:
+
+9m Region 13:
+
+9n Region 14:
+
+9o Region 15:
+
+9p Region 16: The final region!  This is considered a "warren" or "deep" region, 
+panic buttons do not work here, pills of perception do not work here either.  It 
+is a good idea to use the pill of keen sight + light globe combination on this 
+region to see as much as possible as soon as possible.  Be careful where you 
+throw grenades around here -- you do *NOT* want to set off the L.A.M.B. by 
+accident. ; )  There are slews of antique swords, forcefield packs, and other 
+items with great reclamation values.  If you've had your eye on something on the 
+Factory Outlet, this is a great place to raise the cash for it.  This region is 
+filled with GTHs, Zytts, as well as their mechanical servants.  Make sure your 
+forcefield pack is on pretty much at all times, and bring lots of pills of 
+healing.  There are plenty of powercells lying around to keep your equipment 
+charged up.  A neuro whip is especially effective against Zytts and the GTH's, 
+as they can put your enemies to sleep.  There are three Giant Zytts on this 
+region.  Be especially careful around them, they hit *HARD*.
+
+9q DetCom1:  Heh -- if you get here consider yourself lucky for not dying.
+
+9r DetCom2:
+
+9s Warren 2:
+
+9t Warren 3:  This warren has a nice vault to the south of the entrance, as well 
+as a staircase to another warren.
+
+9u Warren 6:  This warren is the top of a 3 level descent.
+
+9v Warren 7:
+
+9w Warren 8:
+
+9x Warren 12: This warren is filled almost to the brim with radioactive goo.  
+It's tough to explore without a biochemical jumpsuit or a gravbelt.
+
+
+10.0 Random Happenings
+-----
+
+"You sense something ominous almost happened ..."
+"There is a sudden and mysterious energy drain on your equipment."
+"You have a nasty feelings about this place ..."
