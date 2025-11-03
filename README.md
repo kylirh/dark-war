@@ -6,3 +6,110 @@ Glad you asked! This is my remake of the classic roguelike Mission Thunderbolt b
 
 Service with a smile, citizen!
 
+## Setup & Installation
+
+### Prerequisites
+
+- **Node.js** (v18 or higher recommended)
+- **npm** (comes with Node.js)
+
+### Installation
+
+1. **Clone the repository**
+
+   ```bash
+   git clone https://github.com/kylirh/dark-war.git
+   cd dark-war
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+## Running the Game
+
+### Development Mode
+
+To build and launch the game in Electron:
+
+```bash
+npm run dev
+```
+
+This will:
+
+1. Generate sprite assets
+2. Compile TypeScript to JavaScript
+3. Launch the Electron application
+
+### Watch Mode
+
+For active development with auto-rebuild on file changes:
+
+```bash
+npm run watch
+```
+
+Then in a separate terminal:
+
+```bash
+npx electron .
+```
+
+### Type Checking
+
+To check TypeScript types without building:
+
+```bash
+npm run type-check
+```
+
+## Building Distributables
+
+To create standalone executables for macOS, Windows, and Linux:
+
+```bash
+npm run build
+```
+
+This will create distributable packages in the `dist/` directory:
+
+- **macOS**: `.dmg` and `.zip`
+- **Windows**: `.exe` installer and `.zip`
+- **Linux**: `.AppImage` and `.deb`
+
+## Project Structure
+
+```
+dark-war/
+├── app/                 # Build output (HTML, bundled JS, assets)
+├── electron/            # Electron main process and preload scripts
+├── src/                 # TypeScript source code
+│   ├── core/           # Game engine (Game, Map)
+│   ├── entities/       # Entity factories (Player, Monster, Item)
+│   ├── systems/        # Game systems (AI, Combat, FOV, Renderer, UI)
+│   ├── types/          # TypeScript type definitions
+│   └── utils/          # Helper functions and RNG
+├── scripts/            # Build scripts (sprite generation)
+└── reference/          # Original game assets and documentation
+```
+
+## Controls
+
+- **Arrow Keys** / **WASD** / **Numpad** - Move
+- **Space** - Wait/skip turn
+- **G** - Pick up item
+- **F** - Fire weapon (then arrow key for direction)
+- **R** - Reload weapon
+- **O** - Open/close door
+- **>** - Descend stairs to next level
+- **V** - Toggle field of view (fog of war)
+
+## Technologies
+
+- **Electron** - Cross-platform desktop application
+- **Pixi.js** - Hardware-accelerated 2D rendering
+- **rot.js** - Roguelike toolkit (FOV, pathfinding)
+- **TypeScript** - Type-safe game logic
+- **Vite** - Fast build tooling
