@@ -1,5 +1,14 @@
-import { Monster, Player, Entity, TileType, TILE_DEFINITIONS } from "../types";
-import { line, inBounds, entityAt, idx, passable } from "../utils/helpers";
+import { Path } from "rot-js";
+import {
+  Monster,
+  Player,
+  Entity,
+  TileType,
+  TILE_DEFINITIONS,
+  MAP_WIDTH,
+  MAP_HEIGHT,
+} from "../types";
+import { inBounds, entityAt, idx, passable, tileAt } from "../utils/helpers";
 import { RNG } from "../utils/RNG";
 import { monsterAttack } from "./Combat";
 
@@ -41,10 +50,8 @@ export function runMonsterAI(
     );
 
     if (hasLOS && distance < 12) {
-      // Chase player using greedy pathfinding with BFS fallback
-      const step =
-        greedyStep(monster, player, entities, map) ||
-        bfsStep(monster, player, entities, map, 10);
+      // Chase player using A* pathfinding from rot.js
+      const step = aStarStep(monster, player, entities, map);
 
       if (step) {
         monster.x = step[0];
@@ -79,7 +86,7 @@ export function runMonsterAI(
 }
 
 /**
- * Check if there's line of sight between two points
+ * Check if there's line of sight between two points using simple Bresenham
  */
 function checkLineOfSight(
   x1: number,
@@ -88,13 +95,38 @@ function checkLineOfSight(
   y2: number,
   map: TileType[]
 ): boolean {
-  const points = line(x1, y1, x2, y2);
+  // Use simple Bresenham line algorithm for LOS check
+  const dx = Math.abs(x2 - x1);
+  const dy = Math.abs(y2 - y1);
+  const sx = x1 < x2 ? 1 : -1;
+  const sy = y1 < y2 ? 1 : -1;
+  let err = dx - dy;
+  let x = x1;
+  let y = y1;
 
-  for (let i = 1; i < points.length; i++) {
-    const [px, py] = points[i];
-    const tile = TILE_DEFINITIONS[map[idx(px, py)]];
-    if (tile.opaque) {
-      return false;
+  while (true) {
+    // Skip start point, check all other points
+    if (!(x === x1 && y === y1)) {
+      if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) {
+        return false;
+      }
+
+      const tile = TILE_DEFINITIONS[tileAt(map, x, y)];
+      if (tile && tile.opaque) {
+        return false;
+      }
+    }
+
+    if (x === x2 && y === y2) break;
+
+    const e2 = 2 * err;
+    if (e2 > -dy) {
+      err -= dy;
+      x += sx;
+    }
+    if (e2 < dx) {
+      err += dx;
+      y += sy;
     }
   }
 
@@ -102,99 +134,46 @@ function checkLineOfSight(
 }
 
 /**
- * Greedy step towards target (simple, fast)
+ * A* pathfinding using rot.js - more efficient than BFS
  */
-function greedyStep(
+function aStarStep(
   monster: Monster,
   player: Player,
   entities: Entity[],
   map: TileType[]
 ): [number, number] | null {
-  const directions: [number, number][] = [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-  ];
+  // Passable callback for rot.js pathfinding
+  // Allow pathing through monsters for planning, but we'll check actual step later
+  const passableCallback = (x: number, y: number): boolean => {
+    if (!inBounds(x, y)) return false;
+    if (!passable(map, x, y)) return false;
+    return true;
+  };
 
-  const candidates = directions
-    .map(([dx, dy]) => [monster.x + dx, monster.y + dy] as [number, number])
-    .filter(
-      ([x, y]) =>
-        inBounds(x, y) && passable(map, x, y) && !entityAt(entities, x, y)
-    );
-
-  // Sort by distance to player
-  candidates.sort((a, b) => {
-    const distA = Math.abs(a[0] - player.x) + Math.abs(a[1] - player.y);
-    const distB = Math.abs(b[0] - player.x) + Math.abs(b[1] - player.y);
-    return distA - distB;
+  // Create A* pathfinder - target is player position
+  const astar = new Path.AStar(player.x, player.y, passableCallback, {
+    topology: 4,
   });
 
-  return candidates[0] || null;
-}
-
-/**
- * BFS pathfinding with limited search depth
- */
-function bfsStep(
-  monster: Monster,
-  player: Player,
-  entities: Entity[],
-  map: TileType[],
-  limit = 14
-): [number, number] | null {
-  const queue: [number, number][] = [[monster.x, monster.y]];
-  const cameFrom = new Map<number, [number, number]>();
-  const seen = new Set<number>([idx(monster.x, monster.y)]);
-
-  while (queue.length > 0) {
-    const [x, y] = queue.shift()!;
-
-    // Found player
-    if (x === player.x && y === player.y) break;
-
-    const directions: [number, number][] = [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ];
-
-    for (const [dx, dy] of directions) {
-      const nx = x + dx;
-      const ny = y + dy;
-      const id = idx(nx, ny);
-
-      if (
-        !inBounds(nx, ny) ||
-        seen.has(id) ||
-        !passable(map, nx, ny) ||
-        entityAt(entities, nx, ny)
-      ) {
-        continue;
-      }
-
-      seen.add(id);
-      cameFrom.set(id, [x, y]);
-      queue.push([nx, ny]);
-
-      // Limit search depth
-      if (seen.size > limit * limit) break;
-    }
-  }
-
-  // Reconstruct path
-  if (cameFrom.size === 0) return null;
-
-  let current: [number, number] | undefined = [player.x, player.y];
   const path: [number, number][] = [];
 
-  while (current && (current[0] !== monster.x || current[1] !== monster.y)) {
-    path.push(current);
-    current = cameFrom.get(idx(current[0], current[1]));
-    if (!current) break;
+  // Compute path from monster to player
+  astar.compute(monster.x, monster.y, (x, y) => {
+    path.push([x, y]);
+  });
+
+  // Path includes monster position as first element, so take second element
+  if (path.length > 1) {
+    const nextStep = path[1];
+
+    // Verify the next step is actually walkable (no entity there)
+    if (entityAt(entities, nextStep[0], nextStep[1])) {
+      // Blocked by another entity, don't move this turn
+      return null;
+    }
+
+    return nextStep;
   }
 
-  return path.length > 0 ? path[path.length - 1] : null;
+  return null;
 }

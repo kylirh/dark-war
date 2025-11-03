@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
+    "@types/rot-js": "^0.6.5",
     "electron": "^31.3.0",
     "electron-builder": "^24.13.3",
     "typescript": "^5.3.0",
@@ -44,5 +45,8 @@
         "deb"
       ]
     }
+  },
+  "dependencies": {
+    "rot-js": "^2.2.1"
   }
 }

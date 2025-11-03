@@ -89,39 +89,6 @@ export function dist(a: [number, number], b: [number, number]): number {
 }
 
 /**
- * Bresenham line algorithm - returns all points on line from (x0,y0) to (x1,y1)
- */
-export function line(
-  x0: number,
-  y0: number,
-  x1: number,
-  y1: number
-): [number, number][] {
-  const points: [number, number][] = [];
-  let dx = Math.abs(x1 - x0);
-  const sx = x0 < x1 ? 1 : -1;
-  let dy = -Math.abs(y1 - y0);
-  const sy = y0 < y1 ? 1 : -1;
-  let err = dx + dy;
-  let e2: number;
-
-  while (true) {
-    points.push([x0, y0]);
-    if (x0 === x1 && y0 === y1) break;
-    e2 = 2 * err;
-    if (e2 >= dy) {
-      err += dy;
-      x0 += sx;
-    }
-    if (e2 <= dx) {
-      err += dx;
-      y0 += sy;
-    }
-  }
-  return points;
-}
-
-/**
  * Remove entity from entity array
  */
 export function removeEntity(entities: Entity[], entity: Entity): void {
