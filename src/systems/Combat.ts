@@ -44,12 +44,16 @@ export function meleeAttack(
   const damage = 1 + RNG.int(3);
   monster.hp -= damage;
 
+  const monsterName = monster.type === "rat" ? "rat" : "mutant";
+
   if (monster.hp <= 0) {
     player.score += 10;
     removeEntity(entities, monster);
     return {
       success: true,
-      message: `You hit the mutant for ${damage}. Mutant defeated.`,
+      message: `You hit the ${monsterName} for ${damage}. ${
+        monsterName.charAt(0).toUpperCase() + monsterName.slice(1)
+      } defeated.`,
       killed: true,
       damage,
     };
@@ -57,7 +61,7 @@ export function meleeAttack(
 
   return {
     success: true,
-    message: `You hit the mutant for ${damage}.`,
+    message: `You hit the ${monsterName} for ${damage}.`,
     killed: false,
     damage,
   };
@@ -108,12 +112,16 @@ export function fireWeapon(
       const damage = 3 + RNG.int(5);
       monster.hp -= damage;
 
+      const monsterName = monster.type === "rat" ? "rat" : "mutant";
+
       if (monster.hp <= 0) {
         player.score += 15;
         removeEntity(entities, monster);
         return {
           success: true,
-          message: `Bang! You shoot the mutant for ${damage}. Mutant drops.`,
+          message: `Bang! You shoot the ${monsterName} for ${damage}. ${
+            monsterName.charAt(0).toUpperCase() + monsterName.slice(1)
+          } drops.`,
           killed: true,
           damage,
         };
@@ -121,7 +129,7 @@ export function fireWeapon(
 
       return {
         success: true,
-        message: `Bang! You shoot the mutant for ${damage}.`,
+        message: `Bang! You shoot the ${monsterName} for ${damage}.`,
         killed: false,
         damage,
       };

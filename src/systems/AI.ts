@@ -32,7 +32,8 @@ export function runMonsterAI(
     // Adjacent to player - attack
     if (distance === 1) {
       const damage = monsterAttack(monster, player);
-      onMessage(`Mutant hits you for ${damage}.`);
+      const monsterName = monster.type === "rat" ? "Rat" : "Mutant";
+      onMessage(`${monsterName} hits you for ${damage}.`);
       if (player.hp <= 0) {
         playerDied = true;
         return playerDied;

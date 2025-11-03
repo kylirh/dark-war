@@ -11,7 +11,7 @@ import {
 } from "../types";
 import { generateDungeon } from "./Map";
 import { createPlayer } from "../entities/Player";
-import { createMutant } from "../entities/Monster";
+import { createMutant, createRat } from "../entities/Monster";
 import { createItem } from "../entities/Item";
 import { RNG } from "../utils/RNG";
 import {
@@ -85,12 +85,22 @@ export class Game {
 
     // Spawn monsters
     const freeTiles = this.getFreeTiles(dungeon.start);
+    let ratCount = 0;
+    let mutantCount = 0;
     for (let i = 0; i < 30; i++) {
       const [x, y] = RNG.choose(freeTiles);
       if (dist([x, y], dungeon.start) > 8) {
-        this.state.entities.push(createMutant(x, y, depth));
+        const spawnRat = RNG.chance(0.5);
+        if (spawnRat) {
+          this.state.entities.push(createRat(x, y, depth));
+          ratCount++;
+        } else {
+          this.state.entities.push(createMutant(x, y, depth));
+          mutantCount++;
+        }
       }
     }
+    this.addLog(`Level ${depth}: ${ratCount} rats, ${mutantCount} mutants`);
 
     // Spawn items
     for (let i = 0; i < 10; i++) {

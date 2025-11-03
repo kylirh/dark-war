@@ -25,9 +25,14 @@ export interface TileDefinition {
 
 export enum EntityKind {
   PLAYER = "player",
-  MONSTER = "mutant",
+  MONSTER = "monster",
   BULLET = "bullet",
   ITEM = "item",
+}
+
+export enum MonsterType {
+  MUTANT = "mutant",
+  RAT = "rat",
 }
 
 export enum ItemType {
@@ -63,6 +68,7 @@ export interface Player extends BaseEntity {
 
 export interface Monster extends BaseEntity {
   kind: EntityKind.MONSTER;
+  type: MonsterType;
   hp: number;
   dmg: number;
 }

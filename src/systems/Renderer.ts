@@ -33,6 +33,7 @@ const SPRITE_MAP = {
 
   // Monsters
   mutant: { x: 0, y: 2 },
+  rat: { x: 1, y: 2 },
 
   // Items
   [ItemType.PISTOL]: { x: 0, y: 3 },
@@ -182,7 +183,9 @@ export class Renderer {
 
       let spritePos;
       if (entity.kind === EntityKind.MONSTER) {
-        spritePos = SPRITE_MAP.mutant;
+        // Check monster type to use correct sprite
+        const monsterType = "type" in entity ? entity.type : "mutant";
+        spritePos = monsterType === "rat" ? SPRITE_MAP.rat : SPRITE_MAP.mutant;
       } else if (entity.kind === EntityKind.ITEM && "type" in entity) {
         spritePos = SPRITE_MAP[entity.type];
       }

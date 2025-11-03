@@ -24,7 +24,8 @@ const sprites = {
   player: { x: 0, y: 1, char: "@", color: "#e6edf3" },
 
   // Monsters (row 2)
-  mutant: { x: 0, y: 2, char: "M", color: "#ff6b6b" },
+  mutant: { x: 0, y: 2, char: "M", color: "#ff9f9f" },
+  rat: { x: 1, y: 2, char: "R", color: "#ff6b6b" },
 
   // Items (row 3)
   pistol: { x: 0, y: 3, char: "p", color: "#9da5ae" },
