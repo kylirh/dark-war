@@ -42,7 +42,7 @@ const SPRITE_MAP = {
   [ItemType.KEYCARD]: { x: 3, y: 3 },
 };
 
-const SPRITE_SIZE = 16;
+const SPRITE_SIZE = 32;
 
 /**
  * Handles rendering the game using Pixi.js sprites

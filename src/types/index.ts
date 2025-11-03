@@ -141,10 +141,10 @@ export const MAP_WIDTH = 64;
 export const MAP_HEIGHT = 36;
 
 export const CELL_CONFIG = {
-  w: 15,
-  h: 16,
-  padX: 8,
-  padY: 8,
+  w: 32,
+  h: 32,
+  padX: 16,
+  padY: 16,
 };
 
 export const TILE_DEFINITIONS: Record<TileType, TileDefinition> = {

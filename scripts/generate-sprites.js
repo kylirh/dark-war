@@ -7,7 +7,7 @@ const { createCanvas } = require("canvas");
 const fs = require("fs");
 const path = require("path");
 
-const TILE_SIZE = 16;
+const TILE_SIZE = 32;
 const SPRITES_PER_ROW = 16;
 
 // Define sprites and their positions
@@ -41,7 +41,7 @@ const ctx = canvas.getContext("2d");
 ctx.clearRect(0, 0, canvas.width, canvas.height);
 
 // Set font for rendering characters
-ctx.font = "14px monospace";
+ctx.font = "28px monospace";
 ctx.textAlign = "center";
 ctx.textBaseline = "middle";
 

@@ -7,14 +7,14 @@ Dark War now uses **Pixi.js** for hardware-accelerated sprite rendering!
 ### Renderer (`src/systems/Renderer.ts`)
 
 - Uses Pixi.js Application and Container system
-- Sprite sheet-based rendering (16x16 tiles)
+- Sprite sheet-based rendering (32x32 tiles)
 - Separate containers for map tiles and entities for proper layering
 - Async initialization for loading textures
 
 ### Sprite Sheet (`app/assets/sprites.png`)
 
-- 256x64 PNG sprite sheet
-- 16x16 pixel tiles organized in rows:
+- 512x128 PNG sprite sheet
+- 32x32 pixel tiles organized in rows:
   - **Row 0**: Tiles (wall, floor, doors, stairs)
   - **Row 1**: Player
   - **Row 2**: Monsters (mutant)
