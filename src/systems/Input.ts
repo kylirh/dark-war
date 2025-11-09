@@ -19,14 +19,14 @@ export interface InputCallbacks {
 }
 
 const DIRECTION_KEYS: Record<string, Direction> = {
-  ArrowUp: [0, -1],
-  ArrowDown: [0, 1],
-  ArrowLeft: [-1, 0],
-  ArrowRight: [1, 0],
-  w: [0, -1],
-  s: [0, 1],
-  a: [-1, 0],
-  d: [1, 0],
+  Numpad7: [-1, -1], // up-left
+  Numpad8: [0, -1], // up
+  Numpad9: [1, -1], // up-right
+  Numpad4: [-1, 0], // left
+  Numpad6: [1, 0], // right
+  Numpad1: [-1, 1], // down-left
+  Numpad2: [0, 1], // down
+  Numpad3: [1, 1], // down-right
 };
 
 export class InputHandler {
@@ -44,11 +44,12 @@ export class InputHandler {
 
   private handleKeyDown(e: KeyboardEvent): void {
     const key = e.key;
+    const code = e.code;
 
     // Directional movement or firing
-    if (key in DIRECTION_KEYS) {
+    if (code in DIRECTION_KEYS) {
       e.preventDefault();
-      const [dx, dy] = DIRECTION_KEYS[key];
+      const [dx, dy] = DIRECTION_KEYS[code];
 
       if (this.fireMode) {
         this.fireMode = false;
@@ -60,7 +61,7 @@ export class InputHandler {
     }
 
     // Wait/skip turn
-    if (key === ".") {
+    if (code === "Numpad5") {
       e.preventDefault();
       this.callbacks.onWait();
       return;

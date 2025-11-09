@@ -27,9 +27,9 @@ export function runMonsterAI(
   for (const monster of monsters) {
     const dx = player.x - monster.x;
     const dy = player.y - monster.y;
-    const distance = Math.abs(dx) + Math.abs(dy);
+    const distance = Math.max(Math.abs(dx), Math.abs(dy)); // Chebyshev distance for 8-directional
 
-    // Adjacent to player - attack
+    // Adjacent to player attack
     if (distance === 1) {
       const damage = monsterAttack(monster, player);
       const monsterName = monster.type === "rat" ? "Rat" : "Mutant";
@@ -62,10 +62,14 @@ export function runMonsterAI(
       // Idle wander
       if (RNG.chance(0.2)) {
         const dirs: [number, number][] = [
-          [1, 0],
-          [-1, 0],
-          [0, 1],
-          [0, -1],
+          [1, 0], // right
+          [-1, 0], // left
+          [0, 1], // down
+          [0, -1], // up
+          [1, 1], // down-right
+          [1, -1], // up-right
+          [-1, 1], // down-left
+          [-1, -1], // up-left
         ];
         const [dirX, dirY] = RNG.choose(dirs);
         const nx = monster.x + dirX;
@@ -153,7 +157,7 @@ function aStarStep(
 
   // Create A* pathfinder - target is player position
   const astar = new Path.AStar(player.x, player.y, passableCallback, {
-    topology: 4,
+    topology: 8, // 8-directional movement
   });
 
   const path: [number, number][] = [];
