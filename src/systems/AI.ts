@@ -3,6 +3,7 @@ import {
   Monster,
   Player,
   Entity,
+  EntityKind,
   TileType,
   TILE_DEFINITIONS,
   MAP_WIDTH,
@@ -171,9 +172,16 @@ function aStarStep(
   if (path.length > 1) {
     const nextStep = path[1];
 
-    // Verify the next step is actually walkable (no entity there)
-    if (entityAt(entities, nextStep[0], nextStep[1])) {
-      // Blocked by another entity, don't move this turn
+    // Verify the next step is walkable
+    const blockingEntity = entityAt(
+      entities,
+      nextStep[0],
+      nextStep[1],
+      (e) => e.kind !== EntityKind.ITEM
+    );
+
+    if (blockingEntity) {
+      // Blocked by a player or another monster, don't move this turn
       return null;
     }
 
