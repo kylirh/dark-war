@@ -53,6 +53,7 @@ export class Renderer {
   private entityContainer: Container;
   private spriteSheet?: Texture;
   private ready: boolean = false;
+  private pendingRender?: { state: GameState; isDead: boolean };
 
   constructor(canvasId: string) {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -94,6 +95,12 @@ export class Renderer {
     // Add containers to stage
     this.app.stage.addChild(this.mapContainer);
     this.app.stage.addChild(this.entityContainer);
+
+    // Render any pending state
+    if (this.pendingRender) {
+      this.render(this.pendingRender.state, this.pendingRender.isDead);
+      this.pendingRender = undefined;
+    }
   }
 
   /**
@@ -117,7 +124,11 @@ export class Renderer {
    * Render the entire game state
    */
   public render(state: GameState, isDead: boolean = false): void {
-    if (!this.ready) return;
+    if (!this.ready) {
+      // Store the state to render once ready
+      this.pendingRender = { state, isDead };
+      return;
+    }
 
     const { map, visible, explored, entities, player, options } = state;
 
