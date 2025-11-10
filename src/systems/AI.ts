@@ -12,6 +12,7 @@ import {
 import { inBounds, entityAt, idx, passable, tileAt } from "../utils/helpers";
 import { RNG } from "../utils/RNG";
 import { monsterAttack } from "./Combat";
+import { Sound } from "./Sound";
 
 /**
  * Execute AI for all monsters
@@ -34,6 +35,8 @@ export function runMonsterAI(
     if (distance === 1) {
       const damage = monsterAttack(monster, player);
       const monsterName = monster.type === "rat" ? "Rat" : "Mutant";
+      // Play random player hit sound
+      Sound.playPlayerHit();
       onMessage(`${monsterName} hits you for ${damage}.`);
       if (player.hp <= 0) {
         playerDied = true;

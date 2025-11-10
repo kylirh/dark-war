@@ -7,6 +7,7 @@ import { Game } from "./core/Game";
 import { Renderer } from "./systems/Renderer";
 import { UI } from "./systems/UI";
 import { InputHandler, InputCallbacks } from "./systems/Input";
+import { Sound } from "./systems/Sound";
 
 // Global reference to save system
 declare global {
@@ -37,6 +38,9 @@ class DarkWar {
     this.renderer = new Renderer("game");
     this.ui = new UI();
 
+    // Preload sounds
+    this.initializeSounds();
+
     // Setup input callbacks
     const callbacks: InputCallbacks = {
       onMove: (dx, dy) => this.handleMove(dx, dy),
@@ -54,7 +58,7 @@ class DarkWar {
 
     this.inputHandler = new InputHandler(callbacks);
 
-    // Setup native menu handlers (Electron)
+    // Setup native menu handlers for Electron
     this.setupNativeMenuHandlers();
 
     // Try to load saved game, otherwise start new
@@ -63,6 +67,18 @@ class DarkWar {
     }
 
     this.render();
+  }
+
+  /**
+   * Initialize and preload sound effects
+   */
+  private async initializeSounds(): Promise<void> {
+    try {
+      await Sound.preload();
+      console.log("Sound effects loaded");
+    } catch (error) {
+      console.warn("Failed to preload sounds:", error);
+    }
   }
 
   /**

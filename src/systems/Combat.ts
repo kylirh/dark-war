@@ -9,6 +9,7 @@ import {
 } from "../types";
 import { entityAt, tileAt, setTile, removeEntity } from "../utils/helpers";
 import { RNG } from "../utils/RNG";
+import { Sound, SoundEffect } from "./Sound";
 
 /**
  * Result of a combat action
@@ -44,11 +45,16 @@ export function meleeAttack(
   const damage = 1 + RNG.int(3);
   monster.hp -= damage;
 
+  // Play hit sound
+  Sound.play(SoundEffect.HIT_MONSTER);
+
   const monsterName = monster.type === "rat" ? "rat" : "mutant";
 
   if (monster.hp <= 0) {
     player.score += 10;
     removeEntity(entities, monster);
+    // Play death sound
+    Sound.play(SoundEffect.MONSTER_DEATH);
     return {
       success: true,
       message: `You hit the ${monsterName} for ${damage}. ${
@@ -85,6 +91,9 @@ export function fireWeapon(
     return { success: false, message: "*Click*. No ammo. Press R to reload." };
   }
 
+  // Play shooting sound
+  Sound.play(SoundEffect.SHOOT);
+
   player.ammo--;
 
   // Trace bullet path
@@ -112,11 +121,16 @@ export function fireWeapon(
       const damage = 3 + RNG.int(5);
       monster.hp -= damage;
 
+      // Play hit sound
+      Sound.play(SoundEffect.HIT_MONSTER);
+
       const monsterName = monster.type === "rat" ? "rat" : "mutant";
 
       if (monster.hp <= 0) {
         player.score += 15;
         removeEntity(entities, monster);
+        // Play death sound
+        Sound.play(SoundEffect.MONSTER_DEATH);
         return {
           success: true,
           message: `Bang! You shoot the ${monsterName} for ${damage}. ${
@@ -165,6 +179,9 @@ export function reloadWeapon(player: Player): CombatResult {
   player.ammo += toReload;
   player.ammoReserve -= toReload;
 
+  // Play reload sound
+  Sound.play(SoundEffect.RELOAD);
+
   return { success: true, message: `Reloaded ${toReload}.` };
 }
 
@@ -190,11 +207,15 @@ export function interactWithDoor(
 
   if (tile === TileType.DOOR_CLOSED) {
     setTile(map, x, y, TileType.DOOR_OPEN);
+    // Play door opening sound
+    Sound.play(SoundEffect.DOOR_OPEN);
     return { success: true, message: "You open the door." };
   }
 
   if (tile === TileType.DOOR_OPEN) {
     setTile(map, x, y, TileType.DOOR_CLOSED);
+    // Play door closing sound
+    Sound.play(SoundEffect.DOOR_CLOSE);
     return { success: true, message: "You close the door." };
   }
 
@@ -202,6 +223,8 @@ export function interactWithDoor(
     if (player.keys > 0) {
       setTile(map, x, y, TileType.DOOR_CLOSED);
       player.keys--;
+      // Play door opening sound (unlocking)
+      Sound.play(SoundEffect.DOOR_OPEN);
       return { success: true, message: "You unlock the door with a keycard." };
     } else {
       return { success: false, message: "Locked. You need a keycard." };
