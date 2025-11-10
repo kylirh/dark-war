@@ -3,6 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Dark War - A retro-futuristic roguelike"
+    />
     <title>Dark War</title>
     <style>
       :root {
@@ -10,197 +14,415 @@
         --panel: #141922;
         --ink: #e6edf3;
         --ink-dim: #a9b1bb;
-        --accent: #5ad1ff;
+        --border: rgba(255, 255, 255, 0.06);
         --danger: #ff6b6b;
-        --ok: #7bd88f;
         --warn: #ffd166;
       }
+
       * {
         box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
+
       html,
       body {
         height: 100%;
-        margin: 0;
         background: var(--bg);
         color: var(--ink);
-        font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto,
-          "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        overflow: hidden;
       }
-      .wrap {
-        display: grid;
-        grid-template-columns: 1fr 320px;
-        gap: 12px;
-        height: 100%;
-        padding: 12px;
+
+      .app-container {
+        display: flex;
+        height: 100vh;
+        width: 100vw;
       }
-      .left {
-        display: grid;
-        grid-template-rows: auto 1fr;
-        gap: 8px;
+
+      /* Main game area */
+      .game-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        background: var(--bg);
       }
+
+      /* Header bar */
       header {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 8px 10px;
+        justify-content: space-between;
+        padding: 12px 16px;
         background: var(--panel);
-        border-radius: 10px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
       }
+
+      .header-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
       header h1 {
-        font-size: 16px;
-        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
         letter-spacing: 0.3px;
         color: var(--ink);
       }
-      header .sub {
+
+      .subtitle {
         color: var(--ink-dim);
-        font-size: 12px;
+        font-size: 13px;
       }
-      #view {
-        background: #0b0e12;
-        border-radius: 10px;
-        padding: 8px;
-        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
-      }
-      canvas {
-        display: block;
-        width: 100%;
-        height: 100%;
-        image-rendering: pixelated;
-      }
-      aside {
-        display: grid;
-        grid-template-rows: auto auto 1fr auto;
+
+      .header-actions {
+        display: flex;
         gap: 8px;
       }
-      .panel {
-        background: var(--panel);
-        border-radius: 10px;
-        padding: 10px;
+
+      /* Canvas viewport with proper scaling */
+      .viewport {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        background: #0b0e12;
+        overflow: hidden;
+        position: relative;
       }
-      .row {
+
+      #game {
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+      }
+
+      /* Sidebar panel */
+      .sidebar {
+        width: 340px;
+        background: var(--panel);
+        border-left: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        transition: margin-right 0.3s ease;
+        flex-shrink: 0;
+      }
+
+      .sidebar.collapsed {
+        margin-right: -340px;
+      }
+
+      /* Toggle button */
+      .sidebar-toggle {
+        position: fixed;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-right: none;
+        border-radius: 8px 0 0 8px;
+        padding: 12px 8px;
+        cursor: pointer;
+        z-index: 100;
+        transition: right 0.3s ease;
+        color: var(--ink);
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .sidebar-toggle:hover {
+        background: #1a2030;
+      }
+
+      .sidebar-toggle:focus {
+        transform: translateY(-50%);
+      }
+
+      .sidebar.collapsed ~ .sidebar-toggle {
+        right: 0;
+      }
+
+      .sidebar:not(.collapsed) ~ .sidebar-toggle {
+        right: 340px;
+      }
+
+      /* Panel sections */
+      .panel-section {
+        padding: 16px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .panel-section:last-child {
+        border-bottom: none;
+      }
+
+      .panel-section h2 {
+        font-size: 13px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--ink-dim);
+        margin-bottom: 12px;
+      }
+
+      /* Stats grid */
+      .stats-grid {
+        display: grid;
+        gap: 8px;
+      }
+
+      .stat-row {
         display: flex;
         justify-content: space-between;
-        margin: 4px 0;
+        align-items: center;
+        padding: 4px 0;
       }
-      .hpbar {
-        height: 8px;
+
+      .stat-label {
+        color: var(--ink-dim);
+        font-size: 13px;
+      }
+
+      .stat-value {
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      /* HP bar */
+      .hp-bar-container {
+        margin-top: 4px;
+      }
+
+      .hp-bar {
+        height: 10px;
         background: #1d2633;
         border-radius: 6px;
         overflow: hidden;
+        position: relative;
       }
-      .hpbar > i {
+
+      .hp-bar-fill {
         display: block;
         height: 100%;
-        background: linear-gradient(90deg, #ff6b6b, #ffd166);
-        width: 50%;
+        background: linear-gradient(90deg, var(--danger), var(--warn));
+        width: 100%;
+        transition: width 0.3s ease;
       }
-      .stat {
+
+      /* Inventory */
+      #inventory {
         color: var(--ink-dim);
+        font-size: 13px;
+        padding: 8px 0;
       }
-      .inv {
-        display: grid;
-        gap: 6px;
-      }
-      .pill {
-        background: #0f1420;
-        border: 1px solid #222a36;
-        padding: 6px 8px;
-        border-radius: 8px;
-      }
-      .log {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+      /* Message log */
+      .message-log {
+        flex: 1;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 16px;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
         font-size: 12px;
-        max-height: 40vh;
-        overflow: auto;
-        white-space: pre-wrap;
+        line-height: 1.6;
+        background: #0b0e12;
       }
-      kbd {
-        background: #0f1420;
-        border: 1px solid #222a36;
-        padding: 1px 5px;
+
+      .message-log::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      .message-log::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .message-log::-webkit-scrollbar-thumb {
+        background: #222a36;
         border-radius: 4px;
-        font-size: 12px;
       }
-      .controls code {
+
+      .message-log::-webkit-scrollbar-thumb:hover {
+        background: #2d3748;
+      }
+
+      /* Controls */
+      .controls-section {
+        padding: 16px;
+        font-size: 12px;
+        line-height: 1.8;
         color: var(--ink-dim);
       }
-      .btnrow {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
+
+      .controls-section kbd {
+        background: #0f1420;
+        border: 1px solid #222a36;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-family: ui-monospace, monospace;
+        white-space: nowrap;
       }
+
       button {
+        flex: 1;
         background: #0f1420;
         color: var(--ink);
         border: 1px solid #222a36;
-        border-radius: 8px;
-        padding: 6px 10px;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 500;
         cursor: pointer;
+        transition: all 0.2s ease;
       }
+
       button:hover {
+        background: #1a2030;
         border-color: #2d3748;
+      }
+
+      button:active {
+        transform: translateY(1px);
+      }
+
+      /* Responsive adjustments */
+      @media (max-width: 1024px) {
+        .sidebar {
+          position: fixed;
+          right: 0;
+          top: 0;
+          height: 100vh;
+          z-index: 50;
+        }
+
+        .sidebar.collapsed {
+          margin-right: -340px;
+        }
       }
     </style>
   </head>
   <body>
-    <div class="wrap">
-      <div class="left">
+    <div class="app-container">
+      <!-- Main game area -->
+      <div class="game-area">
         <header>
-          <h1>Dark War</h1>
-          <span class="sub">Choose thy fate, mortal...</span>
+          <div class="header-left">
+            <h1>Dark War</h1>
+            <span class="subtitle">Retro-futuristic Roguelike</span>
+          </div>
+          <div class="header-actions">
+            <button id="btnNew" title="Start new game">New Game</button>
+            <button id="btnSave" title="Save game">Save</button>
+            <button id="btnLoad" title="Load game">Load</button>
+          </div>
         </header>
-        <div id="view">
+
+        <div class="viewport">
           <canvas
             id="game"
-            width="960"
-            height="576"
+            width="2080"
+            height="1184"
             aria-label="Game canvas"
             role="img"
           ></canvas>
         </div>
       </div>
-      <aside>
-        <section class="panel" id="stats">
-          <div class="row"><strong>Floor</strong><span id="floor">1</span></div>
-          <div class="row"><strong>HP</strong><span id="hp">—</span></div>
-          <div class="hpbar"><i id="hpbar"></i></div>
-          <div class="row"><strong>Ammo</strong><span id="ammo">—</span></div>
-          <div class="row">
-            <strong>Weapon</strong><span id="weapon">—</span>
+
+      <!-- Sidebar panel -->
+      <aside class="sidebar" id="sidebar">
+        <!-- Stats -->
+        <div class="panel-section">
+          <h2>Status</h2>
+          <div class="stats-grid">
+            <div class="stat-row">
+              <span class="stat-label">Floor</span>
+              <span class="stat-value" id="floor">1</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">HP</span>
+              <span class="stat-value" id="hp">—</span>
+            </div>
+            <div class="hp-bar-container">
+              <div class="hp-bar">
+                <span class="hp-bar-fill" id="hpbar" style="width: 100%"></span>
+              </div>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Weapon</span>
+              <span class="stat-value" id="weapon">—</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Ammo</span>
+              <span class="stat-value" id="ammo">—</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Keys</span>
+              <span class="stat-value" id="keys">0</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Score</span>
+              <span class="stat-value" id="score">0</span>
+            </div>
           </div>
-          <div class="row"><strong>Keys</strong><span id="keys">0</span></div>
-          <div class="row"><strong>Score</strong><span id="score">0</span></div>
-        </section>
-        <section class="panel inv" id="inventory">
-          <strong>Inventory</strong>
-          <div id="invList" class="pill">Empty</div>
-        </section>
-        <section class="panel log" id="log" aria-live="polite"></section>
-        <section class="panel controls">
-          <div class="btnrow">
-            <button id="btnNew">New run</button>
-            <button id="btnSave">Save</button>
-            <button id="btnLoad">Load</button>
-          </div>
-          <p>
-            <strong>Controls</strong><br />
-            Move: <kbd>WASD</kbd>/<kbd>Arrows</kbd> • Wait: <kbd>.</kbd><br />
-            Interact: <kbd>G</kbd> pickup, <kbd>O</kbd> open/close door,
-            <kbd>&lt;</kbd> descend stairs<br />
-            Fire: <kbd>F</kbd> then direction • Reload: <kbd>R</kbd><br />
-            Toggle FOV: <kbd>V</kbd> • Fullscreen: <kbd>F11</kbd>
-          </p>
-          <p>
-            <code>Goal:</code> Reach deeper floors, survive, and collect
-            keycards to open locked doors.
-          </p>
-        </section>
+        </div>
+
+        <!-- Inventory -->
+        <div class="panel-section">
+          <h2>Inventory</h2>
+          <div id="inventory" class="inventory-empty">Empty</div>
+        </div>
+
+        <!-- Message log -->
+        <div class="message-log" id="log" aria-live="polite"></div>
+
+        <!-- Controls -->
+        <div class="controls-section">
+          Move: <kbd>WASD</kbd> / <kbd>Arrows</kbd> • Wait: <kbd>.</kbd><br />
+          <kbd>G</kbd> pickup • <kbd>O</kbd> open/close •
+          <kbd>&lt;</kbd> stairs<br />
+          <kbd>F</kbd>+direction fire • <kbd>R</kbd> reload •
+          <kbd>V</kbd> toggle FOV
+        </div>
       </aside>
+
+      <!-- Sidebar toggle button -->
+      <button
+        class="sidebar-toggle"
+        id="sidebarToggle"
+        aria-label="Toggle sidebar"
+        title="Toggle sidebar"
+      >
+        ▶
+      </button>
     </div>
 
     <!-- Load bundled game code -->
     <script src="game.js"></script>
+    <script>
+      // Sidebar toggle functionality
+      const sidebar = document.getElementById("sidebar");
+      const sidebarToggle = document.getElementById("sidebarToggle");
+
+      sidebarToggle.addEventListener("click", () => {
+        const isCollapsed = sidebar.classList.toggle("collapsed");
+        sidebarToggle.textContent = isCollapsed ? "◀" : "▶";
+        sidebarToggle.setAttribute(
+          "aria-label",
+          isCollapsed ? "Show Sidebar" : "Hide Sidebar"
+        );
+      });
+    </script>
   </body>
 </html>

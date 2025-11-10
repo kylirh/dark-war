@@ -12,7 +12,7 @@ export class UI {
   private weaponElement: HTMLElement;
   private keysElement: HTMLElement;
   private scoreElement: HTMLElement;
-  private invListElement: HTMLElement;
+  private inventoryElement: HTMLElement;
 
   constructor() {
     this.logElement = this.getElement("log");
@@ -23,7 +23,7 @@ export class UI {
     this.weaponElement = this.getElement("weapon");
     this.keysElement = this.getElement("keys");
     this.scoreElement = this.getElement("score");
-    this.invListElement = this.getElement("invList");
+    this.inventoryElement = this.getElement("inventory");
   }
 
   private getElement(id: string): HTMLElement {
@@ -72,7 +72,7 @@ export class UI {
       items.push(`Med need: ${player.hpMax - player.hp}`);
     }
 
-    this.invListElement.textContent =
+    this.inventoryElement.textContent =
       items.length > 0 ? items.join("  •  ") : "Empty";
   }
 
