@@ -8,9 +8,6 @@ export class UI {
   private floorElement: HTMLElement;
   private hpElement: HTMLElement;
   private hpBarElement: HTMLElement;
-  private ammoElement: HTMLElement;
-  private weaponElement: HTMLElement;
-  private keysElement: HTMLElement;
   private scoreElement: HTMLElement;
   private inventoryElement: HTMLElement;
 
@@ -19,9 +16,6 @@ export class UI {
     this.floorElement = this.getElement("floor");
     this.hpElement = this.getElement("hp");
     this.hpBarElement = this.getElement("hpbar");
-    this.ammoElement = this.getElement("ammo");
-    this.weaponElement = this.getElement("weapon");
-    this.keysElement = this.getElement("keys");
     this.scoreElement = this.getElement("score");
     this.inventoryElement = this.getElement("inventory");
   }
@@ -40,9 +34,6 @@ export class UI {
   public updateStats(player: Player, depth: number): void {
     this.floorElement.textContent = String(depth);
     this.hpElement.textContent = `${player.hp}/${player.hpMax}`;
-    this.ammoElement.textContent = `${player.ammo} | ${player.ammoReserve}`;
-    this.weaponElement.textContent = player.weapon ? "Pistol" : "—";
-    this.keysElement.textContent = String(player.keys);
     this.scoreElement.textContent = String(player.score);
 
     // Update HP bar
