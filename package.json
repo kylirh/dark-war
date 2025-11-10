@@ -1,15 +1,16 @@
 {
-  "name": "dark-war",
-  "version": "0.1.0",
-  "private": true,
   "main": "electron/main.js",
+  "name": "dark-war",
+  "private": true,
+  "productName": "Dark War",
   "type": "commonjs",
+  "version": "0.1.0",
   "scripts": {
-    "dev": "npm run build:ts && electron .",
     "build": "npm run build:ts && electron-builder -mwl",
     "build:ts": "tsc && vite build",
-    "watch": "vite build --watch",
-    "type-check": "tsc --noEmit"
+    "dev": "npm run build:ts && electron .",
+    "type-check": "tsc --noEmit",
+    "watch": "vite build --watch"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

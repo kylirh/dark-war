@@ -52,19 +52,10 @@
 
       /* Header bar */
       header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
         padding: 12px 16px;
         background: var(--panel);
         border-bottom: 1px solid var(--border);
         flex-shrink: 0;
-      }
-
-      .header-left {
-        display: flex;
-        align-items: center;
-        gap: 12px;
       }
 
       header h1 {
@@ -77,11 +68,7 @@
       .subtitle {
         color: var(--ink-dim);
         font-size: 13px;
-      }
-
-      .header-actions {
-        display: flex;
-        gap: 8px;
+        margin-left: 12px;
       }
 
       /* Canvas viewport with proper scaling */
@@ -140,6 +127,7 @@
         color: var(--ink);
         font-size: 18px;
         line-height: 1;
+        font-weight: 500;
       }
 
       .sidebar-toggle:hover {
@@ -147,6 +135,11 @@
       }
 
       .sidebar-toggle:focus {
+        outline: 2px solid var(--border);
+        outline-offset: -2px;
+      }
+
+      .sidebar-toggle:active {
         transform: translateY(-50%);
       }
 
@@ -275,28 +268,6 @@
         white-space: nowrap;
       }
 
-      button {
-        flex: 1;
-        background: #0f1420;
-        color: var(--ink);
-        border: 1px solid #222a36;
-        border-radius: 6px;
-        padding: 8px 12px;
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s ease;
-      }
-
-      button:hover {
-        background: #1a2030;
-        border-color: #2d3748;
-      }
-
-      button:active {
-        transform: translateY(1px);
-      }
-
       /* Responsive adjustments */
       @media (max-width: 1024px) {
         .sidebar {
@@ -318,15 +289,8 @@
       <!-- Main game area -->
       <div class="game-area">
         <header>
-          <div class="header-left">
-            <h1>Dark War</h1>
-            <span class="subtitle">Retro-futuristic Roguelike</span>
-          </div>
-          <div class="header-actions">
-            <button id="btnNew" title="Start new game">New Game</button>
-            <button id="btnSave" title="Save game">Save</button>
-            <button id="btnLoad" title="Load game">Load</button>
-          </div>
+          <h1>Dark War</h1>
+          <span class="subtitle">Retro-futuristic Roguelike</span>
         </header>
 
         <div class="viewport">

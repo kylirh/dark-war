@@ -14,6 +14,9 @@ declare global {
     native?: {
       saveWrite: (data: string) => Promise<{ ok: boolean; error?: string }>;
       saveRead: () => Promise<{ ok: boolean; data?: string; error?: string }>;
+      onNewGame: (callback: () => void) => void;
+      onSaveGame: (callback: () => void) => void;
+      onLoadGame: (callback: () => void) => void;
     };
   }
 }
@@ -51,8 +54,8 @@ class DarkWar {
 
     this.inputHandler = new InputHandler(callbacks);
 
-    // Setup UI button handlers
-    this.setupButtons();
+    // Setup native menu handlers (Electron)
+    this.setupNativeMenuHandlers();
 
     // Try to load saved game, otherwise start new
     if (!this.loadGame()) {
@@ -63,23 +66,17 @@ class DarkWar {
   }
 
   /**
-   * Setup button click handlers
+   * Setup native menu event handlers for Electron
    */
-  private setupButtons(): void {
-    const btnNew = document.getElementById("btnNew");
-    const btnSave = document.getElementById("btnSave");
-    const btnLoad = document.getElementById("btnLoad");
-
-    if (btnNew) {
-      btnNew.onclick = () => this.handleNewGame();
+  private setupNativeMenuHandlers(): void {
+    if (window.native?.onNewGame) {
+      window.native.onNewGame(() => this.handleNewGame());
     }
-
-    if (btnSave) {
-      btnSave.onclick = () => this.handleSave();
+    if (window.native?.onSaveGame) {
+      window.native.onSaveGame(() => this.handleSave());
     }
-
-    if (btnLoad) {
-      btnLoad.onclick = () => this.handleLoad();
+    if (window.native?.onLoadGame) {
+      window.native.onLoadGame(() => this.handleLoad());
     }
   }
 

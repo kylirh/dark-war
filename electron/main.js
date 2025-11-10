@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -14,11 +14,98 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
     },
   });
-  win.removeMenu();
+
   win.loadFile(path.join(__dirname, "..", "app", "index.html"));
+  return win;
+}
+
+function createMenu() {
+  const isMac = process.platform === "darwin";
+
+  // Get the focused window for IPC communication
+  const getWindow = () => BrowserWindow.getFocusedWindow();
+
+  const template = [
+    // macOS app menu (first menu shows app name)
+    ...(isMac
+      ? [
+          {
+            label: "Dark War",
+            submenu: [
+              { role: "about" },
+              { type: "separator" },
+              { role: "services" },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+        ]
+      : []),
+    {
+      label: "Game",
+      submenu: [
+        {
+          label: "New Game",
+          accelerator: "CmdOrCtrl+N",
+          click: () => {
+            const win = getWindow();
+            if (win) win.webContents.send("game:new");
+          },
+        },
+        {
+          label: "Save",
+          accelerator: "CmdOrCtrl+S",
+          click: () => {
+            const win = getWindow();
+            if (win) win.webContents.send("game:save");
+          },
+        },
+        {
+          label: "Load",
+          accelerator: "CmdOrCtrl+O",
+          click: () => {
+            const win = getWindow();
+            if (win) win.webContents.send("game:load");
+          },
+        },
+        ...(!isMac
+          ? [
+              { type: "separator" },
+              {
+                label: "Quit",
+                accelerator: "CmdOrCtrl+Q",
+                role: "quit",
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
+        { type: "separator" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+      ],
+    },
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
 }
 
 app.whenReady().then(() => {
+  createMenu();
   createWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
