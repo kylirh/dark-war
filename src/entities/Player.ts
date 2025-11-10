@@ -8,8 +8,6 @@ export function createPlayer(x: number, y: number): Player {
     kind: EntityKind.PLAYER,
     x,
     y,
-    ch: "@",
-    color: "#e6edf3",
     hpMax: 20,
     hp: 20,
     sight: 9,

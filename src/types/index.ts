@@ -50,8 +50,6 @@ export interface BaseEntity {
   kind: EntityKind;
   x: number;
   y: number;
-  ch: string;
-  color: string;
 }
 
 export interface Player extends BaseEntity {

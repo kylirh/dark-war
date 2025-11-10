@@ -6,23 +6,15 @@ import { RNG } from "../utils/RNG";
  */
 const ITEM_META = {
   [ItemType.PISTOL]: {
-    ch: ")",
-    color: "#b8d1ff",
     name: "Pistol",
   },
   [ItemType.AMMO]: {
-    ch: "‧",
-    color: "#7bd88f",
     name: "Ammo",
   },
   [ItemType.MEDKIT]: {
-    ch: "!",
-    color: "#ffd166",
     name: "Medkit",
   },
   [ItemType.KEYCARD]: {
-    ch: "¤",
-    color: "#eab3ff",
     name: "Keycard",
   },
 };
@@ -42,8 +34,6 @@ export function createItem(
     x,
     y,
     type,
-    ch: meta.ch,
-    color: meta.color,
     name: meta.name,
   };
 

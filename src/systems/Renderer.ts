@@ -8,44 +8,19 @@ import {
 } from "pixi.js";
 import {
   GameState,
-  TILE_DEFINITIONS,
   EntityKind,
   ItemType,
   MAP_WIDTH,
   MAP_HEIGHT,
   CELL_CONFIG,
   TileType,
+  MonsterType,
 } from "../types";
 import { idx } from "../utils/helpers";
-
-// Sprite sheet tile coordinates
-const SPRITE_MAP = {
-  // Tiles
-  [TileType.WALL]: { x: 0, y: 0 },
-  [TileType.FLOOR]: { x: 1, y: 0 },
-  [TileType.DOOR_CLOSED]: { x: 2, y: 0 },
-  [TileType.DOOR_OPEN]: { x: 3, y: 0 },
-  [TileType.DOOR_LOCKED]: { x: 4, y: 0 },
-  [TileType.STAIRS]: { x: 5, y: 0 },
-
-  // Player
-  player: { x: 0, y: 1 },
-
-  // Monsters
-  mutant: { x: 0, y: 2 },
-  rat: { x: 1, y: 2 },
-
-  // Items
-  [ItemType.PISTOL]: { x: 0, y: 3 },
-  [ItemType.AMMO]: { x: 1, y: 3 },
-  [ItemType.MEDKIT]: { x: 2, y: 3 },
-  [ItemType.KEYCARD]: { x: 3, y: 3 },
-};
-
-const SPRITE_SIZE = 32;
+import { SPRITE_SIZE, SPRITE_COORDS } from "../config/sprites";
 
 /**
- * Handles rendering the game using Pixi.js sprites
+ * Handles rendering the game using Pixi.js
  */
 export class Renderer {
   private app: Application;
@@ -72,6 +47,9 @@ export class Renderer {
     this.initAsync(canvas);
   }
 
+  /**
+   * Initialize Pixi.js application and load sprite sheet
+   */
   private async initAsync(canvas: HTMLCanvasElement): Promise<void> {
     // Initialize Pixi application
     await this.app.init({
@@ -87,9 +65,8 @@ export class Renderer {
       this.ready = true;
       console.log("✓ Sprites loaded");
     } catch (error) {
-      console.error("Failed to load sprites:", error);
-      // Fall back to colored rectangles if sprites fail to load
-      this.ready = true;
+      console.error("Failed to load sprite sheet:", error);
+      this.ready = true; // Continue anyway
     }
 
     // Add containers to stage
@@ -104,16 +81,16 @@ export class Renderer {
   }
 
   /**
-   * Get a sprite texture from the sprite sheet
+   * Get a texture from the sprite sheet at specified coordinates
    */
-  private getTexture(spriteX: number, spriteY: number): Texture | null {
+  private getTexture(x: number, y: number): Texture | null {
     if (!this.spriteSheet) return null;
 
     return new Texture({
       source: this.spriteSheet.source,
       frame: new Rectangle(
-        spriteX * SPRITE_SIZE,
-        spriteY * SPRITE_SIZE,
+        x * SPRITE_SIZE,
+        y * SPRITE_SIZE,
         SPRITE_SIZE,
         SPRITE_SIZE
       ),
@@ -121,11 +98,32 @@ export class Renderer {
   }
 
   /**
+   * Create a Pixi sprite from sprite sheet coordinates
+   */
+  private createSprite(
+    x: number,
+    y: number,
+    screenX: number,
+    screenY: number
+  ): Sprite | null {
+    const texture = this.getTexture(x, y);
+    if (!texture) return null;
+
+    const sprite = new Sprite(texture);
+    sprite.x = screenX;
+    sprite.y = screenY;
+    sprite.width = CELL_CONFIG.w;
+    sprite.height = CELL_CONFIG.h;
+
+    return sprite;
+  }
+
+  /**
    * Render the entire game state
    */
   public render(state: GameState, isDead: boolean = false): void {
     if (!this.ready) {
-      // Store the state to render once ready
+      // Store state to render once ready
       this.pendingRender = { state, isDead };
       return;
     }
@@ -143,7 +141,6 @@ export class Renderer {
     for (let y = 0; y < MAP_HEIGHT; y++) {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const tileIndex = idx(x, y);
-        const tile = TILE_DEFINITIONS[map[tileIndex]];
         const isVisible = options.fov ? visible.has(tileIndex) : true;
         const isExplored = explored.has(tileIndex);
 
@@ -152,27 +149,18 @@ export class Renderer {
         const screenX = offsetX + x * CELL_CONFIG.w;
         const screenY = offsetY + y * CELL_CONFIG.h;
 
-        // Get sprite position for this tile type
-        const spritePos = SPRITE_MAP[map[tileIndex]];
-        if (spritePos) {
-          const texture = this.getTexture(spritePos.x, spritePos.y);
+        // Get sprite coordinates for this tile
+        const tileType = map[tileIndex];
+        const coord = SPRITE_COORDS[tileType];
 
-          if (texture) {
-            const sprite = new Sprite(texture);
-            sprite.x = screenX;
-            sprite.y = screenY;
-            sprite.width = CELL_CONFIG.w;
-            sprite.height = CELL_CONFIG.h;
-
-            // Dim if not visible
+        if (coord) {
+          const sprite = this.createSprite(coord.x, coord.y, screenX, screenY);
+          if (sprite) {
+            // Dim unexplored tiles
             if (!isVisible) {
               sprite.alpha = 0.45;
             }
-
             this.mapContainer.addChild(sprite);
-          } else {
-            // Fallback: draw colored rectangle
-            this.drawFallbackTile(screenX, screenY, tile.color, isVisible);
           }
         }
       }
@@ -192,23 +180,17 @@ export class Renderer {
       const screenX = offsetX + entity.x * CELL_CONFIG.w;
       const screenY = offsetY + entity.y * CELL_CONFIG.h;
 
-      let spritePos;
-      if (entity.kind === EntityKind.MONSTER) {
-        // Check monster type to use correct sprite
-        const monsterType = "type" in entity ? entity.type : "mutant";
-        spritePos = monsterType === "rat" ? SPRITE_MAP.rat : SPRITE_MAP.mutant;
+      let coord;
+
+      if (entity.kind === EntityKind.MONSTER && "type" in entity) {
+        coord = SPRITE_COORDS[entity.type];
       } else if (entity.kind === EntityKind.ITEM && "type" in entity) {
-        spritePos = SPRITE_MAP[entity.type];
+        coord = SPRITE_COORDS[entity.type];
       }
 
-      if (spritePos) {
-        const texture = this.getTexture(spritePos.x, spritePos.y);
-        if (texture) {
-          const sprite = new Sprite(texture);
-          sprite.x = screenX;
-          sprite.y = screenY;
-          sprite.width = CELL_CONFIG.w;
-          sprite.height = CELL_CONFIG.h;
+      if (coord) {
+        const sprite = this.createSprite(coord.x, coord.y, screenX, screenY);
+        if (sprite) {
           this.entityContainer.addChild(sprite);
         }
       }
@@ -217,36 +199,23 @@ export class Renderer {
     // Render player last
     const playerX = offsetX + player.x * CELL_CONFIG.w;
     const playerY = offsetY + player.y * CELL_CONFIG.h;
-    const playerSpritePos = SPRITE_MAP.player;
+    const playerCoord = SPRITE_COORDS["player"];
 
-    if (playerSpritePos) {
-      const texture = this.getTexture(playerSpritePos.x, playerSpritePos.y);
-      if (texture) {
-        const sprite = new Sprite(texture);
-        sprite.x = playerX;
-        sprite.y = playerY;
-        sprite.width = CELL_CONFIG.w;
-        sprite.height = CELL_CONFIG.h;
+    if (playerCoord) {
+      const sprite = this.createSprite(
+        playerCoord.x,
+        playerCoord.y,
+        playerX,
+        playerY
+      );
 
+      if (sprite) {
+        // Apply death effect
         if (isDead) {
           sprite.tint = 0x555555;
         }
-
         this.entityContainer.addChild(sprite);
       }
     }
-  }
-
-  /**
-   * Fallback rendering for when sprites aren't available
-   */
-  private drawFallbackTile(
-    x: number,
-    y: number,
-    color: string,
-    isVisible: boolean
-  ): void {
-    // This would require Graphics object from Pixi
-    // For now, we'll skip fallback - sprites should always work
   }
 }

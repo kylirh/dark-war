@@ -140,7 +140,7 @@ function checkLineOfSight(
 }
 
 /**
- * A* pathfinding using rot.js - more efficient than BFS
+ * A* pathfinding using rot.js
  */
 function aStarStep(
   monster: Monster,

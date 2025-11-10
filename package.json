@@ -6,11 +6,10 @@
   "type": "commonjs",
   "scripts": {
     "dev": "npm run build:ts && electron .",
-    "build": "npm run sprites && npm run build:ts && electron-builder -mwl",
-    "build:ts": "npm run sprites && tsc && vite build",
+    "build": "npm run build:ts && electron-builder -mwl",
+    "build:ts": "tsc && vite build",
     "watch": "vite build --watch",
-    "type-check": "tsc --noEmit",
-    "sprites": "node scripts/generate-sprites.js"
+    "type-check": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
