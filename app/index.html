@@ -41,7 +41,6 @@
         width: 100vw;
       }
 
-      /* Main game area */
       .game-area {
         flex: 1;
         display: flex;
@@ -50,28 +49,6 @@
         background: var(--bg);
       }
 
-      /* Header bar */
-      header {
-        padding: 12px 16px;
-        background: var(--panel);
-        border-bottom: 1px solid var(--border);
-        flex-shrink: 0;
-      }
-
-      header h1 {
-        font-size: 18px;
-        font-weight: 600;
-        letter-spacing: 0.3px;
-        color: var(--ink);
-      }
-
-      .subtitle {
-        color: var(--ink-dim);
-        font-size: 13px;
-        margin-left: 12px;
-      }
-
-      /* Canvas viewport with proper scaling */
       .viewport {
         flex: 1;
         display: flex;
@@ -94,7 +71,6 @@
         object-fit: contain;
       }
 
-      /* Sidebar panel */
       .sidebar {
         width: 340px;
         background: var(--panel);
@@ -110,7 +86,6 @@
         margin-right: -340px;
       }
 
-      /* Toggle button */
       .sidebar-toggle {
         position: fixed;
         right: 0;
@@ -151,7 +126,6 @@
         right: 340px;
       }
 
-      /* Panel sections */
       .panel-section {
         padding: 16px;
         border-bottom: 1px solid var(--border);
@@ -193,7 +167,6 @@
         font-size: 14px;
       }
 
-      /* HP bar */
       .hp-bar-container {
         margin-top: 4px;
       }
@@ -214,14 +187,12 @@
         transition: width 0.3s ease;
       }
 
-      /* Inventory */
       #inventory {
         color: var(--ink-dim);
         font-size: 13px;
         padding: 8px 0;
       }
 
-      /* Message log */
       .message-log {
         flex: 1;
         overflow-y: auto;
@@ -250,7 +221,6 @@
         background: #2d3748;
       }
 
-      /* Controls */
       .controls-section {
         padding: 16px;
         font-size: 12px;
@@ -268,7 +238,6 @@
         white-space: nowrap;
       }
 
-      /* Responsive adjustments */
       @media (max-width: 1024px) {
         .sidebar {
           position: fixed;
@@ -286,13 +255,7 @@
   </head>
   <body>
     <div class="app-container">
-      <!-- Main game area -->
       <div class="game-area">
-        <header>
-          <h1>Dark War</h1>
-          <span class="subtitle">Retro-futuristic Roguelike</span>
-        </header>
-
         <div class="viewport">
           <canvas
             id="game"
@@ -304,9 +267,7 @@
         </div>
       </div>
 
-      <!-- Sidebar panel -->
       <aside class="sidebar" id="sidebar">
-        <!-- Stats -->
         <div class="panel-section">
           <h2>Status</h2>
           <div class="stats-grid">
@@ -342,16 +303,11 @@
           </div>
         </div>
 
-        <!-- Inventory -->
         <div class="panel-section">
           <h2>Inventory</h2>
           <div id="inventory" class="inventory-empty">Empty</div>
         </div>
-
-        <!-- Message log -->
         <div class="message-log" id="log" aria-live="polite"></div>
-
-        <!-- Controls -->
         <div class="controls-section">
           Move: <kbd>WASD</kbd> / <kbd>Arrows</kbd> • Wait: <kbd>.</kbd><br />
           <kbd>G</kbd> pickup • <kbd>O</kbd> open/close •
@@ -360,8 +316,6 @@
           <kbd>V</kbd> toggle FOV
         </div>
       </aside>
-
-      <!-- Sidebar toggle button -->
       <button
         class="sidebar-toggle"
         id="sidebarToggle"
@@ -372,10 +326,8 @@
       </button>
     </div>
 
-    <!-- Load bundled game code -->
     <script src="game.js"></script>
     <script>
-      // Sidebar toggle functionality
       const sidebar = document.getElementById("sidebar");
       const sidebarToggle = document.getElementById("sidebarToggle");
 
