@@ -275,19 +275,6 @@ function resolveMoveCommand(state: GameState, cmd: Command): void {
   // Move succeeds
   actor.x = nx;
   actor.y = ny;
-
-  // Auto-pickup items on the tile
-  if (actor.kind === EntityKind.PLAYER) {
-    const itemsHere = state.entities.filter(
-      (e) => e.kind === EntityKind.ITEM && e.x === nx && e.y === ny
-    );
-    for (const item of itemsHere) {
-      pushEvent(state, {
-        type: EventType.PICKUP_ITEM,
-        data: { type: "PICKUP_ITEM", actorId: actor.id, itemId: item.id },
-      });
-    }
-  }
 }
 
 // ========================================
@@ -450,17 +437,24 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
   const actor = state.entities.find((e) => e.id === cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
-  const data = cmd.data as { type: "PICKUP"; itemId: number };
-  const item = state.entities.find(
-    (e) => e.id === data.itemId && e.kind === EntityKind.ITEM
-  ) as Item | undefined;
+  const itemsHere = state.entities.filter(
+    (e) => e.kind === EntityKind.ITEM && e.x === actor.x && e.y === actor.y
+  );
 
-  if (!item || item.x !== actor.x || item.y !== actor.y) return;
+  if (itemsHere.length === 0) {
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "Nothing to pick up here." },
+    });
+    return;
+  }
 
-  pushEvent(state, {
-    type: EventType.PICKUP_ITEM,
-    data: { type: "PICKUP_ITEM", actorId: actor.id, itemId: item.id },
-  });
+  for (const item of itemsHere) {
+    pushEvent(state, {
+      type: EventType.PICKUP_ITEM,
+      data: { type: "PICKUP_ITEM", actorId: actor.id, itemId: item.id },
+    });
+  }
 }
 
 // ========================================

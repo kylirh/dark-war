@@ -52,6 +52,7 @@ class DarkWar {
       onMove: (dx, dy) => this.handleMove(dx, dy),
       onFire: (dx, dy) => this.handleFire(dx, dy),
       onInteract: (dx, dy) => this.handleInteract(dx, dy),
+      onPickup: () => this.handlePickup(),
       onWait: () => this.handleWait(),
       onReload: () => this.handleReload(),
       onDescend: () => this.handleDescend(),
@@ -263,6 +264,35 @@ class DarkWar {
       actorId: playerId,
       type: CommandType.INTERACT,
       data: { type: "INTERACT", x: targetX, y: targetY },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    if (state.sim.mode === "PLANNING") {
+      stepSimulationTick(state);
+      this.game.updateFOV();
+    }
+
+    this.autoSave();
+  }
+
+  /**
+   * Handle pickup items
+   */
+  private handlePickup(): void {
+    const state = this.game.getState();
+    const playerId = state.player.id;
+
+    const tick =
+      state.sim.mode === "PLANNING"
+        ? state.sim.nowTick
+        : state.sim.nowTick + 1;
+
+    enqueueCommand(state, {
+      tick,
+      actorId: playerId,
+      type: CommandType.PICKUP,
+      data: { type: "PICKUP" },
       priority: 0,
       source: "PLAYER",
     });

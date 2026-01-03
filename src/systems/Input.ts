@@ -8,6 +8,7 @@ export interface InputCallbacks {
   onMove: (dx: number, dy: number) => void;
   onFire: (dx: number, dy: number) => void;
   onInteract: (dx: number, dy: number) => void;
+  onPickup: () => void;
   onWait: () => void;
   onReload: () => void;
   onDescend: () => void;
@@ -95,7 +96,12 @@ export class InputHandler {
       this.callbacks.onInteract(0, 0); // Signal to show interact prompt
       return;
     }
-
+    // Pick up items
+    if (key === "g" || key === "G") {
+      e.preventDefault();
+      this.callbacks.onPickup();
+      return;
+    }
     // Reload weapon
     if (key === "r" || key === "R") {
       e.preventDefault();

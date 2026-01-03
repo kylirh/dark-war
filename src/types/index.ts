@@ -122,7 +122,7 @@ export type CommandData =
   | { type: "MELEE"; targetId: number }
   | { type: "FIRE"; dx: number; dy: number }
   | { type: "WAIT" }
-  | { type: "PICKUP"; itemId: number }
+  | { type: "PICKUP" }
   | { type: "INTERACT"; x: number; y: number }
   | { type: "RELOAD" }
   | { type: "DESCEND" };
