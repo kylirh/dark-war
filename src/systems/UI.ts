@@ -1,4 +1,4 @@
-import { Player } from "../types";
+import { Player, SimulationState } from "../types";
 
 /**
  * Handles UI updates (stats, log, inventory)
@@ -10,6 +10,7 @@ export class UI {
   private hpBarElement: HTMLElement;
   private scoreElement: HTMLElement;
   private inventoryElement: HTMLElement;
+  private modeElement: HTMLElement | null;
 
   constructor() {
     this.logElement = this.getElement("log");
@@ -18,6 +19,7 @@ export class UI {
     this.hpBarElement = this.getElement("hpbar");
     this.scoreElement = this.getElement("score");
     this.inventoryElement = this.getElement("inventory");
+    this.modeElement = document.getElementById("mode"); // Optional element
   }
 
   private getElement(id: string): HTMLElement {
@@ -39,6 +41,21 @@ export class UI {
     // Update HP bar
     const hpPercent = Math.max(0, Math.min(1, player.hp / player.hpMax));
     this.hpBarElement.style.width = `${hpPercent * 100}%`;
+  }
+
+  /**
+   * Update mode display
+   */
+  public updateMode(sim: SimulationState): void {
+    if (!this.modeElement) return;
+
+    let modeText = "";
+    if (sim.mode === "PLANNING") {
+      modeText = "⏸ Planning";
+    } else {
+      modeText = sim.isPaused ? "⏸ Paused" : "▶ Real-Time";
+    }
+    this.modeElement.textContent = modeText;
   }
 
   /**
@@ -88,9 +105,15 @@ export class UI {
   /**
    * Update all UI elements
    */
-  public updateAll(player: Player, depth: number, log: string[]): void {
+  public updateAll(
+    player: Player,
+    depth: number,
+    log: string[],
+    sim: SimulationState
+  ): void {
     this.updateStats(player, depth);
     this.updateInventory(player);
     this.updateLog(log);
+    this.updateMode(sim);
   }
 }

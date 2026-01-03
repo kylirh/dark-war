@@ -8,6 +8,12 @@ import { Renderer } from "./systems/Renderer";
 import { UI } from "./systems/UI";
 import { InputHandler, InputCallbacks } from "./systems/Input";
 import { Sound } from "./systems/Sound";
+import {
+  enqueueCommand,
+  stepSimulationTick,
+  SIM_DT_MS,
+} from "./systems/Simulation";
+import { CommandType, EntityKind } from "./types";
 
 // Global reference to save system
 declare global {
@@ -29,9 +35,9 @@ class DarkWar {
   private game: Game;
   private renderer: Renderer;
   private ui: UI;
-  // Keep reference to prevent garbage collection
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private inputHandler: InputHandler;
+  private rafId?: number;
 
   constructor() {
     this.game = new Game();
@@ -45,12 +51,14 @@ class DarkWar {
     const callbacks: InputCallbacks = {
       onMove: (dx, dy) => this.handleMove(dx, dy),
       onFire: (dx, dy) => this.handleFire(dx, dy),
+      onInteract: (dx, dy) => this.handleInteract(dx, dy),
       onWait: () => this.handleWait(),
-      onPickup: () => this.handlePickup(),
-      onInteract: () => this.handleInteract(),
-      onDescend: () => this.handleDescend(),
       onReload: () => this.handleReload(),
+      onDescend: () => this.handleDescend(),
       onToggleFOV: () => this.handleToggleFOV(),
+      onToggleMode: () => this.handleToggleMode(),
+      onTogglePause: () => this.handleTogglePause(),
+      onResumePause: (reason) => this.game.resumeFromPause(reason),
       onNewGame: () => this.handleNewGame(),
       onSave: () => this.handleSave(),
       onLoad: () => this.handleLoad(),
@@ -67,6 +75,7 @@ class DarkWar {
     }
 
     this.render();
+    this.startRenderLoop();
   }
 
   /**
@@ -97,11 +106,70 @@ class DarkWar {
   }
 
   /**
+   * Start the render loop (decoupled from simulation)
+   */
+  private startRenderLoop(): void {
+    const loop = (now: number) => {
+      const state = this.game.getState();
+      const dt = now - state.sim.lastFrameMs;
+      state.sim.lastFrameMs = now;
+
+      // Real-time mode: advance simulation based on accumulated time
+      if (state.sim.mode === "REALTIME" && !state.sim.isPaused) {
+        state.sim.accumulatorMs += dt;
+
+        while (state.sim.accumulatorMs >= SIM_DT_MS) {
+          stepSimulationTick(state);
+          state.sim.accumulatorMs -= SIM_DT_MS;
+
+          // Update FOV after tick
+          this.game.updateFOV();
+
+          // Check for descend flag
+          if ((state as any)._shouldDescend) {
+            (state as any)._shouldDescend = false;
+            this.game.descend();
+          }
+        }
+      }
+
+      this.render();
+      this.rafId = requestAnimationFrame(loop);
+    };
+
+    this.rafId = requestAnimationFrame(loop);
+  }
+
+  /**
    * Handle player movement
    */
   private handleMove(dx: number, dy: number): void {
-    this.game.handleMove(dx, dy);
-    this.render();
+    const state = this.game.getState();
+    const playerId = state.player.id;
+
+    const tick =
+      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+
+    enqueueCommand(state, {
+      tick,
+      actorId: playerId,
+      type: CommandType.MOVE,
+      data: { type: "MOVE", dx, dy },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    if (state.sim.mode === "PLANNING") {
+      stepSimulationTick(state);
+      this.game.updateFOV();
+
+      // Check for descend flag
+      if ((state as any)._shouldDescend) {
+        (state as any)._shouldDescend = false;
+        this.game.descend();
+      }
+    }
+
     this.autoSave();
   }
 
@@ -109,45 +177,101 @@ class DarkWar {
    * Handle firing weapon
    */
   private handleFire(dx: number, dy: number): void {
-    this.game.handleFire(dx, dy);
-    this.render();
-    if (dx !== 0 || dy !== 0) {
-      this.autoSave();
+    // If dx=0 and dy=0, this is just entering fire mode, not actually firing
+    if (dx === 0 && dy === 0) {
+      this.game.addLog("Choose a direction to fire.");
+      return;
     }
+
+    const state = this.game.getState();
+    const playerId = state.player.id;
+
+    const tick =
+      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+
+    enqueueCommand(state, {
+      tick,
+      actorId: playerId,
+      type: CommandType.FIRE,
+      data: { type: "FIRE", dx, dy },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    if (state.sim.mode === "PLANNING") {
+      stepSimulationTick(state);
+      this.game.updateFOV();
+
+      if ((state as any)._shouldDescend) {
+        (state as any)._shouldDescend = false;
+        this.game.descend();
+      }
+    }
+
+    this.autoSave();
   }
 
   /**
    * Handle wait/rest
    */
   private handleWait(): void {
-    this.game.handleWait();
-    this.render();
-    this.autoSave();
-  }
+    const state = this.game.getState();
+    const playerId = state.player.id;
 
-  /**
-   * Handle pickup
-   */
-  private handlePickup(): void {
-    this.game.handlePickup();
-    this.render();
+    const tick =
+      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+
+    enqueueCommand(state, {
+      tick,
+      actorId: playerId,
+      type: CommandType.WAIT,
+      data: { type: "WAIT" },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    if (state.sim.mode === "PLANNING") {
+      stepSimulationTick(state);
+      this.game.updateFOV();
+    }
+
+    this.autoSave();
   }
 
   /**
    * Handle door interaction
    */
-  private handleInteract(): void {
-    this.game.handleInteract();
-    this.render();
-    this.autoSave();
-  }
+  private handleInteract(dx: number, dy: number): void {
+    // Show prompt if no direction given
+    if (dx === 0 && dy === 0) {
+      this.game.addLog("Which direction?");
+      return;
+    }
 
-  /**
-   * Handle descending stairs
-   */
-  private handleDescend(): void {
-    this.game.handleDescend();
-    this.render();
+    const state = this.game.getState();
+    const playerId = state.player.id;
+    const player = state.player;
+
+    const targetX = player.x + dx;
+    const targetY = player.y + dy;
+
+    const tick =
+      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+
+    enqueueCommand(state, {
+      tick,
+      actorId: playerId,
+      type: CommandType.INTERACT,
+      data: { type: "INTERACT", x: targetX, y: targetY },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    if (state.sim.mode === "PLANNING") {
+      stepSimulationTick(state);
+      this.game.updateFOV();
+    }
+
     this.autoSave();
   }
 
@@ -155,8 +279,59 @@ class DarkWar {
    * Handle reload
    */
   private handleReload(): void {
-    this.game.handleReload();
-    this.render();
+    const state = this.game.getState();
+    const playerId = state.player.id;
+
+    const tick =
+      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+
+    enqueueCommand(state, {
+      tick,
+      actorId: playerId,
+      type: CommandType.RELOAD,
+      data: { type: "RELOAD" },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    if (state.sim.mode === "PLANNING") {
+      stepSimulationTick(state);
+      this.game.updateFOV();
+    }
+
+    this.autoSave();
+  }
+
+  /**
+   * Handle descending stairs
+   */
+  private handleDescend(): void {
+    const state = this.game.getState();
+    const playerId = state.player.id;
+
+    const tick =
+      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+
+    enqueueCommand(state, {
+      tick,
+      actorId: playerId,
+      type: CommandType.DESCEND,
+      data: { type: "DESCEND" },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    if (state.sim.mode === "PLANNING") {
+      stepSimulationTick(state);
+      this.game.updateFOV();
+
+      if ((state as any)._shouldDescend) {
+        (state as any)._shouldDescend = false;
+        this.game.descend();
+      }
+    }
+
+    this.autoSave();
   }
 
   /**
@@ -164,7 +339,20 @@ class DarkWar {
    */
   private handleToggleFOV(): void {
     this.game.toggleFOV();
-    this.render();
+  }
+
+  /**
+   * Handle mode toggle (Planning <-> Real-Time)
+   */
+  private handleToggleMode(): void {
+    this.game.toggleMode();
+  }
+
+  /**
+   * Handle pause toggle
+   */
+  private handleTogglePause(): void {
+    this.game.togglePause();
   }
 
   /**
@@ -273,7 +461,7 @@ class DarkWar {
     const isDead = this.game.isPlayerDead();
 
     this.renderer.render(state, isDead);
-    this.ui.updateAll(state.player, state.depth, state.log);
+    this.ui.updateAll(state.player, state.depth, state.log, state.sim);
   }
 }
 

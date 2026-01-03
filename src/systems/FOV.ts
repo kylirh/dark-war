@@ -9,17 +9,16 @@ import {
 import { tileAt, idx } from "../utils/helpers";
 
 /**
- * Compute field of view using rot.js shadowcasting algorithm
- * More efficient and accurate than ray casting
+ * Compute field of view from any position using rot.js shadowcasting
  * Returns set of visible tile indices
  */
-export function computeFOV(
+export function computeFOVFrom(
   map: TileType[],
-  player: Player,
-  explored: Set<number>
+  x: number,
+  y: number,
+  radius: number
 ): Set<number> {
   const visible = new Set<number>();
-  const radius = player.sight;
 
   // Create rot.js FOV instance with shadowcasting
   const fov = new FOV.PreciseShadowcasting((x, y) => {
@@ -29,12 +28,37 @@ export function computeFOV(
     return tile && !tile.opaque;
   });
 
-  // Compute FOV from player position
-  fov.compute(player.x, player.y, radius, (x, y, r, visibility) => {
+  // Compute FOV from position
+  fov.compute(x, y, radius, (x, y, r, visibility) => {
     const index = idx(x, y);
     visible.add(index);
-    explored.add(index);
   });
+
+  return visible;
+}
+
+/**
+ * Compute field of view using rot.js shadowcasting algorithm
+ * More efficient and accurate than ray casting
+ * Returns set of visible tile indices
+ */
+export function computeFOV(
+  map: TileType[],
+  player: Player,
+  explored: Set<number>
+): Set<number> {
+  const visible = computeFOVFrom(map, player.x, player.y, player.sight);
+
+  // Add all visible tiles to explored
+  visible.forEach((index) => explored.add(index));
+
+  // Limit explored set size to prevent unbounded memory growth
+  // Keep only the most recently explored tiles (last 2000)
+  if (explored.size > 2000) {
+    const toKeep = Array.from(explored).slice(-1500);
+    explored.clear();
+    toKeep.forEach((i) => explored.add(i));
+  }
 
   return visible;
 }

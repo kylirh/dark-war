@@ -47,9 +47,11 @@ export enum ItemType {
 // ========================================
 
 export interface BaseEntity {
+  id: number;
   kind: EntityKind;
   x: number;
   y: number;
+  nextActTick?: number;
 }
 
 export interface Player extends BaseEntity {
@@ -80,6 +82,81 @@ export interface Item extends BaseEntity {
 }
 
 export type Entity = Player | Monster | Item;
+
+// ========================================
+// Simulation System (NEW)
+// ========================================
+
+export interface SimulationState {
+  nowTick: number;
+  mode: "PLANNING" | "REALTIME";
+  isPaused: boolean;
+  accumulatorMs: number;
+  lastFrameMs: number;
+  pauseReasons: Set<string>;
+}
+
+export enum CommandType {
+  MOVE = "MOVE",
+  MELEE = "MELEE",
+  FIRE = "FIRE",
+  WAIT = "WAIT",
+  PICKUP = "PICKUP",
+  INTERACT = "INTERACT",
+  RELOAD = "RELOAD",
+  DESCEND = "DESCEND",
+}
+
+export interface Command {
+  id: number;
+  tick: number;
+  actorId: number;
+  type: CommandType;
+  data: CommandData;
+  priority: number;
+  source: "PLAYER" | "AI" | "SYSTEM";
+}
+
+export type CommandData =
+  | { type: "MOVE"; dx: number; dy: number }
+  | { type: "MELEE"; targetId: number }
+  | { type: "FIRE"; dx: number; dy: number }
+  | { type: "WAIT" }
+  | { type: "PICKUP"; itemId: number }
+  | { type: "INTERACT"; x: number; y: number }
+  | { type: "RELOAD" }
+  | { type: "DESCEND" };
+
+export enum EventType {
+  DAMAGE = "DAMAGE",
+  DEATH = "DEATH",
+  EXPLOSION = "EXPLOSION",
+  DROP_LOOT = "DROP_LOOT",
+  MESSAGE = "MESSAGE",
+  DOOR_OPEN = "DOOR_OPEN",
+  PICKUP_ITEM = "PICKUP_ITEM",
+  PLAYER_DEATH = "PLAYER_DEATH",
+  NPC_TALK = "NPC_TALK",
+}
+
+export interface GameEvent {
+  id: number;
+  type: EventType;
+  data: EventData;
+  cause?: number;
+  depth: number;
+}
+
+export type EventData =
+  | { type: "DAMAGE"; targetId: number; amount: number; sourceId?: number }
+  | { type: "DEATH"; entityId: number }
+  | { type: "EXPLOSION"; x: number; y: number; radius: number; damage: number }
+  | { type: "DROP_LOOT"; x: number; y: number; itemType: ItemType }
+  | { type: "MESSAGE"; message: string }
+  | { type: "DOOR_OPEN"; x: number; y: number }
+  | { type: "PICKUP_ITEM"; actorId: number; itemId: number }
+  | { type: "PLAYER_DEATH"; playerId: number }
+  | { type: "NPC_TALK"; npcId: number; message: string };
 
 // ========================================
 // Map and Room Types
@@ -115,6 +192,10 @@ export interface GameState {
   options: {
     fov: boolean;
   };
+  // NEW: Simulation system
+  sim: SimulationState;
+  commandsByTick: Map<number, Command[]>;
+  eventQueue: GameEvent[];
 }
 
 // ========================================
@@ -129,6 +210,11 @@ export interface SerializedState {
   entities: Entity[];
   explored: number[];
   log: string[];
+  // NEW: Save simulation state
+  sim: {
+    nowTick: number;
+    mode: "PLANNING" | "REALTIME";
+  };
 }
 
 // ========================================

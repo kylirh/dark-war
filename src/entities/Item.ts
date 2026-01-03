@@ -1,6 +1,8 @@
 import { Item, EntityKind, ItemType } from "../types";
 import { RNG } from "../utils/RNG";
 
+let nextItemId = 3000; // Start item IDs at 3000
+
 /**
  * Item metadata definitions
  */
@@ -30,6 +32,7 @@ export function createItem(
 ): Item {
   const meta = ITEM_META[type];
   const item: Item = {
+    id: nextItemId++,
     kind: EntityKind.ITEM,
     x,
     y,

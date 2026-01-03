@@ -14,23 +14,8 @@ import { createPlayer } from "../entities/Player";
 import { createMutant, createRat } from "../entities/Monster";
 import { createItem } from "../entities/Item";
 import { RNG } from "../utils/RNG";
-import {
-  dist,
-  isWalkable,
-  entityAt,
-  entitiesAt,
-  removeEntity,
-  tileAt,
-  passable,
-} from "../utils/helpers";
+import { dist, isWalkable } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
-import {
-  meleeAttack,
-  fireWeapon,
-  reloadWeapon,
-  interactWithDoor,
-} from "../systems/Combat";
-import { runMonsterAI } from "../systems/AI";
 
 /**
  * Main game state manager
@@ -58,6 +43,16 @@ export class Game {
       stairs: [0, 0],
       log: [],
       options: { fov: true },
+      sim: {
+        nowTick: 0,
+        mode: "PLANNING",
+        isPaused: false,
+        accumulatorMs: 0,
+        lastFrameMs: performance.now(),
+        pauseReasons: new Set(),
+      },
+      commandsByTick: new Map(),
+      eventQueue: [],
     };
   }
 
@@ -78,6 +73,17 @@ export class Game {
       stairs: dungeon.stairs,
       log: [],
       options: { fov: true },
+      // NEW: Simulation system
+      sim: {
+        nowTick: 0,
+        mode: "PLANNING",
+        isPaused: false,
+        accumulatorMs: 0,
+        lastFrameMs: performance.now(),
+        pauseReasons: new Set(),
+      },
+      commandsByTick: new Map(),
+      eventQueue: [],
     };
 
     // Add player to entities
@@ -150,199 +156,12 @@ export class Game {
   /**
    * Update field of view
    */
-  private updateFOV(): void {
+  public updateFOV(): void {
     this.state.visible = computeFOV(
       this.state.map,
       this.state.player,
       this.state.explored
     );
-  }
-
-  /**
-   * Handle player movement or bump attack
-   */
-  public handleMove(dx: number, dy: number): void {
-    if (this.isDead) return;
-
-    const nx = this.state.player.x + dx;
-    const ny = this.state.player.y + dy;
-    const tile = tileAt(this.state.map, nx, ny);
-
-    // Check for closed/locked doors
-    if (tile === TileType.DOOR_CLOSED) {
-      this.addLog("The closed door blocks your way. Press O to open.");
-      return;
-    }
-
-    if (tile === TileType.DOOR_LOCKED) {
-      this.addLog("A locked door. You need a keycard.");
-      return;
-    }
-
-    // Try melee attack
-    const foe = entityAt(
-      this.state.entities,
-      nx,
-      ny,
-      (e) => e.kind === EntityKind.MONSTER
-    );
-    if (foe) {
-      const result = meleeAttack(
-        this.state.player,
-        this.state.entities,
-        nx,
-        ny
-      );
-      if (result.success) {
-        this.addLog(result.message);
-        this.endTurn();
-      }
-      return;
-    }
-
-    // Move if passable
-    if (passable(this.state.map, nx, ny)) {
-      this.state.player.x = nx;
-      this.state.player.y = ny;
-      this.endTurn();
-    }
-  }
-
-  /**
-   * Handle player firing weapon
-   */
-  public handleFire(dx: number, dy: number): void {
-    if (this.isDead) return;
-
-    // Signal to enter fire mode (dx=0, dy=0)
-    if (dx === 0 && dy === 0) {
-      this.addLog("Choose a direction to fire.");
-      return;
-    }
-
-    const result = fireWeapon(
-      this.state.player,
-      this.state.entities,
-      this.state.map,
-      dx,
-      dy
-    );
-    this.addLog(result.message);
-
-    if (result.success) {
-      this.endTurn();
-    }
-  }
-
-  /**
-   * Handle player waiting/resting
-   */
-  public handleWait(): void {
-    if (this.isDead) return;
-    this.endTurn();
-  }
-
-  /**
-   * Handle pickup action
-   */
-  public handlePickup(): void {
-    if (this.isDead) return;
-
-    const items = entitiesAt(
-      this.state.entities,
-      this.state.player.x,
-      this.state.player.y
-    ).filter((e) => e.kind === EntityKind.ITEM) as Item[];
-
-    if (items.length === 0) {
-      this.addLog("Nothing to pick up.");
-      return;
-    }
-
-    for (const item of items) {
-      switch (item.type) {
-        case ItemType.AMMO:
-          this.state.player.ammoReserve += item.amount!;
-          this.addLog(`Picked up ${item.amount} ammo.`);
-          break;
-
-        case ItemType.MEDKIT:
-          this.state.player.hp = Math.min(
-            this.state.player.hpMax,
-            this.state.player.hp + item.heal!
-          );
-          this.addLog(`Used a medkit (+${item.heal} HP).`);
-          break;
-
-        case ItemType.KEYCARD:
-          this.state.player.keys++;
-          this.addLog("Picked up a keycard.");
-          break;
-
-        case ItemType.PISTOL:
-          this.addLog("You already have a pistol.");
-          break;
-      }
-
-      removeEntity(this.state.entities, item);
-    }
-  }
-
-  /**
-   * Handle door interaction
-   */
-  public handleInteract(): void {
-    if (this.isDead) return;
-
-    const directions: [number, number][] = [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ];
-
-    for (const [dx, dy] of directions) {
-      const x = this.state.player.x + dx;
-      const y = this.state.player.y + dy;
-      const result = interactWithDoor(this.state.map, this.state.player, x, y);
-
-      if (result.success) {
-        this.addLog(result.message);
-        this.endTurn();
-        return;
-      } else if (result.message) {
-        this.addLog(result.message);
-        return;
-      }
-    }
-
-    this.addLog("No door adjacent.");
-  }
-
-  /**
-   * Handle descending stairs
-   */
-  public handleDescend(): void {
-    if (this.isDead) return;
-
-    if (
-      this.state.player.x === this.state.stairs[0] &&
-      this.state.player.y === this.state.stairs[1]
-    ) {
-      this.reset(this.state.depth + 1);
-    } else {
-      this.addLog("You are not standing on the stairs.");
-    }
-  }
-
-  /**
-   * Handle reload action
-   */
-  public handleReload(): void {
-    if (this.isDead) return;
-
-    const result = reloadWeapon(this.state.player);
-    this.addLog(result.message);
   }
 
   /**
@@ -353,38 +172,96 @@ export class Game {
   }
 
   /**
-   * End player turn and run monster AI
+   * Toggle between Planning and Real-Time modes
    */
-  private endTurn(): void {
-    this.updateFOV();
+  public toggleMode(): void {
+    this.state.sim.mode =
+      this.state.sim.mode === "PLANNING" ? "REALTIME" : "PLANNING";
 
-    // Get only monsters
-    const monsters = this.state.entities.filter(
-      (e) => e.kind === EntityKind.MONSTER
-    ) as Monster[];
-
-    const playerDied = runMonsterAI(
-      monsters,
-      this.state.player,
-      this.state.entities,
-      this.state.map,
-      (msg) => this.addLog(msg)
-    );
-
-    if (playerDied) {
-      this.gameOver();
-      return;
+    if (this.state.sim.mode === "PLANNING") {
+      this.state.sim.isPaused = false;
+      this.addLog("Switched to Planning Mode.");
+    } else {
+      this.state.sim.isPaused = false;
+      this.addLog("Switched to Real-Time Mode.");
     }
-
-    this.updateFOV();
   }
 
   /**
-   * Handle player death
+   * Toggle pause in Real-Time mode
    */
-  private gameOver(): void {
-    this.isDead = true;
-    this.addLog("You died. Press 'New run' to try again.");
+  public togglePause(): void {
+    if (this.state.sim.mode === "REALTIME") {
+      this.state.sim.isPaused = !this.state.sim.isPaused;
+      this.addLog(this.state.sim.isPaused ? "Paused." : "Resumed.");
+    }
+  }
+
+  /**
+   * Resume from a specific pause reason (e.g., NPC dialog)
+   */
+  public resumeFromPause(reason: string): void {
+    this.state.sim.pauseReasons.delete(reason);
+    if (this.state.sim.pauseReasons.size === 0) {
+      this.state.sim.isPaused = false;
+    }
+  }
+
+  /**
+   * Descend to next level (called after tick completes with descend flag)
+   */
+  public descend(): void {
+    this.state.depth++;
+
+    const dungeon = generateDungeon();
+    this.state.map = dungeon.map;
+    this.state.stairs = dungeon.stairs;
+    this.state.visible.clear();
+    this.state.explored.clear();
+
+    // Reset player position
+    this.state.player.x = dungeon.start[0];
+    this.state.player.y = dungeon.start[1];
+    this.state.player.nextActTick = this.state.sim.nowTick;
+
+    // Remove monsters and items
+    this.state.entities = this.state.entities.filter(
+      (e) => e.kind === EntityKind.PLAYER
+    );
+
+    // Spawn new monsters
+    const freeTiles = this.getFreeTiles(dungeon.start);
+    const monsterCount = 8 + this.state.depth;
+    for (let i = 0; i < monsterCount; i++) {
+      const [x, y] = RNG.choose(freeTiles);
+      if (dist([x, y], dungeon.start) > 8) {
+        const spawnRat = RNG.chance(0.5);
+        if (spawnRat) {
+          this.state.entities.push(createRat(x, y, this.state.depth));
+        } else {
+          this.state.entities.push(createMutant(x, y, this.state.depth));
+        }
+      }
+    }
+
+    // Spawn items
+    for (let i = 0; i < 10; i++) {
+      const [x, y] = RNG.choose(freeTiles);
+      this.state.entities.push(createItem(x, y, ItemType.AMMO));
+    }
+
+    for (let i = 0; i < 6; i++) {
+      const [x, y] = RNG.choose(freeTiles);
+      this.state.entities.push(createItem(x, y, ItemType.MEDKIT));
+    }
+
+    for (let i = 0; i < 3; i++) {
+      const [x, y] = RNG.choose(freeTiles);
+      this.state.entities.push(createItem(x, y, ItemType.KEYCARD));
+    }
+
+    this.updateFOV();
+    this.addLog(`Level ${this.state.depth}`);
   }
 
   /**
@@ -413,6 +290,10 @@ export class Game {
       entities: this.state.entities.filter((e) => e !== this.state.player),
       explored: Array.from(this.state.explored),
       log: this.state.log.slice(0, 50),
+      sim: {
+        nowTick: this.state.sim.nowTick,
+        mode: this.state.sim.mode,
+      },
     };
   }
 
@@ -430,6 +311,16 @@ export class Game {
       player: data.player,
       log: data.log || [],
       options: { fov: true },
+      sim: {
+        nowTick: data.sim.nowTick,
+        mode: data.sim.mode,
+        isPaused: false,
+        accumulatorMs: 0,
+        lastFrameMs: performance.now(),
+        pauseReasons: new Set(),
+      },
+      commandsByTick: new Map(),
+      eventQueue: [],
     };
 
     this.isDead = false;

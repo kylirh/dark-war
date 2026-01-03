@@ -11,46 +11,47 @@ You are assisting in the development of Dark War, a modern remake of the 1992 ro
 ```
 dark-war/
 ├─ app/
-│  ├─ index.html       # Clean HTML/CSS, loads game.js
-│  └─ game.js          # Bundled TypeScript output (build artifact)
+│  ├─ index.html       # HTML/CSS, loads game.js
+│  └─ game.js          # Bundled TypeScript output
 ├─ electron/
-│  ├─ main.js          # Electron window + save/load IPC handlers
-│  └─ preload.js       # Exposes window.native.saveWrite/saveRead API
-├─ src/                # TypeScript source code
+│  ├─ main.js          # Electron window + save/load IPC
+│  └─ preload.js       # Exposes window.native API
+├─ src/
 │  ├─ core/
-│  │  ├─ Game.ts       # Central game state manager & coordinator
+│  │  ├─ Game.ts       # Game state manager & mode coordinator
 │  │  └─ Map.ts        # Dungeon generation (BSP rooms + corridors)
 │  ├─ entities/
 │  │  ├─ Player.ts     # Player entity factory
 │  │  ├─ Monster.ts    # Monster entity factory
 │  │  └─ Item.ts       # Item entity factory
 │  ├─ systems/
-│  │  ├─ FOV.ts        # Field of view via ray casting
-│  │  ├─ Combat.ts     # Melee, ranged combat, reload mechanics
-│  │  ├─ AI.ts         # Monster AI with greedy + BFS pathfinding
+│  │  ├─ Simulation.ts # Command buffer, event queue, tick processor
+│  │  ├─ FOV.ts        # Field of view (rot.js shadowcasting)
 │  │  ├─ Input.ts      # Keyboard input handling
-│  │  ├─ Renderer.ts   # Canvas rendering system
-│  │  └─ UI.ts         # UI updates (stats, log, inventory)
+│  │  ├─ Renderer.ts   # Pixi.js sprite rendering
+│  │  ├─ Sound.ts      # Sound effect manager
+│  │  └─ UI.ts         # UI updates (stats, log)
 │  ├─ utils/
-│  │  ├─ RNG.ts        # Deterministic RNG (SFC32 algorithm)
-│  │  └─ helpers.ts    # Coordinate math, tile queries, entity lookups
+│  │  ├─ RNG.ts        # Deterministic RNG (SFC32)
+│  │  └─ helpers.ts    # Coordinate math, tile queries
 │  ├─ types/
-│  │  └─ index.ts      # All TypeScript types, interfaces, enums
-│  └─ main.ts          # Entry point, bootstraps game
-├─ tsconfig.json       # TypeScript compiler config
-├─ vite.config.ts      # Vite bundler config
-└─ package.json        # Dependencies and build scripts
+│  │  └─ index.ts      # TypeScript types, interfaces, enums
+│  └─ main.ts          # Entry point, render loop
+├─ tsconfig.json
+├─ vite.config.ts
+└─ package.json
 ```
 
 **Key Implementation Details:**
 
-- **Game Loop**: `Game.ts` orchestrates turn-based flow via `endTurn()` → monster AI → FOV update
-- **Entity System**: Discriminated union types with `EntityKind` enum (Player | Monster | Item)
-- **Map Storage**: 1D array accessed via `idx(x,y) = x + y * MAP_WIDTH` helper
-- **FOV**: Ray casting from player position using Bresenham line algorithm
-- **AI**: Monsters chase player using greedy step with BFS fallback for pathfinding
-- **Rendering**: Canvas-based with ASCII characters, prepared for sprite upgrade
-- **Save System**: Serializes to JSON, supports both Electron IPC and localStorage
+- **Simulation System**: Tick-based with command buffer and event queue
+- **Dual Modes**: Planning (frozen time, execute then pause) and Real-Time (continuous 5 ticks/sec)
+- **Entity System**: Discriminated unions with numeric IDs, `nextActTick` cooldowns
+- **Map Storage**: 1D array accessed via `idx(x,y) = x + y * MAP_WIDTH`
+- **FOV**: rot.js shadowcasting algorithm for player and monster vision
+- **AI**: Monsters use FOV shadowcasting with 15-tile vision, pathfinding via greedy step
+- **Rendering**: Pixi.js with sprite sheet, texture caching for performance
+- **Save System**: JSON serialization via Electron IPC or localStorage
 
 ---
 
@@ -66,89 +67,24 @@ npm run type-check   # Type check without building
 npm run watch        # Watch mode for development
 ```
 
-**Save System API:**
-
-```typescript
-// Electron (persistent)
-await window.native.saveWrite(JSON.stringify(gameState));
-const result = await window.native.saveRead();
-
-// Browser fallback (localStorage)
-localStorage.setItem("darkwar-save", JSON.stringify(gameState));
-localStorage.getItem("darkwar-save");
-```
-
 **Critical Patterns:**
 
-- **State Management**: `Game.getState()` returns immutable GameState interface
-- **Entity Filtering**: Use `entities.filter(e => e.kind === EntityKind.MONSTER)` pattern
-- **Tile Queries**: Use `tileAt(map, x, y)`, `passable(map, x, y)`, `isWalkable()` helpers
+- **State Management**: `Game.getState()` returns GameState with sim, commandsByTick, eventQueue
+- **Command Scheduling**: `enqueueCommand(state, {...})` → added to commandsByTick Map
+- **Entity Filtering**: `entities.filter(e => e.kind === EntityKind.MONSTER)`
+- **Tile Queries**: `tileAt(map, x, y)`, `passable(map, x, y)`
 - **RNG Usage**: `RNG.int(n)`, `RNG.choose(array)`, `RNG.chance(probability)`
-- **Message Logging**: `game.addLog(message)` → automatically updates UI
+- **Message Logging**: `game.addLog(message)` → updates UI
 
 ---
 
 ## Code Style & Conventions
 
-- **TypeScript**: Strict mode enabled, use explicit types for function signatures
-- **Imports**: Always use named imports with full relative paths
-- **Organization**: One class/system per file, grouped by logical domain
+- **TypeScript**: Strict mode, explicit types for function signatures
+- **Imports**: Named imports with relative paths
+- **Organization**: One class/system per file
 - **Naming**: PascalCase for classes/types, camelCase for functions/variables
-- **Architecture**: Favor composition over inheritance, pure functions where possible
-
-### Example Patterns
-
-**Adding a New System:**
-
-```typescript
-// src/systems/NewSystem.ts
-import { GameState, Player } from "../types";
-
-export function processNewSystem(state: GameState): void {
-  // System logic here
-}
-```
-
-**Creating New Entity Type:**
-
-```typescript
-// Update src/types/index.ts
-export enum EntityKind {
-  PLAYER = "player",
-  DRONE = "drone", // Add new type
-  // ...
-}
-
-export interface Drone extends BaseEntity {
-  kind: EntityKind.DRONE;
-  // Drone-specific properties
-}
-
-// Create factory in src/entities/Drone.ts
-export function createDrone(x: number, y: number): Drone {
-  return {
-    kind: EntityKind.DRONE,
-    x,
-    y,
-    ch: "D",
-    color: "#5ad1ff",
-    // ...
-  };
-}
-```
-
-**Integrating with Game Loop:**
-
-```typescript
-// In src/core/Game.ts
-import { createDrone } from "../entities/Drone";
-
-// Add to entity spawning in reset()
-for (let i = 0; i < 5; i++) {
-  const [x, y] = RNG.choose(freeTiles);
-  this.state.entities.push(createDrone(x, y));
-}
-```
+- **Architecture**: Composition over inheritance, pure functions where possible
 
 ---
 
@@ -156,37 +92,36 @@ for (let i = 0; i < 5; i++) {
 
 **Current Priorities:**
 
-1. **Sprite Rendering**: Replace ASCII with pixel art sprites (keep existing Canvas system)
-2. **More Enemy Types**: Drones, turrets, security bots with varied behaviors
-3. **Enhanced Items**: Weapon variety (SMG, shotgun), armor, consumables
-4. **Level Theming**: Visual distinction between lab, storage, reactor floors
-5. **Terminal System**: Interactable computer terminals with lore and unlock mechanics
+1. **More Enemy Types**: Drones, turrets, security bots
+2. **Enhanced Items**: Weapon variety, armor, consumables
+3. **Level Theming**: Visual distinction between floors
+4. **Terminal System**: Interactable terminals with lore
 
 **Long-Term Vision:**
 
-- Atmospheric retro-futuristic roguelike set in underground research facility
-- Modular, well-documented codebase easy to extend
+- Atmospheric retro-futuristic roguelike
+- Modular, well-documented codebase
 - Support for modding via data files
-- Maintain single-player offline focus
-- Procedural storytelling through terminals and environmental details
+- Single-player offline focus
+- Procedural storytelling
 
 ---
 
 ## Copilot Guidelines
 
-- Propose changes that fit cleanly into existing architecture
-- Reference specific files/modules when suggesting modifications
-- Consider type safety and maintain strict TypeScript compliance
-- Preserve the turn-based game loop structure
-- Keep save format backward compatible when possible
-- Suggest appropriate abstractions without over-engineering
-- Maintain performance on low-powered systems
-- Write self-documenting code with clear naming
+- Propose changes that fit the simulation architecture
+- Reference specific files/modules
+- Maintain strict TypeScript compliance
+- Preserve simulation tick system
+- Keep save format backward compatible
+- Avoid over-engineering
+- Maintain performance (texture caching, command cleanup)
+- Write self-documenting code
 
-When adding features, always consider:
+When adding features, consider:
 
-- Which module should own this logic?
-- How does this integrate with the turn-based loop?
+- Which module owns this logic?
+- How does this integrate with the command/event system?
 - What TypeScript types need updating?
 - Does this affect save/load serialization?
 - Are there existing helper functions to reuse?

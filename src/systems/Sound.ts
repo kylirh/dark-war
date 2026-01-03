@@ -43,9 +43,13 @@ class SoundManager {
           audio.addEventListener("canplaythrough", () => resolve(), {
             once: true,
           });
-          audio.addEventListener("error", () => reject(new Error(`Failed to load ${effect}`)), {
-            once: true,
-          });
+          audio.addEventListener(
+            "error",
+            () => reject(new Error(`Failed to load ${effect}`)),
+            {
+              once: true,
+            }
+          );
         });
 
         this.sounds.set(effect, audio);
@@ -72,6 +76,16 @@ class SoundManager {
     // Clone the audio node to allow overlapping plays
     const clone = audio.cloneNode() as HTMLAudioElement;
     clone.volume = this.volume;
+
+    // Clean up clone after it finishes playing to prevent memory leak
+    clone.addEventListener(
+      "ended",
+      () => {
+        clone.remove();
+      },
+      { once: true }
+    );
+
     clone.play().catch((error) => {
       console.warn(`Failed to play sound effect: ${effect}`, error);
     });

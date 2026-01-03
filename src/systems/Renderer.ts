@@ -27,6 +27,7 @@ export class Renderer {
   private mapContainer: Container;
   private entityContainer: Container;
   private spriteSheet?: Texture;
+  private textureCache: Map<string, Texture> = new Map();
   private ready: boolean = false;
   private pendingRender?: { state: GameState; isDead: boolean };
 
@@ -81,12 +82,20 @@ export class Renderer {
   }
 
   /**
-   * Get a texture from the sprite sheet at specified coordinates
+   * Textures are cached to prevent memory leaks
    */
   private getTexture(x: number, y: number): Texture | null {
     if (!this.spriteSheet) return null;
 
-    return new Texture({
+    const key = `${x},${y}`;
+
+    // Return cached texture if available
+    if (this.textureCache.has(key)) {
+      return this.textureCache.get(key)!;
+    }
+
+    // Create new texture and cache it
+    const texture = new Texture({
       source: this.spriteSheet.source,
       frame: new Rectangle(
         x * SPRITE_SIZE,
@@ -95,6 +104,9 @@ export class Renderer {
         SPRITE_SIZE
       ),
     });
+
+    this.textureCache.set(key, texture);
+    return texture;
   }
 
   /**
@@ -170,7 +182,7 @@ export class Renderer {
     const sortedEntities = [...entities].sort((a, b) => {
       const aIsItem = a.kind === EntityKind.ITEM ? 1 : 0;
       const bIsItem = b.kind === EntityKind.ITEM ? 1 : 0;
-      return aIsItem - bIsItem;
+      return bIsItem - aIsItem;
     });
 
     for (const entity of sortedEntities) {

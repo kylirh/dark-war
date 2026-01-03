@@ -97,19 +97,26 @@ dark-war/
 
 ## Controls
 
-- **Arrow Keys** / **WASD** / **Numpad** - Move
-- **Space** - Wait/skip turn
-- **G** - Pick up item
-- **F** - Fire weapon (then arrow key for direction)
+- **Numpad** - Move (8 directions) or **Arrow Keys** (4 directions)
+- **Numpad 5** - Wait/skip turn
+- **F** - Fire weapon (then numpad for direction)
 - **R** - Reload weapon
-- **O** - Open/close door
-- **>** - Descend stairs to next level
-- **V** - Toggle field of view (fog of war)
+- **O** - Open/close door (then numpad for direction)
+- **<** - Descend stairs to next level
+- **P** - Toggle Planning/Real-Time mode
+- **Space** - Pause/Unpause (Real-Time mode)
+- **Enter** - Resume from pause
+- **V** - Toggle field of view
+
+### Gameplay Modes
+
+- **Planning Mode**: Time freezes after each action. Execute commands, then simulation advances one tick.
+- **Real-Time Mode**: Continuous simulation at 5 ticks/second. Space to pause/unpause.
 
 ## Technologies
 
 - **Electron** - Cross-platform desktop application
-- **Pixi.js** - Hardware-accelerated 2D rendering
-- **rot.js** - Roguelike toolkit (FOV, pathfinding)
+- **Pixi.js** - Hardware-accelerated 2D rendering with texture caching
+- **rot.js** - Roguelike toolkit (shadowcasting FOV)
 - **TypeScript** - Type-safe game logic
 - **Vite** - Fast build tooling
