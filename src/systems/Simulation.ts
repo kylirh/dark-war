@@ -240,37 +240,6 @@ function resolveMoveCommand(state: GameState, cmd: Command): void {
   // Check bounds
   if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= 36) return;
 
-  const tile = tileAt(state.map, nx, ny);
-
-  // Handle doors
-  if (tile === TileType.DOOR_CLOSED) {
-    pushEvent(state, {
-      type: EventType.DOOR_OPEN,
-      data: { type: "DOOR_OPEN", x: nx, y: ny },
-    });
-    return;
-  }
-
-  if (tile === TileType.DOOR_LOCKED) {
-    if (actor.kind === EntityKind.PLAYER && (actor as Player).keys > 0) {
-      (actor as Player).keys--;
-      pushEvent(state, {
-        type: EventType.DOOR_OPEN,
-        data: { type: "DOOR_OPEN", x: nx, y: ny },
-      });
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "You unlock the door." },
-      });
-    } else {
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "The door is locked." },
-      });
-    }
-    return;
-  }
-
   // Check passability
   if (!passable(state.map, nx, ny)) return;
 
