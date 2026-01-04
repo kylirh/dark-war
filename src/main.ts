@@ -13,7 +13,7 @@ import {
   stepSimulationTick,
   SIM_DT_MS,
 } from "./systems/Simulation";
-import { CommandType, EntityKind } from "./types";
+import { CommandType, EntityKind, MAP_WIDTH, TileType } from "./types";
 
 // Global reference to save system
 declare global {
@@ -147,6 +147,32 @@ class DarkWar {
   private handleMove(dx: number, dy: number): void {
     const state = this.game.getState();
     const playerId = state.player.id;
+    const player = state.player;
+
+    // In Planning mode, validate move before enqueueing to avoid consuming turn
+    if (state.sim.mode === "PLANNING") {
+      const nx = player.x + dx;
+      const ny = player.y + dy;
+
+      // Check bounds
+      if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= 36) return;
+
+      // Check if tile is passable
+      const idx = nx + ny * MAP_WIDTH;
+      const tile = state.map[idx];
+      if (
+        tile === TileType.WALL ||
+        tile === TileType.DOOR_CLOSED ||
+        tile === TileType.DOOR_LOCKED
+      )
+        return;
+
+      // Check entity blocking (except monsters which trigger attack)
+      const blocker = state.entities.find(
+        (e) => e.x === nx && e.y === ny && e.kind === EntityKind.PLAYER
+      );
+      if (blocker) return;
+    }
 
     const tick =
       state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
@@ -284,9 +310,7 @@ class DarkWar {
     const playerId = state.player.id;
 
     const tick =
-      state.sim.mode === "PLANNING"
-        ? state.sim.nowTick
-        : state.sim.nowTick + 1;
+      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
 
     enqueueCommand(state, {
       tick,

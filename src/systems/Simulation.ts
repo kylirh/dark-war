@@ -186,9 +186,11 @@ function resolveCommand(state: GameState, cmd: Command): void {
     if (player && player.hp <= 0) return;
   }
 
+  let commandExecuted = true;
+
   switch (cmd.type) {
     case CommandType.MOVE:
-      resolveMoveCommand(state, cmd);
+      commandExecuted = resolveMoveCommand(state, cmd);
       break;
     case CommandType.MELEE:
       resolveMeleeCommand(state, cmd);
@@ -209,14 +211,15 @@ function resolveCommand(state: GameState, cmd: Command): void {
       resolveDescendCommand(state, cmd);
       break;
     case CommandType.WAIT:
-      // Do nothing, just consume turn
       break;
   }
 
-  // Set cooldown (everything costs 1 tick for now)
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
-  if (actor) {
-    actor.nextActTick = state.sim.nowTick + getActionCost(cmd);
+  // Set cooldown only if command was successfully executed
+  if (commandExecuted) {
+    const actor = state.entities.find((e) => e.id === cmd.actorId);
+    if (actor) {
+      actor.nextActTick = state.sim.nowTick + getActionCost(cmd);
+    }
   }
 }
 
@@ -229,19 +232,19 @@ function getActionCost(cmd: Command): number {
 // Move Command
 // ========================================
 
-function resolveMoveCommand(state: GameState, cmd: Command): void {
+function resolveMoveCommand(state: GameState, cmd: Command): boolean {
   const actor = state.entities.find((e) => e.id === cmd.actorId);
-  if (!actor) return;
+  if (!actor) return false;
 
   const data = cmd.data as { type: "MOVE"; dx: number; dy: number };
   const nx = actor.x + data.dx;
   const ny = actor.y + data.dy;
 
   // Check bounds
-  if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= 36) return;
+  if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= 36) return false;
 
   // Check passability
-  if (!passable(state.map, nx, ny)) return;
+  if (!passable(state.map, nx, ny)) return false;
 
   // Check entity blocking
   const blocker = state.entities.find(
@@ -266,15 +269,15 @@ function resolveMoveCommand(state: GameState, cmd: Command): void {
           sourceId: actor.id,
         },
       });
-      return;
+      return true;
     }
-    // Otherwise blocked - don't move
-    return;
+    return false;
   }
 
   // Move succeeds
   actor.x = nx;
   actor.y = ny;
+  return true;
 }
 
 // ========================================
