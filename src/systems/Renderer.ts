@@ -52,17 +52,33 @@ export class Renderer {
    * Initialize Pixi.js application and load sprite sheet
    */
   private async initAsync(canvas: HTMLCanvasElement): Promise<void> {
+    // Render at 2X scale for fixed size display
+    const scale = 2;
+    const canvasWidth =
+      (MAP_WIDTH * CELL_CONFIG.w + CELL_CONFIG.padX * 2) * scale;
+    const canvasHeight =
+      (MAP_HEIGHT * CELL_CONFIG.h + CELL_CONFIG.padY * 2) * scale;
+
     // Initialize Pixi application
     await this.app.init({
       canvas,
-      width: MAP_WIDTH * CELL_CONFIG.w + CELL_CONFIG.padX * 2,
-      height: MAP_HEIGHT * CELL_CONFIG.h + CELL_CONFIG.padY * 2,
+      width: canvasWidth,
+      height: canvasHeight,
       backgroundColor: 0x4954aa,
+      antialias: false, // Disable antialiasing for sharp pixels
+      roundPixels: true, // Ensure pixel-perfect rendering
     });
 
-    // Load sprite sheet
+    // Scale the stage to render at 2X
+    this.app.stage.scale.set(scale);
+
+    // Load sprite sheet with nearest neighbor filtering
     try {
       this.spriteSheet = await Assets.load("./assets/sprites.png");
+      // Set texture to use nearest neighbor (no smoothing)
+      if (this.spriteSheet?.source) {
+        this.spriteSheet.source.scaleMode = "nearest";
+      }
       this.ready = true;
       console.log("✓ Sprites loaded");
     } catch (error) {

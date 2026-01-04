@@ -50,23 +50,15 @@
 
       .viewport {
         flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 16px;
-        overflow: hidden;
+        overflow: auto;
         position: relative;
+        background: var(--bg);
       }
 
       #game {
         display: block;
         image-rendering: pixelated;
         image-rendering: crisp-edges;
-        max-width: 100%;
-        max-height: 100%;
-        width: auto;
-        height: auto;
-        object-fit: contain;
       }
 
       .sidebar {
