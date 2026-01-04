@@ -136,6 +136,11 @@ class DarkWar {
           if ((state as any)._shouldDescend) {
             (state as any)._shouldDescend = false;
             this.game.descend();
+            // Center on player after level transition
+            setTimeout(() => {
+              const newState = this.game.getState();
+              this.renderer.centerOnPlayer(newState.player, false);
+            }, 50);
           }
         }
       }
@@ -202,6 +207,11 @@ class DarkWar {
       if ((state as any)._shouldDescend) {
         (state as any)._shouldDescend = false;
         this.game.descend();
+        // Center on player after level transition
+        setTimeout(() => {
+          const newState = this.game.getState();
+          this.renderer.centerOnPlayer(newState.player, false);
+        }, 50);
       }
     }
 
@@ -402,6 +412,16 @@ class DarkWar {
       if ((state as any)._shouldDescend) {
         (state as any)._shouldDescend = false;
         this.game.descend();
+        // Center on player after level transition
+        setTimeout(() => {
+          const newState = this.game.getState();
+          this.renderer.centerOnPlayer(newState.player, false);
+        }, 50);
+        // Center on player after level transition
+        setTimeout(() => {
+          const newState = this.game.getState();
+          this.renderer.centerOnPlayer(newState.player, false);
+        }, 50);
       }
     }
 
@@ -435,6 +455,11 @@ class DarkWar {
   private handleNewGame(): void {
     this.game.reset(1);
     this.render();
+    // Center on player after new game starts
+    setTimeout(() => {
+      const state = this.game.getState();
+      this.renderer.centerOnPlayer(state.player, false);
+    }, 100);
     this.autoSave();
   }
 
