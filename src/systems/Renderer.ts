@@ -30,12 +30,16 @@ export class Renderer {
   private textureCache: Map<string, Texture> = new Map();
   private ready: boolean = false;
   private pendingRender?: { state: GameState; isDead: boolean };
+  private viewportElement?: HTMLElement;
 
   constructor(canvasId: string) {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     if (!canvas) {
       throw new Error(`Canvas element with id "${canvasId}" not found`);
     }
+
+    // Get the viewport element (parent with scrolling)
+    this.viewportElement = canvas.parentElement || undefined;
 
     // Create Pixi application
     this.app = new Application();
@@ -244,6 +248,36 @@ export class Renderer {
         }
         this.entityContainer.addChild(sprite);
       }
+    }
+  }
+
+  /**
+   * Center viewport on player position with smooth scrolling
+   */
+  public centerOnPlayer(player: { x: number; y: number }, smooth: boolean = true): void {
+    if (!this.viewportElement) return;
+
+    const scale = 2;
+    const offsetX = CELL_CONFIG.padX;
+    const offsetY = CELL_CONFIG.padY;
+
+    // Calculate player's screen position (at 2x scale)
+    const playerScreenX = (offsetX + player.x * CELL_CONFIG.w + CELL_CONFIG.w / 2) * scale;
+    const playerScreenY = (offsetY + player.y * CELL_CONFIG.h + CELL_CONFIG.h / 2) * scale;
+
+    // Calculate scroll position to center player in viewport
+    const scrollX = playerScreenX - this.viewportElement.clientWidth / 2;
+    const scrollY = playerScreenY - this.viewportElement.clientHeight / 2;
+
+    if (smooth) {
+      this.viewportElement.scrollTo({
+        left: scrollX,
+        top: scrollY,
+        behavior: 'smooth'
+      });
+    } else {
+      this.viewportElement.scrollLeft = scrollX;
+      this.viewportElement.scrollTop = scrollY;
     }
   }
 }

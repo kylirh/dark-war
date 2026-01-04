@@ -38,6 +38,7 @@ class DarkWar {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private inputHandler: InputHandler;
   private rafId?: number;
+  private playerActedThisTick: boolean = false;
 
   constructor() {
     this.game = new Game();
@@ -76,6 +77,11 @@ class DarkWar {
     }
 
     this.render();
+    // Center on player initially (after first render)
+    setTimeout(() => {
+      const state = this.game.getState();
+      this.renderer.centerOnPlayer(state.player, false);
+    }, 100);
     this.startRenderLoop();
   }
 
@@ -186,6 +192,8 @@ class DarkWar {
       source: "PLAYER",
     });
 
+    this.playerActedThisTick = true;
+
     if (state.sim.mode === "PLANNING") {
       stepSimulationTick(state);
       this.game.updateFOV();
@@ -225,6 +233,8 @@ class DarkWar {
       source: "PLAYER",
     });
 
+    this.playerActedThisTick = true;
+
     if (state.sim.mode === "PLANNING") {
       stepSimulationTick(state);
       this.game.updateFOV();
@@ -256,6 +266,8 @@ class DarkWar {
       priority: 0,
       source: "PLAYER",
     });
+
+    this.playerActedThisTick = true;
 
     if (state.sim.mode === "PLANNING") {
       stepSimulationTick(state);
@@ -294,6 +306,8 @@ class DarkWar {
       source: "PLAYER",
     });
 
+    this.playerActedThisTick = true;
+
     if (state.sim.mode === "PLANNING") {
       stepSimulationTick(state);
       this.game.updateFOV();
@@ -320,6 +334,8 @@ class DarkWar {
       priority: 0,
       source: "PLAYER",
     });
+
+    this.playerActedThisTick = true;
 
     if (state.sim.mode === "PLANNING") {
       stepSimulationTick(state);
@@ -348,6 +364,8 @@ class DarkWar {
       source: "PLAYER",
     });
 
+    this.playerActedThisTick = true;
+
     if (state.sim.mode === "PLANNING") {
       stepSimulationTick(state);
       this.game.updateFOV();
@@ -374,6 +392,8 @@ class DarkWar {
       priority: 0,
       source: "PLAYER",
     });
+
+    this.playerActedThisTick = true;
 
     if (state.sim.mode === "PLANNING") {
       stepSimulationTick(state);
@@ -516,6 +536,12 @@ class DarkWar {
 
     this.renderer.render(state, isDead);
     this.ui.updateAll(state.player, state.depth, state.log, state.sim);
+
+    // Center on player if they acted this tick
+    if (this.playerActedThisTick) {
+      this.renderer.centerOnPlayer(state.player, true);
+      this.playerActedThisTick = false;
+    }
   }
 }
 
