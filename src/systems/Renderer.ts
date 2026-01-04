@@ -252,9 +252,12 @@ export class Renderer {
   }
 
   /**
-   * Center viewport on player position with smooth scrolling
+   * Center viewport on player position with smart scrolling
    */
-  public centerOnPlayer(player: { x: number; y: number }, smooth: boolean = true): void {
+  public centerOnPlayer(
+    player: { x: number; y: number },
+    smooth: boolean = true
+  ): void {
     if (!this.viewportElement) return;
 
     const scale = 2;
@@ -262,22 +265,35 @@ export class Renderer {
     const offsetY = CELL_CONFIG.padY;
 
     // Calculate player's screen position (at 2x scale)
-    const playerScreenX = (offsetX + player.x * CELL_CONFIG.w + CELL_CONFIG.w / 2) * scale;
-    const playerScreenY = (offsetY + player.y * CELL_CONFIG.h + CELL_CONFIG.h / 2) * scale;
+    const playerScreenX =
+      (offsetX + player.x * CELL_CONFIG.w + CELL_CONFIG.w / 2) * scale;
+    const playerScreenY =
+      (offsetY + player.y * CELL_CONFIG.h + CELL_CONFIG.h / 2) * scale;
 
     // Calculate scroll position to center player in viewport
-    const scrollX = playerScreenX - this.viewportElement.clientWidth / 2;
-    const scrollY = playerScreenY - this.viewportElement.clientHeight / 2;
+    const targetScrollX = playerScreenX - this.viewportElement.clientWidth / 2;
+    const targetScrollY = playerScreenY - this.viewportElement.clientHeight / 2;
 
-    if (smooth) {
+    // Check if viewport is far from center (user manually scrolled away)
+    const currentScrollX = this.viewportElement.scrollLeft;
+    const currentScrollY = this.viewportElement.scrollTop;
+    const threshold = 100; // pixels - if further than this, user probably scrolled away
+    
+    const isFarFromCenter = 
+      Math.abs(currentScrollX - targetScrollX) > threshold ||
+      Math.abs(currentScrollY - targetScrollY) > threshold;
+
+    // Use smooth scrolling only when recentering from a distant position
+    if (smooth && isFarFromCenter) {
       this.viewportElement.scrollTo({
-        left: scrollX,
-        top: scrollY,
-        behavior: 'smooth'
+        left: targetScrollX,
+        top: targetScrollY,
+        behavior: "smooth",
       });
     } else {
-      this.viewportElement.scrollLeft = scrollX;
-      this.viewportElement.scrollTop = scrollY;
+      // Instant snap for normal movement
+      this.viewportElement.scrollLeft = targetScrollX;
+      this.viewportElement.scrollTop = targetScrollY;
     }
   }
 }
