@@ -113,39 +113,53 @@ function getEventDepth(state: GameState, causeId: number): number {
 export function stepSimulationTick(state: GameState): void {
   const tick = state.sim.nowTick;
 
-  // 1. Gather player and scheduled commands
-  let commands = getCommandsForTick(state, tick);
+  // 1. Gather and resolve player commands first
+  let playerCommands = getCommandsForTick(state, tick);
 
-  // 2. Generate AI commands for entities ready to act
-  const aiCommands = generateAICommands(state, tick);
-  commands = [...commands, ...aiCommands];
-
-  // Guard against too many commands
-  if (commands.length > MAX_COMMANDS_PER_TICK) {
-    console.error(`Too many commands for tick ${tick}: ${commands.length}`);
-    commands = commands.slice(0, MAX_COMMANDS_PER_TICK);
-  }
-
-  // 3. Sort commands deterministically
-  commands.sort((a, b) => {
+  // Sort player commands deterministically
+  playerCommands.sort((a, b) => {
     if (a.priority !== b.priority) return b.priority - a.priority;
     if (a.actorId !== b.actorId) return a.actorId - b.actorId;
     return a.id - b.id;
   });
 
-  // 4. Resolve all commands → emit events
-  for (const cmd of commands) {
+  // Resolve player commands
+  for (const cmd of playerCommands) {
     if (!canActorAct(state, cmd.actorId, tick)) continue;
     resolveCommand(state, cmd);
   }
 
-  // 5. Process event queue until empty
+  // 2. Generate AI commands based on UPDATED state (after player moved)
+  const aiCommands = generateAICommands(state, tick);
+
+  // Guard against too many AI commands
+  if (aiCommands.length > MAX_COMMANDS_PER_TICK) {
+    console.error(
+      `Too many AI commands for tick ${tick}: ${aiCommands.length}`
+    );
+    aiCommands.length = MAX_COMMANDS_PER_TICK;
+  }
+
+  // Sort AI commands deterministically
+  aiCommands.sort((a, b) => {
+    if (a.priority !== b.priority) return b.priority - a.priority;
+    if (a.actorId !== b.actorId) return a.actorId - b.actorId;
+    return a.id - b.id;
+  });
+
+  // 3. Resolve AI commands
+  for (const cmd of aiCommands) {
+    if (!canActorAct(state, cmd.actorId, tick)) continue;
+    resolveCommand(state, cmd);
+  }
+
+  // 4. Process event queue until empty
   processEventQueue(state);
 
-  // 6. Cleanup and increment
+  // 5. Cleanup and increment
   clearCommandsForTick(state, tick);
 
-  // 7. Periodically clean up old unexecuted commands to prevent memory leak
+  // 6. Periodically clean up old unexecuted commands to prevent memory leak
   if (tick % 100 === 0) {
     cleanupOldCommands(state, tick);
   }
