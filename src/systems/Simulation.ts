@@ -22,7 +22,8 @@ import { computeFOVFrom } from "./FOV";
 // Constants
 // ========================================
 
-export const SIM_DT_MS = 200; // 5 ticks/second
+export const SIM_DT_MS = 50; // 20 ticks/second
+export const MONSTER_ACTION_DELAY = 5; // Monsters act every N ticks (player acts every 1)
 export const MAX_EVENTS_PER_TICK = 1000;
 export const MAX_COMMANDS_PER_TICK = 1000;
 
@@ -232,13 +233,18 @@ function resolveCommand(state: GameState, cmd: Command): void {
   if (commandExecuted) {
     const actor = state.entities.find((e) => e.id === cmd.actorId);
     if (actor) {
-      actor.nextActTick = state.sim.nowTick + getActionCost(cmd);
+      actor.nextActTick = state.sim.nowTick + getActionCost(cmd, actor);
     }
   }
 }
 
-function getActionCost(cmd: Command): number {
-  // Future: different actions could cost different amounts
+function getActionCost(cmd: Command, actor: Player | Monster | Item): number {
+  // Monsters act slower to give player reaction time at high tick rates
+  if (actor.kind === EntityKind.MONSTER) {
+    return MONSTER_ACTION_DELAY;
+  }
+
+  // Player acts every tick for responsive controls
   return 1;
 }
 
