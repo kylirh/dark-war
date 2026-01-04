@@ -233,13 +233,22 @@ function resolveCommand(state: GameState, cmd: Command): void {
   if (commandExecuted) {
     const actor = state.entities.find((e) => e.id === cmd.actorId);
     if (actor) {
-      actor.nextActTick = state.sim.nowTick + getActionCost(cmd, actor);
+      actor.nextActTick = state.sim.nowTick + getActionCost(state, cmd, actor);
     }
   }
 }
 
-function getActionCost(cmd: Command, actor: Player | Monster | Item): number {
-  // Monsters act slower to give player reaction time at high tick rates
+function getActionCost(
+  state: GameState,
+  cmd: Command,
+  actor: Player | Monster | Item
+): number {
+  // In planning mode, everyone acts at same rate (turn-based)
+  if (state.sim.mode === "PLANNING") {
+    return 1;
+  }
+
+  // In real-time mode, monsters act slower to give player reaction time at high tick rates
   if (actor.kind === EntityKind.MONSTER) {
     return MONSTER_ACTION_DELAY;
   }
@@ -878,14 +887,17 @@ function decideMonsterCommand(
     };
   }
 
-  // Chase player (simple greedy step)
+  // Chase player (greedy step with fallback directions)
   const moveX = dx > 0 ? 1 : dx < 0 ? -1 : 0;
   const moveY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
 
-  const nx = monster.x + moveX;
-  const ny = monster.y + moveY;
+  // Try preferred direction first
+  const tryMove = (testX: number, testY: number): boolean => {
+    const nx = monster.x + testX;
+    const ny = monster.y + testY;
 
-  if (passable(state.map, nx, ny)) {
+    if (!passable(state.map, nx, ny)) return false;
+
     const blocker = state.entities.find(
       (e) =>
         e.x === nx &&
@@ -893,20 +905,73 @@ function decideMonsterCommand(
         (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER)
     );
 
-    if (!blocker) {
+    if (blocker) return false;
+
+    // Move is valid
+    return true;
+  };
+
+  // Build list of directions to try, prioritized by distance to player
+  const directions: [number, number, number][] = []; // [dx, dy, distance_score]
+
+  // All 8 directions
+  const allDirs: [number, number][] = [
+    [moveX, moveY], // Primary direction (diagonal)
+    [moveX, 0], // Horizontal component
+    [0, moveY], // Vertical component
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+    [1, 1],
+    [1, -1],
+    [-1, 1],
+    [-1, -1],
+  ];
+
+  // Score each direction by how much it reduces distance to player
+  for (const [testX, testY] of allDirs) {
+    if (testX === 0 && testY === 0) continue;
+
+    const newX = monster.x + testX;
+    const newY = monster.y + testY;
+    const newDist = Math.abs(player.x - newX) + Math.abs(player.y - newY);
+    const currentDist = Math.abs(dx) + Math.abs(dy);
+    const score = currentDist - newDist; // Higher score = closer to player
+
+    directions.push([testX, testY, score]);
+  }
+
+  // Sort by score (best first), then deduplicate
+  directions.sort((a, b) => b[2] - a[2]);
+
+  // Remove duplicate directions
+  const seen = new Set<string>();
+  const uniqueDirections: [number, number][] = [];
+  for (const [testX, testY] of directions) {
+    const key = `${testX},${testY}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      uniqueDirections.push([testX, testY]);
+    }
+  }
+
+  // Try each direction in priority order
+  for (const [testX, testY] of uniqueDirections) {
+    if (tryMove(testX, testY)) {
       return {
         id: 0,
         tick,
         actorId: monster.id,
         type: CommandType.MOVE,
-        data: { type: "MOVE", dx: moveX, dy: moveY },
+        data: { type: "MOVE", dx: testX, dy: testY },
         priority: 0,
         source: "AI",
       };
     }
   }
 
-  // Wait if can't move
+  // Wait if can't move anywhere
   return {
     id: 0,
     tick,
