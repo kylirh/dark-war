@@ -57,7 +57,7 @@ export class Renderer {
       canvas,
       width: MAP_WIDTH * CELL_CONFIG.w + CELL_CONFIG.padX * 2,
       height: MAP_HEIGHT * CELL_CONFIG.h + CELL_CONFIG.padY * 2,
-      backgroundColor: 0x0b0e12,
+      backgroundColor: 0x4954aa,
     });
 
     // Load sprite sheet

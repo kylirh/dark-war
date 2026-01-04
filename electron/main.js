@@ -7,7 +7,7 @@ function createWindow() {
     width: 1440,
     height: 920,
     useContentSize: true,
-    backgroundColor: "#0b0e12",
+    backgroundColor: "#000000",
     webPreferences: {
       contextIsolation: true,
       sandbox: true,

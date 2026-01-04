@@ -10,7 +10,7 @@
     <title>Dark War</title>
     <style>
       :root {
-        --bg: #0c0f12;
+        --bg: #000000;
         --panel: #141922;
         --ink: #e6edf3;
         --ink-dim: #a9b1bb;
@@ -46,7 +46,6 @@
         display: flex;
         flex-direction: column;
         min-width: 0;
-        background: var(--bg);
       }
 
       .viewport {
@@ -55,7 +54,6 @@
         align-items: center;
         justify-content: center;
         padding: 16px;
-        background: #0b0e12;
         overflow: hidden;
         position: relative;
       }
@@ -201,7 +199,7 @@
         font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
         font-size: 12px;
         line-height: 1.6;
-        background: #0b0e12;
+        background: var(--bg);
       }
 
       .message-log::-webkit-scrollbar {
