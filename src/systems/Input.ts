@@ -50,6 +50,16 @@ export class InputHandler {
     const key = e.key;
     const code = e.code;
 
+    // Escape key - cancel any active input mode
+    if (key === "Escape") {
+      e.preventDefault();
+      if (this.fireMode || this.interactMode) {
+        this.fireMode = false;
+        this.interactMode = false;
+      }
+      return;
+    }
+
     // Directional movement, firing, or interacting
     if (code in DIRECTION_KEYS) {
       e.preventDefault();
