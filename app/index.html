@@ -18,6 +18,10 @@
         --danger: #ff6b6b;
         --warn: #ffd166;
       }
+      @font-face {
+        font-family: "ChicagoFLF";
+        src: url("./assets/fonts/chicago-flf.ttf") format("truetype");
+      }
 
       * {
         box-sizing: border-box;
@@ -30,8 +34,9 @@
         height: 100%;
         background: var(--bg);
         color: var(--ink);
-        font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto,
-          "Helvetica Neue", Arial, sans-serif;
+        font-family: "ChicagoFLF", sans-serif;
+        font-size: 12px;
+        -webkit-font-smoothing: none;
         overflow: hidden;
       }
 
@@ -189,7 +194,6 @@
         overflow-y: auto;
         overflow-x: hidden;
         padding: 16px;
-        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
         font-size: 12px;
         line-height: 1.6;
         background: var(--bg);
@@ -225,7 +229,6 @@
         padding: 2px 6px;
         border-radius: 4px;
         font-size: 11px;
-        font-family: ui-monospace, monospace;
         white-space: nowrap;
       }
 
