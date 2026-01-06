@@ -278,8 +278,8 @@ export class Renderer {
     const currentScrollX = this.viewportElement.scrollLeft;
     const currentScrollY = this.viewportElement.scrollTop;
     const threshold = 100; // pixels - if further than this, user probably scrolled away
-    
-    const isFarFromCenter = 
+
+    const isFarFromCenter =
       Math.abs(currentScrollX - targetScrollX) > threshold ||
       Math.abs(currentScrollY - targetScrollY) > threshold;
 

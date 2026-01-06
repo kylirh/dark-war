@@ -8,11 +8,6 @@
   --warn: #ffd166;
 }
 
-@font-face {
-  font-family: "ChicagoFLF";
-  src: url("./assets/fonts/chicago-flf.ttf") format("truetype");
-}
-
 * {
   box-sizing: border-box;
   margin: 0;
@@ -24,7 +19,7 @@ body {
   height: 100%;
   background: var(--bg);
   color: var(--ink);
-  font-family: "ChicagoFLF", sans-serif;
+  font-family: "Chicago", sans-serif;
   font-size: 12px;
   -webkit-font-smoothing: none;
   overflow: hidden;
