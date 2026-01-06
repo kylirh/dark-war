@@ -442,7 +442,7 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
   if (player.ammoReserve === 0) {
     pushEvent(state, {
       type: EventType.MESSAGE,
-      data: { type: "MESSAGE", message: "No ammo to reload!" },
+      data: { type: "MESSAGE", message: "You're out of ammo!" },
     });
     return;
   }
@@ -457,7 +457,7 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
 
   pushEvent(state, {
     type: EventType.MESSAGE,
-    data: { type: "MESSAGE", message: "Reload." },
+    data: { type: "MESSAGE", message: '"RELOAD!!"' },
   });
 }
 
@@ -476,7 +476,7 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
   if (itemsHere.length === 0) {
     pushEvent(state, {
       type: EventType.MESSAGE,
-      data: { type: "MESSAGE", message: "Nothing to pick up here." },
+      data: { type: "MESSAGE", message: "Nothing to pick up!" },
     });
     return;
   }

@@ -40,7 +40,7 @@ export class UI {
 
     // Update HP bar
     const hpPercent = Math.max(0, Math.min(1, player.hp / player.hpMax));
-    this.hpBarElement.style.width = `${hpPercent * 100}%`;
+    this.hpBarElement.style.setProperty("--hp-width", `${hpPercent * 100}%`);
   }
 
   /**
@@ -51,7 +51,7 @@ export class UI {
 
     let modeText = "";
     if (sim.mode === "PLANNING") {
-      modeText = "⏸ Planning";
+      modeText = "Stratego!";
     } else {
       modeText = sim.isPaused ? "⏸ Paused" : "▶ Real-Time";
     }
@@ -65,19 +65,15 @@ export class UI {
     const items: string[] = [];
 
     if (player.weapon) {
-      items.push(`Weapon: Pistol (${player.ammo}/12)`);
+      items.push(`Pistol (${player.ammo}/12)`);
     }
 
     if (player.ammoReserve > 0) {
-      items.push(`Ammo reserve: ${player.ammoReserve}`);
+      items.push(`Ammo: ${player.ammoReserve}`);
     }
 
     if (player.keys > 0) {
       items.push(`Keycards: ${player.keys}`);
-    }
-
-    if (player.hp < player.hpMax) {
-      items.push(`Med need: ${player.hpMax - player.hp}`);
     }
 
     this.inventoryElement.textContent =

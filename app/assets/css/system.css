@@ -174,12 +174,6 @@ hr {
   border-top: 0.15em solid var(--secondary);
 }
 
-/*.container {
-  width: 50%;
-  margin: 0 auto;
-  display: block;
-}
-*/
 h1,
 .heading {
   font-family: Chicago;
@@ -298,8 +292,6 @@ h2 {
 .title-bar button span {
   position: absolute !important;
   clip: rect(1px 1px 1px 1px);
-  /* IE6, IE7 */
-  clip: rect(1px, 1px, 1px, 1px);
 }
 .title-bar button.close::before,
 .title-bar button.close::after {
@@ -746,9 +738,4 @@ ul [role="menu-item"].divider::after {
   display: block;
   padding: 0;
   border-top: 1.5px dotted var(--secondary);
-}
-
-/* styles specific to demo page */
-.menu-items > li {
-  margin-bottom: 1rem;
 }

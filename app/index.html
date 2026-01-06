@@ -26,21 +26,12 @@
       </div>
 
       <aside class="sidebar" id="sidebar">
-        <div class="panel-section">
+        <section class="status panel">
           <h2>Status</h2>
           <div class="stats-grid">
             <div class="stat-row">
               <span class="stat-label">Region</span>
               <span class="stat-value" id="floor">1</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Hit Points</span>
-              <span class="stat-value" id="hp">—</span>
-            </div>
-            <div class="hp-bar-container">
-              <div class="hp-bar">
-                <span class="hp-bar-fill" id="hpbar" style="width: 100%"></span>
-              </div>
             </div>
             <div class="stat-row">
               <span class="stat-label">Score</span>
@@ -50,15 +41,27 @@
               <span class="stat-label">Mode</span>
               <span class="stat-value" id="mode">Planning</span>
             </div>
+            <div class="hp stat-row">
+              <span class="stat-label">Hit Points</span>
+              <span class="stat-value" id="hp">—</span>
+            </div>
+            <div class="hp-bar" id="hpbar" style="--hp-width: 100%">
+              <span class="hp-bar-fill"></span>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div class="panel-section">
+        <section class="inventory panel">
           <h2>Inventory</h2>
-          <div id="inventory" class="inventory-empty">Empty</div>
-        </div>
-        <div class="message-log" id="log" aria-live="polite"></div>
-        <div class="controls-section">
+          <div id="inventory"></div>
+        </section>
+
+        <section class="message-log panel">
+          <h2>Message Log</h2>
+          <div id="log"></div>
+        </section>
+
+        <section class="controls panel">
           Move: <kbd>Numeric Keypad</kbd><br />
           Pickup: <kbd>G</kbd><br />
           Open/Close: <kbd>O</kbd> + <kbd>Numeric Keypad</kbd><br />
@@ -67,11 +70,11 @@
           Reload: <kbd>R</kbd><br />
           Toggle FOV: <kbd>V</kbd><br />
           <br />
-          <strong>Time Controls:</strong><br />
+          <strong>Time Controls</strong><br />
           Toggle Mode: <kbd>P</kbd><br />
           Pause: <kbd>Space</kbd><br />
           Resume: <kbd>Enter</kbd><br />
-        </div>
+        </section>
       </aside>
       <button
         class="sidebar-toggle"
