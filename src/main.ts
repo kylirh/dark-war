@@ -13,7 +13,9 @@ import {
   stepSimulationTick,
   SIM_DT_MS,
 } from "./systems/Simulation";
-import { CommandType, EntityKind, MAP_WIDTH, TileType } from "./types";
+import { CommandType, EntityKind, MAP_WIDTH, TileType, CELL_CONFIG } from "./types";
+import { findPath } from "./utils/pathfinding";
+import { idx } from "./utils/helpers";
 
 // Global reference to save system
 declare global {
@@ -40,6 +42,7 @@ class DarkWar {
   private inputHandler: InputHandler;
   private rafId?: number;
   private playerActedThisTick: boolean = false;
+  private autoMovePath: [number, number][] | null = null;
 
   constructor() {
     this.game = new Game();
@@ -68,6 +71,9 @@ class DarkWar {
     };
 
     this.inputHandler = new InputHandler(callbacks);
+
+    // Setup click-to-move
+    this.setupClickToMove();
 
     // Setup native menu handlers for Electron
     this.setupNativeMenuHandlers();
@@ -114,6 +120,61 @@ class DarkWar {
   }
 
   /**
+   * Setup click-to-move functionality
+   */
+  private setupClickToMove(): void {
+    const canvas = document.getElementById("game") as HTMLCanvasElement;
+    if (!canvas) {
+      console.error("Canvas not found for click-to-move");
+      return;
+    }
+
+    canvas.style.cursor = "pointer";
+
+    canvas.addEventListener("click", (event) => {
+      const state = this.game.getState();
+      const scale = this.renderer.getScale();
+
+      // Get canvas bounding rect
+      const rect = canvas.getBoundingClientRect();
+      
+      // Convert click coordinates to canvas coordinates
+      const canvasX = event.clientX - rect.left;
+      const canvasY = event.clientY - rect.top;
+
+      // Convert to game coordinates (accounting for scale)
+      const gameX = canvasX / scale;
+      const gameY = canvasY / scale;
+
+      // Convert to tile coordinates (accounting for padding)
+      const tileX = Math.floor((gameX - CELL_CONFIG.padX) / CELL_CONFIG.w);
+      const tileY = Math.floor((gameY - CELL_CONFIG.padY) / CELL_CONFIG.h);
+
+      // Check if tile is valid and explored
+      const tileIdx = idx(tileX, tileY);
+      if (!state.explored.has(tileIdx)) {
+        return; // Not explored, ignore click
+      }
+
+      // Find path to clicked tile
+      const path = findPath(
+        state.player.x,
+        state.player.y,
+        tileX,
+        tileY,
+        state.map,
+        state.explored,
+        state.entities
+      );
+
+      if (path && path.length > 1) {
+        // Store path for auto-movement (skip first element which is current position)
+        this.autoMovePath = path.slice(1);
+      }
+    });
+  }
+
+  /**
    * Start the render loop (decoupled from simulation)
    */
   private startRenderLoop(): void {
@@ -121,6 +182,42 @@ class DarkWar {
       const state = this.game.getState();
       const dt = now - state.sim.lastFrameMs;
       state.sim.lastFrameMs = now;
+
+      // Process auto-move in Planning mode only
+      if (state.sim.mode === "PLANNING" && !state.sim.isPaused && this.autoMovePath && this.autoMovePath.length > 0) {
+        // Check if there are no queued commands
+        const hasQueuedCommands = state.commandsByTick.size > 0;
+        
+        if (!hasQueuedCommands) {
+          // Store HP before move to detect damage
+          const hpBefore = state.player.hp;
+          
+          // Get next step
+          const nextStep = this.autoMovePath[0];
+          const dx = nextStep[0] - state.player.x;
+          const dy = nextStep[1] - state.player.y;
+          
+          // Try to move to next step (pass true to indicate this is auto-move)
+          this.handleMove(dx, dy, true);
+          
+          // Check if player took damage or died - cancel auto-move
+          const hpAfter = state.player.hp;
+          if (hpAfter < hpBefore) {
+            this.cancelAutoMove();
+          } else {
+            // Only advance path if no damage taken
+            // Remove this step from path
+            this.autoMovePath.shift();
+            
+            // Clear path if we've reached destination or if move failed
+            if (this.autoMovePath.length === 0) {
+              this.autoMovePath = null;
+            }
+          }
+        } else {
+          // Commands are still being processed, wait
+        }
+      }
 
       // Real-time mode: advance simulation based on accumulated time
       if (state.sim.mode === "REALTIME" && !state.sim.isPaused) {
@@ -154,9 +251,21 @@ class DarkWar {
   }
 
   /**
+   * Cancel automatic movement
+   */
+  private cancelAutoMove(): void {
+    this.autoMovePath = null;
+  }
+
+  /**
    * Handle player movement
    */
-  private handleMove(dx: number, dy: number): void {
+  private handleMove(dx: number, dy: number, fromAutoMove: boolean = false): void {
+    // Only cancel auto-move if this is a manual action
+    if (!fromAutoMove) {
+      this.cancelAutoMove();
+    }
+
     const state = this.game.getState();
     const playerId = state.player.id;
     const player = state.player;
@@ -223,6 +332,8 @@ class DarkWar {
    * Handle firing weapon
    */
   private handleFire(dx: number, dy: number): void {
+    this.cancelAutoMove();
+
     // If dx=0 and dy=0, this is just entering fire mode, not actually firing
     if (dx === 0 && dy === 0) {
       this.game.addLog("Choose a direction to fire.");
@@ -263,6 +374,8 @@ class DarkWar {
    * Handle wait/rest
    */
   private handleWait(): void {
+    this.cancelAutoMove();
+
     const state = this.game.getState();
     const playerId = state.player.id;
 
@@ -292,6 +405,8 @@ class DarkWar {
    * Handle door interaction
    */
   private handleInteract(dx: number, dy: number): void {
+    this.cancelAutoMove();
+
     // Show prompt if no direction given
     if (dx === 0 && dy === 0) {
       this.game.addLog("Which direction?");
@@ -331,6 +446,8 @@ class DarkWar {
    * Handle pickup items
    */
   private handlePickup(): void {
+    this.cancelAutoMove();
+
     const state = this.game.getState();
     const playerId = state.player.id;
 
@@ -360,6 +477,8 @@ class DarkWar {
    * Handle reload
    */
   private handleReload(): void {
+    this.cancelAutoMove();
+
     const state = this.game.getState();
     const playerId = state.player.id;
 
@@ -389,6 +508,8 @@ class DarkWar {
    * Handle descending stairs
    */
   private handleDescend(): void {
+    this.cancelAutoMove();
+
     const state = this.game.getState();
     const playerId = state.player.id;
 
