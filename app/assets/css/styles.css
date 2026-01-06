@@ -197,6 +197,17 @@ body {
   padding: 16px;
 }
 
+.message-log ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.message-log li {
+  padding: 4px 0;
+  line-height: 1.4;
+}
+
 .controls {
   padding: 16px;
   color: var(--ink-dim);

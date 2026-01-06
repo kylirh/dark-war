@@ -144,7 +144,7 @@ export class Game {
   }
 
   /**
-   * Add message to log
+   * Add message to log (newest first)
    */
   public addLog(message: string): void {
     this.state.log.unshift(message);

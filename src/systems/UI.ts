@@ -81,21 +81,16 @@ export class UI {
   }
 
   /**
-   * Update message log
+   * Update message log (messages already ordered newest first)
    */
   public updateLog(messages: string[]): void {
-    this.logElement.textContent = messages.slice(0, 20).join("\n");
-  }
-
-  /**
-   * Add a message to the log
-   */
-  public addMessage(message: string, log: string[]): void {
-    log.unshift(message);
-    if (log.length > 200) {
-      log.pop();
+    this.logElement.innerHTML = "";
+    const displayCount = Math.min(100, messages.length);
+    for (let i = 0; i < displayCount; i++) {
+      const li = document.createElement("li");
+      li.textContent = messages[i];
+      this.logElement.appendChild(li);
     }
-    this.updateLog(log);
   }
 
   /**

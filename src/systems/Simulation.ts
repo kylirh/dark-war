@@ -677,9 +677,9 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
 
 function processMessageEvent(state: GameState, event: GameEvent): void {
   const data = event.data as { type: "MESSAGE"; message: string };
-  state.log.push(data.message);
-  if (state.log.length > 100) {
-    state.log.shift();
+  state.log.unshift(data.message);
+  if (state.log.length > 200) {
+    state.log.pop();
   }
 }
 
