@@ -31,6 +31,7 @@ export class Renderer {
   private ready: boolean = false;
   private pendingRender?: { state: GameState; isDead: boolean };
   private viewportElement?: HTMLElement;
+  private scale: number = 2.0; // Configurable scale factor
 
   constructor(canvasId: string) {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -56,12 +57,11 @@ export class Renderer {
    * Initialize Pixi.js application and load sprite sheet
    */
   private async initAsync(canvas: HTMLCanvasElement): Promise<void> {
-    // Render at 2X scale for fixed size display
-    const scale = 2;
+    // Render at configured scale for fixed size display
     const canvasWidth =
-      (MAP_WIDTH * CELL_CONFIG.w + CELL_CONFIG.padX * 2) * scale;
+      (MAP_WIDTH * CELL_CONFIG.w + CELL_CONFIG.padX * 2) * this.scale;
     const canvasHeight =
-      (MAP_HEIGHT * CELL_CONFIG.h + CELL_CONFIG.padY * 2) * scale;
+      (MAP_HEIGHT * CELL_CONFIG.h + CELL_CONFIG.padY * 2) * this.scale;
 
     // Initialize Pixi application
     await this.app.init({
@@ -73,8 +73,8 @@ export class Renderer {
       roundPixels: true, // Ensure pixel-perfect rendering
     });
 
-    // Scale the stage to render at 2X
-    this.app.stage.scale.set(scale);
+    // Scale the stage to render at configured scale
+    this.app.stage.scale.set(this.scale);
 
     // Load sprite sheet with nearest neighbor filtering
     try {
@@ -260,15 +260,14 @@ export class Renderer {
   ): void {
     if (!this.viewportElement) return;
 
-    const scale = 2;
     const offsetX = CELL_CONFIG.padX;
     const offsetY = CELL_CONFIG.padY;
 
-    // Calculate player's screen position (at 2x scale)
+    // Calculate player's screen position (at configured scale)
     const playerScreenX =
-      (offsetX + player.x * CELL_CONFIG.w + CELL_CONFIG.w / 2) * scale;
+      (offsetX + player.x * CELL_CONFIG.w + CELL_CONFIG.w / 2) * this.scale;
     const playerScreenY =
-      (offsetY + player.y * CELL_CONFIG.h + CELL_CONFIG.h / 2) * scale;
+      (offsetY + player.y * CELL_CONFIG.h + CELL_CONFIG.h / 2) * this.scale;
 
     // Calculate scroll position to center player in viewport
     const targetScrollX = playerScreenX - this.viewportElement.clientWidth / 2;
