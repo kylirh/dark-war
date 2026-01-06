@@ -18,7 +18,7 @@ export function findPath(
   // Check if target is in bounds, passable, and explored
   if (!inBounds(endX, endY)) return null;
   if (!passable(map, endX, endY)) return null;
-  
+
   // Check if destination is explored
   const destIdx = idx(endX, endY);
   if (!explored.has(destIdx)) return null;
@@ -26,24 +26,30 @@ export function findPath(
   // Passable callback for rot.js pathfinding
   const passableCallback = (x: number, y: number): boolean => {
     if (!inBounds(x, y)) return false;
-    
+
     // Check tile type - allow open doors, block closed/locked doors
     const tileIdx = idx(x, y);
     const tile = map[tileIdx];
-    if (tile === TileType.WALL || tile === TileType.DOOR_CLOSED || tile === TileType.DOOR_LOCKED) {
+    if (
+      tile === TileType.WALL ||
+      tile === TileType.DOOR_CLOSED ||
+      tile === TileType.DOOR_LOCKED
+    ) {
       return false;
     }
-    
+
     // Only allow pathing through explored tiles
     if (!explored.has(tileIdx)) return false;
-    
+
     // Check for monsters blocking the path (but allow destination to have a monster for attack)
-    const isDestination = (x === endX && y === endY);
+    const isDestination = x === endX && y === endY;
     if (!isDestination) {
-      const monster = entities.find(e => e.x === x && e.y === y && e.kind === EntityKind.MONSTER);
+      const monster = entities.find(
+        (e) => e.x === x && e.y === y && e.kind === EntityKind.MONSTER
+      );
       if (monster) return false;
     }
-    
+
     return true;
   };
 

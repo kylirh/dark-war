@@ -38,14 +38,25 @@ class SoundManager {
         audio.volume = this.volume;
         audio.preload = "auto";
 
-        // Wait for the audio to be loadable
+        // Load metadata only (faster than waiting for full audio buffer)
         await new Promise<void>((resolve, reject) => {
-          audio.addEventListener("canplaythrough", () => resolve(), {
+          const timeout = setTimeout(() => {
+            // Don't wait forever - resolve after 100ms regardless
+            resolve();
+          }, 100);
+
+          audio.addEventListener("loadedmetadata", () => {
+            clearTimeout(timeout);
+            resolve();
+          }, {
             once: true,
           });
           audio.addEventListener(
             "error",
-            () => reject(new Error(`Failed to load ${effect}`)),
+            () => {
+              clearTimeout(timeout);
+              reject(new Error(`Failed to load ${effect}`));
+            },
             {
               once: true,
             }

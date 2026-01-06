@@ -76,29 +76,38 @@ export class Renderer {
     // Scale the stage to render at configured scale
     this.app.stage.scale.set(this.scale);
 
-    // Load sprite sheet with nearest neighbor filtering
-    try {
-      this.spriteSheet = await Assets.load("./assets/img/sprites.png");
-      // Set texture to use nearest neighbor (no smoothing)
-      if (this.spriteSheet?.source) {
-        this.spriteSheet.source.scaleMode = "nearest";
+    // Load sprite sheet with direct image loading (faster than Assets.load)
+    const img = new Image();
+    img.src = "./assets/img/sprites.png";
+    
+    img.onload = () => {
+      try {
+        this.spriteSheet = Texture.from(img);
+        // Set texture to use nearest neighbor (no smoothing)
+        if (this.spriteSheet?.source) {
+          this.spriteSheet.source.scaleMode = "nearest";
+        }
+        this.ready = true;
+        
+        // Render any pending state
+        if (this.pendingRender) {
+          this.render(this.pendingRender.state, this.pendingRender.isDead);
+          this.pendingRender = undefined;
+        }
+      } catch (error) {
+        console.error("Failed to create texture from sprite sheet:", error);
+        this.ready = true; // Continue anyway
       }
-      this.ready = true;
-      console.log("✓ Sprites loaded");
-    } catch (error) {
+    };
+    
+    img.onerror = (error) => {
       console.error("Failed to load sprite sheet:", error);
       this.ready = true; // Continue anyway
-    }
+    };
 
     // Add containers to stage
     this.app.stage.addChild(this.mapContainer);
     this.app.stage.addChild(this.entityContainer);
-
-    // Render any pending state
-    if (this.pendingRender) {
-      this.render(this.pendingRender.state, this.pendingRender.isDead);
-      this.pendingRender = undefined;
-    }
   }
 
   /**

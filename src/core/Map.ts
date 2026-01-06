@@ -122,14 +122,16 @@ function carveVertical(
  * Add doors at floor-wall-floor transitions
  */
 function addDoors(map: TileType[]): void {
+  const width = MAP_WIDTH;
   for (let y = 1; y < MAP_HEIGHT - 1; y++) {
     for (let x = 1; x < MAP_WIDTH - 1; x++) {
-      if (tileAt(map, x, y) !== TileType.WALL) continue;
+      const idx = x + y * width;
+      if (map[idx] !== TileType.WALL) continue;
 
-      const north = tileAt(map, x, y - 1);
-      const south = tileAt(map, x, y + 1);
-      const east = tileAt(map, x + 1, y);
-      const west = tileAt(map, x - 1, y);
+      const north = map[x + (y - 1) * width];
+      const south = map[x + (y + 1) * width];
+      const east = map[(x + 1) + y * width];
+      const west = map[(x - 1) + y * width];
 
       const verticalCorridor =
         north === TileType.FLOOR && south === TileType.FLOOR;
@@ -142,7 +144,7 @@ function addDoors(map: TileType[]): void {
           const doorType = RNG.chance(0.85)
             ? TileType.DOOR_CLOSED
             : TileType.DOOR_LOCKED;
-          setTile(map, x, y, doorType);
+          map[idx] = doorType;
         }
       }
     }

@@ -3,6 +3,9 @@
  * Modern roguelike remake of Mission Thunderbolt
  */
 
+// Debug configuration - set to true to enable performance logging
+const DEBUG = false;
+
 import { Game } from "./core/Game";
 import { Renderer } from "./systems/Renderer";
 import { UI } from "./systems/UI";
@@ -13,7 +16,13 @@ import {
   stepSimulationTick,
   SIM_DT_MS,
 } from "./systems/Simulation";
-import { CommandType, EntityKind, MAP_WIDTH, TileType, CELL_CONFIG } from "./types";
+import {
+  CommandType,
+  EntityKind,
+  MAP_WIDTH,
+  TileType,
+  CELL_CONFIG,
+} from "./types";
 import { findPath } from "./utils/pathfinding";
 import { idx } from "./utils/helpers";
 
@@ -45,11 +54,20 @@ class DarkWar {
   private autoMovePath: [number, number][] | null = null;
 
   constructor() {
+    if (DEBUG) console.time("Game initialization");
+    if (DEBUG) console.time("Create Game instance");
     this.game = new Game();
+    if (DEBUG) console.timeEnd("Create Game instance");
+    
+    if (DEBUG) console.time("Create Renderer");
     this.renderer = new Renderer("game");
+    if (DEBUG) console.timeEnd("Create Renderer");
+    
+    if (DEBUG) console.time("Create UI");
     this.ui = new UI();
+    if (DEBUG) console.timeEnd("Create UI");
 
-    // Preload sounds
+    // Preload sounds asynchronously (don't block startup)
     this.initializeSounds();
 
     // Setup input callbacks
@@ -79,17 +97,23 @@ class DarkWar {
     this.setupNativeMenuHandlers();
 
     // Try to load saved game, otherwise start new
-    if (!this.loadGame()) {
-      this.game.reset(1);
-    }
+    if (DEBUG) console.time("Load or start game");
+    // Skip localStorage on initial load (slow in Electron)
+    // User can explicitly load via menu if save exists
+    this.game.reset(1);
+    if (DEBUG) console.timeEnd("Load or start game");
 
+    if (DEBUG) console.time("First render");
     this.render();
+    if (DEBUG) console.timeEnd("First render");
+    
     // Center on player initially (after first render)
     setTimeout(() => {
       const state = this.game.getState();
       this.renderer.centerOnPlayer(state.player, false);
     }, 100);
     this.startRenderLoop();
+    if (DEBUG) console.timeEnd("Game initialization");
   }
 
   /**
@@ -98,7 +122,7 @@ class DarkWar {
   private async initializeSounds(): Promise<void> {
     try {
       await Sound.preload();
-      console.log("Sound effects loaded");
+      if (DEBUG) console.log("✓ Sound effects loaded");
     } catch (error) {
       console.warn("Failed to preload sounds:", error);
     }
@@ -137,7 +161,7 @@ class DarkWar {
 
       // Get canvas bounding rect
       const rect = canvas.getBoundingClientRect();
-      
+
       // Convert click coordinates to canvas coordinates
       const canvasX = event.clientX - rect.left;
       const canvasY = event.clientY - rect.top;
@@ -184,22 +208,27 @@ class DarkWar {
       state.sim.lastFrameMs = now;
 
       // Process auto-move in Planning mode only
-      if (state.sim.mode === "PLANNING" && !state.sim.isPaused && this.autoMovePath && this.autoMovePath.length > 0) {
+      if (
+        state.sim.mode === "PLANNING" &&
+        !state.sim.isPaused &&
+        this.autoMovePath &&
+        this.autoMovePath.length > 0
+      ) {
         // Check if there are no queued commands
         const hasQueuedCommands = state.commandsByTick.size > 0;
-        
+
         if (!hasQueuedCommands) {
           // Store HP before move to detect damage
           const hpBefore = state.player.hp;
-          
+
           // Get next step
           const nextStep = this.autoMovePath[0];
           const dx = nextStep[0] - state.player.x;
           const dy = nextStep[1] - state.player.y;
-          
+
           // Try to move to next step (pass true to indicate this is auto-move)
           this.handleMove(dx, dy, true);
-          
+
           // Check if player took damage or died - cancel auto-move
           const hpAfter = state.player.hp;
           if (hpAfter < hpBefore) {
@@ -208,7 +237,7 @@ class DarkWar {
             // Only advance path if no damage taken
             // Remove this step from path
             this.autoMovePath.shift();
-            
+
             // Clear path if we've reached destination or if move failed
             if (this.autoMovePath.length === 0) {
               this.autoMovePath = null;
@@ -260,7 +289,11 @@ class DarkWar {
   /**
    * Handle player movement
    */
-  private handleMove(dx: number, dy: number, fromAutoMove: boolean = false): void {
+  private handleMove(
+    dx: number,
+    dy: number,
+    fromAutoMove: boolean = false
+  ): void {
     // Only cancel auto-move if this is a manual action
     if (!fromAutoMove) {
       this.cancelAutoMove();
@@ -665,6 +698,7 @@ class DarkWar {
       if (saveData) {
         const state = JSON.parse(saveData);
         this.game.deserialize(state);
+        if (DEBUG) console.log("✓ Save game loaded");
         return true;
       }
     } catch (e) {

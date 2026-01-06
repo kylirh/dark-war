@@ -1,3 +1,6 @@
+// Debug configuration
+const DEBUG = false;
+
 import {
   GameState,
   EntityKind,
@@ -14,7 +17,7 @@ import { createPlayer } from "../entities/Player";
 import { createMutant, createRat } from "../entities/Monster";
 import { createItem } from "../entities/Item";
 import { RNG } from "../utils/RNG";
-import { dist, isWalkable } from "../utils/helpers";
+import { dist, passable } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
 
 /**
@@ -60,6 +63,7 @@ export class Game {
    * Initialize a new game or level
    */
   public reset(depth: number = 1): void {
+    if (DEBUG) console.time("reset: total");
     this.isDead = false;
     const dungeon = generateDungeon();
 
@@ -89,12 +93,16 @@ export class Game {
     // Add player to entities
     this.state.entities.push(this.state.player);
 
+    // Get free tiles once, upfront (optimized for performance)
+    const freeTiles = this.getFreeTilesOptimized(dungeon.start);
+
     // Spawn monsters
-    const freeTiles = this.getFreeTiles(dungeon.start);
     let ratCount = 0;
     let mutantCount = 0;
-    for (let i = 0; i < 30; i++) {
-      const [x, y] = RNG.choose(freeTiles);
+    for (let i = 0; i < 30 && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
+
       if (dist([x, y], dungeon.start) > 8) {
         const spawnRat = RNG.chance(0.5);
         if (spawnRat) {
@@ -104,38 +112,48 @@ export class Game {
           this.state.entities.push(createMutant(x, y, depth));
           mutantCount++;
         }
+        // Remove tile from available pool
+        freeTiles.splice(tileIndex, 1);
       }
     }
-    this.addLog(`Level ${depth}: ${ratCount} rats, ${mutantCount} mutants`);
+    if (DEBUG) console.log(`Spawned ${ratCount} rats, ${mutantCount} mutants`);
 
     // Spawn items
-    for (let i = 0; i < 10; i++) {
-      const [x, y] = RNG.choose(freeTiles);
+    for (let i = 0; i < 10 && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
       this.state.entities.push(createItem(x, y, ItemType.AMMO));
+      freeTiles.splice(tileIndex, 1);
     }
 
-    for (let i = 0; i < 6; i++) {
-      const [x, y] = RNG.choose(freeTiles);
+    for (let i = 0; i < 6 && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
       this.state.entities.push(createItem(x, y, ItemType.MEDKIT));
+      freeTiles.splice(tileIndex, 1);
     }
 
-    for (let i = 0; i < 3; i++) {
-      const [x, y] = RNG.choose(freeTiles);
+    for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
       this.state.entities.push(createItem(x, y, ItemType.KEYCARD));
+      freeTiles.splice(tileIndex, 1);
     }
 
     this.addLog(`You descend into level ${depth}.`);
+
     this.updateFOV();
+    if (DEBUG) console.timeEnd("reset: total");
   }
 
   /**
-   * Get all walkable tiles
+   * Get all walkable tiles (optimized - doesn't check entities)
    */
-  private getFreeTiles(_start: [number, number]): [number, number][] {
+  private getFreeTilesOptimized(_start: [number, number]): [number, number][] {
     const tiles: [number, number][] = [];
     for (let y = 1; y < MAP_HEIGHT - 1; y++) {
       for (let x = 1; x < MAP_WIDTH - 1; x++) {
-        if (isWalkable(this.state.map, this.state.entities, x, y)) {
+        if (passable(this.state.map, x, y)) {
           tiles.push([x, y]);
         }
       }
@@ -229,11 +247,15 @@ export class Game {
       (e) => e.kind === EntityKind.PLAYER
     );
 
+    // Get free tiles once, upfront
+    const freeTiles = this.getFreeTilesOptimized(dungeon.start);
+
     // Spawn new monsters
-    const freeTiles = this.getFreeTiles(dungeon.start);
     const monsterCount = 8 + this.state.depth;
-    for (let i = 0; i < monsterCount; i++) {
-      const [x, y] = RNG.choose(freeTiles);
+    for (let i = 0; i < monsterCount && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
+
       if (dist([x, y], dungeon.start) > 8) {
         const spawnRat = RNG.chance(0.5);
         if (spawnRat) {
@@ -241,23 +263,30 @@ export class Game {
         } else {
           this.state.entities.push(createMutant(x, y, this.state.depth));
         }
+        freeTiles.splice(tileIndex, 1);
       }
     }
 
     // Spawn items
-    for (let i = 0; i < 10; i++) {
-      const [x, y] = RNG.choose(freeTiles);
+    for (let i = 0; i < 10 && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
       this.state.entities.push(createItem(x, y, ItemType.AMMO));
+      freeTiles.splice(tileIndex, 1);
     }
 
-    for (let i = 0; i < 6; i++) {
-      const [x, y] = RNG.choose(freeTiles);
+    for (let i = 0; i < 6 && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
       this.state.entities.push(createItem(x, y, ItemType.MEDKIT));
+      freeTiles.splice(tileIndex, 1);
     }
 
-    for (let i = 0; i < 3; i++) {
-      const [x, y] = RNG.choose(freeTiles);
+    for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
       this.state.entities.push(createItem(x, y, ItemType.KEYCARD));
+      freeTiles.splice(tileIndex, 1);
     }
 
     this.updateFOV();
