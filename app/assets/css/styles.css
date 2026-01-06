@@ -36,6 +36,41 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  position: relative;
+}
+
+.scale-toggle {
+  position: absolute;
+  top: 16px;
+  right: 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 0;
+  color: white;
+  cursor: pointer;
+  z-index: 10;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-font-smoothing: antialiased;
+  font-family: "Chicago_12", sans-serif;
+  font-size: 1em;
+}
+
+.scale-toggle:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.05);
+}
+
+.scale-toggle:active {
+  transform: scale(0.95);
+}
+
+.scale-toggle:focus {
+  outline: none;
 }
 
 .viewport {

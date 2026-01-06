@@ -102,6 +102,29 @@ export class Renderer {
   }
 
   /**
+   * Set the scale factor and update canvas size
+   */
+  public setScale(newScale: number): void {
+    this.scale = newScale;
+
+    // Update canvas size
+    const canvasWidth =
+      (MAP_WIDTH * CELL_CONFIG.w + CELL_CONFIG.padX * 2) * this.scale;
+    const canvasHeight =
+      (MAP_HEIGHT * CELL_CONFIG.h + CELL_CONFIG.padY * 2) * this.scale;
+
+    this.app.renderer.resize(canvasWidth, canvasHeight);
+    this.app.stage.scale.set(this.scale);
+  }
+
+  /**
+   * Get current scale factor
+   */
+  public getScale(): number {
+    return this.scale;
+  }
+
+  /**
    * Textures are cached to prevent memory leaks
    */
   private getTexture(x: number, y: number): Texture | null {

@@ -25,6 +25,7 @@ declare global {
       onSaveGame: (callback: () => void) => void;
       onLoadGame: (callback: () => void) => void;
     };
+    darkWarApp?: DarkWar;
   }
 }
 
@@ -568,13 +569,23 @@ class DarkWar {
       this.playerActedThisTick = false;
     }
   }
+
+  /**
+   * Set the rendering scale
+   */
+  public setScale(scale: number): void {
+    this.renderer.setScale(scale);
+    const state = this.game.getState();
+    this.renderer.render(state, this.game.isPlayerDead());
+    this.renderer.centerOnPlayer(state.player, false);
+  }
 }
 
 // Initialize game when DOM is ready
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
-    new DarkWar();
+    window.darkWarApp = new DarkWar();
   });
 } else {
-  new DarkWar();
+  window.darkWarApp = new DarkWar();
 }

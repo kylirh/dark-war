@@ -23,6 +23,14 @@
             role="img"
           ></canvas>
         </div>
+        <button
+          class="scale-toggle"
+          id="scaleToggle"
+          aria-label="Toggle scale"
+          title="Toggle scale (1X/2X/3X)"
+        >
+          2X
+        </button>
       </div>
 
       <aside class="sidebar" id="sidebar">
@@ -98,6 +106,25 @@
           "aria-label",
           isCollapsed ? "Show Sidebar" : "Hide Sidebar"
         );
+      });
+
+      // Scale toggle functionality
+      const scaleToggle = document.getElementById("scaleToggle");
+      const scales = [1, 2, 3];
+      let currentScaleIndex = 1; // Start at 2X
+
+      scaleToggle.addEventListener("click", () => {
+        // Cycle to next scale
+        currentScaleIndex = (currentScaleIndex + 1) % scales.length;
+        const newScale = scales[currentScaleIndex];
+
+        // Update button text
+        scaleToggle.textContent = `${newScale}X`;
+
+        // Update renderer scale if available
+        if (window.darkWarApp && window.darkWarApp.setScale) {
+          window.darkWarApp.setScale(newScale);
+        }
       });
     </script>
   </body>
