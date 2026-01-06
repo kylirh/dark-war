@@ -13,7 +13,7 @@ export interface SpriteCoordinate {
 }
 
 // Sprite sheet configuration
-export const SPRITE_SHEET_PATH = "assets/sprites.png";
+export const SPRITE_SHEET_PATH = "assets/img/sprites.png";
 export const SPRITE_SIZE = 32;
 export const SPRITES_PER_ROW = 16;
 

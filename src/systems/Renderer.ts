@@ -78,7 +78,7 @@ export class Renderer {
 
     // Load sprite sheet with nearest neighbor filtering
     try {
-      this.spriteSheet = await Assets.load("./assets/sprites.png");
+      this.spriteSheet = await Assets.load("./assets/img/sprites.png");
       // Set texture to use nearest neighbor (no smoothing)
       if (this.spriteSheet?.source) {
         this.spriteSheet.source.scaleMode = "nearest";
