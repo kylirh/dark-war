@@ -26,6 +26,8 @@ export const SIM_DT_MS = 50; // 20 ticks/second
 export const MONSTER_ACTION_DELAY = 5; // Monsters act every N ticks (player acts every 1)
 export const MAX_EVENTS_PER_TICK = 1000;
 export const MAX_COMMANDS_PER_TICK = 1000;
+export const PLAYER_REGEN_INTERVAL = 100;
+export const PLAYER_REGEN_AMOUNT = 1;
 
 let nextCommandId = 1;
 let nextEventId = 1;
@@ -165,6 +167,20 @@ export function stepSimulationTick(state: GameState): void {
     cleanupOldCommands(state, tick);
   }
 
+  // 7. Periodically heal player
+  if (tick % PLAYER_REGEN_INTERVAL === 0) {
+    if (state.player.hp < state.player.hpMax) {
+      enqueueCommand(state, {
+        tick: tick + 1,
+        actorId: state.player.id,
+        type: CommandType.HEAL,
+        data: { type: "HEAL", amount: PLAYER_REGEN_AMOUNT },
+        priority: 0,
+        source: "SYSTEM",
+      });
+    }
+  }
+
   state.sim.nowTick++;
 }
 
@@ -224,6 +240,9 @@ function resolveCommand(state: GameState, cmd: Command): void {
       break;
     case CommandType.DESCEND:
       resolveDescendCommand(state, cmd);
+      break;
+    case CommandType.HEAL:
+      resolveHealCommand(state, cmd);
       break;
     case CommandType.WAIT:
       break;
@@ -346,6 +365,22 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
 // ========================================
 // Fire Command
 // ========================================
+
+function resolveHealCommand(state: GameState, cmd: Command): void {
+  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  if (!actor || actor.kind !== EntityKind.PLAYER) return;
+
+  const data = cmd.data as { type: "HEAL"; amount: number };
+
+  pushEvent(state, {
+    type: EventType.HEAL,
+    data: {
+      type: "HEAL",
+      targetId: actor.id,
+      amount: data.amount,
+    },
+  });
+}
 
 function resolveFireCommand(state: GameState, cmd: Command): void {
   const shooter = state.entities.find((e) => e.id === cmd.actorId);
@@ -594,6 +629,9 @@ function processEvent(state: GameState, event: GameEvent): void {
     case EventType.NPC_TALK:
       processNPCTalkEvent(state, event);
       break;
+    case EventType.HEAL:
+      processHealEvent(state, event);
+      break;
   }
 }
 
@@ -754,6 +792,28 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
 
   // Remove item
   state.entities = state.entities.filter((e) => e.id !== item.id);
+}
+
+function processHealEvent(state: GameState, event: GameEvent): void {
+  const data = event.data as {
+    type: "HEAL";
+    targetId: number;
+    amount: number;
+  };
+  const target = state.entities.find((e) => e.id === data.targetId);
+  if (!target || target.kind !== EntityKind.PLAYER) return;
+
+  const player = target as Player;
+  player.hp = Math.min(player.hpMax, player.hp + data.amount);
+
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: {
+      type: "MESSAGE",
+      message: `You heal for ${data.amount} HP.`,
+    },
+    cause: event.id,
+  });
 }
 
 function processPlayerDeathEvent(state: GameState, event: GameEvent): void {

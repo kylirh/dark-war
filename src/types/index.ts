@@ -105,6 +105,7 @@ export enum CommandType {
   INTERACT = "INTERACT",
   RELOAD = "RELOAD",
   DESCEND = "DESCEND",
+  HEAL = "HEAL",
 }
 
 export interface Command {
@@ -125,7 +126,8 @@ export type CommandData =
   | { type: "PICKUP" }
   | { type: "INTERACT"; x: number; y: number }
   | { type: "RELOAD" }
-  | { type: "DESCEND" };
+  | { type: "DESCEND" }
+  | { type: "HEAL"; amount: number };
 
 export enum EventType {
   DAMAGE = "DAMAGE",
@@ -137,6 +139,7 @@ export enum EventType {
   PICKUP_ITEM = "PICKUP_ITEM",
   PLAYER_DEATH = "PLAYER_DEATH",
   NPC_TALK = "NPC_TALK",
+  HEAL = "HEAL",
 }
 
 export interface GameEvent {
@@ -156,7 +159,8 @@ export type EventData =
   | { type: "DOOR_OPEN"; x: number; y: number }
   | { type: "PICKUP_ITEM"; actorId: number; itemId: number }
   | { type: "PLAYER_DEATH"; playerId: number }
-  | { type: "NPC_TALK"; npcId: number; message: string };
+  | { type: "NPC_TALK"; npcId: number; message: string }
+  | { type: "HEAL"; targetId: number; amount: number };
 
 // ========================================
 // Map and Room Types
