@@ -45,12 +45,16 @@ class SoundManager {
             resolve();
           }, 100);
 
-          audio.addEventListener("loadedmetadata", () => {
-            clearTimeout(timeout);
-            resolve();
-          }, {
-            once: true,
-          });
+          audio.addEventListener(
+            "loadedmetadata",
+            () => {
+              clearTimeout(timeout);
+              resolve();
+            },
+            {
+              once: true,
+            }
+          );
           audio.addEventListener(
             "error",
             () => {

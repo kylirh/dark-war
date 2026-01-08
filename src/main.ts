@@ -58,11 +58,11 @@ class DarkWar {
     if (DEBUG) console.time("Create Game instance");
     this.game = new Game();
     if (DEBUG) console.timeEnd("Create Game instance");
-    
+
     if (DEBUG) console.time("Create Renderer");
     this.renderer = new Renderer("game");
     if (DEBUG) console.timeEnd("Create Renderer");
-    
+
     if (DEBUG) console.time("Create UI");
     this.ui = new UI();
     if (DEBUG) console.timeEnd("Create UI");
@@ -106,7 +106,7 @@ class DarkWar {
     if (DEBUG) console.time("First render");
     this.render();
     if (DEBUG) console.timeEnd("First render");
-    
+
     // Center on player initially (after first render)
     setTimeout(() => {
       const state = this.game.getState();

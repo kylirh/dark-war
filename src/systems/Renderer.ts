@@ -79,7 +79,7 @@ export class Renderer {
     // Load sprite sheet with direct image loading (faster than Assets.load)
     const img = new Image();
     img.src = "./assets/img/sprites.png";
-    
+
     img.onload = () => {
       try {
         this.spriteSheet = Texture.from(img);
@@ -88,7 +88,7 @@ export class Renderer {
           this.spriteSheet.source.scaleMode = "nearest";
         }
         this.ready = true;
-        
+
         // Render any pending state
         if (this.pendingRender) {
           this.render(this.pendingRender.state, this.pendingRender.isDead);
@@ -99,7 +99,7 @@ export class Renderer {
         this.ready = true; // Continue anyway
       }
     };
-    
+
     img.onerror = (error) => {
       console.error("Failed to load sprite sheet:", error);
       this.ready = true; // Continue anyway

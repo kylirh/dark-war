@@ -130,8 +130,8 @@ function addDoors(map: TileType[]): void {
 
       const north = map[x + (y - 1) * width];
       const south = map[x + (y + 1) * width];
-      const east = map[(x + 1) + y * width];
-      const west = map[(x - 1) + y * width];
+      const east = map[x + 1 + y * width];
+      const west = map[x - 1 + y * width];
 
       const verticalCorridor =
         north === TileType.FLOOR && south === TileType.FLOOR;
