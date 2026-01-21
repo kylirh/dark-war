@@ -1,0 +1,121 @@
+/**
+ * Base class for entities with continuous world coordinates
+ * Provides source of truth (worldX, worldY) and derived state (gridX, gridY)
+ */
+
+import { EntityKind, CELL_CONFIG } from "../types";
+import { Body } from "detect-collisions";
+
+/**
+ * Base properties for all continuous entities
+ */
+export abstract class ContinuousEntity {
+  public id: number;
+  public abstract kind: EntityKind;
+  
+  // Source of Truth: World coordinates (float, in pixels)
+  public worldX: number;
+  public worldY: number;
+  
+  // Previous world position (for interpolation)
+  public prevWorldX: number;
+  public prevWorldY: number;
+  
+  // Velocity (pixels per second)
+  public velocityX: number = 0;
+  public velocityY: number = 0;
+  
+  // Facing direction (radians, 0 = right, PI/2 = down, PI = left, 3PI/2 = up)
+  public facingAngle: number = 0;
+  
+  // Target position for planning mode
+  public targetWorldX?: number;
+  public targetWorldY?: number;
+  
+  // Action timing
+  public nextActTick?: number;
+  
+  // Physics body reference (set by Physics system)
+  public physicsBody?: Body;
+
+  constructor(id: number, gridX: number, gridY: number) {
+    this.id = id;
+    
+    // Initialize world position to center of grid cell
+    this.worldX = gridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    this.worldY = gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    
+    // Initialize previous position to current
+    this.prevWorldX = this.worldX;
+    this.prevWorldY = this.worldY;
+  }
+
+  /**
+   * Derived State: Grid X coordinate (read-only)
+   * Calculated from worldX, never set manually
+   */
+  public get gridX(): number {
+    return Math.floor(this.worldX / CELL_CONFIG.w);
+  }
+
+  /**
+   * Derived State: Grid Y coordinate (read-only)
+   * Calculated from worldY, never set manually
+   */
+  public get gridY(): number {
+    return Math.floor(this.worldY / CELL_CONFIG.h);
+  }
+
+  /**
+   * Legacy compatibility: x maps to gridX
+   */
+  public get x(): number {
+    return this.gridX;
+  }
+
+  /**
+   * Legacy compatibility: y maps to gridY
+   */
+  public get y(): number {
+    return this.gridY;
+  }
+
+  /**
+   * Store current position as previous (call before physics update)
+   */
+  public storePreviousPosition(): void {
+    this.prevWorldX = this.worldX;
+    this.prevWorldY = this.worldY;
+  }
+
+  /**
+   * Set world position from grid coordinates
+   */
+  public setPositionFromGrid(gridX: number, gridY: number): void {
+    this.worldX = gridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    this.worldY = gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    this.prevWorldX = this.worldX;
+    this.prevWorldY = this.worldY;
+  }
+
+  /**
+   * Check if entity has reached its target (for planning mode)
+   */
+  public hasReachedTarget(threshold: number = 2): boolean {
+    if (this.targetWorldX === undefined || this.targetWorldY === undefined) {
+      return true;
+    }
+    
+    const dx = this.worldX - this.targetWorldX;
+    const dy = this.worldY - this.targetWorldY;
+    return Math.sqrt(dx * dx + dy * dy) < threshold;
+  }
+
+  /**
+   * Clear target position
+   */
+  public clearTarget(): void {
+    this.targetWorldX = undefined;
+    this.targetWorldY = undefined;
+  }
+}

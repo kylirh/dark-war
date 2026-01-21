@@ -7,6 +7,7 @@ import {
   EntityKind,
   Monster,
   Player,
+  Entity,
   TileType,
   ItemType,
   Item,
@@ -241,7 +242,7 @@ function resolveCommand(state: GameState, cmd: Command): void {
 function getActionCost(
   state: GameState,
   cmd: Command,
-  actor: Player | Monster | Item
+  actor: Entity
 ): number {
   // In planning mode, everyone acts at same rate (turn-based)
   if (state.sim.mode === "PLANNING") {

@@ -46,12 +46,33 @@ export enum ItemType {
 // Entity Interfaces
 // ========================================
 
+// Note: Entity types now reference class instances from entity factories
+// The x, y properties are getters that return gridX, gridY
+// Actual entities extend ContinuousEntity with worldX, worldY as source of truth
+
 export interface BaseEntity {
   id: number;
   kind: EntityKind;
-  x: number;
-  y: number;
+  x: number; // Derived from worldX (getter in ContinuousEntity)
+  y: number; // Derived from worldY (getter in ContinuousEntity)
   nextActTick?: number;
+  
+  // Continuous world coordinates (source of truth)
+  worldX: number;
+  worldY: number;
+  prevWorldX: number;
+  prevWorldY: number;
+  
+  // Velocity
+  velocityX: number;
+  velocityY: number;
+  
+  // Facing direction
+  facingAngle: number;
+  
+  // Target for planning mode
+  targetWorldX?: number;
+  targetWorldY?: number;
 }
 
 export interface Player extends BaseEntity {
@@ -81,7 +102,15 @@ export interface Item extends BaseEntity {
   heal?: number;
 }
 
-export type Entity = Player | Monster | Item;
+export interface Bullet extends BaseEntity {
+  kind: EntityKind.BULLET;
+  damage: number;
+  ownerId: number;
+  maxDistance: number;
+  traveledDistance: number;
+}
+
+export type Entity = Player | Monster | Item | Bullet;
 
 // ========================================
 // Simulation System (NEW)

@@ -1,4 +1,5 @@
-import { Item, EntityKind, ItemType } from "../types";
+import { EntityKind, ItemType } from "../types";
+import { ContinuousEntity } from "./ContinuousEntity";
 import { RNG } from "../utils/RNG";
 
 let nextItemId = 3000; // Start item IDs at 3000
@@ -22,30 +23,39 @@ const ITEM_META = {
 };
 
 /**
- * Create an item entity
+ * Item entity with continuous world coordinates
+ */
+export class ItemEntity extends ContinuousEntity {
+  public readonly kind = EntityKind.ITEM;
+  
+  public type: ItemType;
+  public name: string;
+  public amount?: number;
+  public heal?: number;
+
+  constructor(gridX: number, gridY: number, type: ItemType, amount?: number) {
+    super(nextItemId++, gridX, gridY);
+    
+    this.type = type;
+    this.name = ITEM_META[type].name;
+    
+    // Add type-specific properties
+    if (type === ItemType.AMMO) {
+      this.amount = amount || 8 + RNG.int(10);
+    } else if (type === ItemType.MEDKIT) {
+      this.heal = 6 + RNG.int(8);
+    }
+  }
+}
+
+/**
+ * Create an item entity (factory function for backward compatibility)
  */
 export function createItem(
   x: number,
   y: number,
   type: ItemType,
   amount = 0
-): Item {
-  const meta = ITEM_META[type];
-  const item: Item = {
-    id: nextItemId++,
-    kind: EntityKind.ITEM,
-    x,
-    y,
-    type,
-    name: meta.name,
-  };
-
-  // Add type-specific properties
-  if (type === ItemType.AMMO) {
-    item.amount = amount || 8 + RNG.int(10);
-  } else if (type === ItemType.MEDKIT) {
-    item.heal = 6 + RNG.int(8);
-  }
-
-  return item;
+): ItemEntity {
+  return new ItemEntity(x, y, type, amount);
 }

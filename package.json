@@ -48,6 +48,7 @@
     }
   },
   "dependencies": {
+    "detect-collisions": "^10.10.2025",
     "pixi.js": "^8.14.0",
     "rot-js": "^2.2.1"
   }
