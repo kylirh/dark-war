@@ -7,7 +7,9 @@
 const DEBUG = false;
 
 import { Game } from "./core/Game";
+import { GameLoop } from "./core/GameLoop";
 import { Renderer } from "./systems/Renderer";
+import { Physics } from "./systems/Physics";
 import { UI } from "./systems/UI";
 import { InputHandler, InputCallbacks } from "./systems/Input";
 import { Sound } from "./systems/Sound";
@@ -45,11 +47,12 @@ declare global {
  */
 class DarkWar {
   private game: Game;
+  private gameLoop: GameLoop;
+  private physics: Physics;
   private renderer: Renderer;
   private ui: UI;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private inputHandler: InputHandler;
-  private rafId?: number;
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
 
@@ -59,6 +62,10 @@ class DarkWar {
     this.game = new Game();
     if (DEBUG) console.timeEnd("Create Game instance");
 
+    if (DEBUG) console.time("Create Physics");
+    this.physics = new Physics();
+    if (DEBUG) console.timeEnd("Create Physics");
+
     if (DEBUG) console.time("Create Renderer");
     this.renderer = new Renderer("game");
     if (DEBUG) console.timeEnd("Create Renderer");
@@ -66,6 +73,16 @@ class DarkWar {
     if (DEBUG) console.time("Create UI");
     this.ui = new UI();
     if (DEBUG) console.timeEnd("Create UI");
+
+    if (DEBUG) console.time("Create GameLoop");
+    this.gameLoop = new GameLoop(
+      {
+        update: (dt) => this.update(dt),
+        render: (alpha) => this.render(alpha),
+      },
+      1000 / 60 // 60Hz physics
+    );
+    if (DEBUG) console.timeEnd("Create GameLoop");
 
     // Preload sounds asynchronously (don't block startup)
     this.initializeSounds();
@@ -104,15 +121,25 @@ class DarkWar {
     if (DEBUG) console.timeEnd("Load or start game");
 
     if (DEBUG) console.time("First render");
-    this.render();
+    this.render(0);
     if (DEBUG) console.timeEnd("First render");
+
+    // Initialize physics for current map
+    const initialState = this.game.getState();
+    this.physics.initializeMap(initialState.map);
+    
+    // Initialize physics bodies for all entities
+    for (const entity of initialState.entities) {
+      this.physics.updateEntityBody(entity as any);
+    }
 
     // Center on player initially (after first render)
     setTimeout(() => {
       const state = this.game.getState();
       this.renderer.centerOnPlayer(state.player, false);
     }, 100);
-    this.startRenderLoop();
+    
+    this.gameLoop.start();
     if (DEBUG) console.timeEnd("Game initialization");
   }
 
@@ -199,84 +226,111 @@ class DarkWar {
   }
 
   /**
-   * Start the render loop (decoupled from simulation)
+   * Update game logic at fixed timestep (called by GameLoop)
    */
-  private startRenderLoop(): void {
-    const loop = (now: number) => {
-      const state = this.game.getState();
-      const dt = now - state.sim.lastFrameMs;
-      state.sim.lastFrameMs = now;
+  private update(dt: number): void {
+    const state = this.game.getState();
 
-      // Process auto-move in Planning mode only
-      if (
-        state.sim.mode === "PLANNING" &&
-        !state.sim.isPaused &&
-        this.autoMovePath &&
-        this.autoMovePath.length > 0
-      ) {
-        // Check if there are no queued commands
-        const hasQueuedCommands = state.commandsByTick.size > 0;
+    // Control pause state based on simulation mode
+    if (state.sim.isPaused) {
+      this.gameLoop.pause();
+    } else {
+      this.gameLoop.resume();
+    }
 
-        if (!hasQueuedCommands) {
-          // Store HP before move to detect damage
-          const hpBefore = state.player.hp;
+    // Update physics
+    this.physics.updatePhysics(state, dt);
+    
+    // Update bullets
+    this.physics.updateBullets(state, dt);
 
-          // Get next step
-          const nextStep = this.autoMovePath[0];
-          const dx = nextStep[0] - state.player.x;
-          const dy = nextStep[1] - state.player.y;
+    // Process auto-move in Planning mode only
+    if (
+      state.sim.mode === "PLANNING" &&
+      !state.sim.isPaused &&
+      this.autoMovePath &&
+      this.autoMovePath.length > 0
+    ) {
+      // Check if there are no queued commands
+      const hasQueuedCommands = state.commandsByTick.size > 0;
 
-          // Try to move to next step (pass true to indicate this is auto-move)
-          this.handleMove(dx, dy, true);
+      if (!hasQueuedCommands) {
+        // Store HP before move to detect damage
+        const hpBefore = state.player.hp;
 
-          // Check if player took damage or died - cancel auto-move
-          const hpAfter = state.player.hp;
-          if (hpAfter < hpBefore) {
-            this.cancelAutoMove();
-          } else {
-            // Only advance path if no damage taken
-            // Remove this step from path
-            this.autoMovePath.shift();
+        // Get next step
+        const nextStep = this.autoMovePath[0];
+        const dx = nextStep[0] - state.player.x;
+        const dy = nextStep[1] - state.player.y;
 
-            // Clear path if we've reached destination or if move failed
-            if (this.autoMovePath.length === 0) {
-              this.autoMovePath = null;
-            }
-          }
+        // Try to move to next step (pass true to indicate this is auto-move)
+        this.handleMove(dx, dy, true);
+
+        // Check if player took damage or died - cancel auto-move
+        const hpAfter = state.player.hp;
+        if (hpAfter < hpBefore) {
+          this.cancelAutoMove();
         } else {
-          // Commands are still being processed, wait
-        }
-      }
+          // Only advance path if no damage taken
+          // Remove this step from path
+          this.autoMovePath.shift();
 
-      // Real-time mode: advance simulation based on accumulated time
-      if (state.sim.mode === "REALTIME" && !state.sim.isPaused) {
-        state.sim.accumulatorMs += dt;
-
-        while (state.sim.accumulatorMs >= SIM_DT_MS) {
-          stepSimulationTick(state);
-          state.sim.accumulatorMs -= SIM_DT_MS;
-
-          // Update FOV after tick
-          this.game.updateFOV();
-
-          // Check for descend flag
-          if ((state as any)._shouldDescend) {
-            (state as any)._shouldDescend = false;
-            this.game.descend();
-            // Center on player after level transition
-            setTimeout(() => {
-              const newState = this.game.getState();
-              this.renderer.centerOnPlayer(newState.player, false);
-            }, 50);
+          // Clear path if we've reached destination or if move failed
+          if (this.autoMovePath.length === 0) {
+            this.autoMovePath = null;
           }
         }
       }
+    }
 
-      this.render();
-      this.rafId = requestAnimationFrame(loop);
-    };
+    // Real-time mode: advance simulation
+    if (state.sim.mode === "REALTIME" && !state.sim.isPaused) {
+      // Accumulate time and step simulation
+      state.sim.accumulatorMs += dt * 1000; // Convert seconds to ms
 
-    this.rafId = requestAnimationFrame(loop);
+      while (state.sim.accumulatorMs >= SIM_DT_MS) {
+        stepSimulationTick(state);
+        state.sim.accumulatorMs -= SIM_DT_MS;
+
+        // Update FOV after tick
+        this.game.updateFOV();
+
+        // Check for descend flag
+        if ((state as any)._shouldDescend) {
+          (state as any)._shouldDescend = false;
+          this.game.descend();
+          
+          // Reinitialize physics for new level
+          this.physics.initializeMap(state.map);
+          for (const entity of state.entities) {
+            this.physics.updateEntityBody(entity as any);
+          }
+          
+          // Center on player after level transition
+          setTimeout(() => {
+            const newState = this.game.getState();
+            this.renderer.centerOnPlayer(newState.player, false);
+          }, 50);
+        }
+      }
+    }
+  }
+
+  /**
+   * Render game at variable framerate with interpolation (called by GameLoop)
+   */
+  private render(alpha: number): void {
+    const state = this.game.getState();
+    const isDead = this.game.isPlayerDead();
+
+    this.renderer.render(state, isDead, alpha);
+    this.ui.updateAll(state.player, state.depth, state.log, state.sim);
+
+    // Center on player if they acted this tick
+    if (this.playerActedThisTick) {
+      this.renderer.centerOnPlayer(state.player, true);
+      this.playerActedThisTick = false;
+    }
   }
 
   /**
@@ -609,7 +663,15 @@ class DarkWar {
    */
   private handleNewGame(): void {
     this.game.reset(1);
-    this.render();
+    
+    // Reinitialize physics for new level
+    const state = this.game.getState();
+    this.physics.initializeMap(state.map);
+    for (const entity of state.entities) {
+      this.physics.updateEntityBody(entity as any);
+    }
+    
+    this.render(0);
     // Center on player after new game starts
     setTimeout(() => {
       const state = this.game.getState();
@@ -629,10 +691,10 @@ class DarkWar {
       window.native.saveWrite(saveData).then((result) => {
         if (result.ok) {
           this.game.addLog("Game saved.");
-          this.render();
+          this.render(0);
         } else {
           this.game.addLog("Save failed.");
-          this.render();
+          this.render(0);
         }
       });
     } else {
@@ -640,10 +702,10 @@ class DarkWar {
       try {
         localStorage.setItem("darkwar-save", saveData);
         this.game.addLog("Game saved.");
-        this.render();
+        this.render(0);
       } catch (e) {
-        this.game.addLog("Save failed.");
-        this.render();
+        this.game.addLog("Failed to save game.");
+        this.render(0);
       }
     }
   }
@@ -654,10 +716,18 @@ class DarkWar {
   private handleLoad(): void {
     if (this.loadGame()) {
       this.game.addLog("Game loaded.");
-      this.render();
+      
+      // Reinitialize physics for loaded level
+      const state = this.game.getState();
+      this.physics.initializeMap(state.map);
+      for (const entity of state.entities) {
+        this.physics.updateEntityBody(entity as any);
+      }
+      
+      this.render(0);
     } else {
       this.game.addLog("No save found.");
-      this.render();
+      this.render(0);
     }
   }
 
@@ -709,29 +779,12 @@ class DarkWar {
   }
 
   /**
-   * Render everything
-   */
-  private render(): void {
-    const state = this.game.getState();
-    const isDead = this.game.isPlayerDead();
-
-    this.renderer.render(state, isDead);
-    this.ui.updateAll(state.player, state.depth, state.log, state.sim);
-
-    // Center on player if they acted this tick
-    if (this.playerActedThisTick) {
-      this.renderer.centerOnPlayer(state.player, true);
-      this.playerActedThisTick = false;
-    }
-  }
-
-  /**
    * Set the rendering scale
    */
   public setScale(scale: number): void {
     this.renderer.setScale(scale);
     const state = this.game.getState();
-    this.renderer.render(state, this.game.isPlayerDead());
+    this.renderer.render(state, this.game.isPlayerDead(), 0);
     this.renderer.centerOnPlayer(state.player, false);
   }
 }

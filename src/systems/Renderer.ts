@@ -183,9 +183,12 @@ export class Renderer {
   }
 
   /**
-   * Render the entire game state
+   * Render the entire game state with interpolation
+   * @param state Game state
+   * @param isDead Whether player is dead
+   * @param alpha Interpolation factor (0.0 to 1.0) for smooth movement
    */
-  public render(state: GameState, isDead: boolean = false): void {
+  public render(state: GameState, isDead: boolean = false, alpha: number = 0): void {
     if (!this.ready) {
       // Store state to render once ready
       this.pendingRender = { state, isDead };
@@ -230,19 +233,35 @@ export class Renderer {
       }
     }
 
-    // Render entities (items first, then monsters)
-    const sortedEntities = [...entities].sort((a, b) => {
-      const aIsItem = a.kind === EntityKind.ITEM ? 1 : 0;
-      const bIsItem = b.kind === EntityKind.ITEM ? 1 : 0;
-      return bIsItem - aIsItem;
-    });
+    // Render entities (items first, then monsters), excluding player
+    const sortedEntities = entities
+      .filter(e => e.kind !== EntityKind.PLAYER)
+      .sort((a, b) => {
+        const aIsItem = a.kind === EntityKind.ITEM ? 1 : 0;
+        const bIsItem = b.kind === EntityKind.ITEM ? 1 : 0;
+        return bIsItem - aIsItem;
+      });
 
     for (const entity of sortedEntities) {
+      // Type guard to ensure we have required properties
+      if (!('x' in entity) || !('y' in entity)) continue;
+      
       const tileIndex = idx(entity.x, entity.y);
       if (options.fov && !visible.has(tileIndex)) continue;
 
-      const screenX = offsetX + entity.x * CELL_CONFIG.w;
-      const screenY = offsetY + entity.y * CELL_CONFIG.h;
+      // Use interpolated position if entity has continuous coordinates
+      let screenX: number, screenY: number;
+      if ("worldX" in entity && "prevWorldX" in entity) {
+        // Interpolate between previous and current world position
+        const interpWorldX = (entity as any).prevWorldX + ((entity as any).worldX - (entity as any).prevWorldX) * alpha;
+        const interpWorldY = (entity as any).prevWorldY + ((entity as any).worldY - (entity as any).prevWorldY) * alpha;
+        screenX = offsetX + interpWorldX;
+        screenY = offsetY + interpWorldY;
+      } else {
+        // Fall back to grid-based positioning
+        screenX = offsetX + (entity as any).x * CELL_CONFIG.w;
+        screenY = offsetY + (entity as any).y * CELL_CONFIG.h;
+      }
 
       let coord;
 
@@ -250,19 +269,33 @@ export class Renderer {
         coord = SPRITE_COORDS[entity.type];
       } else if (entity.kind === EntityKind.ITEM && "type" in entity) {
         coord = SPRITE_COORDS[entity.type];
+      } else if (entity.kind === EntityKind.BULLET) {
+        coord = SPRITE_COORDS["bullet"]; // We'll need to add this to sprites config
       }
 
       if (coord) {
         const sprite = this.createSprite(coord.x, coord.y, screenX, screenY);
         if (sprite) {
+          // Apply rotation if entity has facingAngle
+          if ("facingAngle" in entity && (entity.kind === EntityKind.MONSTER || entity.kind === EntityKind.BULLET)) {
+            sprite.rotation = (entity as any).facingAngle;
+          }
           this.entityContainer.addChild(sprite);
         }
       }
     }
 
     // Render player last
-    const playerX = offsetX + player.x * CELL_CONFIG.w;
-    const playerY = offsetY + player.y * CELL_CONFIG.h;
+    let playerX: number, playerY: number;
+    if ("worldX" in player && "prevWorldX" in player) {
+      const interpWorldX = (player as any).prevWorldX + ((player as any).worldX - (player as any).prevWorldX) * alpha;
+      const interpWorldY = (player as any).prevWorldY + ((player as any).worldY - (player as any).prevWorldY) * alpha;
+      playerX = offsetX + interpWorldX;
+      playerY = offsetY + interpWorldY;
+    } else {
+      playerX = offsetX + (player as any).x * CELL_CONFIG.w;
+      playerY = offsetY + (player as any).y * CELL_CONFIG.h;
+    }
     const playerCoord = SPRITE_COORDS["player"];
 
     if (playerCoord) {
@@ -277,6 +310,10 @@ export class Renderer {
         // Apply death effect
         if (isDead) {
           sprite.tint = 0x555555;
+        }
+        // Apply rotation if player has facingAngle
+        if ("facingAngle" in player) {
+          sprite.rotation = player.facingAngle;
         }
         this.entityContainer.addChild(sprite);
       }
