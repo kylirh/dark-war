@@ -278,13 +278,34 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
   // Check passability
   if (!passable(state.map, nx, ny)) return false;
 
-  // Check entity blocking
-  const blocker = state.entities.find(
+  // Check entity blocking - first try grid-based, then distance-based for continuous movement
+  let blocker = state.entities.find(
     (e) =>
       e.x === nx &&
       e.y === ny &&
       (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER)
   );
+
+  // Also check for monsters near the target position using continuous coordinates
+  if (!blocker && actor.kind === EntityKind.PLAYER && "worldX" in actor) {
+    const targetWorldX = nx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const targetWorldY = ny * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    const MELEE_RANGE = CELL_CONFIG.w; // One tile range
+    
+    for (const entity of state.entities) {
+      if (entity.kind !== EntityKind.MONSTER) continue;
+      if (!("worldX" in entity)) continue;
+      
+      const dx = (entity as any).worldX - targetWorldX;
+      const dy = (entity as any).worldY - targetWorldY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance < MELEE_RANGE) {
+        blocker = entity;
+        break;
+      }
+    }
+  }
 
   if (blocker) {
     // If player trying to move into monster, convert to melee attack
@@ -306,33 +327,29 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
     return false;
   }
 
-  // Move succeeds - set target position and velocity for continuous movement
-  if ("worldX" in actor && "targetWorldX" in actor) {
-    // Calculate target world position (center of target tile)
+  // Move succeeds - set velocity for smooth pixel-based movement
+  if ("worldX" in actor) {
     const targetWorldX = nx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     const targetWorldY = ny * CELL_CONFIG.h + CELL_CONFIG.h / 2;
     
+    // Set target position
     (actor as any).targetWorldX = targetWorldX;
     (actor as any).targetWorldY = targetWorldY;
     
-    // Set velocity toward target
+    // Calculate direction and set velocity
     const dx = targetWorldX - (actor as any).worldX;
     const dy = targetWorldY - (actor as any).worldY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     
     if (dist > 0) {
-      // Speed: 160 px/s for planning mode, 80 px/s for real-time
-      const speed = state.sim.mode === "PLANNING" ? 160 : 80;
+      // Movement speed: 200 pixels per second for smooth motion
+      const speed = 200;
       (actor as any).velocityX = (dx / dist) * speed;
       (actor as any).velocityY = (dy / dist) * speed;
       
       // Update facing angle
       (actor as any).facingAngle = Math.atan2(dy, dx);
     }
-  } else {
-    // Legacy fallback for non-continuous entities
-    (actor as any).x = nx;
-    (actor as any).y = ny;
   }
   return true;
 }
@@ -349,10 +366,24 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
   const target = state.entities.find((e) => e.id === data.targetId);
   if (!target) return;
 
-  // Check adjacency
-  const dx = Math.abs(attacker.x - target.x);
-  const dy = Math.abs(attacker.y - target.y);
-  if (dx > 1 || dy > 1) return;
+  // Check adjacency - support both grid-based and continuous coordinates
+  let inRange = false;
+  
+  if ("worldX" in attacker && "worldX" in target) {
+    // Use continuous distance check
+    const dx = (attacker as any).worldX - (target as any).worldX;
+    const dy = (attacker as any).worldY - (target as any).worldY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const MELEE_RANGE = CELL_CONFIG.w * 1.5; // 1.5 tiles
+    inRange = distance <= MELEE_RANGE;
+  } else {
+    // Fall back to grid-based check
+    const dx = Math.abs(attacker.x - target.x);
+    const dy = Math.abs(attacker.y - target.y);
+    inRange = dx <= 1 && dy <= 1;
+  }
+  
+  if (!inRange) return;
 
   // Determine damage
   let damage = 1;
@@ -815,12 +846,27 @@ function decideMonsterCommand(
   tick: number
 ): Command | null {
   const { player } = state;
-  const dx = player.x - monster.x;
-  const dy = player.y - monster.y;
-  const distance = Math.max(Math.abs(dx), Math.abs(dy));
+  
+  // Calculate distance - prefer continuous if available
+  let distance: number;
+  let inMeleeRange = false;
+  
+  if ("worldX" in monster && "worldX" in player) {
+    const dx = (player as any).worldX - (monster as any).worldX;
+    const dy = (player as any).worldY - (monster as any).worldY;
+    const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+    distance = pixelDistance / CELL_CONFIG.w; // Convert to tile units for FOV check
+    const MELEE_RANGE = CELL_CONFIG.w * 1.5; // 1.5 tiles for melee
+    inMeleeRange = pixelDistance <= MELEE_RANGE;
+  } else {
+    const dx = player.x - monster.x;
+    const dy = player.y - monster.y;
+    distance = Math.max(Math.abs(dx), Math.abs(dy));
+    inMeleeRange = distance === 1;
+  }
 
   // Adjacent: melee attack
-  if (distance === 1) {
+  if (inMeleeRange) {
     return {
       id: 0,
       tick,
@@ -891,6 +937,9 @@ function decideMonsterCommand(
   }
 
   // Chase player (greedy step with fallback directions)
+  // Always use grid-based dx/dy for movement direction
+  const dx = player.x - monster.x;
+  const dy = player.y - monster.y;
   const moveX = dx > 0 ? 1 : dx < 0 ? -1 : 0;
   const moveY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
 

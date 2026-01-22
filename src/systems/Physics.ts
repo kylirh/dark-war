@@ -12,11 +12,11 @@ import { ItemEntity } from "../entities/Item";
 import { BulletEntity } from "../entities/Bullet";
 import { idx, tileAt } from "../utils/helpers";
 
-// Physics constants
-const PLAYER_RADIUS = 12; // pixels
-const MONSTER_RADIUS = 10; // pixels
-const ITEM_RADIUS = 8; // pixels
-const BULLET_RADIUS = 3; // pixels
+// Physics constants - radii are smaller than half tile size to allow corridor navigation
+const PLAYER_RADIUS = 8; // pixels (16px diameter in 32px corridors = 16px clearance)
+const MONSTER_RADIUS = 7; // pixels 
+const ITEM_RADIUS = 6; // pixels
+const BULLET_RADIUS = 4; // pixels (slightly larger for better hit detection)
 const SEPARATION_FORCE = 0.05; // 5% repulsion per frame
 const WALL_FRICTION = 0.95; // Slight dampening on wall collision
 
@@ -55,10 +55,11 @@ export class Physics {
           const worldX = x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
           const worldY = y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
 
+          // Try half-size boxes - detect-collisions may use half-extents
           const box = this.system.createBox(
             { x: worldX, y: worldY },
-            CELL_CONFIG.w,
-            CELL_CONFIG.h
+            CELL_CONFIG.w / 2, // Half-extent: 16px from center = 32px full width
+            CELL_CONFIG.h / 2  // Half-extent: 16px from center = 32px full height
           );
           box.isStatic = true;
           (box as any).isWall = true;
@@ -133,39 +134,47 @@ export class Physics {
       }
     }
 
-    // Store previous positions for all entities
-    for (const entity of state.entities) {
-      if (entity instanceof ContinuousEntity) {
-        entity.storePreviousPosition();
-      }
-    }
-
-    // Update positions based on velocity
+    // Process each entity
     for (const entity of state.entities) {
       if (!(entity instanceof ContinuousEntity)) continue;
 
-      // Items don't move - skip velocity integration
+      // Items are static - never move them
       if (entity.kind === EntityKind.ITEM) {
         continue;
       }
 
-      // Check if entity has reached target (for planning mode)
-      if (entity.targetWorldX !== undefined && entity.targetWorldY !== undefined) {
-        if (entity.hasReachedTarget(2)) {
-          // Stop movement and clear target
-          entity.velocityX = 0;
-          entity.velocityY = 0;
-          entity.clearTarget();
-          
-          // Snap to exact target position
-          entity.worldX = entity.targetWorldX;
-          entity.worldY = entity.targetWorldY;
-        }
+      // Skip if entity has no velocity (already stopped)
+      if (entity.velocityX === 0 && entity.velocityY === 0) {
+        continue;
       }
 
-      // Integrate velocity
-      entity.worldX += entity.velocityX * dt;
-      entity.worldY += entity.velocityY * dt;
+      // Check if entity has a target to move toward
+      if (entity.targetWorldX !== undefined && entity.targetWorldY !== undefined) {
+        const toTargetX = entity.targetWorldX - entity.worldX;
+        const toTargetY = entity.targetWorldY - entity.worldY;
+        const distToTarget = Math.sqrt(toTargetX * toTargetX + toTargetY * toTargetY);
+        
+        // Calculate how far we would move this frame
+        const moveDistance = Math.sqrt(entity.velocityX * entity.velocityX + entity.velocityY * entity.velocityY) * dt;
+        
+        // If we would overshoot target, snap to it and stop
+        if (moveDistance >= distToTarget) {
+          entity.worldX = entity.targetWorldX;
+          entity.worldY = entity.targetWorldY;
+          entity.velocityX = 0;
+          entity.velocityY = 0;
+          entity.targetWorldX = undefined;
+          entity.targetWorldY = undefined;
+        } else {
+          // Move toward target
+          entity.worldX += entity.velocityX * dt;
+          entity.worldY += entity.velocityY * dt;
+        }
+      } else {
+        // No target - just apply velocity (for bullets)
+        entity.worldX += entity.velocityX * dt;
+        entity.worldY += entity.velocityY * dt;
+      }
 
       // Update physics body position
       if (entity.physicsBody) {
@@ -173,17 +182,19 @@ export class Physics {
       }
     }
 
-    // Check collisions
+    // Check and resolve collisions
     this.system.checkAll((response) => {
       this.handleCollision(state, response);
     });
-
-    // Apply soft separation between entities (monsters only)
-    this.applySoftSeparation(state);
   }
 
   /**
    * Handle collision between two bodies
+   * 
+   * In detect-collisions, response.overlapV is the vector from A to B.
+   * To separate: A moves in NEGATIVE overlapV direction, B moves in POSITIVE direction.
+   * 
+   * Wall sliding: Only cancel velocity component moving INTO the wall, preserve parallel movement.
    */
   private handleCollision(state: GameState, response: Response): void {
     const bodyA = response.a;
@@ -193,127 +204,72 @@ export class Physics {
     const entityA = this.getEntityFromBody(state, bodyA);
     const entityB = this.getEntityFromBody(state, bodyB);
 
-    // Wall collision - apply sliding
-    if ((bodyA as any).isWall && entityB) {
-      this.applyWallSliding(entityB, response);
-    } else if ((bodyB as any).isWall && entityA) {
-      // Swap response
-      const swappedResponse = {
-        ...response,
-        a: bodyB,
-        b: bodyA,
-        overlapV: {
-          x: -response.overlapV.x,
-          y: -response.overlapV.y,
-        },
-      } as Response;
-      this.applyWallSliding(entityA, swappedResponse);
-    }
-
-    // Entity-entity collision (block non-triggers)
-    if (entityA && entityB) {
-      // Only apply blocking for solid entities (not items/bullets)
-      if (
-        !bodyA.isTrigger &&
-        !bodyB.isTrigger &&
-        entityA.kind !== EntityKind.ITEM &&
-        entityB.kind !== EntityKind.ITEM &&
-        entityA.kind !== EntityKind.BULLET &&
-        entityB.kind !== EntityKind.BULLET
-      ) {
-        // Push entities apart equally
-        entityA.worldX -= response.overlapV.x * 0.5;
-        entityA.worldY -= response.overlapV.y * 0.5;
-        entityB.worldX += response.overlapV.x * 0.5;
-        entityB.worldY += response.overlapV.y * 0.5;
-
-        if (entityA.physicsBody) {
-          entityA.physicsBody.setPosition(entityA.worldX, entityA.worldY);
+    // Wall collision - push entity out of wall with wall sliding
+    if ((bodyA as any).isWall && entityB && entityB.kind !== EntityKind.ITEM) {
+      // A is wall, B is entity - entity moves in POSITIVE overlapV direction (away from wall)
+      entityB.worldX += response.overlapV.x;
+      entityB.worldY += response.overlapV.y;
+      
+      // Wall sliding: Only cancel velocity INTO the wall
+      // If overlap is primarily horizontal, cancel X velocity
+      // If overlap is primarily vertical, cancel Y velocity
+      const absOverlapX = Math.abs(response.overlapV.x);
+      const absOverlapY = Math.abs(response.overlapV.y);
+      
+      if (absOverlapX > absOverlapY) {
+        // Horizontal wall hit - cancel X velocity only
+        entityB.velocityX = 0;
+        if (entityB.targetWorldX !== undefined) {
+          entityB.targetWorldX = entityB.worldX; // Snap target X to current
         }
-        if (entityB.physicsBody) {
-          entityB.physicsBody.setPosition(entityB.worldX, entityB.worldY);
+      } else if (absOverlapY > absOverlapX) {
+        // Vertical wall hit - cancel Y velocity only
+        entityB.velocityY = 0;
+        if (entityB.targetWorldY !== undefined) {
+          entityB.targetWorldY = entityB.worldY; // Snap target Y to current
         }
+      } else {
+        // Corner hit - cancel all velocity
+        entityB.velocityX = 0;
+        entityB.velocityY = 0;
+        entityB.targetWorldX = undefined;
+        entityB.targetWorldY = undefined;
       }
-    }
-  }
-
-  /**
-   * Apply wall sliding (zero out velocity perpendicular to wall)
-   */
-  private applyWallSliding(entity: ContinuousEntity, response: Response): void {
-    // Push entity out of wall
-    entity.worldX -= response.overlapV.x;
-    entity.worldY -= response.overlapV.y;
-
-    if (entity.physicsBody) {
-      entity.physicsBody.setPosition(entity.worldX, entity.worldY);
-    }
-
-    // Calculate wall normal (normalized overlap vector)
-    const normalX = response.overlapV.x;
-    const normalY = response.overlapV.y;
-    const length = Math.sqrt(normalX * normalX + normalY * normalY);
-
-    if (length > 0) {
-      const nx = normalX / length;
-      const ny = normalY / length;
-
-      // Project velocity onto wall normal and subtract (slide along wall)
-      const dot = entity.velocityX * nx + entity.velocityY * ny;
-      entity.velocityX -= dot * nx;
-      entity.velocityY -= dot * ny;
-
-      // Apply friction
-      entity.velocityX *= WALL_FRICTION;
-      entity.velocityY *= WALL_FRICTION;
-    }
-  }
-
-  /**
-   * Apply soft separation force between overlapping entities
-   */
-  private applySoftSeparation(state: GameState): void {
-    const entities: ContinuousEntity[] = [];
-    for (const e of state.entities) {
-      if (
-        (e.kind === EntityKind.MONSTER || e.kind === EntityKind.PLAYER) &&
-        (e instanceof PlayerEntity || e instanceof MonsterEntity)
-      ) {
-        entities.push(e);
+      
+      if (entityB.physicsBody) {
+        entityB.physicsBody.setPosition(entityB.worldX, entityB.worldY);
       }
-    }
-
-    for (let i = 0; i < entities.length; i++) {
-      for (let j = i + 1; j < entities.length; j++) {
-        const entityA = entities[i];
-        const entityB = entities[j];
-
-        const dx = entityB.worldX - entityA.worldX;
-        const dy = entityB.worldY - entityA.worldY;
-        const distSq = dx * dx + dy * dy;
-
-        // Check if overlapping (using sum of radii)
-        const radiusA = entityA.kind === EntityKind.PLAYER ? PLAYER_RADIUS : MONSTER_RADIUS;
-        const radiusB = entityB.kind === EntityKind.PLAYER ? PLAYER_RADIUS : MONSTER_RADIUS;
-        const minDist = radiusA + radiusB;
-
-        if (distSq > 0 && distSq < minDist * minDist) {
-          const dist = Math.sqrt(distSq);
-          const overlap = minDist - dist;
-
-          // Normalize direction
-          const nx = dx / dist;
-          const ny = dy / dist;
-
-          // Apply small repulsion force
-          const forceX = nx * overlap * SEPARATION_FORCE;
-          const forceY = ny * overlap * SEPARATION_FORCE;
-
-          entityA.velocityX -= forceX;
-          entityA.velocityY -= forceY;
-          entityB.velocityX += forceX;
-          entityB.velocityY += forceY;
+    } else if ((bodyB as any).isWall && entityA && entityA.kind !== EntityKind.ITEM) {
+      // B is wall, A is entity - entity moves in NEGATIVE overlapV direction (away from wall)
+      entityA.worldX -= response.overlapV.x;
+      entityA.worldY -= response.overlapV.y;
+      
+      // Wall sliding: Only cancel velocity INTO the wall
+      const absOverlapX = Math.abs(response.overlapV.x);
+      const absOverlapY = Math.abs(response.overlapV.y);
+      
+      if (absOverlapX > absOverlapY) {
+        // Horizontal wall hit - cancel X velocity only
+        entityA.velocityX = 0;
+        if (entityA.targetWorldX !== undefined) {
+          entityA.targetWorldX = entityA.worldX;
         }
+      } else if (absOverlapY > absOverlapX) {
+        // Vertical wall hit - cancel Y velocity only
+        entityA.velocityY = 0;
+        if (entityA.targetWorldY !== undefined) {
+          entityA.targetWorldY = entityA.worldY;
+        }
+      } else {
+        // Corner hit - cancel all velocity
+        entityA.velocityX = 0;
+        entityA.velocityY = 0;
+        entityA.targetWorldX = undefined;
+        entityA.targetWorldY = undefined;
+      }
+      
+      if (entityA.physicsBody) {
+        entityA.physicsBody.setPosition(entityA.worldX, entityA.worldY);
       }
     }
   }
@@ -359,17 +315,23 @@ export class Physics {
         continue;
       }
 
-      // Check collision with walls
+      // Check for actual collisions (not just potentials)
       if (bullet.physicsBody) {
-        const potentials = this.system.getPotentials(bullet.physicsBody);
+        let bulletRemoved = false;
         
-        for (const other of potentials) {
+        // Check collision with walls using checkOne
+        this.system.checkOne(bullet.physicsBody, (response) => {
+          if (bulletRemoved) return;
+          
+          const other = response.b;
+          
           // Hit wall
           if ((other as any).isWall) {
             this.removeEntity(bullet);
             const index = state.entities.indexOf(bullet);
             if (index > -1) state.entities.splice(index, 1);
-            break;
+            bulletRemoved = true;
+            return;
           }
 
           // Hit monster
@@ -379,17 +341,28 @@ export class Physics {
             targetEntity.kind === EntityKind.MONSTER &&
             targetEntity.id !== bullet.ownerId
           ) {
-            // Apply damage (will be handled by combat system event)
+            // Apply damage
             const monster = targetEntity as MonsterEntity;
             monster.hp -= bullet.damage;
+            
+            // Check if monster died
+            if (monster.hp <= 0) {
+              // Remove dead monster
+              this.removeEntity(monster);
+              const monsterIdx = state.entities.indexOf(monster);
+              if (monsterIdx > -1) state.entities.splice(monsterIdx, 1);
+              
+              // Award score
+              state.player.score += 15;
+            }
 
             // Remove bullet
             this.removeEntity(bullet);
             const index = state.entities.indexOf(bullet);
             if (index > -1) state.entities.splice(index, 1);
-            break;
+            bulletRemoved = true;
           }
-        }
+        });
       }
     }
   }
@@ -455,5 +428,48 @@ export class Physics {
    */
   public getSystem(): System {
     return this.system;
+  }
+
+  /**
+   * Find the nearest monster within melee range of a position
+   * Used for melee attacks with continuous movement
+   */
+  public findMeleeTarget(
+    state: GameState,
+    fromX: number,
+    fromY: number,
+    directionX: number,
+    directionY: number
+  ): MonsterEntity | undefined {
+    const MELEE_RANGE = CELL_CONFIG.w * 1.5; // 1.5 tiles worth of range
+    
+    let nearestMonster: MonsterEntity | undefined;
+    let nearestDistance = MELEE_RANGE;
+    
+    for (const entity of state.entities) {
+      if (entity.kind !== EntityKind.MONSTER) continue;
+      if (!('worldX' in entity)) continue;
+      
+      const monster = entity as MonsterEntity;
+      const dx = monster.worldX - fromX;
+      const dy = monster.worldY - fromY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Check if in range
+      if (distance > MELEE_RANGE) continue;
+      
+      // Check if roughly in the direction we're attacking
+      if (directionX !== 0 || directionY !== 0) {
+        const dot = dx * directionX + dy * directionY;
+        if (dot < 0) continue; // Behind us
+      }
+      
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestMonster = monster;
+      }
+    }
+    
+    return nearestMonster;
   }
 }

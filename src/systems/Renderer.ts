@@ -265,18 +265,15 @@ export class Renderer {
       const tileIndex = idx(entity.x, entity.y);
       if (options.fov && !visible.has(tileIndex)) continue;
 
-      // Use interpolated position if entity has continuous coordinates
+      // Use current world position (no interpolation for instant movement)
       let screenX: number, screenY: number;
-      if ("worldX" in entity && "prevWorldX" in entity) {
-        // Interpolate between previous and current world position
-        const interpWorldX = (entity as any).prevWorldX + ((entity as any).worldX - (entity as any).prevWorldX) * alpha;
-        const interpWorldY = (entity as any).prevWorldY + ((entity as any).worldY - (entity as any).prevWorldY) * alpha;
-        screenX = offsetX + interpWorldX;
-        screenY = offsetY + interpWorldY;
+      if ("worldX" in entity) {
+        screenX = offsetX + (entity as any).worldX;
+        screenY = offsetY + (entity as any).worldY;
       } else {
         // Fall back to grid-based positioning
-        screenX = offsetX + (entity as any).x * CELL_CONFIG.w;
-        screenY = offsetY + (entity as any).y * CELL_CONFIG.h;
+        screenX = offsetX + (entity as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+        screenY = offsetY + (entity as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
       }
 
       let coord;
@@ -292,8 +289,11 @@ export class Renderer {
       if (coord) {
         const sprite = this.createSprite(coord.x, coord.y, screenX, screenY);
         if (sprite) {
-          // Apply rotation if entity has facingAngle
-          if ("facingAngle" in entity && (entity.kind === EntityKind.MONSTER || entity.kind === EntityKind.BULLET)) {
+          // Center the sprite on its position
+          sprite.anchor.set(0.5, 0.5);
+          
+          // Only rotate bullets, keep player and monsters upright
+          if (entity.kind === EntityKind.BULLET && "facingAngle" in entity) {
             sprite.rotation = (entity as any).facingAngle;
           }
           this.entityContainer.addChild(sprite);
@@ -303,14 +303,12 @@ export class Renderer {
 
     // Render player last
     let playerX: number, playerY: number;
-    if ("worldX" in player && "prevWorldX" in player) {
-      const interpWorldX = (player as any).prevWorldX + ((player as any).worldX - (player as any).prevWorldX) * alpha;
-      const interpWorldY = (player as any).prevWorldY + ((player as any).worldY - (player as any).prevWorldY) * alpha;
-      playerX = offsetX + interpWorldX;
-      playerY = offsetY + interpWorldY;
+    if ("worldX" in player) {
+      playerX = offsetX + (player as any).worldX;
+      playerY = offsetY + (player as any).worldY;
     } else {
-      playerX = offsetX + (player as any).x * CELL_CONFIG.w;
-      playerY = offsetY + (player as any).y * CELL_CONFIG.h;
+      playerX = offsetX + (player as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+      playerY = offsetY + (player as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
     }
     const playerCoord = SPRITE_COORDS["player"];
 
@@ -323,14 +321,14 @@ export class Renderer {
       );
 
       if (sprite) {
+        // Center the sprite on player position
+        sprite.anchor.set(0.5, 0.5);
+        
         // Apply death effect
         if (isDead) {
           sprite.tint = 0x555555;
         }
-        // Apply rotation if player has facingAngle
-        if ("facingAngle" in player) {
-          sprite.rotation = player.facingAngle;
-        }
+        // Player sprite stays upright (no rotation)
         this.entityContainer.addChild(sprite);
       }
     }

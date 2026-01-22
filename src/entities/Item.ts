@@ -45,6 +45,12 @@ export class ItemEntity extends ContinuousEntity {
     } else if (type === ItemType.MEDKIT) {
       this.heal = 6 + RNG.int(8);
     }
+    
+    // Items are static - ensure zero velocity and no targets
+    this.velocityX = 0;
+    this.velocityY = 0;
+    this.targetWorldX = undefined;
+    this.targetWorldY = undefined;
   }
 }
 

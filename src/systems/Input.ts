@@ -22,6 +22,7 @@ export interface InputCallbacks {
 }
 
 const DIRECTION_KEYS: Record<string, Direction> = {
+  // Numpad
   Numpad7: [-1, -1], // up-left
   Numpad8: [0, -1], // up
   Numpad9: [1, -1], // up-right
@@ -30,6 +31,12 @@ const DIRECTION_KEYS: Record<string, Direction> = {
   Numpad1: [-1, 1], // down-left
   Numpad2: [0, 1], // down
   Numpad3: [1, 1], // down-right
+  
+  // WASD
+  KeyW: [0, -1], // up
+  KeyA: [-1, 0], // left
+  KeyS: [0, 1], // down
+  KeyD: [1, 0], // right
 };
 
 export class InputHandler {
@@ -123,20 +130,6 @@ export class InputHandler {
     if (key === "v" || key === "V") {
       e.preventDefault();
       this.callbacks.onToggleFOV();
-      return;
-    }
-
-    // Toggle mode (Planning <-> Real-Time)
-    if (key === "p" || key === "P") {
-      e.preventDefault();
-      this.callbacks.onToggleMode();
-      return;
-    }
-
-    // Toggle pause (Space)
-    if (key === " ") {
-      e.preventDefault();
-      this.callbacks.onTogglePause();
       return;
     }
 

@@ -49,8 +49,8 @@ export class Game {
       options: { fov: true },
       sim: {
         nowTick: 0,
-        mode: "PLANNING",
-        isPaused: false,
+        mode: "REALTIME",
+        isPaused: true, // Start paused - unpauses when player acts (Superhot style)
         accumulatorMs: 0,
         lastFrameMs: performance.now(),
         pauseReasons: new Set(),
@@ -81,8 +81,8 @@ export class Game {
       // NEW: Simulation system
       sim: {
         nowTick: 0,
-        mode: "PLANNING",
-        isPaused: false, // Start unpaused so player can move immediately
+        mode: "REALTIME",
+        isPaused: true, // Start paused - unpauses when player acts (Superhot style)
         accumulatorMs: 0,
         lastFrameMs: performance.now(),
         pauseReasons: new Set(),

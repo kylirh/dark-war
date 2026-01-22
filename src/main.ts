@@ -188,6 +188,7 @@ class DarkWar {
 
     canvas.style.cursor = "pointer";
 
+    // Left click: move
     canvas.addEventListener("click", (event) => {
       const state = this.game.getState();
       const scale = this.renderer.getScale();
@@ -229,6 +230,29 @@ class DarkWar {
         this.autoMovePath = path.slice(1);
       }
     });
+    
+    // Right click or Shift+Click: shoot
+    canvas.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
+      this.handleMouseFire(event);
+    });
+  }
+  
+  /**
+   * Handle mouse-based firing
+   */
+  private handleMouseFire(event: MouseEvent): void {
+    const state = this.game.getState();
+    const player = state.player;
+    
+    // Check if player has ammo
+    if (player.ammo <= 0) {
+      this.game.addLog("*click* Out of ammo!");
+      return;
+    }
+    
+    // Fire with mouse aiming (dx/dy will be ignored)
+    this.handleFire(0, 0);
   }
 
   /**
@@ -237,90 +261,64 @@ class DarkWar {
   private update(dt: number): void {
     const state = this.game.getState();
 
-    // Sync pause state with GameLoop (don't update physics when paused)
-    const shouldPause = state.sim.mode === "PLANNING" && state.sim.isPaused;
-    if (shouldPause && !this.gameLoop.isPausedState()) {
-      this.gameLoop.pause();
-      return; // Skip update when paused
-    } else if (!shouldPause && this.gameLoop.isPausedState()) {
-      this.gameLoop.resume();
+    // Superhot mechanic: Skip updates when paused
+    if (state.sim.isPaused) {
+      return;
     }
 
-    // Update physics
+    // Update physics (smooth movement)
     this.physics.updatePhysics(state, dt);
     
     // Update bullets
     this.physics.updateBullets(state, dt);
 
-    // Process auto-move in Planning mode only
-    if (
-      state.sim.mode === "PLANNING" &&
-      !state.sim.isPaused &&
-      this.autoMovePath &&
-      this.autoMovePath.length > 0
-    ) {
-      // Check if there are no queued commands
-      const hasQueuedCommands = state.commandsByTick.size > 0;
+    // Advance simulation ticks
+    state.sim.accumulatorMs += dt * 1000;
+    while (state.sim.accumulatorMs >= SIM_DT_MS) {
+      stepSimulationTick(state);
+      state.sim.accumulatorMs -= SIM_DT_MS;
+      this.game.updateFOV();
 
-      if (!hasQueuedCommands) {
-        // Store HP before move to detect damage
-        const hpBefore = state.player.hp;
-
-        // Get next step
-        const nextStep = this.autoMovePath[0];
-        const dx = nextStep[0] - state.player.x;
-        const dy = nextStep[1] - state.player.y;
-
-        // Try to move to next step (pass true to indicate this is auto-move)
-        this.handleMove(dx, dy, true);
-
-        // Check if player took damage or died - cancel auto-move
-        const hpAfter = state.player.hp;
-        if (hpAfter < hpBefore) {
-          this.cancelAutoMove();
-        } else {
-          // Only advance path if no damage taken
-          // Remove this step from path
-          this.autoMovePath.shift();
-
-          // Clear path if we've reached destination or if move failed
-          if (this.autoMovePath.length === 0) {
-            this.autoMovePath = null;
-          }
+      // Check for descend flag
+      if ((state as any)._shouldDescend) {
+        (state as any)._shouldDescend = false;
+        this.game.descend();
+        
+        this.physics.initializeMap(state.map);
+        for (const entity of state.entities) {
+          this.physics.updateEntityBody(entity as any);
         }
+        
+        setTimeout(() => {
+          const newState = this.game.getState();
+          this.renderer.centerOnPlayer(newState.player, false);
+        }, 50);
       }
     }
 
-    // Real-time mode: advance simulation
-    if (state.sim.mode === "REALTIME" && !state.sim.isPaused) {
-      // Accumulate time and step simulation
-      state.sim.accumulatorMs += dt * 1000; // Convert seconds to ms
-
-      while (state.sim.accumulatorMs >= SIM_DT_MS) {
-        stepSimulationTick(state);
-        state.sim.accumulatorMs -= SIM_DT_MS;
-
-        // Update FOV after tick
-        this.game.updateFOV();
-
-        // Check for descend flag
-        if ((state as any)._shouldDescend) {
-          (state as any)._shouldDescend = false;
-          this.game.descend();
-          
-          // Reinitialize physics for new level
-          this.physics.initializeMap(state.map);
-          for (const entity of state.entities) {
-            this.physics.updateEntityBody(entity as any);
-          }
-          
-          // Center on player after level transition
-          setTimeout(() => {
-            const newState = this.game.getState();
-            this.renderer.centerOnPlayer(newState.player, false);
-          }, 50);
+    // Superhot auto-pause: Check if ALL entities have stopped moving
+    // Only check after physics has had a chance to zero out velocities
+    let anyEntityMoving = false;
+    for (const entity of state.entities) {
+      if ('velocityX' in entity && 'velocityY' in entity) {
+        const vx = (entity as any).velocityX;
+        const vy = (entity as any).velocityY;
+        if (Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1) {
+          anyEntityMoving = true;
+          break;
         }
       }
+    }
+    
+    // Pause when all entities stop. playerActedThisTick prevents immediate re-pause.
+    if (!anyEntityMoving && !this.playerActedThisTick) {
+      state.sim.isPaused = true;
+    }
+    
+    // Reset flag at end of update, not in render
+    // This gives physics one full frame to process movement
+    if (this.playerActedThisTick) {
+      this.playerActedThisTick = false;
     }
   }
 
@@ -334,11 +332,8 @@ class DarkWar {
     this.renderer.render(state, isDead, alpha);
     this.ui.updateAll(state.player, state.depth, state.log, state.sim);
 
-    // Center on player if they acted this tick
-    if (this.playerActedThisTick) {
-      this.renderer.centerOnPlayer(state.player, true);
-      this.playerActedThisTick = false;
-    }
+    // Center on player smoothly during movement
+    this.renderer.centerOnPlayer(state.player, true);
   }
 
   /**
@@ -365,33 +360,33 @@ class DarkWar {
     const playerId = state.player.id;
     const player = state.player;
 
-    // In Planning mode, validate move before enqueueing to avoid consuming turn
-    if (state.sim.mode === "PLANNING") {
-      const nx = player.x + dx;
-      const ny = player.y + dy;
+    // Validate move before enqueueing
+    const nx = player.x + dx;
+    const ny = player.y + dy;
 
-      // Check bounds
-      if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= 36) return;
+    // Check bounds
+    if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= 36) return;
 
-      // Check if tile is passable
-      const idx = nx + ny * MAP_WIDTH;
-      const tile = state.map[idx];
-      if (
-        tile === TileType.WALL ||
-        tile === TileType.DOOR_CLOSED ||
-        tile === TileType.DOOR_LOCKED
-      )
-        return;
+    // Check if tile is passable
+    const idx = nx + ny * MAP_WIDTH;
+    const tile = state.map[idx];
+    if (
+      tile === TileType.WALL ||
+      tile === TileType.DOOR_CLOSED ||
+      tile === TileType.DOOR_LOCKED
+    )
+      return;
 
-      // Check entity blocking (except monsters which trigger attack)
-      const blocker = state.entities.find(
-        (e) => e.x === nx && e.y === ny && e.kind === EntityKind.PLAYER
-      );
-      if (blocker) return;
-    }
+    // Check entity blocking (except monsters which trigger attack)
+    const blocker = state.entities.find(
+      (e) => e.x === nx && e.y === ny && e.kind === EntityKind.PLAYER
+    );
+    if (blocker) return;
 
-    const tick =
-      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+    // Superhot mechanic: Unpause game when player acts
+    state.sim.isPaused = false;
+
+    const tick = state.sim.nowTick;
 
     enqueueCommand(state, {
       tick,
@@ -404,20 +399,19 @@ class DarkWar {
 
     this.playerActedThisTick = true;
 
-    if (state.sim.mode === "PLANNING") {
-      stepSimulationTick(state);
-      this.game.updateFOV();
+    // Execute immediately
+    stepSimulationTick(state);
+    this.game.updateFOV();
 
-      // Check for descend flag
-      if ((state as any)._shouldDescend) {
-        (state as any)._shouldDescend = false;
-        this.game.descend();
-        // Center on player after level transition
-        setTimeout(() => {
-          const newState = this.game.getState();
-          this.renderer.centerOnPlayer(newState.player, false);
-        }, 50);
-      }
+    // Check for descend flag
+    if ((state as any)._shouldDescend) {
+      (state as any)._shouldDescend = false;
+      this.game.descend();
+      // Center on player after level transition
+      setTimeout(() => {
+        const newState = this.game.getState();
+        this.renderer.centerOnPlayer(newState.player, false);
+      }, 50);
     }
 
     this.autoSave();
@@ -429,15 +423,12 @@ class DarkWar {
   private handleFire(dx: number, dy: number): void {
     this.cancelAutoMove();
 
-    // If dx=0 and dy=0, this is just entering fire mode, not actually firing
-    if (dx === 0 && dy === 0) {
-      this.game.addLog("Choose a direction to fire.");
-      return;
-    }
-
     const state = this.game.getState();
     const playerId = state.player.id;
     const player = state.player;
+
+    // Superhot mechanic: Unpause game when player acts
+    state.sim.isPaused = false;
 
     // Set player's facing angle based on mouse position for bullet direction
     if ("worldX" in player && "worldY" in player) {
@@ -446,8 +437,7 @@ class DarkWar {
       (player as any).facingAngle = angle;
     }
 
-    const tick =
-      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+    const tick = state.sim.nowTick;
 
     enqueueCommand(state, {
       tick,
@@ -460,15 +450,9 @@ class DarkWar {
 
     this.playerActedThisTick = true;
 
-    if (state.sim.mode === "PLANNING") {
-      stepSimulationTick(state);
-      this.game.updateFOV();
-
-      if ((state as any)._shouldDescend) {
-        (state as any)._shouldDescend = false;
-        this.game.descend();
-      }
-    }
+    // Execute immediately
+    stepSimulationTick(state);
+    this.game.updateFOV();
 
     this.autoSave();
   }
@@ -482,8 +466,10 @@ class DarkWar {
     const state = this.game.getState();
     const playerId = state.player.id;
 
-    const tick =
-      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+    // Superhot mechanic: Unpause game when player acts
+    state.sim.isPaused = false;
+
+    const tick = state.sim.nowTick;
 
     enqueueCommand(state, {
       tick,
@@ -496,10 +482,9 @@ class DarkWar {
 
     this.playerActedThisTick = true;
 
-    if (state.sim.mode === "PLANNING") {
-      stepSimulationTick(state);
-      this.game.updateFOV();
-    }
+    // Execute immediately
+    stepSimulationTick(state);
+    this.game.updateFOV();
 
     this.autoSave();
   }
@@ -520,11 +505,13 @@ class DarkWar {
     const playerId = state.player.id;
     const player = state.player;
 
+    // Superhot mechanic: Unpause game when player acts
+    state.sim.isPaused = false;
+
     const targetX = player.x + dx;
     const targetY = player.y + dy;
 
-    const tick =
-      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+    const tick = state.sim.nowTick;
 
     enqueueCommand(state, {
       tick,
@@ -537,10 +524,9 @@ class DarkWar {
 
     this.playerActedThisTick = true;
 
-    if (state.sim.mode === "PLANNING") {
-      stepSimulationTick(state);
-      this.game.updateFOV();
-    }
+    // Execute immediately
+    stepSimulationTick(state);
+    this.game.updateFOV();
 
     this.autoSave();
   }
@@ -554,8 +540,10 @@ class DarkWar {
     const state = this.game.getState();
     const playerId = state.player.id;
 
-    const tick =
-      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+    // Superhot mechanic: Unpause game when player acts
+    state.sim.isPaused = false;
+
+    const tick = state.sim.nowTick;
 
     enqueueCommand(state, {
       tick,
@@ -568,10 +556,9 @@ class DarkWar {
 
     this.playerActedThisTick = true;
 
-    if (state.sim.mode === "PLANNING") {
-      stepSimulationTick(state);
-      this.game.updateFOV();
-    }
+    // Execute immediately
+    stepSimulationTick(state);
+    this.game.updateFOV();
 
     this.autoSave();
   }
@@ -585,8 +572,10 @@ class DarkWar {
     const state = this.game.getState();
     const playerId = state.player.id;
 
-    const tick =
-      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+    // Superhot mechanic: Unpause game when player acts
+    state.sim.isPaused = false;
+
+    const tick = state.sim.nowTick;
 
     enqueueCommand(state, {
       tick,
@@ -599,10 +588,9 @@ class DarkWar {
 
     this.playerActedThisTick = true;
 
-    if (state.sim.mode === "PLANNING") {
-      stepSimulationTick(state);
-      this.game.updateFOV();
-    }
+    // Execute immediately
+    stepSimulationTick(state);
+    this.game.updateFOV();
 
     this.autoSave();
   }
