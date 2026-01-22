@@ -32,6 +32,8 @@ export class Renderer {
   private pendingRender?: { state: GameState; isDead: boolean };
   private viewportElement?: HTMLElement;
   private scale: number = 2.0; // Configurable scale factor
+  private cameraWorldX: number = 0; // Camera position for smooth following
+  private cameraWorldY: number = 0;
 
   constructor(canvasId: string) {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -196,6 +198,20 @@ export class Renderer {
     }
 
     const { map, visible, explored, entities, player, options } = state;
+
+    // Update camera position for smooth following (real-time mode only)
+    if (state.sim.mode === "REALTIME" && "worldX" in player) {
+      const targetX = (player as any).worldX;
+      const targetY = (player as any).worldY;
+      
+      // Smooth camera interpolation (15% per frame)
+      this.cameraWorldX += (targetX - this.cameraWorldX) * 0.15;
+      this.cameraWorldY += (targetY - this.cameraWorldY) * 0.15;
+    } else if ("worldX" in player) {
+      // Planning mode: snap camera to player
+      this.cameraWorldX = (player as any).worldX;
+      this.cameraWorldY = (player as any).worldY;
+    }
 
     // Clear previous frame
     this.mapContainer.removeChildren();

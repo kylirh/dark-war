@@ -4,6 +4,7 @@ const DEBUG = false;
 import {
   GameState,
   EntityKind,
+  Entity,
   Monster,
   Item,
   ItemType,
@@ -13,9 +14,9 @@ import {
   MAP_HEIGHT,
 } from "../types";
 import { generateDungeon } from "./Map";
-import { createPlayer } from "../entities/Player";
-import { createMutant, createRat } from "../entities/Monster";
-import { createItem } from "../entities/Item";
+import { createPlayer, PlayerEntity } from "../entities/Player";
+import { createMutant, createRat, MonsterEntity } from "../entities/Monster";
+import { createItem, ItemEntity } from "../entities/Item";
 import { RNG } from "../utils/RNG";
 import { dist, passable } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
@@ -330,14 +331,38 @@ export class Game {
    * Load game state from serialized data
    */
   public deserialize(data: SerializedState): void {
+    // Reconstruct player entity (may be plain object from old save)
+    let player = data.player;
+    if (!(player instanceof PlayerEntity)) {
+      const p = createPlayer(player.x, player.y);
+      Object.assign(p, player);
+      player = p;
+    }
+    
+    // Reconstruct other entities
+    const entities: Entity[] = [player];
+    for (const entity of data.entities) {
+      if (entity.kind === EntityKind.MONSTER && !(entity instanceof MonsterEntity)) {
+        const m = createMutant(entity.x, entity.y, data.depth);
+        Object.assign(m, entity);
+        entities.push(m);
+      } else if (entity.kind === EntityKind.ITEM && !(entity instanceof ItemEntity)) {
+        const i = createItem(entity.x, entity.y, (entity as Item).type);
+        Object.assign(i, entity);
+        entities.push(i);
+      } else {
+        entities.push(entity);
+      }
+    }
+    
     this.state = {
       depth: data.depth,
       map: data.map,
       stairs: data.stairs,
       visible: new Set(),
       explored: new Set(data.explored),
-      entities: [data.player, ...data.entities],
-      player: data.player,
+      entities,
+      player,
       log: data.log || [],
       options: { fov: true },
       sim: {

@@ -12,6 +12,7 @@ import {
   ItemType,
   Item,
   TILE_DEFINITIONS,
+  CELL_CONFIG,
 } from "../types";
 import { idx, tileAt, passable } from "../utils/helpers";
 import { MAP_WIDTH } from "../types";
@@ -304,9 +305,34 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
     return false;
   }
 
-  // Move succeeds
-  actor.x = nx;
-  actor.y = ny;
+  // Move succeeds - set target position and velocity for continuous movement
+  if ("worldX" in actor && "targetWorldX" in actor) {
+    // Calculate target world position (center of target tile)
+    const targetWorldX = nx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const targetWorldY = ny * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    
+    (actor as any).targetWorldX = targetWorldX;
+    (actor as any).targetWorldY = targetWorldY;
+    
+    // Set velocity toward target
+    const dx = targetWorldX - (actor as any).worldX;
+    const dy = targetWorldY - (actor as any).worldY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    
+    if (dist > 0) {
+      // Speed: 160 px/s for planning mode, 80 px/s for real-time
+      const speed = state.sim.mode === "PLANNING" ? 160 : 80;
+      (actor as any).velocityX = (dx / dist) * speed;
+      (actor as any).velocityY = (dy / dist) * speed;
+      
+      // Update facing angle
+      (actor as any).facingAngle = Math.atan2(dy, dx);
+    }
+  } else {
+    // Legacy fallback for non-continuous entities
+    (actor as any).x = nx;
+    (actor as any).y = ny;
+  }
   return true;
 }
 
@@ -470,11 +496,24 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
   const actor = state.entities.find((e) => e.id === cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
-  const itemsHere = state.entities.filter(
-    (e) => e.kind === EntityKind.ITEM && e.x === actor.x && e.y === actor.y
-  );
+  // Find items within pickup radius (24px for continuous movement)
+  const PICKUP_RADIUS = 24;
+  const itemsNearby = state.entities.filter((e) => {
+    if (e.kind !== EntityKind.ITEM) return false;
+    
+    // Use continuous coordinates if available
+    if ("worldX" in actor && "worldX" in e) {
+      const dx = (e as any).worldX - (actor as any).worldX;
+      const dy = (e as any).worldY - (actor as any).worldY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      return dist <= PICKUP_RADIUS;
+    }
+    
+    // Fallback to grid coordinates
+    return e.x === actor.x && e.y === actor.y;
+  });
 
-  if (itemsHere.length === 0) {
+  if (itemsNearby.length === 0) {
     pushEvent(state, {
       type: EventType.MESSAGE,
       data: { type: "MESSAGE", message: "Nothing to pick up!" },
@@ -482,7 +521,7 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
     return;
   }
 
-  for (const item of itemsHere) {
+  for (const item of itemsNearby) {
     pushEvent(state, {
       type: EventType.PICKUP_ITEM,
       data: { type: "PICKUP_ITEM", actorId: actor.id, itemId: item.id },

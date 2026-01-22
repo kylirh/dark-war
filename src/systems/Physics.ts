@@ -137,6 +137,20 @@ export class Physics {
     for (const entity of state.entities) {
       if (!(entity instanceof ContinuousEntity)) continue;
 
+      // Check if entity has reached target (for planning mode)
+      if (entity.targetWorldX !== undefined && entity.targetWorldY !== undefined) {
+        if (entity.hasReachedTarget(2)) {
+          // Stop movement and clear target
+          entity.velocityX = 0;
+          entity.velocityY = 0;
+          entity.clearTarget();
+          
+          // Snap to exact target position
+          entity.worldX = entity.targetWorldX;
+          entity.worldY = entity.targetWorldY;
+        }
+      }
+
       // Integrate velocity
       entity.worldX += entity.velocityX * dt;
       entity.worldY += entity.velocityY * dt;
