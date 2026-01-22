@@ -1,6 +1,17 @@
 /**
  * Dark War - Main Entry Point
- * Modern roguelike remake of Mission Thunderbolt
+ * 
+ * Modern roguelike remake of Mission Thunderbolt (1992)
+ * Features:
+ * - Continuous fluid movement with physics-based collision
+ * - Superhot-style time mechanics (time flows when you move)
+ * - Grid-based destructible terrain (future)
+ * - Mouse aiming and shooting
+ * 
+ * Architecture:
+ * - 60Hz fixed timestep physics via GameLoop
+ * - Event-driven simulation system
+ * - Entity-Component pattern with continuous coordinates
  */
 
 // Debug configuration - set to true to enable performance logging
@@ -103,8 +114,6 @@ class DarkWar {
       onReload: () => this.handleReload(),
       onDescend: () => this.handleDescend(),
       onToggleFOV: () => this.handleToggleFOV(),
-      onToggleMode: () => this.handleToggleMode(),
-      onTogglePause: () => this.handleTogglePause(),
       onResumePause: (reason) => this.game.resumeFromPause(reason),
       onNewGame: () => this.handleNewGame(),
       onSave: () => this.handleSave(),
@@ -646,20 +655,6 @@ class DarkWar {
    */
   private handleToggleFOV(): void {
     this.game.toggleFOV();
-  }
-
-  /**
-   * Handle mode toggle (Planning <-> Real-Time)
-   */
-  private handleToggleMode(): void {
-    this.game.toggleMode();
-  }
-
-  /**
-   * Handle pause toggle
-   */
-  private handleTogglePause(): void {
-    this.game.togglePause();
   }
 
   /**

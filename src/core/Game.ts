@@ -191,33 +191,8 @@ export class Game {
   }
 
   /**
-   * Toggle between Planning and Real-Time modes
-   */
-  public toggleMode(): void {
-    this.state.sim.mode =
-      this.state.sim.mode === "PLANNING" ? "REALTIME" : "PLANNING";
-
-    if (this.state.sim.mode === "PLANNING") {
-      this.state.sim.isPaused = false;
-      this.addLog("Switched to Planning Mode.");
-    } else {
-      this.state.sim.isPaused = false;
-      this.addLog("Switched to Real-Time Mode.");
-    }
-  }
-
-  /**
-   * Toggle pause in Real-Time mode
-   */
-  public togglePause(): void {
-    if (this.state.sim.mode === "REALTIME") {
-      this.state.sim.isPaused = !this.state.sim.isPaused;
-      this.addLog(this.state.sim.isPaused ? "Paused." : "Resumed.");
-    }
-  }
-
-  /**
-   * Resume from a specific pause reason (e.g., NPC dialog)
+   * Resume from a specific pause reason (e.g., NPC dialog, death screen)
+   * When all pause reasons are cleared, game unpauses automatically
    */
   public resumeFromPause(reason: string): void {
     this.state.sim.pauseReasons.delete(reason);

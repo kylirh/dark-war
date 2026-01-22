@@ -97,21 +97,16 @@ dark-war/
 
 ## Controls
 
-- **Numpad** - Move (8 directions) or **Arrow Keys** (4 directions)
-- **Numpad 5** - Wait/skip turn
-- **F** - Fire weapon (then numpad for direction)
-- **R** - Reload weapon
-- **O** - Open/close door (then numpad for direction)
+- **WASD** - Move continuously in 8 directions
+- **Mouse** - Aim weapon
+- **Left Click** - Fire weapon
+- **O** - Open/close door
+- **V** - Toggle field of view visualization
 - **<** - Descend stairs to next level
-- **P** - Toggle Planning/Real-Time mode
-- **Space** - Pause/Unpause (Real-Time mode)
-- **Enter** - Resume from pause
-- **V** - Toggle field of view
 
-### Gameplay Modes
+## Future Development
 
-- **Planning Mode**: Time freezes after each action. Execute commands, then simulation advances one tick.
-- **Real-Time Mode**: Continuous simulation at 5 ticks/second. Space to pause/unpause.
+See [copilot-instructions.md](.github/copilot-instructions.md) for the full vision and technical details.
 
 ## Technologies
 

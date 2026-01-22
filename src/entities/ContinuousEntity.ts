@@ -1,6 +1,15 @@
 /**
- * Base class for entities with continuous world coordinates
- * Provides source of truth (worldX, worldY) and derived state (gridX, gridY)
+ * ContinuousEntity - Base class for all moving entities
+ * 
+ * Uses continuous pixel-based coordinates (worldX, worldY) as source of truth,
+ * with grid coordinates (gridX, gridY) derived from them.
+ * 
+ * Key concepts:
+ * - worldX/worldY: Float coordinates in pixels (0,0 is top-left)
+ * - gridX/gridY: Derived grid coordinates (READ-ONLY getters)
+ * - velocityX/velocityY: Movement speed in pixels/second
+ * - targetWorldX/targetWorldY: Destination for smooth movement
+ * - physicsBody: Collision detection body (managed by Physics system)
  */
 
 import { EntityKind, CELL_CONFIG } from "../types";

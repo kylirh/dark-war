@@ -13,8 +13,6 @@ export interface InputCallbacks {
   onReload: () => void;
   onDescend: () => void;
   onToggleFOV: () => void;
-  onToggleMode: () => void;
-  onTogglePause: () => void;
   onResumePause: (reason: string) => void;
   onNewGame: () => void;
   onSave: () => void;

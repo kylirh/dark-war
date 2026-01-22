@@ -1,6 +1,16 @@
 /**
- * Physics system using detect-collisions for continuous movement
- * Handles entity movement, collision detection, wall sliding, and soft separation
+ * Physics System - Continuous movement and collision detection
+ * 
+ * Manages:
+ * - Smooth entity movement at 200px/s
+ * - Wall collision with sliding (only cancel perpendicular velocity)
+ * - Bullet collision detection and damage
+ * - Line of sight raycasting
+ * 
+ * Uses detect-collisions library:
+ * - Circle colliders for entities (8px player, 7px monster, 4px bullet)
+ * - Box colliders for walls (16px half-extent = 32px full tile)
+ * - Wall sliding allows smooth corridor navigation
  */
 
 import { System, Circle, Box, Response } from "detect-collisions";
@@ -12,13 +22,12 @@ import { ItemEntity } from "../entities/Item";
 import { BulletEntity } from "../entities/Bullet";
 import { idx, tileAt } from "../utils/helpers";
 
-// Physics constants - radii are smaller than half tile size to allow corridor navigation
-const PLAYER_RADIUS = 8; // pixels (16px diameter in 32px corridors = 16px clearance)
-const MONSTER_RADIUS = 7; // pixels 
-const ITEM_RADIUS = 6; // pixels
-const BULLET_RADIUS = 4; // pixels (slightly larger for better hit detection)
-const SEPARATION_FORCE = 0.05; // 5% repulsion per frame
-const WALL_FRICTION = 0.95; // Slight dampening on wall collision
+// Collision radii - sized to allow smooth corridor navigation
+// With 32px tiles, an 8px radius (16px diameter) leaves 16px clearance in corridors
+const PLAYER_RADIUS = 8;
+const MONSTER_RADIUS = 7;
+const ITEM_RADIUS = 6;
+const BULLET_RADIUS = 4;
 
 /**
  * Physics system manager
@@ -428,48 +437,5 @@ export class Physics {
    */
   public getSystem(): System {
     return this.system;
-  }
-
-  /**
-   * Find the nearest monster within melee range of a position
-   * Used for melee attacks with continuous movement
-   */
-  public findMeleeTarget(
-    state: GameState,
-    fromX: number,
-    fromY: number,
-    directionX: number,
-    directionY: number
-  ): MonsterEntity | undefined {
-    const MELEE_RANGE = CELL_CONFIG.w * 1.5; // 1.5 tiles worth of range
-    
-    let nearestMonster: MonsterEntity | undefined;
-    let nearestDistance = MELEE_RANGE;
-    
-    for (const entity of state.entities) {
-      if (entity.kind !== EntityKind.MONSTER) continue;
-      if (!('worldX' in entity)) continue;
-      
-      const monster = entity as MonsterEntity;
-      const dx = monster.worldX - fromX;
-      const dy = monster.worldY - fromY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      // Check if in range
-      if (distance > MELEE_RANGE) continue;
-      
-      // Check if roughly in the direction we're attacking
-      if (directionX !== 0 || directionY !== 0) {
-        const dot = dx * directionX + dy * directionY;
-        if (dot < 0) continue; // Behind us
-      }
-      
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestMonster = monster;
-      }
-    }
-    
-    return nearestMonster;
   }
 }
