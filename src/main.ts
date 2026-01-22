@@ -10,6 +10,7 @@ import { Game } from "./core/Game";
 import { GameLoop } from "./core/GameLoop";
 import { Renderer } from "./systems/Renderer";
 import { Physics } from "./systems/Physics";
+import { MouseTracker } from "./systems/MouseTracker";
 import { UI } from "./systems/UI";
 import { InputHandler, InputCallbacks } from "./systems/Input";
 import { Sound } from "./systems/Sound";
@@ -49,6 +50,7 @@ class DarkWar {
   private game: Game;
   private gameLoop: GameLoop;
   private physics: Physics;
+  private mouseTracker: MouseTracker;
   private renderer: Renderer;
   private ui: UI;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -65,6 +67,10 @@ class DarkWar {
     if (DEBUG) console.time("Create Physics");
     this.physics = new Physics();
     if (DEBUG) console.timeEnd("Create Physics");
+
+    if (DEBUG) console.time("Create MouseTracker");
+    this.mouseTracker = new MouseTracker("game");
+    if (DEBUG) console.timeEnd("Create MouseTracker");
 
     if (DEBUG) console.time("Create Renderer");
     this.renderer = new Renderer("game");
@@ -231,10 +237,12 @@ class DarkWar {
   private update(dt: number): void {
     const state = this.game.getState();
 
-    // Control pause state based on simulation mode
-    if (state.sim.isPaused) {
+    // Sync pause state with GameLoop (don't update physics when paused)
+    const shouldPause = state.sim.mode === "PLANNING" && state.sim.isPaused;
+    if (shouldPause && !this.gameLoop.isPausedState()) {
       this.gameLoop.pause();
-    } else {
+      return; // Skip update when paused
+    } else if (!shouldPause && this.gameLoop.isPausedState()) {
       this.gameLoop.resume();
     }
 
@@ -429,6 +437,14 @@ class DarkWar {
 
     const state = this.game.getState();
     const playerId = state.player.id;
+    const player = state.player;
+
+    // Set player's facing angle based on mouse position for bullet direction
+    if ("worldX" in player && "worldY" in player) {
+      const mousePos = this.mouseTracker.getWorldPosition();
+      const angle = this.mouseTracker.getAngleFrom((player as any).worldX, (player as any).worldY);
+      (player as any).facingAngle = angle;
+    }
 
     const tick =
       state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;

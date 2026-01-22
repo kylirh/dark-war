@@ -82,7 +82,7 @@ export class Game {
       sim: {
         nowTick: 0,
         mode: "PLANNING",
-        isPaused: false,
+        isPaused: false, // Start unpaused so player can move immediately
         accumulatorMs: 0,
         lastFrameMs: performance.now(),
         pauseReasons: new Set(),

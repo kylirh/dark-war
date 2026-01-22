@@ -126,6 +126,13 @@ export class Physics {
    * Update physics for all entities
    */
   public updatePhysics(state: GameState, dt: number): void {
+    // Ensure all entities have physics bodies
+    for (const entity of state.entities) {
+      if (entity instanceof ContinuousEntity && !entity.physicsBody) {
+        this.updateEntityBody(entity);
+      }
+    }
+
     // Store previous positions for all entities
     for (const entity of state.entities) {
       if (entity instanceof ContinuousEntity) {
@@ -136,6 +143,11 @@ export class Physics {
     // Update positions based on velocity
     for (const entity of state.entities) {
       if (!(entity instanceof ContinuousEntity)) continue;
+
+      // Items don't move - skip velocity integration
+      if (entity.kind === EntityKind.ITEM) {
+        continue;
+      }
 
       // Check if entity has reached target (for planning mode)
       if (entity.targetWorldX !== undefined && entity.targetWorldY !== undefined) {

@@ -46,6 +46,7 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   // ========================================
   [MonsterType.MUTANT]: { x: 0, y: 2 },
   [MonsterType.RAT]: { x: 1, y: 2 },
+  bullet: { x: 2, y: 2 },
 
   // ========================================
   // Row 3 - Items

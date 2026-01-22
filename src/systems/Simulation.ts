@@ -19,6 +19,7 @@ import { MAP_WIDTH } from "../types";
 import { Sound, SoundEffect } from "./Sound";
 import { RNG } from "../utils/RNG";
 import { computeFOVFrom } from "./FOV";
+import { createBullet } from "../entities/Bullet";
 
 // ========================================
 // Constants
@@ -371,7 +372,7 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
 }
 
 // ========================================
-// Fire Command
+// Fire Command - Spawns bullet entities
 // ========================================
 
 function resolveFireCommand(state: GameState, cmd: Command): void {
@@ -394,65 +395,27 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
 
   const data = cmd.data as { type: "FIRE"; dx: number; dy: number };
 
-  // Trace bullet path along the direction until hitting monster or wall
-  let currentX = player.x;
-  let currentY = player.y;
-  let target: Monster | undefined;
-  const maxRange = 20; // Maximum bullet range
-
-  for (let i = 0; i < maxRange; i++) {
-    currentX += data.dx;
-    currentY += data.dy;
-
-    // Check bounds
-    if (
-      currentX < 0 ||
-      currentX >= MAP_WIDTH ||
-      currentY < 0 ||
-      currentY >= 36
-    ) {
-      break;
-    }
-
-    // Check for wall or obstacle
-    const tile = tileAt(state.map, currentX, currentY);
-    if (
-      !passable(state.map, currentX, currentY) ||
-      tile === TileType.DOOR_CLOSED ||
-      tile === TileType.DOOR_LOCKED
-    ) {
-      break;
-    }
-
-    // Check for monster at this position
-    const foundMonster = state.entities.find(
-      (e) =>
-        e.x === currentX &&
-        e.y === currentY &&
-        e.kind === EntityKind.MONSTER &&
-        (e as Monster).hp > 0
-    ) as Monster | undefined;
-
-    if (foundMonster) {
-      target = foundMonster;
-      break;
-    }
-  }
-
-  if (target) {
-    pushEvent(state, {
-      type: EventType.DAMAGE,
-      data: {
-        type: "DAMAGE",
-        targetId: target.id,
-        amount: 2,
-        sourceId: player.id,
-      },
-    });
-  } else {
+  // Use continuous coordinates (modern path)
+  if ("worldX" in player && "facingAngle" in player) {
+    // Spawn bullet entity from player position
+    const BULLET_SPEED = 400; // pixels per second
+    const angle = (player as any).facingAngle;
+    
+    const bullet = createBullet(
+      (player as any).worldX,
+      (player as any).worldY,
+      Math.cos(angle) * BULLET_SPEED,
+      Math.sin(angle) * BULLET_SPEED,
+      2, // damage
+      player.id,
+      640 // max distance (20 tiles)
+    );
+    
+    state.entities.push(bullet);
+    
     pushEvent(state, {
       type: EventType.MESSAGE,
-      data: { type: "MESSAGE", message: "You miss." },
+      data: { type: "MESSAGE", message: "Fired!" },
     });
   }
 }
