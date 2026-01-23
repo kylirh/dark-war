@@ -10,6 +10,9 @@ export class MouseTracker {
   private mouseWorldY: number = 0;
   private mouseCanvasX: number = 0;
   private mouseCanvasY: number = 0;
+  private cameraWorldX: number = 0;
+  private cameraWorldY: number = 0;
+  private scale: number = 2.0; // Renderer scale factor
 
   constructor(canvasId: string) {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -25,16 +28,20 @@ export class MouseTracker {
 
   private handleMouseMove = (event: MouseEvent): void => {
     const rect = this.canvasElement.getBoundingClientRect();
-    
+
     // Get mouse position relative to canvas
     this.mouseCanvasX = event.clientX - rect.left;
     this.mouseCanvasY = event.clientY - rect.top;
 
-    // Convert to world coordinates (accounting for scale and padding)
-    // Canvas is scaled, so divide by scale to get actual position
-    const scale = parseFloat(getComputedStyle(this.canvasElement).width) / this.canvasElement.width || 1;
-    this.mouseWorldX = (this.mouseCanvasX / scale) - CELL_CONFIG.padX;
-    this.mouseWorldY = (this.mouseCanvasY / scale) - CELL_CONFIG.padY;
+    // Convert to world coordinates
+    // The Pixi stage is scaled, so divide by scale to get unscaled canvas coordinates
+    // Then subtract padding to get world coordinates
+    const canvasUnscaledX = this.mouseCanvasX / this.scale;
+    const canvasUnscaledY = this.mouseCanvasY / this.scale;
+    
+    // Convert to world coordinates by removing padding
+    this.mouseWorldX = canvasUnscaledX - CELL_CONFIG.padX;
+    this.mouseWorldY = canvasUnscaledY - CELL_CONFIG.padY;
   };
 
   private handleMouseLeave = (): void => {
@@ -71,6 +78,21 @@ export class MouseTracker {
     const dx = this.mouseWorldX - worldX;
     const dy = this.mouseWorldY - worldY;
     return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  /**
+   * Update camera position for accurate world coordinate conversion
+   */
+  public setCameraPosition(worldX: number, worldY: number): void {
+    this.cameraWorldX = worldX;
+    this.cameraWorldY = worldY;
+  }
+
+  /**
+   * Set the scale factor from the renderer
+   */
+  public setScale(scale: number): void {
+    this.scale = scale;
   }
 
   /**

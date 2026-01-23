@@ -27,6 +27,9 @@ import { createBullet } from "../entities/Bullet";
 
 export const SIM_DT_MS = 50; // 20 ticks/second
 export const MONSTER_ACTION_DELAY = 5; // Monsters act every N ticks (player acts every 1)
+export const MONSTER_AI_UPDATE_INTERVAL = 5; // Update monster velocities every 5 ticks (~4 Hz)
+export const MONSTER_SPEED = 200; // pixels per second (same as player)
+export const MONSTER_ARRIVAL_RADIUS = CELL_CONFIG.w * 1.5; // Stop when within 1.5 tiles for attack
 export const MAX_EVENTS_PER_TICK = 1000;
 export const MAX_COMMANDS_PER_TICK = 1000;
 
@@ -34,12 +37,74 @@ let nextCommandId = 1;
 let nextEventId = 1;
 
 // ========================================
+// Steering Behaviors (Continuous Movement AI)
+// ========================================
+
+/**
+ * Update monster velocities using steering behaviors
+ * Called every MONSTER_AI_UPDATE_INTERVAL ticks
+ */
+export function updateMonsterSteering(state: GameState): void {
+  const monsters = state.entities.filter(
+    (e): e is Monster => e.kind === EntityKind.MONSTER,
+  );
+  const player = state.player;
+
+  for (const monster of monsters) {
+    // Skip if monster doesn't have continuous coordinates
+    if (!("worldX" in monster) || !("worldY" in monster)) continue;
+
+    const monsterEntity = monster as any;
+    const playerEntity = player as any;
+
+    // Calculate distance to player
+    const dx = playerEntity.worldX - monsterEntity.worldX;
+    const dy = playerEntity.worldY - monsterEntity.worldY;
+    const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+
+    // Check if player is visible
+    const monsterVision = computeFOVFrom(state.map, monster.x, monster.y, 15);
+    const playerIndex = idx(player.x, player.y);
+    const canSeePlayer = monsterVision.has(playerIndex);
+
+    if (!canSeePlayer) {
+      // Can't see player - stop or wander
+      if (RNG.chance(0.1)) {
+        // 10% chance to wander in random direction
+        const angle = RNG.int(8) * (Math.PI / 4); // 8 directions
+        monsterEntity.velocityX = Math.cos(angle) * MONSTER_SPEED * 0.5;
+        monsterEntity.velocityY = Math.sin(angle) * MONSTER_SPEED * 0.5;
+      } else {
+        // Stop moving
+        monsterEntity.velocityX = 0;
+        monsterEntity.velocityY = 0;
+      }
+      continue;
+    }
+
+    // Player is visible
+    if (pixelDistance <= MONSTER_ARRIVAL_RADIUS) {
+      // Within attack range - stop and attack
+      monsterEntity.velocityX = 0;
+      monsterEntity.velocityY = 0;
+      // Note: Actual attack will be handled by command system
+    } else {
+      // Chase player - move toward them
+      const dirX = dx / pixelDistance; // Normalize
+      const dirY = dy / pixelDistance;
+      monsterEntity.velocityX = dirX * MONSTER_SPEED;
+      monsterEntity.velocityY = dirY * MONSTER_SPEED;
+    }
+  }
+}
+
+// ========================================
 // Command Management
 // ========================================
 
 export function enqueueCommand(
   state: GameState,
-  cmd: Omit<Command, "id">
+  cmd: Omit<Command, "id">,
 ): void {
   const fullCmd: Command = { ...cmd, id: nextCommandId++ };
 
@@ -52,7 +117,7 @@ export function enqueueCommand(
   // In real-time, replace existing player command for this tick
   if (state.sim.mode === "REALTIME" && fullCmd.source === "PLAYER") {
     const existingIdx = tickCommands.findIndex(
-      (c) => c.actorId === fullCmd.actorId
+      (c) => c.actorId === fullCmd.actorId,
     );
     if (existingIdx >= 0) {
       tickCommands[existingIdx] = fullCmd;
@@ -99,7 +164,7 @@ function cleanupOldCommands(state: GameState, currentTick: number): void {
 
 export function pushEvent(
   state: GameState,
-  event: Omit<GameEvent, "id" | "depth">
+  event: Omit<GameEvent, "id" | "depth">,
 ): void {
   const depth = event.cause ? getEventDepth(state, event.cause) + 1 : 0;
   state.eventQueue.push({ ...event, id: nextEventId++, depth });
@@ -116,6 +181,11 @@ function getEventDepth(state: GameState, causeId: number): number {
 
 export function stepSimulationTick(state: GameState): void {
   const tick = state.sim.nowTick;
+
+  // 0. Update monster steering behaviors every N ticks
+  if (tick % MONSTER_AI_UPDATE_INTERVAL === 0) {
+    updateMonsterSteering(state);
+  }
 
   // 1. Gather and resolve player commands first
   let playerCommands = getCommandsForTick(state, tick);
@@ -139,7 +209,7 @@ export function stepSimulationTick(state: GameState): void {
   // Guard against too many AI commands
   if (aiCommands.length > MAX_COMMANDS_PER_TICK) {
     console.error(
-      `Too many AI commands for tick ${tick}: ${aiCommands.length}`
+      `Too many AI commands for tick ${tick}: ${aiCommands.length}`,
     );
     aiCommands.length = MAX_COMMANDS_PER_TICK;
   }
@@ -199,7 +269,7 @@ function resolveCommand(state: GameState, cmd: Command): void {
   // Ignore player commands if dead
   if (cmd.source === "PLAYER") {
     const player = state.entities.find(
-      (e) => e.id === cmd.actorId && e.kind === EntityKind.PLAYER
+      (e) => e.id === cmd.actorId && e.kind === EntityKind.PLAYER,
     ) as Player | undefined;
     if (player && player.hp <= 0) return;
   }
@@ -241,11 +311,7 @@ function resolveCommand(state: GameState, cmd: Command): void {
   }
 }
 
-function getActionCost(
-  state: GameState,
-  cmd: Command,
-  actor: Entity
-): number {
+function getActionCost(state: GameState, cmd: Command, actor: Entity): number {
   // In planning mode, everyone acts at same rate (turn-based)
   if (state.sim.mode === "PLANNING") {
     return 1;
@@ -283,7 +349,7 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
     (e) =>
       e.x === nx &&
       e.y === ny &&
-      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER)
+      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
   );
 
   // Also check for monsters near the target position using continuous coordinates
@@ -291,15 +357,15 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
     const targetWorldX = nx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     const targetWorldY = ny * CELL_CONFIG.h + CELL_CONFIG.h / 2;
     const MELEE_RANGE = CELL_CONFIG.w; // One tile range
-    
+
     for (const entity of state.entities) {
       if (entity.kind !== EntityKind.MONSTER) continue;
       if (!("worldX" in entity)) continue;
-      
+
       const dx = (entity as any).worldX - targetWorldX;
       const dy = (entity as any).worldY - targetWorldY;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      
+
       if (distance < MELEE_RANGE) {
         blocker = entity;
         break;
@@ -331,22 +397,22 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
   if ("worldX" in actor) {
     const targetWorldX = nx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     const targetWorldY = ny * CELL_CONFIG.h + CELL_CONFIG.h / 2;
-    
+
     // Set target position
     (actor as any).targetWorldX = targetWorldX;
     (actor as any).targetWorldY = targetWorldY;
-    
+
     // Calculate direction and set velocity
     const dx = targetWorldX - (actor as any).worldX;
     const dy = targetWorldY - (actor as any).worldY;
     const dist = Math.sqrt(dx * dx + dy * dy);
-    
+
     if (dist > 0) {
       // Movement speed: 200 pixels per second for smooth motion
       const speed = 200;
       (actor as any).velocityX = (dx / dist) * speed;
       (actor as any).velocityY = (dy / dist) * speed;
-      
+
       // Update facing angle
       (actor as any).facingAngle = Math.atan2(dy, dx);
     }
@@ -368,7 +434,7 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
 
   // Check adjacency - support both grid-based and continuous coordinates
   let inRange = false;
-  
+
   if ("worldX" in attacker && "worldX" in target) {
     // Use continuous distance check
     const dx = (attacker as any).worldX - (target as any).worldX;
@@ -382,7 +448,7 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
     const dy = Math.abs(attacker.y - target.y);
     inRange = dx <= 1 && dy <= 1;
   }
-  
+
   if (!inRange) return;
 
   // Determine damage
@@ -431,7 +497,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
     // Spawn bullet entity from player position
     const BULLET_SPEED = 400; // pixels per second
     const angle = (player as any).facingAngle;
-    
+
     const bullet = createBullet(
       (player as any).worldX,
       (player as any).worldY,
@@ -439,11 +505,11 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       Math.sin(angle) * BULLET_SPEED,
       2, // damage
       player.id,
-      640 // max distance (20 tiles)
+      640, // max distance (20 tiles)
     );
-    
+
     state.entities.push(bullet);
-    
+
     pushEvent(state, {
       type: EventType.MESSAGE,
       data: { type: "MESSAGE", message: "Fired!" },
@@ -494,7 +560,7 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
   const PICKUP_RADIUS = 24;
   const itemsNearby = state.entities.filter((e) => {
     if (e.kind !== EntityKind.ITEM) return false;
-    
+
     // Use continuous coordinates if available
     if ("worldX" in actor && "worldX" in e) {
       const dx = (e as any).worldX - (actor as any).worldX;
@@ -502,7 +568,7 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
       const dist = Math.sqrt(dx * dx + dy * dy);
       return dist <= PICKUP_RADIUS;
     }
-    
+
     // Fallback to grid coordinates
     return e.x === actor.x && e.y === actor.y;
   });
@@ -816,8 +882,8 @@ function processNPCTalkEvent(state: GameState, event: GameEvent): void {
     cause: event.id,
   });
 
-  // Pause on NPC talk
-  state.sim.isPaused = true;
+  // Slow down time on NPC talk
+  state.sim.targetTimeScale = 0.01;
   state.sim.pauseReasons.add("npc_talk");
 }
 
@@ -829,7 +895,7 @@ function generateAICommands(state: GameState, tick: number): Command[] {
   const commands: Command[] = [];
 
   const monsters = state.entities.filter(
-    (e) => e.kind === EntityKind.MONSTER && canActorAct(state, e.id, tick)
+    (e) => e.kind === EntityKind.MONSTER && canActorAct(state, e.id, tick),
   ) as Monster[];
 
   for (const monster of monsters) {
@@ -843,14 +909,14 @@ function generateAICommands(state: GameState, tick: number): Command[] {
 function decideMonsterCommand(
   state: GameState,
   monster: Monster,
-  tick: number
+  tick: number,
 ): Command | null {
   const { player } = state;
-  
+
   // Calculate distance - prefer continuous if available
   let distance: number;
   let inMeleeRange = false;
-  
+
   if ("worldX" in monster && "worldX" in player) {
     const dx = (player as any).worldX - (monster as any).worldX;
     const dy = (player as any).worldY - (monster as any).worldY;
@@ -907,7 +973,7 @@ function decideMonsterCommand(
           (e) =>
             e.x === nx &&
             e.y === ny &&
-            (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER)
+            (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
         );
 
         if (!blocker) {
@@ -954,7 +1020,7 @@ function decideMonsterCommand(
       (e) =>
         e.x === nx &&
         e.y === ny &&
-        (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER)
+        (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
     );
 
     if (blocker) return false;

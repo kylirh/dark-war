@@ -50,7 +50,8 @@ export class Game {
       sim: {
         nowTick: 0,
         mode: "REALTIME",
-        isPaused: true, // Start paused - unpauses when player acts (Superhot style)
+        timeScale: 0.01, // Start in slow motion
+        targetTimeScale: 0.01,
         accumulatorMs: 0,
         lastFrameMs: performance.now(),
         pauseReasons: new Set(),
@@ -82,7 +83,8 @@ export class Game {
       sim: {
         nowTick: 0,
         mode: "REALTIME",
-        isPaused: true, // Start paused - unpauses when player acts (Superhot style)
+        timeScale: 0.01, // Start in slow motion
+        targetTimeScale: 0.01,
         accumulatorMs: 0,
         lastFrameMs: performance.now(),
         pauseReasons: new Set(),
@@ -179,7 +181,7 @@ export class Game {
     this.state.visible = computeFOV(
       this.state.map,
       this.state.player,
-      this.state.explored
+      this.state.explored,
     );
   }
 
@@ -197,7 +199,7 @@ export class Game {
   public resumeFromPause(reason: string): void {
     this.state.sim.pauseReasons.delete(reason);
     if (this.state.sim.pauseReasons.size === 0) {
-      this.state.sim.isPaused = false;
+      this.state.sim.targetTimeScale = 1.0;
     }
   }
 
@@ -220,7 +222,7 @@ export class Game {
 
     // Remove monsters and items
     this.state.entities = this.state.entities.filter(
-      (e) => e.kind === EntityKind.PLAYER
+      (e) => e.kind === EntityKind.PLAYER,
     );
 
     // Get free tiles once, upfront
@@ -313,15 +315,21 @@ export class Game {
       Object.assign(p, player);
       player = p;
     }
-    
+
     // Reconstruct other entities
     const entities: Entity[] = [player];
     for (const entity of data.entities) {
-      if (entity.kind === EntityKind.MONSTER && !(entity instanceof MonsterEntity)) {
+      if (
+        entity.kind === EntityKind.MONSTER &&
+        !(entity instanceof MonsterEntity)
+      ) {
         const m = createMutant(entity.x, entity.y, data.depth);
         Object.assign(m, entity);
         entities.push(m);
-      } else if (entity.kind === EntityKind.ITEM && !(entity instanceof ItemEntity)) {
+      } else if (
+        entity.kind === EntityKind.ITEM &&
+        !(entity instanceof ItemEntity)
+      ) {
         const i = createItem(entity.x, entity.y, (entity as Item).type);
         Object.assign(i, entity);
         entities.push(i);
@@ -329,7 +337,7 @@ export class Game {
         entities.push(entity);
       }
     }
-    
+
     this.state = {
       depth: data.depth,
       map: data.map,
@@ -343,7 +351,8 @@ export class Game {
       sim: {
         nowTick: data.sim.nowTick,
         mode: data.sim.mode,
-        isPaused: false,
+        timeScale: 1.0,
+        targetTimeScale: 1.0,
         accumulatorMs: 0,
         lastFrameMs: performance.now(),
         pauseReasons: new Set(),

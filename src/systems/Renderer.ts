@@ -136,6 +136,13 @@ export class Renderer {
   }
 
   /**
+   * Get current camera position in world coordinates
+   */
+  public getCameraPosition(): { x: number; y: number } {
+    return { x: this.cameraWorldX, y: this.cameraWorldY };
+  }
+
+  /**
    * Textures are cached to prevent memory leaks
    */
   private getTexture(x: number, y: number): Texture | null {
@@ -155,7 +162,7 @@ export class Renderer {
         x * SPRITE_SIZE,
         y * SPRITE_SIZE,
         SPRITE_SIZE,
-        SPRITE_SIZE
+        SPRITE_SIZE,
       ),
     });
 
@@ -170,7 +177,7 @@ export class Renderer {
     x: number,
     y: number,
     screenX: number,
-    screenY: number
+    screenY: number,
   ): Sprite | null {
     const texture = this.getTexture(x, y);
     if (!texture) return null;
@@ -190,7 +197,11 @@ export class Renderer {
    * @param isDead Whether player is dead
    * @param alpha Interpolation factor (0.0 to 1.0) for smooth movement
    */
-  public render(state: GameState, isDead: boolean = false, alpha: number = 0): void {
+  public render(
+    state: GameState,
+    isDead: boolean = false,
+    alpha: number = 0,
+  ): void {
     if (!this.ready) {
       // Store state to render once ready
       this.pendingRender = { state, isDead };
@@ -203,7 +214,7 @@ export class Renderer {
     if (state.sim.mode === "REALTIME" && "worldX" in player) {
       const targetX = (player as any).worldX;
       const targetY = (player as any).worldY;
-      
+
       // Smooth camera interpolation (15% per frame)
       this.cameraWorldX += (targetX - this.cameraWorldX) * 0.15;
       this.cameraWorldY += (targetY - this.cameraWorldY) * 0.15;
@@ -251,7 +262,7 @@ export class Renderer {
 
     // Render entities (items first, then monsters), excluding player
     const sortedEntities = entities
-      .filter(e => e.kind !== EntityKind.PLAYER)
+      .filter((e) => e.kind !== EntityKind.PLAYER)
       .sort((a, b) => {
         const aIsItem = a.kind === EntityKind.ITEM ? 1 : 0;
         const bIsItem = b.kind === EntityKind.ITEM ? 1 : 0;
@@ -260,8 +271,8 @@ export class Renderer {
 
     for (const entity of sortedEntities) {
       // Type guard to ensure we have required properties
-      if (!('x' in entity) || !('y' in entity)) continue;
-      
+      if (!("x" in entity) || !("y" in entity)) continue;
+
       const tileIndex = idx(entity.x, entity.y);
       if (options.fov && !visible.has(tileIndex)) continue;
 
@@ -272,8 +283,10 @@ export class Renderer {
         screenY = offsetY + (entity as any).worldY;
       } else {
         // Fall back to grid-based positioning
-        screenX = offsetX + (entity as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
-        screenY = offsetY + (entity as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+        screenX =
+          offsetX + (entity as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+        screenY =
+          offsetY + (entity as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
       }
 
       let coord;
@@ -283,7 +296,7 @@ export class Renderer {
       } else if (entity.kind === EntityKind.ITEM && "type" in entity) {
         coord = SPRITE_COORDS[entity.type];
       } else if (entity.kind === EntityKind.BULLET) {
-        coord = SPRITE_COORDS["bullet"]; // We'll need to add this to sprites config
+        coord = SPRITE_COORDS["bullet"];
       }
 
       if (coord) {
@@ -291,7 +304,7 @@ export class Renderer {
         if (sprite) {
           // Center the sprite on its position
           sprite.anchor.set(0.5, 0.5);
-          
+
           // Only rotate bullets, keep player and monsters upright
           if (entity.kind === EntityKind.BULLET && "facingAngle" in entity) {
             sprite.rotation = (entity as any).facingAngle;
@@ -317,13 +330,13 @@ export class Renderer {
         playerCoord.x,
         playerCoord.y,
         playerX,
-        playerY
+        playerY,
       );
 
       if (sprite) {
         // Center the sprite on player position
         sprite.anchor.set(0.5, 0.5);
-        
+
         // Apply death effect
         if (isDead) {
           sprite.tint = 0x555555;
@@ -339,7 +352,7 @@ export class Renderer {
    */
   public centerOnPlayer(
     player: { x: number; y: number },
-    smooth: boolean = true
+    smooth: boolean = true,
   ): void {
     if (!this.viewportElement) return;
 

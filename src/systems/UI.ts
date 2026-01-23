@@ -53,7 +53,13 @@ export class UI {
     if (sim.mode === "PLANNING") {
       modeText = "Stratego!";
     } else {
-      modeText = sim.isPaused ? "⏸ Paused" : "▶ Real-Time";
+      // Show time scale percentage
+      const timePercent = Math.round(sim.timeScale * 100);
+      if (timePercent < 10) {
+        modeText = `⏸ Slow-Mo (${timePercent}%)`;
+      } else {
+        modeText = `▶ Real-Time (${timePercent}%)`;
+      }
     }
     this.modeElement.textContent = modeText;
   }

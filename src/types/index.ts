@@ -56,23 +56,19 @@ export interface BaseEntity {
   x: number; // Derived from worldX (getter in ContinuousEntity)
   y: number; // Derived from worldY (getter in ContinuousEntity)
   nextActTick?: number;
-  
+
   // Continuous world coordinates (source of truth)
   worldX: number;
   worldY: number;
   prevWorldX: number;
   prevWorldY: number;
-  
+
   // Velocity
   velocityX: number;
   velocityY: number;
-  
+
   // Facing direction
   facingAngle: number;
-  
-  // Target for planning mode
-  targetWorldX?: number;
-  targetWorldY?: number;
 }
 
 export interface Player extends BaseEntity {
@@ -116,10 +112,16 @@ export type Entity = Player | Monster | Item | Bullet;
 // Simulation System (NEW)
 // ========================================
 
+// Time scaling constants
+export const SLOWMO_SCALE = 0.01; // 1% speed during slowdown
+export const REAL_TIME_SPEED = 0.5; // 50% base speed for real-time
+export const TIME_SCALE_TRANSITION_SPEED = 0.05; // Interpolation speed per frame
+
 export interface SimulationState {
   nowTick: number;
   mode: "PLANNING" | "REALTIME";
-  isPaused: boolean;
+  timeScale: number; // Current time scale (0.01 to 1.0)
+  targetTimeScale: number; // Desired time scale for smooth transitions
   accumulatorMs: number;
   lastFrameMs: number;
   pauseReasons: Set<string>;

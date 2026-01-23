@@ -1,13 +1,13 @@
 /**
  * Dark War - Main Entry Point
- * 
+ *
  * Modern roguelike remake of Mission Thunderbolt (1992)
  * Features:
  * - Continuous fluid movement with physics-based collision
  * - Superhot-style time mechanics (time flows when you move)
  * - Grid-based destructible terrain (future)
  * - Mouse aiming and shooting
- * 
+ *
  * Architecture:
  * - 60Hz fixed timestep physics via GameLoop
  * - Event-driven simulation system
@@ -36,6 +36,9 @@ import {
   MAP_WIDTH,
   TileType,
   CELL_CONFIG,
+  SLOWMO_SCALE,
+  REAL_TIME_SPEED,
+  TIME_SCALE_TRANSITION_SPEED,
 } from "./types";
 import { findPath } from "./utils/pathfinding";
 import { idx } from "./utils/helpers";
@@ -97,7 +100,7 @@ class DarkWar {
         update: (dt) => this.update(dt),
         render: (alpha) => this.render(alpha),
       },
-      1000 / 60 // 60Hz physics
+      1000 / 60, // 60Hz physics
     );
     if (DEBUG) console.timeEnd("Create GameLoop");
 
@@ -106,7 +109,7 @@ class DarkWar {
 
     // Setup input callbacks
     const callbacks: InputCallbacks = {
-      onMove: (dx, dy) => this.handleMove(dx, dy),
+      onUpdateVelocity: (vx, vy) => this.handleUpdateVelocity(vx, vy),
       onFire: (dx, dy) => this.handleFire(dx, dy),
       onInteract: (dx, dy) => this.handleInteract(dx, dy),
       onPickup: () => this.handlePickup(),
@@ -142,7 +145,7 @@ class DarkWar {
     // Initialize physics for current map
     const initialState = this.game.getState();
     this.physics.initializeMap(initialState.map);
-    
+
     // Initialize physics bodies for all entities
     for (const entity of initialState.entities) {
       this.physics.updateEntityBody(entity as any);
@@ -153,7 +156,7 @@ class DarkWar {
       const state = this.game.getState();
       this.renderer.centerOnPlayer(state.player, false);
     }, 100);
-    
+
     this.gameLoop.start();
     if (DEBUG) console.timeEnd("Game initialization");
   }
@@ -231,7 +234,7 @@ class DarkWar {
         tileY,
         state.map,
         state.explored,
-        state.entities
+        state.entities,
       );
 
       if (path && path.length > 1) {
@@ -239,27 +242,27 @@ class DarkWar {
         this.autoMovePath = path.slice(1);
       }
     });
-    
+
     // Right click or Shift+Click: shoot
     canvas.addEventListener("contextmenu", (event) => {
       event.preventDefault();
       this.handleMouseFire(event);
     });
   }
-  
+
   /**
    * Handle mouse-based firing
    */
   private handleMouseFire(event: MouseEvent): void {
     const state = this.game.getState();
     const player = state.player;
-    
+
     // Check if player has ammo
     if (player.ammo <= 0) {
       this.game.addLog("*click* Out of ammo!");
       return;
     }
-    
+
     // Fire with mouse aiming (dx/dy will be ignored)
     this.handleFire(0, 0);
   }
@@ -270,19 +273,42 @@ class DarkWar {
   private update(dt: number): void {
     const state = this.game.getState();
 
-    // Superhot mechanic: Skip updates when paused
-    if (state.sim.isPaused) {
-      return;
+    // Update mouse tracker with current camera position and scale
+    const cameraPos = this.renderer.getCameraPosition();
+    this.mouseTracker.setCameraPosition(cameraPos.x, cameraPos.y);
+    this.mouseTracker.setScale(this.renderer.getScale());
+
+    // Smooth time scale transitions
+    const timeDiff = state.sim.targetTimeScale - state.sim.timeScale;
+    if (Math.abs(timeDiff) > 0.001) {
+      // Interpolate toward target
+      if (timeDiff > 0) {
+        state.sim.timeScale = Math.min(
+          state.sim.timeScale + TIME_SCALE_TRANSITION_SPEED,
+          state.sim.targetTimeScale,
+        );
+      } else {
+        state.sim.timeScale = Math.max(
+          state.sim.timeScale - TIME_SCALE_TRANSITION_SPEED,
+          state.sim.targetTimeScale,
+        );
+      }
+    } else {
+      // Snap to target when close enough
+      state.sim.timeScale = state.sim.targetTimeScale;
     }
 
-    // Update physics (smooth movement)
-    this.physics.updatePhysics(state, dt);
-    
-    // Update bullets
-    this.physics.updateBullets(state, dt);
+    // Apply time scaling to deltaTime
+    const scaledDt = dt * state.sim.timeScale * REAL_TIME_SPEED;
 
-    // Advance simulation ticks
-    state.sim.accumulatorMs += dt * 1000;
+    // Update physics (smooth movement with time scaling)
+    this.physics.updatePhysics(state, scaledDt);
+
+    // Update bullets
+    this.physics.updateBullets(state, scaledDt);
+
+    // Advance simulation ticks with time scaling
+    state.sim.accumulatorMs += scaledDt * 1000;
     while (state.sim.accumulatorMs >= SIM_DT_MS) {
       stepSimulationTick(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
@@ -292,12 +318,12 @@ class DarkWar {
       if ((state as any)._shouldDescend) {
         (state as any)._shouldDescend = false;
         this.game.descend();
-        
+
         this.physics.initializeMap(state.map);
         for (const entity of state.entities) {
           this.physics.updateEntityBody(entity as any);
         }
-        
+
         setTimeout(() => {
           const newState = this.game.getState();
           this.renderer.centerOnPlayer(newState.player, false);
@@ -305,27 +331,20 @@ class DarkWar {
       }
     }
 
-    // Superhot auto-pause: Check if ALL entities have stopped moving
-    // Only check after physics has had a chance to zero out velocities
-    let anyEntityMoving = false;
-    for (const entity of state.entities) {
-      if ('velocityX' in entity && 'velocityY' in entity) {
-        const vx = (entity as any).velocityX;
-        const vy = (entity as any).velocityY;
-        if (Math.abs(vx) > 0.1 || Math.abs(vy) > 0.1) {
-          anyEntityMoving = true;
-          break;
-        }
-      }
+    // Check if player has stopped moving
+    const player = state.player;
+    const playerMoving =
+      "velocityX" in player && "velocityY" in player
+        ? Math.abs((player as any).velocityX) > 0.1 ||
+          Math.abs((player as any).velocityY) > 0.1
+        : false;
+
+    // Update target time scale based on player movement
+    if (!playerMoving && !this.playerActedThisTick) {
+      state.sim.targetTimeScale = SLOWMO_SCALE;
     }
-    
-    // Pause when all entities stop. playerActedThisTick prevents immediate re-pause.
-    if (!anyEntityMoving && !this.playerActedThisTick) {
-      state.sim.isPaused = true;
-    }
-    
-    // Reset flag at end of update, not in render
-    // This gives physics one full frame to process movement
+
+    // Reset flag at end of update
     if (this.playerActedThisTick) {
       this.playerActedThisTick = false;
     }
@@ -346,84 +365,31 @@ class DarkWar {
   }
 
   /**
+   * Handle velocity updates from WASD input
+   */
+  private handleUpdateVelocity(vx: number, vy: number): void {
+    const state = this.game.getState();
+    const player = state.player;
+
+    // Set player velocity directly
+    if ("velocityX" in player && "velocityY" in player) {
+      (player as any).velocityX = vx;
+      (player as any).velocityY = vy;
+    }
+
+    // If player is moving, resume time
+    if (vx !== 0 || vy !== 0) {
+      state.sim.targetTimeScale = 1.0;
+      this.playerActedThisTick = true;
+      this.cancelAutoMove();
+    }
+  }
+
+  /**
    * Cancel automatic movement
    */
   private cancelAutoMove(): void {
     this.autoMovePath = null;
-  }
-
-  /**
-   * Handle player movement
-   */
-  private handleMove(
-    dx: number,
-    dy: number,
-    fromAutoMove: boolean = false
-  ): void {
-    // Only cancel auto-move if this is a manual action
-    if (!fromAutoMove) {
-      this.cancelAutoMove();
-    }
-
-    const state = this.game.getState();
-    const playerId = state.player.id;
-    const player = state.player;
-
-    // Validate move before enqueueing
-    const nx = player.x + dx;
-    const ny = player.y + dy;
-
-    // Check bounds
-    if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= 36) return;
-
-    // Check if tile is passable
-    const idx = nx + ny * MAP_WIDTH;
-    const tile = state.map[idx];
-    if (
-      tile === TileType.WALL ||
-      tile === TileType.DOOR_CLOSED ||
-      tile === TileType.DOOR_LOCKED
-    )
-      return;
-
-    // Check entity blocking (except monsters which trigger attack)
-    const blocker = state.entities.find(
-      (e) => e.x === nx && e.y === ny && e.kind === EntityKind.PLAYER
-    );
-    if (blocker) return;
-
-    // Superhot mechanic: Unpause game when player acts
-    state.sim.isPaused = false;
-
-    const tick = state.sim.nowTick;
-
-    enqueueCommand(state, {
-      tick,
-      actorId: playerId,
-      type: CommandType.MOVE,
-      data: { type: "MOVE", dx, dy },
-      priority: 0,
-      source: "PLAYER",
-    });
-
-    this.playerActedThisTick = true;
-
-    // Execute immediately
-    stepSimulationTick(state);
-    this.game.updateFOV();
-
-    // Check for descend flag
-    if ((state as any)._shouldDescend) {
-      (state as any)._shouldDescend = false;
-      this.game.descend();
-      // Center on player after level transition
-      setTimeout(() => {
-        const newState = this.game.getState();
-        this.renderer.centerOnPlayer(newState.player, false);
-      }, 50);
-    }
-
-    this.autoSave();
   }
 
   /**
@@ -436,13 +402,16 @@ class DarkWar {
     const playerId = state.player.id;
     const player = state.player;
 
-    // Superhot mechanic: Unpause game when player acts
-    state.sim.isPaused = false;
+    // Resume time when player acts
+    state.sim.targetTimeScale = 1.0;
 
     // Set player's facing angle based on mouse position for bullet direction
     if ("worldX" in player && "worldY" in player) {
       const mousePos = this.mouseTracker.getWorldPosition();
-      const angle = this.mouseTracker.getAngleFrom((player as any).worldX, (player as any).worldY);
+      const angle = this.mouseTracker.getAngleFrom(
+        (player as any).worldX,
+        (player as any).worldY,
+      );
       (player as any).facingAngle = angle;
     }
 
@@ -475,8 +444,8 @@ class DarkWar {
     const state = this.game.getState();
     const playerId = state.player.id;
 
-    // Superhot mechanic: Unpause game when player acts
-    state.sim.isPaused = false;
+    // Resume time when player acts
+    state.sim.targetTimeScale = 1.0;
 
     const tick = state.sim.nowTick;
 
@@ -514,8 +483,8 @@ class DarkWar {
     const playerId = state.player.id;
     const player = state.player;
 
-    // Superhot mechanic: Unpause game when player acts
-    state.sim.isPaused = false;
+    // Resume time when player acts
+    state.sim.targetTimeScale = 1.0;
 
     const targetX = player.x + dx;
     const targetY = player.y + dy;
@@ -549,8 +518,8 @@ class DarkWar {
     const state = this.game.getState();
     const playerId = state.player.id;
 
-    // Superhot mechanic: Unpause game when player acts
-    state.sim.isPaused = false;
+    // Resume time when player acts
+    state.sim.targetTimeScale = 1.0;
 
     const tick = state.sim.nowTick;
 
@@ -581,8 +550,8 @@ class DarkWar {
     const state = this.game.getState();
     const playerId = state.player.id;
 
-    // Superhot mechanic: Unpause game when player acts
-    state.sim.isPaused = false;
+    // Resume time when player acts
+    state.sim.targetTimeScale = 1.0;
 
     const tick = state.sim.nowTick;
 
@@ -662,14 +631,14 @@ class DarkWar {
    */
   private handleNewGame(): void {
     this.game.reset(1);
-    
+
     // Reinitialize physics for new level
     const state = this.game.getState();
     this.physics.initializeMap(state.map);
     for (const entity of state.entities) {
       this.physics.updateEntityBody(entity as any);
     }
-    
+
     this.render(0);
     // Center on player after new game starts
     setTimeout(() => {
@@ -715,14 +684,14 @@ class DarkWar {
   private handleLoad(): void {
     if (this.loadGame()) {
       this.game.addLog("Game loaded.");
-      
+
       // Reinitialize physics for loaded level
       const state = this.game.getState();
       this.physics.initializeMap(state.map);
       for (const entity of state.entities) {
         this.physics.updateEntityBody(entity as any);
       }
-      
+
       this.render(0);
     } else {
       this.game.addLog("No save found.");

@@ -1,9 +1,9 @@
 /**
  * ContinuousEntity - Base class for all moving entities
- * 
+ *
  * Uses continuous pixel-based coordinates (worldX, worldY) as source of truth,
  * with grid coordinates (gridX, gridY) derived from them.
- * 
+ *
  * Key concepts:
  * - worldX/worldY: Float coordinates in pixels (0,0 is top-left)
  * - gridX/gridY: Derived grid coordinates (READ-ONLY getters)
@@ -21,39 +21,35 @@ import { Body } from "detect-collisions";
 export abstract class ContinuousEntity {
   public id: number;
   public abstract kind: EntityKind;
-  
+
   // Source of Truth: World coordinates (float, in pixels)
   public worldX: number;
   public worldY: number;
-  
+
   // Previous world position (for interpolation)
   public prevWorldX: number;
   public prevWorldY: number;
-  
+
   // Velocity (pixels per second)
   public velocityX: number = 0;
   public velocityY: number = 0;
-  
+
   // Facing direction (radians, 0 = right, PI/2 = down, PI = left, 3PI/2 = up)
   public facingAngle: number = 0;
-  
-  // Target position for planning mode
-  public targetWorldX?: number;
-  public targetWorldY?: number;
-  
+
   // Action timing
   public nextActTick?: number;
-  
+
   // Physics body reference (set by Physics system)
   public physicsBody?: Body;
 
   constructor(id: number, gridX: number, gridY: number) {
     this.id = id;
-    
+
     // Initialize world position to center of grid cell
     this.worldX = gridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     this.worldY = gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
-    
+
     // Initialize previous position to current
     this.prevWorldX = this.worldX;
     this.prevWorldY = this.worldY;
@@ -105,26 +101,5 @@ export abstract class ContinuousEntity {
     this.worldY = gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
     this.prevWorldX = this.worldX;
     this.prevWorldY = this.worldY;
-  }
-
-  /**
-   * Check if entity has reached its target (for planning mode)
-   */
-  public hasReachedTarget(threshold: number = 2): boolean {
-    if (this.targetWorldX === undefined || this.targetWorldY === undefined) {
-      return true;
-    }
-    
-    const dx = this.worldX - this.targetWorldX;
-    const dy = this.worldY - this.targetWorldY;
-    return Math.sqrt(dx * dx + dy * dy) < threshold;
-  }
-
-  /**
-   * Clear target position
-   */
-  public clearTarget(): void {
-    this.targetWorldX = undefined;
-    this.targetWorldY = undefined;
   }
 }

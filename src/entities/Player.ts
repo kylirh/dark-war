@@ -8,7 +8,7 @@ let nextPlayerId = 1000; // Start player IDs at 1000
  */
 export class PlayerEntity extends ContinuousEntity {
   public readonly kind = EntityKind.PLAYER;
-  
+
   public hpMax: number;
   public hp: number;
   public sight: number;
@@ -20,7 +20,7 @@ export class PlayerEntity extends ContinuousEntity {
 
   constructor(gridX: number, gridY: number) {
     super(nextPlayerId++, gridX, gridY);
-    
+
     this.hpMax = 20;
     this.hp = 20;
     this.sight = 9;

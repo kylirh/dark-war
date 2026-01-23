@@ -27,7 +27,7 @@ const ITEM_META = {
  */
 export class ItemEntity extends ContinuousEntity {
   public readonly kind = EntityKind.ITEM;
-  
+
   public type: ItemType;
   public name: string;
   public amount?: number;
@@ -35,22 +35,20 @@ export class ItemEntity extends ContinuousEntity {
 
   constructor(gridX: number, gridY: number, type: ItemType, amount?: number) {
     super(nextItemId++, gridX, gridY);
-    
+
     this.type = type;
     this.name = ITEM_META[type].name;
-    
+
     // Add type-specific properties
     if (type === ItemType.AMMO) {
       this.amount = amount || 8 + RNG.int(10);
     } else if (type === ItemType.MEDKIT) {
       this.heal = 6 + RNG.int(8);
     }
-    
-    // Items are static - ensure zero velocity and no targets
+
+    // Items are static - ensure zero velocity
     this.velocityX = 0;
     this.velocityY = 0;
-    this.targetWorldX = undefined;
-    this.targetWorldY = undefined;
   }
 }
 
@@ -61,7 +59,7 @@ export function createItem(
   x: number,
   y: number,
   type: ItemType,
-  amount = 0
+  amount = 0,
 ): ItemEntity {
   return new ItemEntity(x, y, type, amount);
 }
