@@ -286,6 +286,31 @@ export class Game {
   }
 
   /**
+   * Update death status based on player HP
+   */
+  public updateDeathStatus(): void {
+    if (this.state.player.hp <= 0 && !this.isDead) {
+      this.isDead = true;
+
+      // Stop player movement immediately
+      const player = this.state.player;
+      if ("velocityX" in player && "velocityY" in player) {
+        (player as any).velocityX = 0;
+        (player as any).velocityY = 0;
+      }
+
+      // Speed up time to normal (remove time dilation)
+      this.state.sim.targetTimeScale = 1.0;
+
+      // Show game over overlay
+      const gameOverOverlay = document.getElementById("game-over-overlay");
+      if (gameOverOverlay) {
+        gameOverOverlay.classList.add("visible");
+      }
+    }
+  }
+
+  /**
    * Serialize game state for saving
    */
   public serialize(): SerializedState {

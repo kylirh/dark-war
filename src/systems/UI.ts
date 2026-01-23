@@ -83,7 +83,7 @@ export class UI {
     player: Player,
     depth: number,
     log: string[],
-    sim: SimulationState
+    sim: SimulationState,
   ): void {
     this.updateStats(player, depth);
     this.updateInventory(player);

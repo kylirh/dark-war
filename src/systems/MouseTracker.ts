@@ -38,7 +38,7 @@ export class MouseTracker {
     // Then subtract padding to get world coordinates
     const canvasUnscaledX = this.mouseCanvasX / this.scale;
     const canvasUnscaledY = this.mouseCanvasY / this.scale;
-    
+
     // Convert to world coordinates by removing padding
     this.mouseWorldX = canvasUnscaledX - CELL_CONFIG.padX;
     this.mouseWorldY = canvasUnscaledY - CELL_CONFIG.padY;

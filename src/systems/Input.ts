@@ -109,14 +109,14 @@ export class InputHandler {
       this.callbacks.onInteract(0, 0); // Signal to show interact prompt
       return;
     }
-    
+
     // Pick up items
     if (key === "g") {
       e.preventDefault();
       this.callbacks.onPickup();
       return;
     }
-    
+
     // Reload weapon
     if (key === "r") {
       e.preventDefault();

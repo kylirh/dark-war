@@ -40,6 +40,7 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   // Row 1 - Player
   // ========================================
   player: { x: 0, y: 1 },
+  player_dead: { x: 1, y: 1 },
 
   // ========================================
   // Row 2 - Monsters/Entities

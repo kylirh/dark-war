@@ -323,7 +323,9 @@ export class Renderer {
       playerX = offsetX + (player as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
       playerY = offsetY + (player as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
     }
-    const playerCoord = SPRITE_COORDS["player"];
+    const playerCoord = isDead
+      ? SPRITE_COORDS["player_dead"]
+      : SPRITE_COORDS["player"];
 
     if (playerCoord) {
       const sprite = this.createSprite(
@@ -337,10 +339,6 @@ export class Renderer {
         // Center the sprite on player position
         sprite.anchor.set(0.5, 0.5);
 
-        // Apply death effect
-        if (isDead) {
-          sprite.tint = 0x555555;
-        }
         // Player sprite stays upright (no rotation)
         this.entityContainer.addChild(sprite);
       }

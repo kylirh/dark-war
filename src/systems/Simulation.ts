@@ -863,10 +863,8 @@ function processPlayerDeathEvent(state: GameState, event: GameEvent): void {
     cause: event.id,
   });
 
-  // Switch to real-time mode to show monsters continuing
-  if (state.sim.mode === "PLANNING") {
-    state.sim.mode = "REALTIME";
-  }
+  // Note: Death handling (stopping movement, showing overlay, time adjustment)
+  // is done in Game.updateDeathStatus() which is called after each simulation tick
 }
 
 function processNPCTalkEvent(state: GameState, event: GameEvent): void {

@@ -315,6 +315,7 @@ class DarkWar {
       stepSimulationTick(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
       this.game.updateFOV();
+      this.game.updateDeathStatus(); // Check if player died
 
       // Check for descend flag
       if ((state as any)._shouldDescend) {
@@ -373,6 +374,11 @@ class DarkWar {
     const state = this.game.getState();
     const player = state.player;
 
+    // Don't allow movement if player is dead
+    if (this.game.isPlayerDead()) {
+      return;
+    }
+
     // Set player velocity directly
     if ("velocityX" in player && "velocityY" in player) {
       (player as any).velocityX = vx;
@@ -398,6 +404,11 @@ class DarkWar {
    * Handle firing weapon
    */
   private handleFire(dx: number, dy: number): void {
+    // Don't allow actions if player is dead
+    if (this.game.isPlayerDead()) {
+      return;
+    }
+
     this.cancelAutoMove();
 
     const state = this.game.getState();
@@ -441,6 +452,11 @@ class DarkWar {
    * Handle wait/rest
    */
   private handleWait(): void {
+    // Don't allow actions if player is dead
+    if (this.game.isPlayerDead()) {
+      return;
+    }
+
     this.cancelAutoMove();
 
     const state = this.game.getState();
@@ -465,6 +481,8 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
+    this.game.updateDeathStatus();
+    this.game.updateDeathStatus();
 
     this.autoSave();
   }
@@ -473,6 +491,11 @@ class DarkWar {
    * Handle door interaction
    */
   private handleInteract(dx: number, dy: number): void {
+    // Don't allow actions if player is dead
+    if (this.game.isPlayerDead()) {
+      return;
+    }
+
     this.cancelAutoMove();
 
     // Show prompt if no direction given
@@ -507,6 +530,7 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
+    this.game.updateDeathStatus();
 
     this.autoSave();
   }
@@ -515,6 +539,11 @@ class DarkWar {
    * Handle pickup items
    */
   private handlePickup(): void {
+    // Don't allow actions if player is dead
+    if (this.game.isPlayerDead()) {
+      return;
+    }
+
     this.cancelAutoMove();
 
     const state = this.game.getState();
@@ -539,6 +568,7 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
+    this.game.updateDeathStatus();
 
     this.autoSave();
   }
@@ -547,6 +577,11 @@ class DarkWar {
    * Handle reload
    */
   private handleReload(): void {
+    // Don't allow actions if player is dead
+    if (this.game.isPlayerDead()) {
+      return;
+    }
+
     this.cancelAutoMove();
 
     const state = this.game.getState();
@@ -571,6 +606,7 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
+    this.game.updateDeathStatus();
 
     this.autoSave();
   }
@@ -579,6 +615,11 @@ class DarkWar {
    * Handle descending stairs
    */
   private handleDescend(): void {
+    // Don't allow actions if player is dead
+    if (this.game.isPlayerDead()) {
+      return;
+    }
+
     this.cancelAutoMove();
 
     const state = this.game.getState();
@@ -642,6 +683,12 @@ class DarkWar {
    */
   private handleNewGame(): void {
     this.game.reset(1);
+
+    // Hide game over overlay
+    const gameOverOverlay = document.getElementById("game-over-overlay");
+    if (gameOverOverlay) {
+      gameOverOverlay.classList.remove("visible");
+    }
 
     // Reinitialize physics for new level
     const state = this.game.getState();
