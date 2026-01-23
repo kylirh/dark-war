@@ -28,7 +28,7 @@ import { createBullet } from "../entities/Bullet";
 export const SIM_DT_MS = 50; // 20 ticks/second
 export const MONSTER_ACTION_DELAY = 5; // Monsters act every N ticks (player acts every 1)
 export const MONSTER_AI_UPDATE_INTERVAL = 5; // Update monster velocities every 5 ticks (~4 Hz)
-export const MONSTER_SPEED = 200; // pixels per second (same as player)
+export const MONSTER_SPEED = 225; // pixels per second
 export const MONSTER_ARRIVAL_RADIUS = CELL_CONFIG.w * 1.5; // Stop when within 1.5 tiles for attack
 export const MAX_EVENTS_PER_TICK = 1000;
 export const MAX_COMMANDS_PER_TICK = 1000;
@@ -408,8 +408,8 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     if (dist > 0) {
-      // Movement speed: 200 pixels per second for smooth motion
-      const speed = 200;
+      // Movement speed: 225 pixels per second for smooth motion
+      const speed = 225;
       (actor as any).velocityX = (dx / dist) * speed;
       (actor as any).velocityY = (dy / dist) * speed;
 
@@ -495,7 +495,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
   // Use continuous coordinates (modern path)
   if ("worldX" in player && "facingAngle" in player) {
     // Spawn bullet entity from player position
-    const BULLET_SPEED = 400; // pixels per second
+    const BULLET_SPEED = 600; // pixels per second
     const angle = (player as any).facingAngle;
 
     const bullet = createBullet(

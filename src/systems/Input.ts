@@ -6,7 +6,7 @@
 export type Direction = [number, number];
 
 // Movement speed constant
-export const MOVEMENT_SPEED = 200; // pixels per second
+export const MOVEMENT_SPEED = 225; // pixels per second
 
 export interface InputCallbacks {
   onUpdateVelocity: (vx: number, vy: number) => void; // Continuous velocity update
@@ -17,6 +17,7 @@ export interface InputCallbacks {
   onReload: () => void;
   onDescend: () => void;
   onToggleFOV: () => void;
+  onToggleRealTime: () => void;
   onResumePause: (reason: string) => void;
   onNewGame: () => void;
   onSave: () => void;
@@ -130,11 +131,10 @@ export class InputHandler {
       return;
     }
 
-    // Resume from pause (Enter)
+    // Toggle real-time mode (Enter)
     if (key === "enter") {
       e.preventDefault();
-      this.callbacks.onResumePause("npc_talk");
-      this.callbacks.onResumePause("player_death");
+      this.callbacks.onToggleRealTime();
       return;
     }
   }

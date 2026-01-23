@@ -10,7 +10,6 @@ export class UI {
   private hpBarElement: HTMLElement;
   private scoreElement: HTMLElement;
   private inventoryElement: HTMLElement;
-  private modeElement: HTMLElement | null;
 
   constructor() {
     this.logElement = this.getElement("log");
@@ -19,7 +18,6 @@ export class UI {
     this.hpBarElement = this.getElement("hpbar");
     this.scoreElement = this.getElement("score");
     this.inventoryElement = this.getElement("inventory");
-    this.modeElement = document.getElementById("mode"); // Optional element
   }
 
   private getElement(id: string): HTMLElement {
@@ -41,27 +39,6 @@ export class UI {
     // Update HP bar
     const hpPercent = Math.max(0, Math.min(1, player.hp / player.hpMax));
     this.hpBarElement.style.setProperty("--hp-width", `${hpPercent * 100}%`);
-  }
-
-  /**
-   * Update mode display
-   */
-  public updateMode(sim: SimulationState): void {
-    if (!this.modeElement) return;
-
-    let modeText = "";
-    if (sim.mode === "PLANNING") {
-      modeText = "Stratego!";
-    } else {
-      // Show time scale percentage
-      const timePercent = Math.round(sim.timeScale * 100);
-      if (timePercent < 10) {
-        modeText = `⏸ Slow-Mo (${timePercent}%)`;
-      } else {
-        modeText = `▶ Real-Time (${timePercent}%)`;
-      }
-    }
-    this.modeElement.textContent = modeText;
   }
 
   /**
@@ -111,6 +88,5 @@ export class UI {
     this.updateStats(player, depth);
     this.updateInventory(player);
     this.updateLog(log);
-    this.updateMode(sim);
   }
 }

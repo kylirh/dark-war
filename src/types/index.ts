@@ -113,8 +113,8 @@ export type Entity = Player | Monster | Item | Bullet;
 // ========================================
 
 // Time scaling constants
-export const SLOWMO_SCALE = 0.01; // 1% speed during slowdown
-export const REAL_TIME_SPEED = 0.5; // 50% base speed for real-time
+export const SLOWMO_SCALE = 0.05; // 5% speed during slowdown
+export const REAL_TIME_SPEED = 1.0; // 100% base speed for real-time
 export const TIME_SCALE_TRANSITION_SPEED = 0.05; // Interpolation speed per frame
 
 export interface SimulationState {

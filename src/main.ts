@@ -71,6 +71,7 @@ class DarkWar {
   private inputHandler: InputHandler;
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
+  private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
 
   constructor() {
     if (DEBUG) console.time("Game initialization");
@@ -117,6 +118,7 @@ class DarkWar {
       onReload: () => this.handleReload(),
       onDescend: () => this.handleDescend(),
       onToggleFOV: () => this.handleToggleFOV(),
+      onToggleRealTime: () => this.handleToggleRealTime(),
       onResumePause: (reason) => this.game.resumeFromPause(reason),
       onNewGame: () => this.handleNewGame(),
       onSave: () => this.handleSave(),
@@ -624,6 +626,15 @@ class DarkWar {
    */
   private handleToggleFOV(): void {
     this.game.toggleFOV();
+  }
+
+  /**
+   * Toggle real-time mode on/off
+   */
+  private handleToggleRealTime(): void {
+    this.realTimeToggled = !this.realTimeToggled;
+    const state = this.game.getState();
+    state.sim.targetTimeScale = this.realTimeToggled ? 1.0 : SLOWMO_SCALE;
   }
 
   /**
