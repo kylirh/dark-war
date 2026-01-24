@@ -28,6 +28,7 @@ export enum EntityKind {
   MONSTER = "monster",
   BULLET = "bullet",
   ITEM = "item",
+  EXPLOSIVE = "explosive",
 }
 
 export enum MonsterType {
@@ -40,6 +41,15 @@ export enum ItemType {
   AMMO = "ammo",
   MEDKIT = "medkit",
   KEYCARD = "keycard",
+  GRENADE = "grenade",
+  LAND_MINE = "land-mine",
+}
+
+export enum WeaponType {
+  MELEE = "melee",
+  PISTOL = "pistol",
+  GRENADE = "grenade",
+  LAND_MINE = "land-mine",
 }
 
 // ========================================
@@ -76,11 +86,13 @@ export interface Player extends BaseEntity {
   hpMax: number;
   hp: number;
   sight: number;
-  weapon: ItemType;
+  weapon: WeaponType;
   ammo: number;
   ammoReserve: number;
   keys: number;
   score: number;
+  grenades: number;
+  landMines: number;
 }
 
 export interface Monster extends BaseEntity {
@@ -88,6 +100,8 @@ export interface Monster extends BaseEntity {
   type: MonsterType;
   hp: number;
   dmg: number;
+  grenades: number;
+  landMines: number;
 }
 
 export interface Item extends BaseEntity {
@@ -106,7 +120,23 @@ export interface Bullet extends BaseEntity {
   traveledDistance: number;
 }
 
-export type Entity = Player | Monster | Item | Bullet;
+export interface Explosive extends BaseEntity {
+  kind: EntityKind.EXPLOSIVE;
+  type: ItemType.GRENADE | ItemType.LAND_MINE;
+  armed: boolean;
+  fuseTicks?: number;
+}
+
+export interface Effect {
+  id: number;
+  type: "explosion";
+  worldX: number;
+  worldY: number;
+  ageTicks: number;
+  durationTicks: number;
+}
+
+export type Entity = Player | Monster | Item | Bullet | Explosive;
 
 // ========================================
 // Simulation System (NEW)
@@ -179,8 +209,14 @@ export interface GameEvent {
 }
 
 export type EventData =
-  | { type: "DAMAGE"; targetId: number; amount: number; sourceId?: number }
-  | { type: "DEATH"; entityId: number }
+  | {
+      type: "DAMAGE";
+      targetId: number;
+      amount: number;
+      sourceId?: number;
+      fromExplosion?: boolean;
+    }
+  | { type: "DEATH"; entityId: number; fromExplosion?: boolean }
   | { type: "EXPLOSION"; x: number; y: number; radius: number; damage: number }
   | { type: "DROP_LOOT"; x: number; y: number; itemType: ItemType }
   | { type: "MESSAGE"; message: string }
@@ -223,10 +259,12 @@ export interface GameState {
   options: {
     fov: boolean;
   };
+  effects: Effect[];
   // NEW: Simulation system
   sim: SimulationState;
   commandsByTick: Map<number, Command[]>;
   eventQueue: GameEvent[];
+  shouldDescend: boolean;
 }
 
 // ========================================

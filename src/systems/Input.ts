@@ -22,6 +22,7 @@ export interface InputCallbacks {
   onNewGame: () => void;
   onSave: () => void;
   onLoad: () => void;
+  onSelectWeapon: (slot: number) => void;
 }
 
 export class InputHandler {
@@ -50,6 +51,27 @@ export class InputHandler {
   private handleKeyDown(e: KeyboardEvent): void {
     const key = e.key.toLowerCase();
     const code = e.code;
+
+    if (code === "Digit1") {
+      e.preventDefault();
+      this.callbacks.onSelectWeapon(1);
+      return;
+    }
+    if (code === "Digit2") {
+      e.preventDefault();
+      this.callbacks.onSelectWeapon(2);
+      return;
+    }
+    if (code === "Digit3") {
+      e.preventDefault();
+      this.callbacks.onSelectWeapon(3);
+      return;
+    }
+    if (code === "Digit4") {
+      e.preventDefault();
+      this.callbacks.onSelectWeapon(4);
+      return;
+    }
 
     // Track WASD key states
     if (code === "KeyW") {

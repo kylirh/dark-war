@@ -17,6 +17,10 @@
 // Debug configuration - set to true to enable performance logging
 const DEBUG = false;
 
+// Mouse wheel throttling constants
+const WHEEL_THROTTLE_MS = 150; // Minimum time between weapon switches (ms)
+const WHEEL_DELTA_THRESHOLD = 30; // Minimum accumulated deltaY to trigger switch
+
 import { Game } from "./core/Game";
 import { GameLoop } from "./core/GameLoop";
 import { Renderer } from "./systems/Renderer";
@@ -39,6 +43,7 @@ import {
   SLOWMO_SCALE,
   REAL_TIME_SPEED,
   TIME_SCALE_TRANSITION_SPEED,
+  WeaponType,
 } from "./types";
 import { findPath } from "./utils/pathfinding";
 import { idx } from "./utils/helpers";
@@ -75,6 +80,8 @@ class DarkWar {
   private wasPlayerMoving: boolean = false;
   private lastPlayerWorldX?: number;
   private lastPlayerWorldY?: number;
+  private lastWheelTime: number = 0; // Track last weapon cycle time
+  private wheelDeltaAccumulator: number = 0; // Accumulate wheel delta
 
   constructor() {
     if (DEBUG) console.time("Game initialization");
@@ -126,12 +133,19 @@ class DarkWar {
       onNewGame: () => this.handleNewGame(),
       onSave: () => this.handleSave(),
       onLoad: () => this.handleLoad(),
+      onSelectWeapon: (slot) => this.handleSelectWeapon(slot),
     };
 
     this.inputHandler = new InputHandler(callbacks);
 
     // Setup click-to-move
     this.setupClickToMove();
+
+    // Setup game over overlay actions
+    const newGameButton = document.getElementById("new-game-button");
+    if (newGameButton) {
+      newGameButton.addEventListener("click", () => this.handleNewGame());
+    }
 
     // Setup native menu handlers for Electron
     this.setupNativeMenuHandlers();
@@ -253,21 +267,37 @@ class DarkWar {
       event.preventDefault();
       this.handleMouseFire(event);
     });
+
+    canvas.addEventListener(
+      "wheel",
+      (event) => {
+        event.preventDefault();
+
+        const now = performance.now();
+        const timeSinceLastSwitch = now - this.lastWheelTime;
+
+        // Accumulate wheel delta
+        this.wheelDeltaAccumulator += event.deltaY;
+
+        // Only switch weapon if enough time has passed AND enough delta accumulated
+        if (
+          timeSinceLastSwitch >= WHEEL_THROTTLE_MS &&
+          Math.abs(this.wheelDeltaAccumulator) >= WHEEL_DELTA_THRESHOLD
+        ) {
+          const direction = this.wheelDeltaAccumulator > 0 ? 1 : -1;
+          this.handleCycleWeapon(direction);
+          this.lastWheelTime = now;
+          this.wheelDeltaAccumulator = 0; // Reset accumulator after switch
+        }
+      },
+      { passive: false },
+    );
   }
 
   /**
    * Handle mouse-based firing
    */
   private handleMouseFire(event: MouseEvent): void {
-    const state = this.game.getState();
-    const player = state.player;
-
-    // Check if player has ammo
-    if (player.ammo <= 0) {
-      this.game.addLog("*click* Out of ammo!");
-      return;
-    }
-
     // Fire with mouse aiming (dx/dy will be ignored)
     this.handleFire(0, 0);
   }
@@ -277,6 +307,7 @@ class DarkWar {
    */
   private update(dt: number): void {
     const state = this.game.getState();
+    const isDead = this.game.isPlayerDead();
 
     // Update mouse tracker with current camera position and scale
     const cameraPos = this.renderer.getCameraPosition();
@@ -312,17 +343,28 @@ class DarkWar {
     // Update bullets
     this.physics.updateBullets(state, scaledDt);
 
+    // Update explosives
+    this.physics.updateExplosives(state, scaledDt);
+
     // Advance simulation ticks with time scaling
     state.sim.accumulatorMs += scaledDt * 1000;
     while (state.sim.accumulatorMs >= SIM_DT_MS) {
       stepSimulationTick(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
       this.game.updateFOV();
-      this.game.updateDeathStatus(); // Check if player died
+
+      // Check if player died and handle UI
+      const playerJustDied = this.game.updateDeathStatus();
+      if (playerJustDied) {
+        const gameOverOverlay = document.getElementById("game-over-overlay");
+        if (gameOverOverlay) {
+          gameOverOverlay.classList.add("visible");
+        }
+      }
 
       // Check for descend flag
-      if ((state as any)._shouldDescend) {
-        (state as any)._shouldDescend = false;
+      if (state.shouldDescend) {
+        state.shouldDescend = false;
         this.game.descend();
 
         this.physics.initializeMap(state.map);
@@ -346,7 +388,11 @@ class DarkWar {
         : false;
 
     // Update target time scale based on player movement
-    if (!playerMoving && !this.playerActedThisTick) {
+    if (isDead) {
+      state.sim.targetTimeScale = 1.0;
+    }
+
+    if (!playerMoving && !this.playerActedThisTick && !isDead) {
       state.sim.targetTimeScale = SLOWMO_SCALE;
     }
 
@@ -480,6 +526,37 @@ class DarkWar {
     this.autoSave();
   }
 
+  private handleSelectWeapon(slot: number): void {
+    const state = this.game.getState();
+    const player = state.player;
+    let weapon: WeaponType | null = null;
+
+    if (slot === 1) weapon = WeaponType.MELEE;
+    if (slot === 2) weapon = WeaponType.PISTOL;
+    if (slot === 3) weapon = WeaponType.GRENADE;
+    if (slot === 4) weapon = WeaponType.LAND_MINE;
+
+    if (!weapon) return;
+    player.weapon = weapon;
+    this.game.addLog(`Weapon set: ${weapon}.`);
+  }
+
+  private handleCycleWeapon(direction: number): void {
+    const state = this.game.getState();
+    const player = state.player;
+    const weapons = [
+      WeaponType.MELEE,
+      WeaponType.PISTOL,
+      WeaponType.GRENADE,
+      WeaponType.LAND_MINE,
+    ];
+    const currentIndex = weapons.indexOf(player.weapon);
+    const nextIndex =
+      (currentIndex + direction + weapons.length) % weapons.length;
+    player.weapon = weapons[nextIndex];
+    this.game.addLog(`Weapon set: ${player.weapon}.`);
+  }
+
   /**
    * Handle wait/rest
    */
@@ -513,8 +590,13 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
-    this.game.updateDeathStatus();
-    this.game.updateDeathStatus();
+    const playerJustDied = this.game.updateDeathStatus();
+    if (playerJustDied) {
+      const gameOverOverlay = document.getElementById("game-over-overlay");
+      if (gameOverOverlay) {
+        gameOverOverlay.classList.add("visible");
+      }
+    }
 
     this.autoSave();
   }
@@ -562,7 +644,13 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
-    this.game.updateDeathStatus();
+    const playerJustDied = this.game.updateDeathStatus();
+    if (playerJustDied) {
+      const gameOverOverlay = document.getElementById("game-over-overlay");
+      if (gameOverOverlay) {
+        gameOverOverlay.classList.add("visible");
+      }
+    }
 
     this.autoSave();
   }
@@ -600,7 +688,13 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
-    this.game.updateDeathStatus();
+    const playerJustDied = this.game.updateDeathStatus();
+    if (playerJustDied) {
+      const gameOverOverlay = document.getElementById("game-over-overlay");
+      if (gameOverOverlay) {
+        gameOverOverlay.classList.add("visible");
+      }
+    }
 
     this.autoSave();
   }
@@ -638,7 +732,13 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
-    this.game.updateDeathStatus();
+    const playerJustDied = this.game.updateDeathStatus();
+    if (playerJustDied) {
+      const gameOverOverlay = document.getElementById("game-over-overlay");
+      if (gameOverOverlay) {
+        gameOverOverlay.classList.add("visible");
+      }
+    }
 
     this.autoSave();
   }
@@ -675,14 +775,9 @@ class DarkWar {
       stepSimulationTick(state);
       this.game.updateFOV();
 
-      if ((state as any)._shouldDescend) {
-        (state as any)._shouldDescend = false;
+      if (state.shouldDescend) {
+        state.shouldDescend = false;
         this.game.descend();
-        // Center on player after level transition
-        setTimeout(() => {
-          const newState = this.game.getState();
-          this.renderer.centerOnPlayer(newState.player, false);
-        }, 50);
         // Center on player after level transition
         setTimeout(() => {
           const newState = this.game.getState();

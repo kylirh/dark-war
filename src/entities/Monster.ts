@@ -1,5 +1,6 @@
 import { EntityKind, MonsterType } from "../types";
 import { ContinuousEntity } from "./ContinuousEntity";
+import { RNG } from "../utils/RNG";
 
 let nextMonsterId = 2000; // Start monster IDs at 2000
 
@@ -12,6 +13,8 @@ export class MonsterEntity extends ContinuousEntity {
   public type: MonsterType;
   public hp: number;
   public dmg: number;
+  public grenades: number;
+  public landMines: number;
 
   constructor(gridX: number, gridY: number, type: MonsterType, depth: number) {
     super(nextMonsterId++, gridX, gridY);
@@ -19,6 +22,8 @@ export class MonsterEntity extends ContinuousEntity {
     this.type = type;
     this.hp = 6 + depth;
     this.dmg = 2 + Math.floor(depth / 2);
+    this.grenades = RNG.chance(0.12) ? 1 : 0;
+    this.landMines = this.grenades === 0 && RNG.chance(0.08) ? 1 : 0;
     this.nextActTick = 0;
   }
 }
