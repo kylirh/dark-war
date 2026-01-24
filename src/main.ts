@@ -72,6 +72,8 @@ class DarkWar {
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
   private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
+  private lastPlayerPosition?: { x: number; y: number };
+  private wasPlayerMoving: boolean = false;
 
   constructor() {
     if (DEBUG) console.time("Game initialization");
@@ -363,8 +365,40 @@ class DarkWar {
     this.renderer.render(state, isDead, alpha);
     this.ui.updateAll(state.player, state.depth, state.log, state.sim);
 
-    // Center on player smoothly during movement
-    this.renderer.centerOnPlayer(state.player, true);
+    const player = state.player;
+    const currentPosition = {
+      x:
+        "worldX" in player && typeof (player as any).worldX === "number"
+          ? (player as any).worldX
+          : (player as any).x,
+      y:
+        "worldY" in player && typeof (player as any).worldY === "number"
+          ? (player as any).worldY
+          : (player as any).y,
+    };
+
+    const lastPosition = this.lastPlayerPosition;
+    const positionDelta = lastPosition
+      ? Math.hypot(
+          currentPosition.x - lastPosition.x,
+          currentPosition.y - lastPosition.y,
+        )
+      : 0;
+    const hasMoved = positionDelta > 0.01;
+    const velocityMoving =
+      "velocityX" in player && "velocityY" in player
+        ? Math.abs((player as any).velocityX) > 0.1 ||
+          Math.abs((player as any).velocityY) > 0.1
+        : false;
+    const startingMovement = velocityMoving && !this.wasPlayerMoving;
+
+    if (velocityMoving || hasMoved) {
+      const smooth = velocityMoving && !startingMovement;
+      this.renderer.centerOnPlayer(player, smooth);
+    }
+
+    this.wasPlayerMoving = velocityMoving;
+    this.lastPlayerPosition = currentPosition;
   }
 
   /**
