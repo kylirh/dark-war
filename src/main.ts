@@ -421,11 +421,11 @@ class DarkWar {
     const playerWorldX =
       "worldX" in player
         ? (player as any).worldX
-        : player.x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+        : (player as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     const playerWorldY =
       "worldY" in player
         ? (player as any).worldY
-        : player.y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+        : (player as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
     const movedSinceLastFrame =
       typeof this.lastPlayerWorldX === "number" &&
       typeof this.lastPlayerWorldY === "number" &&
