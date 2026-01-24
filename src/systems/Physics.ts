@@ -382,6 +382,65 @@ export class Physics {
   }
 
   /**
+   * Update explosives - move, check collisions with monsters and walls
+   */
+  public updateExplosives(state: GameState, dt: number): void {
+    const explosives = state.entities.filter(
+      (e): e is ExplosiveEntity =>
+        e.kind === EntityKind.EXPLOSIVE && e instanceof ExplosiveEntity,
+    );
+
+    for (const explosive of explosives) {
+      // Only check collisions for moving explosives (grenades in flight)
+      if (
+        explosive.velocityX === 0 &&
+        explosive.velocityY === 0
+      ) {
+        continue;
+      }
+
+      // Check for actual collisions
+      if (explosive.physicsBody) {
+        let shouldExplode = false;
+
+        // Check collision using checkOne
+        this.system.checkOne(explosive.physicsBody, (response) => {
+          if (shouldExplode) return;
+
+          const other = response.b;
+
+          // Hit wall - explode
+          if ((other as any).isWall) {
+            shouldExplode = true;
+            return;
+          }
+
+          // Hit monster - explode
+          const targetEntity = this.getEntityFromBody(
+            state,
+            other as Circle | Box,
+          );
+          if (
+            targetEntity &&
+            targetEntity.kind === EntityKind.MONSTER
+          ) {
+            shouldExplode = true;
+          }
+        });
+
+        // Trigger immediate explosion on impact
+        if (shouldExplode) {
+          // Stop the explosive's movement
+          explosive.velocityX = 0;
+          explosive.velocityY = 0;
+          // Set fuse to 0 to trigger explosion on next tick
+          explosive.fuseTicks = 0;
+        }
+      }
+    }
+  }
+
+  /**
    * Check line of sight between two points using raycast against walls
    */
   public hasLineOfSight(

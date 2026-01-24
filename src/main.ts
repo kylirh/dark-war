@@ -17,6 +17,10 @@
 // Debug configuration - set to true to enable performance logging
 const DEBUG = false;
 
+// Mouse wheel throttling constants
+const WHEEL_THROTTLE_MS = 150; // Minimum time between weapon switches (ms)
+const WHEEL_DELTA_THRESHOLD = 30; // Minimum accumulated deltaY to trigger switch
+
 import { Game } from "./core/Game";
 import { GameLoop } from "./core/GameLoop";
 import { Renderer } from "./systems/Renderer";
@@ -73,6 +77,8 @@ class DarkWar {
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
   private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
+  private lastWheelTime: number = 0; // Track last weapon cycle time
+  private wheelDeltaAccumulator: number = 0; // Accumulate wheel delta
 
   constructor() {
     if (DEBUG) console.time("Game initialization");
@@ -257,8 +263,21 @@ class DarkWar {
       "wheel",
       (event) => {
         event.preventDefault();
-        const direction = event.deltaY > 0 ? 1 : -1;
-        this.handleCycleWeapon(direction);
+        
+        const now = performance.now();
+        const timeSinceLastSwitch = now - this.lastWheelTime;
+        
+        // Accumulate wheel delta
+        this.wheelDeltaAccumulator += event.deltaY;
+        
+        // Only switch weapon if enough time has passed AND enough delta accumulated
+        if (timeSinceLastSwitch >= WHEEL_THROTTLE_MS && 
+            Math.abs(this.wheelDeltaAccumulator) >= WHEEL_DELTA_THRESHOLD) {
+          const direction = this.wheelDeltaAccumulator > 0 ? 1 : -1;
+          this.handleCycleWeapon(direction);
+          this.lastWheelTime = now;
+          this.wheelDeltaAccumulator = 0; // Reset accumulator after switch
+        }
       },
       { passive: false },
     );
@@ -311,6 +330,9 @@ class DarkWar {
 
     // Update bullets
     this.physics.updateBullets(state, scaledDt);
+
+    // Update explosives
+    this.physics.updateExplosives(state, scaledDt);
 
     // Advance simulation ticks with time scaling
     state.sim.accumulatorMs += scaledDt * 1000;
