@@ -235,8 +235,10 @@ export class Game {
     this.state.explored.clear();
 
     // Reset player position
-    this.state.player.x = dungeon.start[0];
-    this.state.player.y = dungeon.start[1];
+    (this.state.player as PlayerEntity).setPositionFromGrid(
+      dungeon.start[0],
+      dungeon.start[1],
+    );
     this.state.player.nextActTick = this.state.sim.nowTick;
 
     // Remove monsters and items

@@ -71,14 +71,16 @@ export class Physics {
           tile === TileType.DOOR_CLOSED ||
           tile === TileType.DOOR_LOCKED
         ) {
-          const worldX = x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
-          const worldY = y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+          // Position box at tile corner (not center) for proper alignment
+          const worldX = x * CELL_CONFIG.w;
+          const worldY = y * CELL_CONFIG.h;
 
-          // Try half-size boxes - detect-collisions may use half-extents
+          // createBox parameters: position, width, height
+          // Position is top-left corner, dimensions are full size
           const box = this.system.createBox(
             { x: worldX, y: worldY },
-            CELL_CONFIG.w / 2, // Half-extent: 16px from center = 32px full width
-            CELL_CONFIG.h / 2, // Half-extent: 16px from center = 32px full height
+            CELL_CONFIG.w, // 32px full width
+            CELL_CONFIG.h, // 32px full height
           );
           box.isStatic = true;
           (box as any).isWall = true;
@@ -220,22 +222,27 @@ export class Physics {
 
     // Wall collision - push entity out of wall with wall sliding
     if ((bodyA as any).isWall && entityB && entityB.kind !== EntityKind.ITEM) {
-      // A is wall, B is entity - entity moves in POSITIVE overlapV direction (away from wall)
-      entityB.worldX += response.overlapV.x;
-      entityB.worldY += response.overlapV.y;
+      // Push entity out with small safety margin to prevent tunneling
+      const separation = 1.01; // 1% extra separation
+      entityB.worldX += response.overlapV.x * separation;
+      entityB.worldY += response.overlapV.y * separation;
 
-      // Wall sliding: Only cancel velocity INTO the wall
-      // If overlap is primarily horizontal, cancel X velocity
-      // If overlap is primarily vertical, cancel Y velocity
+      // Wall sliding: Only cancel velocity component pushing INTO the wall
       const absOverlapX = Math.abs(response.overlapV.x);
       const absOverlapY = Math.abs(response.overlapV.y);
 
       if (absOverlapX > absOverlapY) {
-        // Horizontal wall hit - cancel X velocity only (wall sliding)
-        entityB.velocityX = 0;
+        // Horizontal wall - only cancel X velocity if moving into wall
+        if ((response.overlapV.x > 0 && entityB.velocityX < 0) ||
+            (response.overlapV.x < 0 && entityB.velocityX > 0)) {
+          entityB.velocityX = 0;
+        }
       } else if (absOverlapY > absOverlapX) {
-        // Vertical wall hit - cancel Y velocity only (wall sliding)
-        entityB.velocityY = 0;
+        // Vertical wall - only cancel Y velocity if moving into wall
+        if ((response.overlapV.y > 0 && entityB.velocityY < 0) ||
+            (response.overlapV.y < 0 && entityB.velocityY > 0)) {
+          entityB.velocityY = 0;
+        }
       } else {
         // Corner hit - cancel all velocity
         entityB.velocityX = 0;
@@ -250,20 +257,27 @@ export class Physics {
       entityA &&
       entityA.kind !== EntityKind.ITEM
     ) {
-      // B is wall, A is entity - entity moves in NEGATIVE overlapV direction (away from wall)
-      entityA.worldX -= response.overlapV.x;
-      entityA.worldY -= response.overlapV.y;
+      // Push entity out with small safety margin to prevent tunneling
+      const separation = 1.01; // 1% extra separation
+      entityA.worldX -= response.overlapV.x * separation;
+      entityA.worldY -= response.overlapV.y * separation;
 
-      // Wall sliding: Only cancel velocity INTO the wall
+      // Wall sliding: Only cancel velocity component pushing INTO the wall
       const absOverlapX = Math.abs(response.overlapV.x);
       const absOverlapY = Math.abs(response.overlapV.y);
 
       if (absOverlapX > absOverlapY) {
-        // Horizontal wall hit - cancel X velocity only (wall sliding)
-        entityA.velocityX = 0;
+        // Horizontal wall - only cancel X velocity if moving into wall
+        if ((response.overlapV.x > 0 && entityA.velocityX > 0) ||
+            (response.overlapV.x < 0 && entityA.velocityX < 0)) {
+          entityA.velocityX = 0;
+        }
       } else if (absOverlapY > absOverlapX) {
-        // Vertical wall hit - cancel Y velocity only (wall sliding)
-        entityA.velocityY = 0;
+        // Vertical wall - only cancel Y velocity if moving into wall
+        if ((response.overlapV.y > 0 && entityA.velocityY > 0) ||
+            (response.overlapV.y < 0 && entityA.velocityY < 0)) {
+          entityA.velocityY = 0;
+        }
       } else {
         // Corner hit - cancel all velocity
         entityA.velocityX = 0;
