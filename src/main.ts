@@ -27,7 +27,7 @@ import { Renderer } from "./systems/Renderer";
 import { Physics } from "./systems/Physics";
 import { MouseTracker } from "./systems/MouseTracker";
 import { UI } from "./systems/UI";
-import { InputHandler, InputCallbacks } from "./systems/Input";
+import { InputHandler, InputCallbacks, MOVEMENT_SPEED } from "./systems/Input";
 import { Sound } from "./systems/Sound";
 import {
   enqueueCommand,
@@ -36,8 +36,6 @@ import {
 } from "./systems/Simulation";
 import {
   CommandType,
-  EntityKind,
-  MAP_WIDTH,
   TileType,
   CELL_CONFIG,
   SLOWMO_SCALE,
@@ -45,8 +43,8 @@ import {
   TIME_SCALE_TRANSITION_SPEED,
   WeaponType,
 } from "./types";
-import { findPath } from "./utils/pathfinding";
-import { idx } from "./utils/helpers";
+import { findPathToClosestReachable } from "./utils/pathfinding";
+import { idx, inBounds } from "./utils/helpers";
 
 // Global reference to save system
 declare global {
@@ -76,12 +74,14 @@ class DarkWar {
   private inputHandler: InputHandler;
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
+  private autoMoveDoorTarget: { x: number; y: number } | null = null;
   private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
   private wasPlayerMoving: boolean = false;
   private lastPlayerWorldX?: number;
   private lastPlayerWorldY?: number;
   private lastWheelTime: number = 0; // Track last weapon cycle time
   private wheelDeltaAccumulator: number = 0; // Accumulate wheel delta
+  private lastPlayerHp?: number;
 
   constructor() {
     if (DEBUG) console.time("Game initialization");
@@ -239,14 +239,30 @@ class DarkWar {
       const tileX = Math.floor((gameX - CELL_CONFIG.padX) / CELL_CONFIG.w);
       const tileY = Math.floor((gameY - CELL_CONFIG.padY) / CELL_CONFIG.h);
 
-      // Check if tile is valid and explored
-      const tileIdx = idx(tileX, tileY);
-      if (!state.explored.has(tileIdx)) {
-        return; // Not explored, ignore click
+      if (!inBounds(tileX, tileY)) {
+        return;
       }
 
-      // Find path to clicked tile
-      const path = findPath(
+      const tileIdx = idx(tileX, tileY);
+      const tileType = state.map[tileIdx];
+
+      const isDoor =
+        tileType === TileType.DOOR_CLOSED ||
+        tileType === TileType.DOOR_OPEN ||
+        tileType === TileType.DOOR_LOCKED;
+
+      if (isDoor) {
+        const dx = tileX - state.player.x;
+        const dy = tileY - state.player.y;
+
+        if (Math.abs(dx) + Math.abs(dy) === 1) {
+          this.handleInteract(dx, dy);
+          return;
+        }
+      }
+
+      // Find path to clicked tile (or closest reachable)
+      const path = findPathToClosestReachable(
         state.player.x,
         state.player.y,
         tileX,
@@ -259,6 +275,7 @@ class DarkWar {
       if (path && path.length > 1) {
         // Store path for auto-movement (skip first element which is current position)
         this.autoMovePath = path.slice(1);
+        this.autoMoveDoorTarget = isDoor ? { x: tileX, y: tileY } : null;
       }
     });
 
@@ -313,6 +330,8 @@ class DarkWar {
     const cameraPos = this.renderer.getCameraPosition();
     this.mouseTracker.setCameraPosition(cameraPos.x, cameraPos.y);
     this.mouseTracker.setScale(this.renderer.getScale());
+
+    this.updateAutoMove(state);
 
     // Smooth time scale transitions
     const timeDiff = state.sim.targetTimeScale - state.sim.timeScale;
@@ -378,6 +397,15 @@ class DarkWar {
         }, 50);
       }
     }
+
+    if (
+      typeof this.lastPlayerHp === "number" &&
+      state.player.hp < this.lastPlayerHp &&
+      this.autoMovePath
+    ) {
+      this.stopAutoMove(state);
+    }
+    this.lastPlayerHp = state.player.hp;
 
     // Check if player has stopped moving
     const player = state.player;
@@ -476,6 +504,68 @@ class DarkWar {
    */
   private cancelAutoMove(): void {
     this.autoMovePath = null;
+    this.autoMoveDoorTarget = null;
+  }
+
+  private stopAutoMove(state: ReturnType<Game["getState"]>): void {
+    this.cancelAutoMove();
+    const player = state.player;
+    if ("velocityX" in player && "velocityY" in player) {
+      (player as any).velocityX = 0;
+      (player as any).velocityY = 0;
+    }
+  }
+
+  private updateAutoMove(state: ReturnType<Game["getState"]>): void {
+    if (!this.autoMovePath || this.autoMovePath.length === 0) {
+      return;
+    }
+
+    if (this.game.isPlayerDead()) {
+      this.stopAutoMove(state);
+      return;
+    }
+
+    const player = state.player;
+    if (!("worldX" in player && "worldY" in player)) {
+      return;
+    }
+
+    const [targetX, targetY] = this.autoMovePath[0];
+    const targetWorldX = targetX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const targetWorldY = targetY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+
+    const dx = targetWorldX - (player as any).worldX;
+    const dy = targetWorldY - (player as any).worldY;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance <= 1) {
+      (player as any).worldX = targetWorldX;
+      (player as any).worldY = targetWorldY;
+      (player as any).velocityX = 0;
+      (player as any).velocityY = 0;
+      this.autoMovePath.shift();
+
+      if (!this.autoMovePath || this.autoMovePath.length === 0) {
+        const doorTarget = this.autoMoveDoorTarget;
+        this.autoMoveDoorTarget = null;
+        this.autoMovePath = null;
+
+        if (doorTarget) {
+          const doorDx = doorTarget.x - player.x;
+          const doorDy = doorTarget.y - player.y;
+          if (Math.abs(doorDx) + Math.abs(doorDy) === 1) {
+            this.handleInteract(doorDx, doorDy);
+          }
+        }
+      }
+      return;
+    }
+
+    const speed = MOVEMENT_SPEED;
+    (player as any).velocityX = (dx / distance) * speed;
+    (player as any).velocityY = (dy / distance) * speed;
+    (player as any).facingAngle = Math.atan2(dy, dx);
   }
 
   /**
@@ -830,6 +920,7 @@ class DarkWar {
       const state = this.game.getState();
       this.renderer.centerOnPlayer(state.player, false);
     }, 100);
+    this.lastPlayerHp = this.game.getState().player.hp;
     this.autoSave();
   }
 
@@ -878,6 +969,7 @@ class DarkWar {
       }
 
       this.render(0);
+      this.lastPlayerHp = this.game.getState().player.hp;
     } else {
       this.game.addLog("No save found.");
       this.render(0);

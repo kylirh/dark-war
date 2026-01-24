@@ -209,6 +209,17 @@ export class Game {
    */
   public toggleFOV(): void {
     this.state.options.fov = !this.state.options.fov;
+    if (!this.state.options.fov) {
+      this.state.explored = new Set();
+      this.state.visible = new Set();
+      for (let y = 0; y < MAP_HEIGHT; y++) {
+        for (let x = 0; x < MAP_WIDTH; x++) {
+          const index = x + y * MAP_WIDTH;
+          this.state.explored.add(index);
+          this.state.visible.add(index);
+        }
+      }
+    }
   }
 
   /**
