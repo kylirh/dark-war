@@ -77,6 +77,9 @@ class DarkWar {
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
   private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
+  private wasPlayerMoving: boolean = false;
+  private lastPlayerWorldX?: number;
+  private lastPlayerWorldY?: number;
   private lastWheelTime: number = 0; // Track last weapon cycle time
   private wheelDeltaAccumulator: number = 0; // Accumulate wheel delta
 
@@ -349,7 +352,7 @@ class DarkWar {
       stepSimulationTick(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
       this.game.updateFOV();
-      
+
       // Check if player died and handle UI
       const playerJustDied = this.game.updateDeathStatus();
       if (playerJustDied) {
@@ -405,12 +408,41 @@ class DarkWar {
   private render(alpha: number): void {
     const state = this.game.getState();
     const isDead = this.game.isPlayerDead();
+    const player = state.player;
 
     this.renderer.render(state, isDead, alpha);
     this.ui.updateAll(state.player, state.depth, state.log, state.sim);
 
-    // Center on player smoothly during movement
-    this.renderer.centerOnPlayer(state.player, true);
+    const hasVelocity =
+      "velocityX" in player && "velocityY" in player
+        ? Math.abs((player as any).velocityX) > 0.05 ||
+          Math.abs((player as any).velocityY) > 0.05
+        : false;
+    const playerWorldX =
+      "worldX" in player
+        ? (player as any).worldX
+        : (player as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const playerWorldY =
+      "worldY" in player
+        ? (player as any).worldY
+        : (player as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    const movedSinceLastFrame =
+      typeof this.lastPlayerWorldX === "number" &&
+      typeof this.lastPlayerWorldY === "number" &&
+      (Math.abs(playerWorldX - this.lastPlayerWorldX) > 0.05 ||
+        Math.abs(playerWorldY - this.lastPlayerWorldY) > 0.05);
+    const playerMoving = hasVelocity || movedSinceLastFrame;
+
+    if (playerMoving) {
+      if (!this.wasPlayerMoving) {
+        this.renderer.centerOnPlayer(state.player, false);
+      }
+      this.renderer.centerOnPlayer(state.player, true);
+    }
+
+    this.wasPlayerMoving = playerMoving;
+    this.lastPlayerWorldX = playerWorldX;
+    this.lastPlayerWorldY = playerWorldY;
   }
 
   /**
