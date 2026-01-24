@@ -29,6 +29,7 @@ import { ItemEntity } from "../entities/Item";
 import { BulletEntity } from "../entities/Bullet";
 import { ExplosiveEntity } from "../entities/Explosive";
 import { idx, tileAt } from "../utils/helpers";
+import { Sound, SoundEffect } from "./Sound";
 
 // Collision radii - sized to allow smooth corridor navigation
 // With 32px tiles, an 8px radius (16px diameter) leaves 16px clearance in corridors
@@ -361,6 +362,8 @@ export class Physics {
 
             // Check if monster died
             if (monster.hp <= 0) {
+              Sound.play(SoundEffect.MONSTER_DEATH);
+
               // Remove dead monster
               this.removeEntity(monster);
               const monsterIdx = state.entities.indexOf(monster);
