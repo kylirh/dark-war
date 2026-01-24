@@ -264,6 +264,7 @@ export interface GameState {
   sim: SimulationState;
   commandsByTick: Map<number, Command[]>;
   eventQueue: GameEvent[];
+  shouldDescend: boolean;
 }
 
 // ========================================

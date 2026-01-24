@@ -796,7 +796,7 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
   });
 
   // Set flag for Game.ts to handle
-  (state as any)._shouldDescend = true;
+  state.shouldDescend = true;
 }
 
 // ========================================

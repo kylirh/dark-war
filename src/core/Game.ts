@@ -60,6 +60,7 @@ export class Game {
       },
       commandsByTick: new Map(),
       eventQueue: [],
+      shouldDescend: false,
     };
   }
 
@@ -94,6 +95,7 @@ export class Game {
       },
       commandsByTick: new Map(),
       eventQueue: [],
+      shouldDescend: false,
     };
 
     // Add player to entities
@@ -304,8 +306,9 @@ export class Game {
 
   /**
    * Update death status based on player HP
+   * Returns true if player just died this check (for UI layer to handle)
    */
-  public updateDeathStatus(): void {
+  public updateDeathStatus(): boolean {
     if (this.state.player.hp <= 0 && !this.isDead) {
       this.isDead = true;
 
@@ -319,12 +322,9 @@ export class Game {
       // Speed up time to normal (remove time dilation)
       this.state.sim.targetTimeScale = 1.0;
 
-      // Show game over overlay
-      const gameOverOverlay = document.getElementById("game-over-overlay");
-      if (gameOverOverlay) {
-        gameOverOverlay.classList.add("visible");
-      }
+      return true; // Signal that death just occurred
     }
+    return false;
   }
 
   /**
@@ -415,6 +415,7 @@ export class Game {
       },
       commandsByTick: new Map(),
       eventQueue: [],
+      shouldDescend: false,
     };
 
     this.isDead = false;

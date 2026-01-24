@@ -349,11 +349,19 @@ class DarkWar {
       stepSimulationTick(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
       this.game.updateFOV();
-      this.game.updateDeathStatus(); // Check if player died
+      
+      // Check if player died and handle UI
+      const playerJustDied = this.game.updateDeathStatus();
+      if (playerJustDied) {
+        const gameOverOverlay = document.getElementById("game-over-overlay");
+        if (gameOverOverlay) {
+          gameOverOverlay.classList.add("visible");
+        }
+      }
 
       // Check for descend flag
-      if ((state as any)._shouldDescend) {
-        (state as any)._shouldDescend = false;
+      if (state.shouldDescend) {
+        state.shouldDescend = false;
         this.game.descend();
 
         this.physics.initializeMap(state.map);
@@ -550,8 +558,13 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
-    this.game.updateDeathStatus();
-    this.game.updateDeathStatus();
+    const playerJustDied = this.game.updateDeathStatus();
+    if (playerJustDied) {
+      const gameOverOverlay = document.getElementById("game-over-overlay");
+      if (gameOverOverlay) {
+        gameOverOverlay.classList.add("visible");
+      }
+    }
 
     this.autoSave();
   }
@@ -599,7 +612,13 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
-    this.game.updateDeathStatus();
+    const playerJustDied = this.game.updateDeathStatus();
+    if (playerJustDied) {
+      const gameOverOverlay = document.getElementById("game-over-overlay");
+      if (gameOverOverlay) {
+        gameOverOverlay.classList.add("visible");
+      }
+    }
 
     this.autoSave();
   }
@@ -637,7 +656,13 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
-    this.game.updateDeathStatus();
+    const playerJustDied = this.game.updateDeathStatus();
+    if (playerJustDied) {
+      const gameOverOverlay = document.getElementById("game-over-overlay");
+      if (gameOverOverlay) {
+        gameOverOverlay.classList.add("visible");
+      }
+    }
 
     this.autoSave();
   }
@@ -675,7 +700,13 @@ class DarkWar {
     // Execute immediately
     stepSimulationTick(state);
     this.game.updateFOV();
-    this.game.updateDeathStatus();
+    const playerJustDied = this.game.updateDeathStatus();
+    if (playerJustDied) {
+      const gameOverOverlay = document.getElementById("game-over-overlay");
+      if (gameOverOverlay) {
+        gameOverOverlay.classList.add("visible");
+      }
+    }
 
     this.autoSave();
   }
@@ -712,14 +743,9 @@ class DarkWar {
       stepSimulationTick(state);
       this.game.updateFOV();
 
-      if ((state as any)._shouldDescend) {
-        (state as any)._shouldDescend = false;
+      if (state.shouldDescend) {
+        state.shouldDescend = false;
         this.game.descend();
-        // Center on player after level transition
-        setTimeout(() => {
-          const newState = this.game.getState();
-          this.renderer.centerOnPlayer(newState.player, false);
-        }, 50);
         // Center on player after level transition
         setTimeout(() => {
           const newState = this.game.getState();
