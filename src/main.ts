@@ -77,8 +77,8 @@ class DarkWar {
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
   private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
+  private lastPlayerPosition?: { x: number; y: number };
   private wasPlayerMoving: boolean = false;
-  private lastPlayerPosition: { x: number; y: number } | null = null;
   private lastWheelTime: number = 0; // Track last weapon cycle time
   private wheelDeltaAccumulator: number = 0; // Accumulate wheel delta
 
@@ -351,7 +351,7 @@ class DarkWar {
       stepSimulationTick(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
       this.game.updateFOV();
-
+      
       // Check if player died and handle UI
       const playerJustDied = this.game.updateDeathStatus();
       if (playerJustDied) {
@@ -411,34 +411,40 @@ class DarkWar {
     this.renderer.render(state, isDead, alpha);
     this.ui.updateAll(state.player, state.depth, state.log, state.sim);
 
-    const player = state.player as { x: number; y: number };
-    const hasVelocity =
-      "velocityX" in player && "velocityY" in player ? player : null;
-    const isMovingByVelocity =
-      hasVelocity !== null
+    const player = state.player;
+    const currentPosition = {
+      x:
+        "worldX" in player && typeof (player as any).worldX === "number"
+          ? (player as any).worldX
+          : (player as any).x,
+      y:
+        "worldY" in player && typeof (player as any).worldY === "number"
+          ? (player as any).worldY
+          : (player as any).y,
+    };
+
+    const lastPosition = this.lastPlayerPosition;
+    const positionDelta = lastPosition
+      ? Math.hypot(
+          currentPosition.x - lastPosition.x,
+          currentPosition.y - lastPosition.y,
+        )
+      : 0;
+    const hasMoved = positionDelta > 0.01;
+    const velocityMoving =
+      "velocityX" in player && "velocityY" in player
         ? Math.abs((player as any).velocityX) > 0.1 ||
           Math.abs((player as any).velocityY) > 0.1
         : false;
+    const startingMovement = velocityMoving && !this.wasPlayerMoving;
 
-    const positionX = "worldX" in player ? (player as any).worldX : player.x;
-    const positionY = "worldY" in player ? (player as any).worldY : player.y;
-    const wasPosition = this.lastPlayerPosition;
-    const isMovingByPosition = wasPosition
-      ? Math.abs(positionX - wasPosition.x) > 0.01 ||
-        Math.abs(positionY - wasPosition.y) > 0.01
-      : false;
-
-    const isPlayerMoving = isMovingByVelocity || isMovingByPosition;
-
-    if (isPlayerMoving) {
-      if (!this.wasPlayerMoving) {
-        this.renderer.centerOnPlayer(player, false);
-      }
-      this.renderer.centerOnPlayer(player, true);
+    if (velocityMoving || hasMoved) {
+      const smooth = velocityMoving && !startingMovement;
+      this.renderer.centerOnPlayer(player, smooth);
     }
 
-    this.wasPlayerMoving = isPlayerMoving;
-    this.lastPlayerPosition = { x: positionX, y: positionY };
+    this.wasPlayerMoving = velocityMoving;
+    this.lastPlayerPosition = currentPosition;
   }
 
   /**
