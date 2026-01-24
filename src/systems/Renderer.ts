@@ -349,7 +349,7 @@ export class Renderer {
    * Center viewport on player position with smart scrolling
    */
   public centerOnPlayer(
-    player: { x: number; y: number },
+    player: { x: number; y: number; worldX?: number; worldY?: number },
     smooth: boolean = true,
   ): void {
     if (!this.viewportElement) return;
@@ -358,33 +358,30 @@ export class Renderer {
     const offsetY = CELL_CONFIG.padY;
 
     // Calculate player's screen position (at configured scale)
-    const playerScreenX =
-      (offsetX + player.x * CELL_CONFIG.w + CELL_CONFIG.w / 2) * this.scale;
-    const playerScreenY =
-      (offsetY + player.y * CELL_CONFIG.h + CELL_CONFIG.h / 2) * this.scale;
+    const playerWorldX =
+      typeof player.worldX === "number"
+        ? player.worldX
+        : player.x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const playerWorldY =
+      typeof player.worldY === "number"
+        ? player.worldY
+        : player.y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    const playerScreenX = (offsetX + playerWorldX) * this.scale;
+    const playerScreenY = (offsetY + playerWorldY) * this.scale;
 
     // Calculate scroll position to center player in viewport
     const targetScrollX = playerScreenX - this.viewportElement.clientWidth / 2;
     const targetScrollY = playerScreenY - this.viewportElement.clientHeight / 2;
 
-    // Check if viewport is far from center (user manually scrolled away)
     const currentScrollX = this.viewportElement.scrollLeft;
     const currentScrollY = this.viewportElement.scrollTop;
-    const threshold = 100; // pixels - if further than this, user probably scrolled away
 
-    const isFarFromCenter =
-      Math.abs(currentScrollX - targetScrollX) > threshold ||
-      Math.abs(currentScrollY - targetScrollY) > threshold;
-
-    // Use smooth scrolling only when recentering from a distant position
-    if (smooth && isFarFromCenter) {
-      this.viewportElement.scrollTo({
-        left: targetScrollX,
-        top: targetScrollY,
-        behavior: "smooth",
-      });
+    if (smooth) {
+      const nextScrollX = currentScrollX + (targetScrollX - currentScrollX) * 0.2;
+      const nextScrollY = currentScrollY + (targetScrollY - currentScrollY) * 0.2;
+      this.viewportElement.scrollLeft = nextScrollX;
+      this.viewportElement.scrollTop = nextScrollY;
     } else {
-      // Instant snap for normal movement
       this.viewportElement.scrollLeft = targetScrollX;
       this.viewportElement.scrollTop = targetScrollY;
     }
