@@ -11,6 +11,8 @@ import {
   TileType,
   ItemType,
   Item,
+  WeaponType,
+  Explosive,
   TILE_DEFINITIONS,
   CELL_CONFIG,
 } from "../types";
@@ -20,6 +22,8 @@ import { Sound, SoundEffect } from "./Sound";
 import { RNG } from "../utils/RNG";
 import { computeFOVFrom } from "./FOV";
 import { createBullet } from "../entities/Bullet";
+import { createExplosive, ExplosiveEntity } from "../entities/Explosive";
+import { createItem } from "../entities/Item";
 
 // ========================================
 // Constants
@@ -32,9 +36,20 @@ export const MONSTER_SPEED = 225; // pixels per second
 export const MONSTER_ARRIVAL_RADIUS = CELL_CONFIG.w * 1.5; // Stop when within 1.5 tiles for attack
 export const MAX_EVENTS_PER_TICK = 1000;
 export const MAX_COMMANDS_PER_TICK = 1000;
+const GRENADE_FUSE_TICKS = 14; // ~0.7s at 20 ticks/sec
+const MELEE_ARC = Math.PI / 3;
+
+const EXPLOSIVE_CONFIG: Record<
+  ItemType.GRENADE | ItemType.LAND_MINE,
+  { radius: number; damage: number }
+> = {
+  [ItemType.GRENADE]: { radius: 2.5, damage: 6 },
+  [ItemType.LAND_MINE]: { radius: 2, damage: 8 },
+};
 
 let nextCommandId = 1;
 let nextEventId = 1;
+let nextEffectId = 1;
 
 // ========================================
 // Steering Behaviors (Continuous Movement AI)
@@ -186,6 +201,9 @@ export function stepSimulationTick(state: GameState): void {
   if (tick % MONSTER_AI_UPDATE_INTERVAL === 0) {
     updateMonsterSteering(state);
   }
+
+  updateExplosives(state);
+  updateEffects(state);
 
   // 1. Gather and resolve player commands first
   let playerCommands = getCommandsForTick(state, tick);
@@ -424,6 +442,58 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
 // Melee Command
 // ========================================
 
+function directionFromAngle(angle: number): [number, number] {
+  const directions: [number, number][] = [
+    [1, 0],
+    [1, 1],
+    [0, 1],
+    [-1, 1],
+    [-1, 0],
+    [-1, -1],
+    [0, -1],
+    [1, -1],
+  ];
+  const index = Math.round(angle / (Math.PI / 4));
+  return directions[(index + directions.length) % directions.length];
+}
+
+function normalizeAngle(angle: number): number {
+  let result = angle % (Math.PI * 2);
+  if (result > Math.PI) result -= Math.PI * 2;
+  if (result < -Math.PI) result += Math.PI * 2;
+  return result;
+}
+
+function findMeleeTarget(
+  state: GameState,
+  player: Player,
+  facingAngle: number,
+): Monster | null {
+  const monsters = state.entities.filter(
+    (e): e is Monster => e.kind === EntityKind.MONSTER,
+  );
+  let best: Monster | null = null;
+  let bestDistance = Infinity;
+
+  for (const monster of monsters) {
+    const dx = (monster as any).worldX - (player as any).worldX;
+    const dy = (monster as any).worldY - (player as any).worldY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance > CELL_CONFIG.w * 1.5) continue;
+
+    const angleTo = Math.atan2(dy, dx);
+    const delta = Math.abs(normalizeAngle(angleTo - facingAngle));
+    if (delta > MELEE_ARC / 2) continue;
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = monster;
+    }
+  }
+
+  return best;
+}
+
 function resolveMeleeCommand(state: GameState, cmd: Command): void {
   const attacker = state.entities.find((e) => e.id === cmd.actorId);
   if (!attacker) return;
@@ -477,43 +547,119 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
   if (!shooter || shooter.kind !== EntityKind.PLAYER) return;
 
   const player = shooter as Player;
-  if (player.ammo <= 0) {
-    pushEvent(state, {
-      type: EventType.MESSAGE,
-      data: { type: "MESSAGE", message: "*click* Out of ammo!" },
-    });
-    return;
-  }
+  if (!("worldX" in player) || !("facingAngle" in player)) return;
 
-  player.ammo--;
+  const angle = (player as any).facingAngle;
 
-  // Play gunshot sound
-  Sound.play(SoundEffect.SHOOT);
+  switch (player.weapon) {
+    case WeaponType.MELEE: {
+      const target = findMeleeTarget(state, player, angle);
+      if (!target) {
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "You swing at empty air." },
+        });
+        return;
+      }
 
-  const data = cmd.data as { type: "FIRE"; dx: number; dy: number };
+      pushEvent(state, {
+        type: EventType.DAMAGE,
+        data: {
+          type: "DAMAGE",
+          targetId: target.id,
+          amount: 2,
+          sourceId: player.id,
+        },
+      });
+      return;
+    }
+    case WeaponType.PISTOL: {
+      if (player.ammo <= 0) {
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "*click* Out of ammo!" },
+        });
+        return;
+      }
 
-  // Use continuous coordinates (modern path)
-  if ("worldX" in player && "facingAngle" in player) {
-    // Spawn bullet entity from player position
-    const BULLET_SPEED = 600; // pixels per second
-    const angle = (player as any).facingAngle;
+      player.ammo--;
+      Sound.play(SoundEffect.SHOOT);
 
-    const bullet = createBullet(
-      (player as any).worldX,
-      (player as any).worldY,
-      Math.cos(angle) * BULLET_SPEED,
-      Math.sin(angle) * BULLET_SPEED,
-      2, // damage
-      player.id,
-      640, // max distance (20 tiles)
-    );
+      const BULLET_SPEED = 600; // pixels per second
+      const bullet = createBullet(
+        (player as any).worldX,
+        (player as any).worldY,
+        Math.cos(angle) * BULLET_SPEED,
+        Math.sin(angle) * BULLET_SPEED,
+        2,
+        player.id,
+        640,
+      );
 
-    state.entities.push(bullet);
+      state.entities.push(bullet);
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "Fired!" },
+      });
+      return;
+    }
+    case WeaponType.GRENADE: {
+      if (player.grenades <= 0) {
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "No grenades left!" },
+        });
+        return;
+      }
 
-    pushEvent(state, {
-      type: EventType.MESSAGE,
-      data: { type: "MESSAGE", message: "Fired!" },
-    });
+      player.grenades--;
+      const THROW_SPEED = 360;
+      const grenade = createExplosive(
+        (player as any).worldX,
+        (player as any).worldY,
+        ItemType.GRENADE,
+        true,
+        GRENADE_FUSE_TICKS,
+      );
+      grenade.velocityX = Math.cos(angle) * THROW_SPEED;
+      grenade.velocityY = Math.sin(angle) * THROW_SPEED;
+      state.entities.push(grenade);
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "Grenade out!" },
+      });
+      return;
+    }
+    case WeaponType.LAND_MINE: {
+      if (player.landMines <= 0) {
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "No land mines left!" },
+        });
+        return;
+      }
+
+      const [dx, dy] = directionFromAngle(angle);
+      const targetX = player.x + dx;
+      const targetY = player.y + dy;
+      const canPlace = passable(state.map, targetX, targetY);
+      const placeX = canPlace ? targetX : player.x;
+      const placeY = canPlace ? targetY : player.y;
+
+      player.landMines--;
+      const mine = createExplosive(
+        placeX * CELL_CONFIG.w + CELL_CONFIG.w / 2,
+        placeY * CELL_CONFIG.h + CELL_CONFIG.h / 2,
+        ItemType.LAND_MINE,
+        true,
+      );
+      state.entities.push(mine);
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "Mine armed." },
+      });
+      return;
+    }
   }
 }
 
@@ -650,7 +796,89 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
   });
 
   // Set flag for Game.ts to handle
-  (state as any)._shouldDescend = true;
+  state.shouldDescend = true;
+}
+
+// ========================================
+// Explosives and Effects
+// ========================================
+
+function triggerExplosion(
+  state: GameState,
+  worldX: number,
+  worldY: number,
+  type: ItemType.GRENADE | ItemType.LAND_MINE,
+  cause?: number,
+): void {
+  const gridX = Math.floor(worldX / CELL_CONFIG.w);
+  const gridY = Math.floor(worldY / CELL_CONFIG.h);
+  const config = EXPLOSIVE_CONFIG[type];
+
+  pushEvent(state, {
+    type: EventType.EXPLOSION,
+    data: {
+      type: "EXPLOSION",
+      x: gridX,
+      y: gridY,
+      radius: config.radius,
+      damage: config.damage,
+    },
+    cause,
+  });
+}
+
+function updateExplosives(state: GameState): void {
+  const explosives = state.entities.filter(
+    (e): e is ExplosiveEntity =>
+      e.kind === EntityKind.EXPLOSIVE && e instanceof ExplosiveEntity,
+  );
+
+  const actors = state.entities.filter(
+    (e) => e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER,
+  );
+
+  for (const explosive of explosives) {
+    if (!explosive.armed) continue;
+
+    if (explosive.type === ItemType.GRENADE && explosive.fuseTicks !== undefined) {
+      explosive.fuseTicks -= 1;
+      if (explosive.fuseTicks <= 0) {
+        triggerExplosion(
+          state,
+          explosive.worldX,
+          explosive.worldY,
+          explosive.type,
+        );
+        state.entities = state.entities.filter((e) => e.id !== explosive.id);
+        continue;
+      }
+    }
+
+    if (explosive.type === ItemType.LAND_MINE) {
+      const triggerRadius = CELL_CONFIG.w * 0.45;
+      const triggered = actors.some((actor) => {
+        const dx = (actor as any).worldX - explosive.worldX;
+        const dy = (actor as any).worldY - explosive.worldY;
+        return Math.sqrt(dx * dx + dy * dy) <= triggerRadius;
+      });
+
+      if (triggered) {
+        triggerExplosion(
+          state,
+          explosive.worldX,
+          explosive.worldY,
+          explosive.type,
+        );
+        state.entities = state.entities.filter((e) => e.id !== explosive.id);
+      }
+    }
+  }
+}
+
+function updateEffects(state: GameState): void {
+  state.effects = state.effects
+    .map((effect) => ({ ...effect, ageTicks: effect.ageTicks + 1 }))
+    .filter((effect) => effect.ageTicks < effect.durationTicks);
 }
 
 // ========================================
@@ -679,6 +907,9 @@ function processEvent(state: GameState, event: GameEvent): void {
     case EventType.DEATH:
       processDeathEvent(state, event);
       break;
+    case EventType.EXPLOSION:
+      processExplosionEvent(state, event);
+      break;
     case EventType.MESSAGE:
       processMessageEvent(state, event);
       break;
@@ -703,6 +934,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     targetId: number;
     amount: number;
     sourceId?: number;
+    fromExplosion?: boolean;
   };
   const target = state.entities.find((e) => e.id === data.targetId);
   if (!target) return;
@@ -744,15 +976,101 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     if (monster.hp <= 0) {
       pushEvent(state, {
         type: EventType.DEATH,
-        data: { type: "DEATH", entityId: monster.id },
+        data: {
+          type: "DEATH",
+          entityId: monster.id,
+          fromExplosion: data.fromExplosion,
+        },
         cause: event.id,
       });
     }
   }
 }
 
+function processExplosionEvent(state: GameState, event: GameEvent): void {
+  const data = event.data as {
+    type: "EXPLOSION";
+    x: number;
+    y: number;
+    radius: number;
+    damage: number;
+  };
+
+  const worldX = data.x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+  const worldY = data.y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+  const radiusPx = data.radius * CELL_CONFIG.w;
+
+  Sound.play(SoundEffect.EXPLOSION);
+  state.effects.push({
+    id: nextEffectId++,
+    type: "explosion",
+    worldX,
+    worldY,
+    ageTicks: 0,
+    durationTicks: 6,
+  });
+
+  const explosivesToTrigger: Explosive[] = [];
+  const itemsToTrigger: Item[] = [];
+
+  for (const entity of state.entities) {
+    const dx = (entity as any).worldX - worldX;
+    const dy = (entity as any).worldY - worldY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance > radiusPx) continue;
+
+    if (entity.kind === EntityKind.MONSTER || entity.kind === EntityKind.PLAYER) {
+      pushEvent(state, {
+        type: EventType.DAMAGE,
+        data: {
+          type: "DAMAGE",
+          targetId: entity.id,
+          amount: data.damage,
+          fromExplosion: true,
+        },
+        cause: event.id,
+      });
+    } else if (entity.kind === EntityKind.EXPLOSIVE) {
+      explosivesToTrigger.push(entity as Explosive);
+    } else if (
+      entity.kind === EntityKind.ITEM &&
+      (entity as Item).type &&
+      ((entity as Item).type === ItemType.GRENADE ||
+        (entity as Item).type === ItemType.LAND_MINE)
+    ) {
+      itemsToTrigger.push(entity as Item);
+    }
+  }
+
+  for (const explosive of explosivesToTrigger) {
+    triggerExplosion(
+      state,
+      (explosive as any).worldX,
+      (explosive as any).worldY,
+      explosive.type,
+      event.id,
+    );
+    state.entities = state.entities.filter((e) => e.id !== explosive.id);
+  }
+
+  for (const item of itemsToTrigger) {
+    triggerExplosion(
+      state,
+      (item as any).worldX,
+      (item as any).worldY,
+      item.type as ItemType.GRENADE | ItemType.LAND_MINE,
+      event.id,
+    );
+    state.entities = state.entities.filter((e) => e.id !== item.id);
+  }
+}
+
 function processDeathEvent(state: GameState, event: GameEvent): void {
-  const data = event.data as { type: "DEATH"; entityId: number };
+  const data = event.data as {
+    type: "DEATH";
+    entityId: number;
+    fromExplosion?: boolean;
+  };
   const entity = state.entities.find((e) => e.id === data.entityId);
   if (!entity) return;
 
@@ -769,6 +1087,30 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
     });
 
     state.player.score += 10;
+
+    if (monster.grenades > 0 || monster.landMines > 0) {
+      const spawnExplosive = (
+        type: ItemType.GRENADE | ItemType.LAND_MINE,
+        count: number,
+      ) => {
+        for (let i = 0; i < count; i++) {
+          if (data.fromExplosion) {
+            triggerExplosion(
+              state,
+              (monster as any).worldX,
+              (monster as any).worldY,
+              type,
+              event.cause,
+            );
+          } else {
+            state.entities.push(createItem(monster.x, monster.y, type));
+          }
+        }
+      };
+
+      spawnExplosive(ItemType.GRENADE, monster.grenades);
+      spawnExplosive(ItemType.LAND_MINE, monster.landMines);
+    }
 
     // Remove from entity list
     state.entities = state.entities.filter((e) => e.id !== entity.id);
@@ -843,10 +1185,26 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       });
       break;
     case ItemType.PISTOL:
-      player.weapon = ItemType.PISTOL;
+      player.weapon = WeaponType.PISTOL;
       pushEvent(state, {
         type: EventType.MESSAGE,
         data: { type: "MESSAGE", message: "You pick up a pistol." },
+        cause: event.id,
+      });
+      break;
+    case ItemType.GRENADE:
+      player.grenades += item.amount || 1;
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "You pick up a grenade." },
+        cause: event.id,
+      });
+      break;
+    case ItemType.LAND_MINE:
+      player.landMines += item.amount || 1;
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "You pick up a land mine." },
         cause: event.id,
       });
       break;

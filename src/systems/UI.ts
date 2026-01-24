@@ -1,4 +1,4 @@
-import { Player, SimulationState } from "../types";
+import { Player, SimulationState, WeaponType } from "../types";
 
 /**
  * Handles UI updates (stats, log, inventory)
@@ -9,6 +9,7 @@ export class UI {
   private hpElement: HTMLElement;
   private hpBarElement: HTMLElement;
   private scoreElement: HTMLElement;
+  private gameOverScoreElement: HTMLElement;
   private inventoryElement: HTMLElement;
 
   constructor() {
@@ -17,6 +18,7 @@ export class UI {
     this.hpElement = this.getElement("hp");
     this.hpBarElement = this.getElement("hpbar");
     this.scoreElement = this.getElement("score");
+    this.gameOverScoreElement = this.getElement("game-over-score");
     this.inventoryElement = this.getElement("inventory");
   }
 
@@ -35,6 +37,7 @@ export class UI {
     this.floorElement.textContent = String(depth);
     this.hpElement.textContent = `${player.hp}/${player.hpMax}`;
     this.scoreElement.textContent = String(player.score);
+    this.gameOverScoreElement.textContent = `Score: ${player.score}`;
 
     // Update HP bar
     const hpPercent = Math.max(0, Math.min(1, player.hp / player.hpMax));
@@ -47,12 +50,33 @@ export class UI {
   public updateInventory(player: Player): void {
     const items: string[] = [];
 
-    if (player.weapon) {
-      items.push(`Pistol (${player.ammo}/12)`);
+    switch (player.weapon) {
+      case WeaponType.MELEE:
+        items.push("Weapon: Melee");
+        break;
+      case WeaponType.PISTOL:
+        items.push(`Weapon: Pistol (${player.ammo}/12)`);
+        break;
+      case WeaponType.GRENADE:
+        items.push(`Weapon: Grenade (${player.grenades})`);
+        break;
+      case WeaponType.LAND_MINE:
+        items.push(`Weapon: Land Mine (${player.landMines})`);
+        break;
+      default:
+        break;
     }
 
     if (player.ammoReserve > 0) {
       items.push(`Ammo: ${player.ammoReserve}`);
+    }
+
+    if (player.grenades > 0) {
+      items.push(`Grenades: ${player.grenades}`);
+    }
+
+    if (player.landMines > 0) {
+      items.push(`Land Mines: ${player.landMines}`);
     }
 
     if (player.keys > 0) {

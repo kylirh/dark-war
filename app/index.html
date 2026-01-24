@@ -3,10 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta
-      name="description"
-      content="Dark War - A retro-futuristic roguelike"
-    />
+    <meta name="description" content="Dark War" />
     <title>Dark War</title>
     <link rel="stylesheet" href="assets/css/system.css" />
     <link rel="stylesheet" href="assets/css/styles.css" />
@@ -19,18 +16,28 @@
             id="game"
             width="2080"
             height="1184"
-            aria-label="Game canvas"
+            aria-label="Game Canvas"
             role="img"
           ></canvas>
           <div id="game-over-overlay" class="game-over-overlay">
-            <div class="game-over-text">GAME OVER</div>
+            <div class="game-over-content">
+              <h1 class="game-over-text">GAME OVER</h1>
+              <h2 class="game-over-score" id="game-over-score">Score: 0</h2>
+              <button
+                class="new-game-button"
+                id="new-game-button"
+                type="button"
+              >
+                New Game
+              </button>
+            </div>
           </div>
         </div>
         <button
           class="scale-toggle"
           id="scaleToggle"
-          aria-label="Toggle scale"
-          title="Toggle scale (1X/2X/3X)"
+          aria-label="Zoom"
+          title="Zoom"
         >
           2X
         </button>
@@ -69,11 +76,13 @@
         </section>
 
         <section class="controls panel">
-          Move: <kbd>Numeric Keypad</kbd><br />
+          Move: <kbd>WASD</kbd><br />
           Pickup: <kbd>G</kbd><br />
-          Open/Close: <kbd>O</kbd> + <kbd>Numeric Keypad</kbd><br />
+          Open/Close: <kbd>O</kbd> + Direction<br />
           Stairs: <kbd>&lt;</kbd><br />
-          Fire: <kbd>F</kbd> + <kbd>Numeric Keypad</kbd><br />
+          Use Weapon: <kbd>Right Click</kbd><br />
+          Switch Weapon: <kbd>Mouse Wheel</kbd> or <kbd>1</kbd>-<kbd>4</kbd
+          ><br />
           Reload: <kbd>R</kbd><br />
           Toggle FOV: <kbd>V</kbd><br />
           <br />
@@ -105,13 +114,13 @@
         );
       });
 
-      // Scale toggle functionality
+      // Zoom functionality
       const scaleToggle = document.getElementById("scaleToggle");
       const scales = [1, 2, 3];
       let currentScaleIndex = 1; // Start at 2X
 
       scaleToggle.addEventListener("click", () => {
-        // Cycle to next scale
+        // Cycle to next zoom level
         currentScaleIndex = (currentScaleIndex + 1) % scales.length;
         const newScale = scales[currentScaleIndex];
 

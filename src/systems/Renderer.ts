@@ -17,7 +17,11 @@ import {
   MonsterType,
 } from "../types";
 import { idx } from "../utils/helpers";
-import { SPRITE_SIZE, SPRITE_COORDS } from "../config/sprites";
+import {
+  SPRITE_SIZE,
+  SPRITE_COORDS,
+  EXPLOSION_FRAMES,
+} from "../config/sprites";
 
 /**
  * Handles rendering the game using Pixi.js
@@ -208,7 +212,8 @@ export class Renderer {
       return;
     }
 
-    const { map, visible, explored, entities, player, options } = state;
+    const { map, visible, explored, entities, player, options, effects } =
+      state;
 
     // Update camera position for smooth following (real-time mode only)
     if (state.sim.mode === "REALTIME" && "worldX" in player) {
@@ -266,7 +271,9 @@ export class Renderer {
       .sort((a, b) => {
         const aIsItem = a.kind === EntityKind.ITEM ? 1 : 0;
         const bIsItem = b.kind === EntityKind.ITEM ? 1 : 0;
-        return bIsItem - aIsItem;
+        const aIsExplosive = a.kind === EntityKind.EXPLOSIVE ? 1 : 0;
+        const bIsExplosive = b.kind === EntityKind.EXPLOSIVE ? 1 : 0;
+        return bIsItem + bIsExplosive - (aIsItem + aIsExplosive);
       });
 
     for (const entity of sortedEntities) {
@@ -293,7 +300,10 @@ export class Renderer {
 
       if (entity.kind === EntityKind.MONSTER && "type" in entity) {
         coord = SPRITE_COORDS[entity.type];
-      } else if (entity.kind === EntityKind.ITEM && "type" in entity) {
+      } else if (
+        (entity.kind === EntityKind.ITEM || entity.kind === EntityKind.EXPLOSIVE) &&
+        "type" in entity
+      ) {
         coord = SPRITE_COORDS[entity.type];
       } else if (entity.kind === EntityKind.BULLET) {
         coord = SPRITE_COORDS["bullet"];
@@ -311,6 +321,24 @@ export class Renderer {
           }
           this.entityContainer.addChild(sprite);
         }
+      }
+    }
+
+    // Render effects (explosions) above entities
+    for (const effect of effects) {
+      const frameIndex = Math.min(
+        EXPLOSION_FRAMES.length - 1,
+        Math.floor(
+          (effect.ageTicks / effect.durationTicks) * EXPLOSION_FRAMES.length,
+        ),
+      );
+      const frame = EXPLOSION_FRAMES[frameIndex];
+      const screenX = offsetX + effect.worldX;
+      const screenY = offsetY + effect.worldY;
+      const sprite = this.createSprite(frame.x, frame.y, screenX, screenY);
+      if (sprite) {
+        sprite.anchor.set(0.5, 0.5);
+        this.entityContainer.addChild(sprite);
       }
     }
 

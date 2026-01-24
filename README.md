@@ -99,8 +99,11 @@ dark-war/
 
 - **WASD** - Move continuously in 8 directions
 - **Mouse** - Aim weapon
-- **Left Click** - Fire weapon
-- **O** - Open/close door
+- **Right Click** - Use current weapon (melee/shot/throw/place)
+- **Mouse Wheel** or **1-4** - Cycle weapons (1 melee, 2 pistol, 3 grenade, 4 land mine)
+- **G** - Pick up items
+- **R** - Reload pistol
+- **O** - Open/close door (directional)
 - **V** - Toggle field of view visualization
 - **<** - Descend stairs to next level
 
