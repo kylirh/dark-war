@@ -233,14 +233,18 @@ export class Physics {
 
       if (absOverlapX > absOverlapY) {
         // Horizontal wall - only cancel X velocity if moving into wall
-        if ((response.overlapV.x > 0 && entityB.velocityX < 0) ||
-            (response.overlapV.x < 0 && entityB.velocityX > 0)) {
+        if (
+          (response.overlapV.x > 0 && entityB.velocityX < 0) ||
+          (response.overlapV.x < 0 && entityB.velocityX > 0)
+        ) {
           entityB.velocityX = 0;
         }
       } else if (absOverlapY > absOverlapX) {
         // Vertical wall - only cancel Y velocity if moving into wall
-        if ((response.overlapV.y > 0 && entityB.velocityY < 0) ||
-            (response.overlapV.y < 0 && entityB.velocityY > 0)) {
+        if (
+          (response.overlapV.y > 0 && entityB.velocityY < 0) ||
+          (response.overlapV.y < 0 && entityB.velocityY > 0)
+        ) {
           entityB.velocityY = 0;
         }
       } else {
@@ -268,14 +272,18 @@ export class Physics {
 
       if (absOverlapX > absOverlapY) {
         // Horizontal wall - only cancel X velocity if moving into wall
-        if ((response.overlapV.x > 0 && entityA.velocityX > 0) ||
-            (response.overlapV.x < 0 && entityA.velocityX < 0)) {
+        if (
+          (response.overlapV.x > 0 && entityA.velocityX > 0) ||
+          (response.overlapV.x < 0 && entityA.velocityX < 0)
+        ) {
           entityA.velocityX = 0;
         }
       } else if (absOverlapY > absOverlapX) {
         // Vertical wall - only cancel Y velocity if moving into wall
-        if ((response.overlapV.y > 0 && entityA.velocityY > 0) ||
-            (response.overlapV.y < 0 && entityA.velocityY < 0)) {
+        if (
+          (response.overlapV.y > 0 && entityA.velocityY > 0) ||
+          (response.overlapV.y < 0 && entityA.velocityY < 0)
+        ) {
           entityA.velocityY = 0;
         }
       } else {
@@ -409,10 +417,7 @@ export class Physics {
 
     for (const explosive of explosives) {
       // Only check collisions for moving explosives (grenades in flight)
-      if (
-        explosive.velocityX === 0 &&
-        explosive.velocityY === 0
-      ) {
+      if (explosive.velocityX === 0 && explosive.velocityY === 0) {
         continue;
       }
 
@@ -437,10 +442,7 @@ export class Physics {
             state,
             other as Circle | Box,
           );
-          if (
-            targetEntity &&
-            targetEntity.kind === EntityKind.MONSTER
-          ) {
+          if (targetEntity && targetEntity.kind === EntityKind.MONSTER) {
             shouldExplode = true;
           }
         });
