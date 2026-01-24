@@ -27,6 +27,7 @@ import { PlayerEntity } from "../entities/Player";
 import { MonsterEntity } from "../entities/Monster";
 import { ItemEntity } from "../entities/Item";
 import { BulletEntity } from "../entities/Bullet";
+import { ExplosiveEntity } from "../entities/Explosive";
 import { idx, tileAt } from "../utils/helpers";
 
 // Collision radii - sized to allow smooth corridor navigation
@@ -35,6 +36,7 @@ const PLAYER_RADIUS = 8;
 const MONSTER_RADIUS = 7;
 const ITEM_RADIUS = 6;
 const BULLET_RADIUS = 4;
+const EXPLOSIVE_RADIUS = 6;
 
 /**
  * Physics system manager
@@ -105,6 +107,8 @@ export class Physics {
       radius = ITEM_RADIUS;
     } else if (entity.kind === EntityKind.BULLET) {
       radius = BULLET_RADIUS;
+    } else if (entity.kind === EntityKind.EXPLOSIVE) {
+      radius = EXPLOSIVE_RADIUS;
     } else {
       radius = 8; // Default
     }
@@ -121,6 +125,10 @@ export class Physics {
 
     // Bullets are triggers (don't physically block)
     if (entity.kind === EntityKind.BULLET) {
+      circle.isTrigger = true;
+    }
+
+    if (entity.kind === EntityKind.EXPLOSIVE) {
       circle.isTrigger = true;
     }
 
@@ -145,6 +153,14 @@ export class Physics {
    * @param dt Delta time in seconds (already scaled by timeScale * REAL_TIME_SPEED)
    */
   public updatePhysics(state: GameState, dt: number): void {
+    const entityIds = new Set(state.entities.map((entity) => entity.id));
+    for (const body of this.system.all()) {
+      const entityId = (body as any).entityId;
+      if (entityId !== undefined && !entityIds.has(entityId)) {
+        this.system.remove(body);
+      }
+    }
+
     // Ensure all entities have physics bodies
     for (const entity of state.entities) {
       if (entity instanceof ContinuousEntity && !entity.physicsBody) {
@@ -276,7 +292,8 @@ export class Physics {
         entity instanceof PlayerEntity ||
         entity instanceof MonsterEntity ||
         entity instanceof ItemEntity ||
-        entity instanceof BulletEntity)
+        entity instanceof BulletEntity ||
+        entity instanceof ExplosiveEntity)
     ) {
       return entity as ContinuousEntity;
     }
@@ -360,6 +377,65 @@ export class Physics {
             bulletRemoved = true;
           }
         });
+      }
+    }
+  }
+
+  /**
+   * Update explosives - move, check collisions with monsters and walls
+   */
+  public updateExplosives(state: GameState, dt: number): void {
+    const explosives = state.entities.filter(
+      (e): e is ExplosiveEntity =>
+        e.kind === EntityKind.EXPLOSIVE && e instanceof ExplosiveEntity,
+    );
+
+    for (const explosive of explosives) {
+      // Only check collisions for moving explosives (grenades in flight)
+      if (
+        explosive.velocityX === 0 &&
+        explosive.velocityY === 0
+      ) {
+        continue;
+      }
+
+      // Check for actual collisions
+      if (explosive.physicsBody) {
+        let shouldExplode = false;
+
+        // Check collision using checkOne
+        this.system.checkOne(explosive.physicsBody, (response) => {
+          if (shouldExplode) return;
+
+          const other = response.b;
+
+          // Hit wall - explode
+          if ((other as any).isWall) {
+            shouldExplode = true;
+            return;
+          }
+
+          // Hit monster - explode
+          const targetEntity = this.getEntityFromBody(
+            state,
+            other as Circle | Box,
+          );
+          if (
+            targetEntity &&
+            targetEntity.kind === EntityKind.MONSTER
+          ) {
+            shouldExplode = true;
+          }
+        });
+
+        // Trigger immediate explosion on impact
+        if (shouldExplode) {
+          // Stop the explosive's movement
+          explosive.velocityX = 0;
+          explosive.velocityY = 0;
+          // Set fuse to 0 to trigger explosion on next tick
+          explosive.fuseTicks = 0;
+        }
       }
     }
   }

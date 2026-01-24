@@ -17,6 +17,10 @@
 // Debug configuration - set to true to enable performance logging
 const DEBUG = false;
 
+// Mouse wheel throttling constants
+const WHEEL_THROTTLE_MS = 150; // Minimum time between weapon switches (ms)
+const WHEEL_DELTA_THRESHOLD = 30; // Minimum accumulated deltaY to trigger switch
+
 import { Game } from "./core/Game";
 import { GameLoop } from "./core/GameLoop";
 import { Renderer } from "./systems/Renderer";
@@ -39,6 +43,7 @@ import {
   SLOWMO_SCALE,
   REAL_TIME_SPEED,
   TIME_SCALE_TRANSITION_SPEED,
+  WeaponType,
 } from "./types";
 import { findPath } from "./utils/pathfinding";
 import { idx } from "./utils/helpers";
@@ -72,6 +77,8 @@ class DarkWar {
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
   private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
+  private lastWheelTime: number = 0; // Track last weapon cycle time
+  private wheelDeltaAccumulator: number = 0; // Accumulate wheel delta
 
   constructor() {
     if (DEBUG) console.time("Game initialization");
@@ -123,6 +130,7 @@ class DarkWar {
       onNewGame: () => this.handleNewGame(),
       onSave: () => this.handleSave(),
       onLoad: () => this.handleLoad(),
+      onSelectWeapon: (slot) => this.handleSelectWeapon(slot),
     };
 
     this.inputHandler = new InputHandler(callbacks);
@@ -256,21 +264,35 @@ class DarkWar {
       event.preventDefault();
       this.handleMouseFire(event);
     });
+
+    canvas.addEventListener(
+      "wheel",
+      (event) => {
+        event.preventDefault();
+        
+        const now = performance.now();
+        const timeSinceLastSwitch = now - this.lastWheelTime;
+        
+        // Accumulate wheel delta
+        this.wheelDeltaAccumulator += event.deltaY;
+        
+        // Only switch weapon if enough time has passed AND enough delta accumulated
+        if (timeSinceLastSwitch >= WHEEL_THROTTLE_MS && 
+            Math.abs(this.wheelDeltaAccumulator) >= WHEEL_DELTA_THRESHOLD) {
+          const direction = this.wheelDeltaAccumulator > 0 ? 1 : -1;
+          this.handleCycleWeapon(direction);
+          this.lastWheelTime = now;
+          this.wheelDeltaAccumulator = 0; // Reset accumulator after switch
+        }
+      },
+      { passive: false },
+    );
   }
 
   /**
    * Handle mouse-based firing
    */
   private handleMouseFire(event: MouseEvent): void {
-    const state = this.game.getState();
-    const player = state.player;
-
-    // Check if player has ammo
-    if (player.ammo <= 0) {
-      this.game.addLog("*click* Out of ammo!");
-      return;
-    }
-
     // Fire with mouse aiming (dx/dy will be ignored)
     this.handleFire(0, 0);
   }
@@ -315,6 +337,9 @@ class DarkWar {
 
     // Update bullets
     this.physics.updateBullets(state, scaledDt);
+
+    // Update explosives
+    this.physics.updateExplosives(state, scaledDt);
 
     // Advance simulation ticks with time scaling
     state.sim.accumulatorMs += scaledDt * 1000;
@@ -457,6 +482,37 @@ class DarkWar {
     this.game.updateFOV();
 
     this.autoSave();
+  }
+
+  private handleSelectWeapon(slot: number): void {
+    const state = this.game.getState();
+    const player = state.player;
+    let weapon: WeaponType | null = null;
+
+    if (slot === 1) weapon = WeaponType.MELEE;
+    if (slot === 2) weapon = WeaponType.PISTOL;
+    if (slot === 3) weapon = WeaponType.GRENADE;
+    if (slot === 4) weapon = WeaponType.LAND_MINE;
+
+    if (!weapon) return;
+    player.weapon = weapon;
+    this.game.addLog(`Weapon set: ${weapon}.`);
+  }
+
+  private handleCycleWeapon(direction: number): void {
+    const state = this.game.getState();
+    const player = state.player;
+    const weapons = [
+      WeaponType.MELEE,
+      WeaponType.PISTOL,
+      WeaponType.GRENADE,
+      WeaponType.LAND_MINE,
+    ];
+    const currentIndex = weapons.indexOf(player.weapon);
+    const nextIndex =
+      (currentIndex + direction + weapons.length) % weapons.length;
+    player.weapon = weapons[nextIndex];
+    this.game.addLog(`Weapon set: ${player.weapon}.`);
   }
 
   /**

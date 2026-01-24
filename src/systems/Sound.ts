@@ -15,6 +15,7 @@ export enum SoundEffect {
   PLAYER_HIT_5 = "grunt5",
   RELOAD = "reload",
   MONSTER_DEATH = "death",
+  EXPLOSION = "explosion",
 }
 
 /**

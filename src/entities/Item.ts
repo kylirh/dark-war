@@ -20,6 +20,12 @@ const ITEM_META = {
   [ItemType.KEYCARD]: {
     name: "Keycard",
   },
+  [ItemType.GRENADE]: {
+    name: "Grenade",
+  },
+  [ItemType.LAND_MINE]: {
+    name: "Land Mine",
+  },
 };
 
 /**
