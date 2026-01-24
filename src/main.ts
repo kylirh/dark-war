@@ -269,16 +269,18 @@ class DarkWar {
       "wheel",
       (event) => {
         event.preventDefault();
-        
+
         const now = performance.now();
         const timeSinceLastSwitch = now - this.lastWheelTime;
-        
+
         // Accumulate wheel delta
         this.wheelDeltaAccumulator += event.deltaY;
-        
+
         // Only switch weapon if enough time has passed AND enough delta accumulated
-        if (timeSinceLastSwitch >= WHEEL_THROTTLE_MS && 
-            Math.abs(this.wheelDeltaAccumulator) >= WHEEL_DELTA_THRESHOLD) {
+        if (
+          timeSinceLastSwitch >= WHEEL_THROTTLE_MS &&
+          Math.abs(this.wheelDeltaAccumulator) >= WHEEL_DELTA_THRESHOLD
+        ) {
           const direction = this.wheelDeltaAccumulator > 0 ? 1 : -1;
           this.handleCycleWeapon(direction);
           this.lastWheelTime = now;
@@ -375,7 +377,7 @@ class DarkWar {
         : false;
 
     // Update target time scale based on player movement
-    if (isDead && state.sim.targetTimeScale !== 1.0) {
+    if (isDead) {
       state.sim.targetTimeScale = 1.0;
     }
 
