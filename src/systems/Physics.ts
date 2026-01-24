@@ -21,6 +21,7 @@ import {
   CELL_CONFIG,
   MAP_WIDTH,
   MAP_HEIGHT,
+  EventType,
 } from "../types";
 import { ContinuousEntity } from "../entities/ContinuousEntity";
 import { PlayerEntity } from "../entities/Player";
@@ -30,6 +31,7 @@ import { BulletEntity } from "../entities/Bullet";
 import { ExplosiveEntity } from "../entities/Explosive";
 import { idx, tileAt } from "../utils/helpers";
 import { Sound, SoundEffect } from "./Sound";
+import { pushEvent } from "./Simulation";
 
 // Collision radii - sized to allow smooth corridor navigation
 // With 32px tiles, an 8px radius (16px diameter) leaves 16px clearance in corridors
@@ -220,6 +222,15 @@ export class Physics {
     const entityA = this.getEntityFromBody(state, bodyA);
     const entityB = this.getEntityFromBody(state, bodyB);
 
+    if (
+      entityA?.kind === EntityKind.BULLET ||
+      entityA?.kind === EntityKind.EXPLOSIVE ||
+      entityB?.kind === EntityKind.BULLET ||
+      entityB?.kind === EntityKind.EXPLOSIVE
+    ) {
+      return;
+    }
+
     // Wall collision - push entity out of wall with wall sliding
     if ((bodyA as any).isWall && entityB && entityB.kind !== EntityKind.ITEM) {
       // Push entity out with small safety margin to prevent tunneling
@@ -324,6 +335,11 @@ export class Physics {
         e.kind === EntityKind.BULLET && e instanceof BulletEntity,
     );
 
+    const ricochetChance = 0.35;
+    const ricochetAngleThreshold = 0.55;
+    const ricochetDamping = 0.8;
+    const knockbackLight = 85;
+
     for (const bullet of bullets) {
       // Track distance traveled
       const distanceThisFrame =
@@ -353,6 +369,49 @@ export class Physics {
 
           // Hit wall
           if ((other as any).isWall) {
+            const speed = Math.sqrt(
+              bullet.velocityX * bullet.velocityX +
+                bullet.velocityY * bullet.velocityY,
+            );
+            const normalLength = Math.sqrt(
+              response.overlapV.x * response.overlapV.x +
+                response.overlapV.y * response.overlapV.y,
+            );
+            const canRicochet =
+              bullet.ricochetsRemaining > 0 &&
+              speed > 0 &&
+              normalLength > 0;
+
+            if (canRicochet) {
+              const nx = response.overlapV.x / normalLength;
+              const ny = response.overlapV.y / normalLength;
+              const incidence = Math.abs(
+                (bullet.velocityX * nx + bullet.velocityY * ny) / speed,
+              );
+
+              if (
+                incidence < ricochetAngleThreshold &&
+                Math.random() < ricochetChance
+              ) {
+                const dot = bullet.velocityX * nx + bullet.velocityY * ny;
+                bullet.velocityX =
+                  (bullet.velocityX - 2 * dot * nx) * ricochetDamping;
+                bullet.velocityY =
+                  (bullet.velocityY - 2 * dot * ny) * ricochetDamping;
+                bullet.facingAngle = Math.atan2(
+                  bullet.velocityY,
+                  bullet.velocityX,
+                );
+                bullet.ricochetsRemaining -= 1;
+                bullet.worldX -= response.overlapV.x * 1.01;
+                bullet.worldY -= response.overlapV.y * 1.01;
+                if (bullet.physicsBody) {
+                  bullet.physicsBody.setPosition(bullet.worldX, bullet.worldY);
+                }
+                return;
+              }
+            }
+
             this.removeEntity(bullet);
             const index = state.entities.indexOf(bullet);
             if (index > -1) state.entities.splice(index, 1);
@@ -365,14 +424,24 @@ export class Physics {
             state,
             other as Circle | Box,
           );
+          if (!targetEntity) return;
+
           if (
-            targetEntity &&
             targetEntity.kind === EntityKind.MONSTER &&
             targetEntity.id !== bullet.ownerId
           ) {
             // Apply damage
             const monster = targetEntity as MonsterEntity;
             monster.hp -= bullet.damage;
+
+            const speed = Math.sqrt(
+              bullet.velocityX * bullet.velocityX +
+                bullet.velocityY * bullet.velocityY,
+            );
+            if (speed > 0) {
+              monster.velocityX += (bullet.velocityX / speed) * knockbackLight;
+              monster.velocityY += (bullet.velocityY / speed) * knockbackLight;
+            }
 
             // Check if monster died
             if (monster.hp <= 0) {
@@ -385,6 +454,38 @@ export class Physics {
 
               // Award score
               state.player.score += 15;
+            }
+
+            // Remove bullet
+            this.removeEntity(bullet);
+            const index = state.entities.indexOf(bullet);
+            if (index > -1) state.entities.splice(index, 1);
+            bulletRemoved = true;
+          } else if (
+            targetEntity.kind === EntityKind.PLAYER &&
+            (targetEntity.id !== bullet.ownerId ||
+              bullet.ricochetsRemaining < 1)
+          ) {
+            const player = targetEntity as PlayerEntity;
+            if (player.hp > 0) {
+              const speed = Math.sqrt(
+                bullet.velocityX * bullet.velocityX +
+                  bullet.velocityY * bullet.velocityY,
+              );
+              if (speed > 0) {
+                player.velocityX +=
+                  (bullet.velocityX / speed) * knockbackLight;
+                player.velocityY +=
+                  (bullet.velocityY / speed) * knockbackLight;
+              }
+              pushEvent(state, {
+                type: EventType.DAMAGE,
+                data: {
+                  type: "DAMAGE",
+                  targetId: player.id,
+                  amount: bullet.damage,
+                },
+              });
             }
 
             // Remove bullet
@@ -407,6 +508,8 @@ export class Physics {
         e.kind === EntityKind.EXPLOSIVE && e instanceof ExplosiveEntity,
     );
 
+    const ricochetDamping = 0.6;
+
     for (const explosive of explosives) {
       // Only check collisions for moving explosives (grenades in flight)
       if (
@@ -426,21 +529,48 @@ export class Physics {
 
           const other = response.b;
 
-          // Hit wall - explode
+          // Hit wall - ricochet
           if ((other as any).isWall) {
-            shouldExplode = true;
+            const speed = Math.sqrt(
+              explosive.velocityX * explosive.velocityX +
+                explosive.velocityY * explosive.velocityY,
+            );
+            const normalLength = Math.sqrt(
+              response.overlapV.x * response.overlapV.x +
+                response.overlapV.y * response.overlapV.y,
+            );
+            if (speed > 0 && normalLength > 0) {
+              const nx = response.overlapV.x / normalLength;
+              const ny = response.overlapV.y / normalLength;
+              const dot = explosive.velocityX * nx + explosive.velocityY * ny;
+              explosive.velocityX =
+                (explosive.velocityX - 2 * dot * nx) * ricochetDamping;
+              explosive.velocityY =
+                (explosive.velocityY - 2 * dot * ny) * ricochetDamping;
+            }
+
+            explosive.worldX -= response.overlapV.x * 1.01;
+            explosive.worldY -= response.overlapV.y * 1.01;
+            if (explosive.physicsBody) {
+              explosive.physicsBody.setPosition(
+                explosive.worldX,
+                explosive.worldY,
+              );
+            }
             return;
           }
 
-          // Hit monster - explode
+          // Hit monster or player - explode
           const targetEntity = this.getEntityFromBody(
             state,
             other as Circle | Box,
           );
           if (
             targetEntity &&
-            targetEntity.kind === EntityKind.MONSTER
+            (targetEntity.kind === EntityKind.MONSTER ||
+              targetEntity.kind === EntityKind.PLAYER)
           ) {
+            explosive.directHitTargetId = targetEntity.id;
             shouldExplode = true;
           }
         });

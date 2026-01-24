@@ -41,11 +41,14 @@ const MELEE_ARC = Math.PI / 3;
 
 const EXPLOSIVE_CONFIG: Record<
   ItemType.GRENADE | ItemType.LAND_MINE,
-  { radius: number; damage: number }
+  { radius: number; damage: number; directHitDamage: number }
 > = {
-  [ItemType.GRENADE]: { radius: 2.5, damage: 6 },
-  [ItemType.LAND_MINE]: { radius: 2, damage: 8 },
+  [ItemType.GRENADE]: { radius: 2.75, damage: 7, directHitDamage: 20 },
+  [ItemType.LAND_MINE]: { radius: 2.1, damage: 8, directHitDamage: 18 },
 };
+
+const KNOCKBACK_LIGHT = 85;
+const KNOCKBACK_EXPLOSION = 650;
 
 let nextCommandId = 1;
 let nextEventId = 1;
@@ -672,6 +675,13 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
   const player = actor as Player;
+  if (player.ammo >= 12) {
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "Pistol already fully loaded." },
+    });
+    return;
+  }
   if (player.ammoReserve === 0) {
     pushEvent(state, {
       type: EventType.MESSAGE,
@@ -809,6 +819,7 @@ function triggerExplosion(
   worldY: number,
   type: ItemType.GRENADE | ItemType.LAND_MINE,
   cause?: number,
+  directHitTargetId?: number,
 ): void {
   const gridX = Math.floor(worldX / CELL_CONFIG.w);
   const gridY = Math.floor(worldY / CELL_CONFIG.h);
@@ -822,6 +833,8 @@ function triggerExplosion(
       y: gridY,
       radius: config.radius,
       damage: config.damage,
+      directHitTargetId,
+      directHitDamage: config.directHitDamage,
     },
     cause,
   });
@@ -840,7 +853,10 @@ function updateExplosives(state: GameState): void {
   for (const explosive of explosives) {
     if (!explosive.armed) continue;
 
-    if (explosive.type === ItemType.GRENADE && explosive.fuseTicks !== undefined) {
+    if (
+      explosive.type === ItemType.GRENADE &&
+      explosive.fuseTicks !== undefined
+    ) {
       explosive.fuseTicks -= 1;
       if (explosive.fuseTicks <= 0) {
         triggerExplosion(
@@ -848,6 +864,8 @@ function updateExplosives(state: GameState): void {
           explosive.worldX,
           explosive.worldY,
           explosive.type,
+          undefined,
+          explosive.directHitTargetId,
         );
         state.entities = state.entities.filter((e) => e.id !== explosive.id);
         continue;
@@ -868,6 +886,8 @@ function updateExplosives(state: GameState): void {
           explosive.worldX,
           explosive.worldY,
           explosive.type,
+          undefined,
+          explosive.directHitTargetId,
         );
         state.entities = state.entities.filter((e) => e.id !== explosive.id);
       }
@@ -928,6 +948,23 @@ function processEvent(state: GameState, event: GameEvent): void {
   }
 }
 
+function applyKnockbackFromPoint(
+  target: Entity,
+  sourceX: number,
+  sourceY: number,
+  strength: number,
+): void {
+  if (!("worldX" in target) || !("worldY" in target)) return;
+  const dx = (target as any).worldX - sourceX;
+  const dy = (target as any).worldY - sourceY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist === 0) return;
+  const nx = dx / dist;
+  const ny = dy / dist;
+  (target as any).velocityX += nx * strength;
+  (target as any).velocityY += ny * strength;
+}
+
 function processDamageEvent(state: GameState, event: GameEvent): void {
   const data = event.data as {
     type: "DAMAGE";
@@ -938,6 +975,18 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
   };
   const target = state.entities.find((e) => e.id === data.targetId);
   if (!target) return;
+
+  if (!data.fromExplosion && data.sourceId !== undefined) {
+    const source = state.entities.find((e) => e.id === data.sourceId);
+    if (source) {
+      applyKnockbackFromPoint(
+        target,
+        (source as any).worldX,
+        (source as any).worldY,
+        KNOCKBACK_LIGHT,
+      );
+    }
+  }
 
   if (target.kind === EntityKind.PLAYER) {
     const player = target as Player;
@@ -994,6 +1043,8 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
     y: number;
     radius: number;
     damage: number;
+    directHitTargetId?: number;
+    directHitDamage?: number;
   };
 
   const worldX = data.x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
@@ -1020,12 +1071,23 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
     if (distance > radiusPx) continue;
 
     if (entity.kind === EntityKind.MONSTER || entity.kind === EntityKind.PLAYER) {
+      const falloff = Math.max(0.2, 1 - distance / radiusPx);
+      applyKnockbackFromPoint(
+        entity,
+        worldX,
+        worldY,
+        KNOCKBACK_EXPLOSION * falloff,
+      );
+      const isDirectHit =
+        data.directHitTargetId !== undefined &&
+        data.directHitTargetId === entity.id &&
+        data.directHitDamage !== undefined;
       pushEvent(state, {
         type: EventType.DAMAGE,
         data: {
           type: "DAMAGE",
           targetId: entity.id,
-          amount: data.damage,
+          amount: isDirectHit ? data.directHitDamage : data.damage,
           fromExplosion: true,
         },
         cause: event.id,

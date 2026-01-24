@@ -217,7 +217,8 @@ class DarkWar {
       return;
     }
 
-    canvas.style.cursor = "pointer";
+    canvas.style.cursor =
+      'url("./assets/img/bullseye-cursor.svg") 16 16, crosshair';
 
     // Left click: move
     canvas.addEventListener("click", (event) => {

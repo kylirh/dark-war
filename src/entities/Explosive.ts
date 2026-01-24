@@ -8,6 +8,7 @@ export class ExplosiveEntity extends ContinuousEntity {
   public type: ItemType.GRENADE | ItemType.LAND_MINE;
   public armed: boolean;
   public fuseTicks?: number;
+  public directHitTargetId?: number;
 
   constructor(
     worldX: number,

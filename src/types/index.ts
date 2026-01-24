@@ -118,6 +118,7 @@ export interface Bullet extends BaseEntity {
   ownerId: number;
   maxDistance: number;
   traveledDistance: number;
+  ricochetsRemaining: number;
 }
 
 export interface Explosive extends BaseEntity {
@@ -125,6 +126,7 @@ export interface Explosive extends BaseEntity {
   type: ItemType.GRENADE | ItemType.LAND_MINE;
   armed: boolean;
   fuseTicks?: number;
+  directHitTargetId?: number;
 }
 
 export interface Effect {
@@ -217,7 +219,15 @@ export type EventData =
       fromExplosion?: boolean;
     }
   | { type: "DEATH"; entityId: number; fromExplosion?: boolean }
-  | { type: "EXPLOSION"; x: number; y: number; radius: number; damage: number }
+  | {
+      type: "EXPLOSION";
+      x: number;
+      y: number;
+      radius: number;
+      damage: number;
+      directHitTargetId?: number;
+      directHitDamage?: number;
+    }
   | { type: "DROP_LOOT"; x: number; y: number; itemType: ItemType }
   | { type: "MESSAGE"; message: string }
   | { type: "DOOR_OPEN"; x: number; y: number }

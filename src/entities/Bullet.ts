@@ -17,6 +17,7 @@ export class BulletEntity extends ContinuousEntity {
   public ownerId: number;
   public maxDistance: number;
   public traveledDistance: number = 0;
+  public ricochetsRemaining: number = 1;
 
   constructor(
     worldX: number,
