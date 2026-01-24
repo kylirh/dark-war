@@ -39,6 +39,7 @@ import {
   SLOWMO_SCALE,
   REAL_TIME_SPEED,
   TIME_SCALE_TRANSITION_SPEED,
+  WeaponType,
 } from "./types";
 import { findPath } from "./utils/pathfinding";
 import { idx } from "./utils/helpers";
@@ -123,6 +124,7 @@ class DarkWar {
       onNewGame: () => this.handleNewGame(),
       onSave: () => this.handleSave(),
       onLoad: () => this.handleLoad(),
+      onSelectWeapon: (slot) => this.handleSelectWeapon(slot),
     };
 
     this.inputHandler = new InputHandler(callbacks);
@@ -250,21 +252,22 @@ class DarkWar {
       event.preventDefault();
       this.handleMouseFire(event);
     });
+
+    canvas.addEventListener(
+      "wheel",
+      (event) => {
+        event.preventDefault();
+        const direction = event.deltaY > 0 ? 1 : -1;
+        this.handleCycleWeapon(direction);
+      },
+      { passive: false },
+    );
   }
 
   /**
    * Handle mouse-based firing
    */
   private handleMouseFire(event: MouseEvent): void {
-    const state = this.game.getState();
-    const player = state.player;
-
-    // Check if player has ammo
-    if (player.ammo <= 0) {
-      this.game.addLog("*click* Out of ammo!");
-      return;
-    }
-
     // Fire with mouse aiming (dx/dy will be ignored)
     this.handleFire(0, 0);
   }
@@ -446,6 +449,37 @@ class DarkWar {
     this.game.updateFOV();
 
     this.autoSave();
+  }
+
+  private handleSelectWeapon(slot: number): void {
+    const state = this.game.getState();
+    const player = state.player;
+    let weapon: WeaponType | null = null;
+
+    if (slot === 1) weapon = WeaponType.MELEE;
+    if (slot === 2) weapon = WeaponType.PISTOL;
+    if (slot === 3) weapon = WeaponType.GRENADE;
+    if (slot === 4) weapon = WeaponType.LAND_MINE;
+
+    if (!weapon) return;
+    player.weapon = weapon;
+    this.game.addLog(`Weapon set: ${weapon}.`);
+  }
+
+  private handleCycleWeapon(direction: number): void {
+    const state = this.game.getState();
+    const player = state.player;
+    const weapons = [
+      WeaponType.MELEE,
+      WeaponType.PISTOL,
+      WeaponType.GRENADE,
+      WeaponType.LAND_MINE,
+    ];
+    const currentIndex = weapons.indexOf(player.weapon);
+    const nextIndex =
+      (currentIndex + direction + weapons.length) % weapons.length;
+    player.weapon = weapons[nextIndex];
+    this.game.addLog(`Weapon set: ${player.weapon}.`);
   }
 
   /**

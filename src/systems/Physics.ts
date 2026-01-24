@@ -27,6 +27,7 @@ import { PlayerEntity } from "../entities/Player";
 import { MonsterEntity } from "../entities/Monster";
 import { ItemEntity } from "../entities/Item";
 import { BulletEntity } from "../entities/Bullet";
+import { ExplosiveEntity } from "../entities/Explosive";
 import { idx, tileAt } from "../utils/helpers";
 
 // Collision radii - sized to allow smooth corridor navigation
@@ -35,6 +36,7 @@ const PLAYER_RADIUS = 8;
 const MONSTER_RADIUS = 7;
 const ITEM_RADIUS = 6;
 const BULLET_RADIUS = 4;
+const EXPLOSIVE_RADIUS = 6;
 
 /**
  * Physics system manager
@@ -105,6 +107,8 @@ export class Physics {
       radius = ITEM_RADIUS;
     } else if (entity.kind === EntityKind.BULLET) {
       radius = BULLET_RADIUS;
+    } else if (entity.kind === EntityKind.EXPLOSIVE) {
+      radius = EXPLOSIVE_RADIUS;
     } else {
       radius = 8; // Default
     }
@@ -121,6 +125,10 @@ export class Physics {
 
     // Bullets are triggers (don't physically block)
     if (entity.kind === EntityKind.BULLET) {
+      circle.isTrigger = true;
+    }
+
+    if (entity.kind === EntityKind.EXPLOSIVE) {
       circle.isTrigger = true;
     }
 
@@ -145,6 +153,14 @@ export class Physics {
    * @param dt Delta time in seconds (already scaled by timeScale * REAL_TIME_SPEED)
    */
   public updatePhysics(state: GameState, dt: number): void {
+    const entityIds = new Set(state.entities.map((entity) => entity.id));
+    for (const body of this.system.all()) {
+      const entityId = (body as any).entityId;
+      if (entityId !== undefined && !entityIds.has(entityId)) {
+        this.system.remove(body);
+      }
+    }
+
     // Ensure all entities have physics bodies
     for (const entity of state.entities) {
       if (entity instanceof ContinuousEntity && !entity.physicsBody) {
@@ -276,7 +292,8 @@ export class Physics {
         entity instanceof PlayerEntity ||
         entity instanceof MonsterEntity ||
         entity instanceof ItemEntity ||
-        entity instanceof BulletEntity)
+        entity instanceof BulletEntity ||
+        entity instanceof ExplosiveEntity)
     ) {
       return entity as ContinuousEntity;
     }

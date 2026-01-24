@@ -17,6 +17,7 @@ import { generateDungeon } from "./Map";
 import { createPlayer, PlayerEntity } from "../entities/Player";
 import { createMutant, createRat, MonsterEntity } from "../entities/Monster";
 import { createItem, ItemEntity } from "../entities/Item";
+import { createExplosive, ExplosiveEntity } from "../entities/Explosive";
 import { RNG } from "../utils/RNG";
 import { dist, passable } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
@@ -47,6 +48,7 @@ export class Game {
       stairs: [0, 0],
       log: [],
       options: { fov: true },
+      effects: [],
       sim: {
         nowTick: 0,
         mode: "REALTIME",
@@ -79,6 +81,7 @@ export class Game {
       stairs: dungeon.stairs,
       log: [],
       options: { fov: true },
+      effects: [],
       // NEW: Simulation system
       sim: {
         nowTick: 0,
@@ -140,6 +143,20 @@ export class Game {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entities.push(createItem(x, y, ItemType.KEYCARD));
+      freeTiles.splice(tileIndex, 1);
+    }
+
+    for (let i = 0; i < 4 && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
+      this.state.entities.push(createItem(x, y, ItemType.GRENADE));
+      freeTiles.splice(tileIndex, 1);
+    }
+
+    for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
+      this.state.entities.push(createItem(x, y, ItemType.LAND_MINE));
       freeTiles.splice(tileIndex, 1);
     }
 
@@ -358,6 +375,19 @@ export class Game {
         const i = createItem(entity.x, entity.y, (entity as Item).type);
         Object.assign(i, entity);
         entities.push(i);
+      } else if (
+        entity.kind === EntityKind.EXPLOSIVE &&
+        !(entity instanceof ExplosiveEntity)
+      ) {
+        const explosive = createExplosive(
+          (entity as any).worldX,
+          (entity as any).worldY,
+          (entity as any).type,
+          (entity as any).armed,
+          (entity as any).fuseTicks,
+        );
+        Object.assign(explosive, entity);
+        entities.push(explosive);
       } else {
         entities.push(entity);
       }
@@ -373,6 +403,7 @@ export class Game {
       player,
       log: data.log || [],
       options: { fov: true },
+      effects: [],
       sim: {
         nowTick: data.sim.nowTick,
         mode: data.sim.mode,
