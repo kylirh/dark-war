@@ -9,6 +9,7 @@ export class UI {
   private hpElement: HTMLElement;
   private hpBarElement: HTMLElement;
   private scoreElement: HTMLElement;
+  private gameOverScoreElement: HTMLElement;
   private inventoryElement: HTMLElement;
 
   constructor() {
@@ -17,6 +18,7 @@ export class UI {
     this.hpElement = this.getElement("hp");
     this.hpBarElement = this.getElement("hpbar");
     this.scoreElement = this.getElement("score");
+    this.gameOverScoreElement = this.getElement("game-over-score");
     this.inventoryElement = this.getElement("inventory");
   }
 
@@ -35,6 +37,7 @@ export class UI {
     this.floorElement.textContent = String(depth);
     this.hpElement.textContent = `${player.hp}/${player.hpMax}`;
     this.scoreElement.textContent = String(player.score);
+    this.gameOverScoreElement.textContent = `Score: ${player.score}`;
 
     // Update HP bar
     const hpPercent = Math.max(0, Math.min(1, player.hp / player.hpMax));

@@ -138,6 +138,12 @@ class DarkWar {
     // Setup click-to-move
     this.setupClickToMove();
 
+    // Setup game over overlay actions
+    const newGameButton = document.getElementById("new-game-button");
+    if (newGameButton) {
+      newGameButton.addEventListener("click", () => this.handleNewGame());
+    }
+
     // Setup native menu handlers for Electron
     this.setupNativeMenuHandlers();
 
@@ -263,16 +269,18 @@ class DarkWar {
       "wheel",
       (event) => {
         event.preventDefault();
-        
+
         const now = performance.now();
         const timeSinceLastSwitch = now - this.lastWheelTime;
-        
+
         // Accumulate wheel delta
         this.wheelDeltaAccumulator += event.deltaY;
-        
+
         // Only switch weapon if enough time has passed AND enough delta accumulated
-        if (timeSinceLastSwitch >= WHEEL_THROTTLE_MS && 
-            Math.abs(this.wheelDeltaAccumulator) >= WHEEL_DELTA_THRESHOLD) {
+        if (
+          timeSinceLastSwitch >= WHEEL_THROTTLE_MS &&
+          Math.abs(this.wheelDeltaAccumulator) >= WHEEL_DELTA_THRESHOLD
+        ) {
           const direction = this.wheelDeltaAccumulator > 0 ? 1 : -1;
           this.handleCycleWeapon(direction);
           this.lastWheelTime = now;
@@ -296,6 +304,7 @@ class DarkWar {
    */
   private update(dt: number): void {
     const state = this.game.getState();
+    const isDead = this.game.isPlayerDead();
 
     // Update mouse tracker with current camera position and scale
     const cameraPos = this.renderer.getCameraPosition();
@@ -368,7 +377,11 @@ class DarkWar {
         : false;
 
     // Update target time scale based on player movement
-    if (!playerMoving && !this.playerActedThisTick) {
+    if (isDead) {
+      state.sim.targetTimeScale = 1.0;
+    }
+
+    if (!playerMoving && !this.playerActedThisTick && !isDead) {
       state.sim.targetTimeScale = SLOWMO_SCALE;
     }
 
