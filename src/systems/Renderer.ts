@@ -349,7 +349,7 @@ export class Renderer {
    * Center viewport on player position with smart scrolling
    */
   public centerOnPlayer(
-    player: { x: number; y: number },
+    player: { x: number; y: number; worldX?: number; worldY?: number },
     smooth: boolean = true,
   ): void {
     if (!this.viewportElement) return;
@@ -357,36 +357,42 @@ export class Renderer {
     const offsetX = CELL_CONFIG.padX;
     const offsetY = CELL_CONFIG.padY;
 
+    const hasWorldPosition =
+      "worldX" in player && typeof player.worldX === "number";
+    const worldX = hasWorldPosition
+      ? smooth
+        ? this.cameraWorldX
+        : player.worldX!
+      : player.x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const worldY =
+      "worldY" in player && typeof player.worldY === "number"
+        ? smooth
+          ? this.cameraWorldY
+          : player.worldY!
+        : player.y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+
     // Calculate player's screen position (at configured scale)
-    const playerScreenX =
-      (offsetX + player.x * CELL_CONFIG.w + CELL_CONFIG.w / 2) * this.scale;
-    const playerScreenY =
-      (offsetY + player.y * CELL_CONFIG.h + CELL_CONFIG.h / 2) * this.scale;
+    const playerScreenX = (offsetX + worldX) * this.scale;
+    const playerScreenY = (offsetY + worldY) * this.scale;
 
     // Calculate scroll position to center player in viewport
     const targetScrollX = playerScreenX - this.viewportElement.clientWidth / 2;
     const targetScrollY = playerScreenY - this.viewportElement.clientHeight / 2;
 
-    // Check if viewport is far from center (user manually scrolled away)
     const currentScrollX = this.viewportElement.scrollLeft;
     const currentScrollY = this.viewportElement.scrollTop;
-    const threshold = 100; // pixels - if further than this, user probably scrolled away
 
-    const isFarFromCenter =
-      Math.abs(currentScrollX - targetScrollX) > threshold ||
-      Math.abs(currentScrollY - targetScrollY) > threshold;
-
-    // Use smooth scrolling only when recentering from a distant position
-    if (smooth && isFarFromCenter) {
-      this.viewportElement.scrollTo({
-        left: targetScrollX,
-        top: targetScrollY,
-        behavior: "smooth",
-      });
-    } else {
-      // Instant snap for normal movement
-      this.viewportElement.scrollLeft = targetScrollX;
-      this.viewportElement.scrollTop = targetScrollY;
+    if (smooth) {
+      const smoothing = 0.2;
+      this.viewportElement.scrollLeft =
+        currentScrollX + (targetScrollX - currentScrollX) * smoothing;
+      this.viewportElement.scrollTop =
+        currentScrollY + (targetScrollY - currentScrollY) * smoothing;
+      return;
     }
+
+    // Instant snap for recentering
+    this.viewportElement.scrollLeft = targetScrollX;
+    this.viewportElement.scrollTop = targetScrollY;
   }
 }
