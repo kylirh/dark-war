@@ -71,12 +71,11 @@ export class Physics {
           tile === TileType.DOOR_CLOSED ||
           tile === TileType.DOOR_LOCKED
         ) {
-          // Position box at tile corner (not center) for proper alignment
-          const worldX = x * CELL_CONFIG.w;
-          const worldY = y * CELL_CONFIG.h;
+          // Position box at tile center for correct alignment
+          const worldX = x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+          const worldY = y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
 
-          // createBox parameters: position, width, height
-          // Position is top-left corner, dimensions are full size
+          // createBox parameters: position (center), width, height
           const box = this.system.createBox(
             { x: worldX, y: worldY },
             CELL_CONFIG.w, // 32px full width
@@ -219,9 +218,15 @@ export class Physics {
     // Get entity references
     const entityA = this.getEntityFromBody(state, bodyA);
     const entityB = this.getEntityFromBody(state, bodyB);
+    const isSolidEntity = (entity?: ContinuousEntity): boolean =>
+      !!entity &&
+      (entity.kind === EntityKind.PLAYER || entity.kind === EntityKind.MONSTER);
 
     // Wall collision - push entity out of wall with wall sliding
-    if ((bodyA as any).isWall && entityB && entityB.kind !== EntityKind.ITEM) {
+    if (
+      (bodyA as any).isWall &&
+      isSolidEntity(entityB)
+    ) {
       // Push entity out with small safety margin to prevent tunneling
       const separation = 1.01; // 1% extra separation
       entityB.worldX += response.overlapV.x * separation;
@@ -254,8 +259,7 @@ export class Physics {
       }
     } else if (
       (bodyB as any).isWall &&
-      entityA &&
-      entityA.kind !== EntityKind.ITEM
+      isSolidEntity(entityA)
     ) {
       // Push entity out with small safety margin to prevent tunneling
       const separation = 1.01; // 1% extra separation
@@ -286,6 +290,41 @@ export class Physics {
 
       if (entityA.physicsBody) {
         entityA.physicsBody.setPosition(entityA.worldX, entityA.worldY);
+      }
+    } else if (isSolidEntity(entityA) && isSolidEntity(entityB)) {
+      const overlapX = response.overlapV.x;
+      const overlapY = response.overlapV.y;
+      const overlapMag = Math.hypot(overlapX, overlapY);
+
+      if (overlapMag > 0) {
+        const nx = overlapX / overlapMag;
+        const ny = overlapY / overlapMag;
+
+        // Separate entities evenly
+        entityA.worldX -= overlapX / 2;
+        entityA.worldY -= overlapY / 2;
+        entityB.worldX += overlapX / 2;
+        entityB.worldY += overlapY / 2;
+
+        // Remove velocity component pushing into each other
+        const dotA = entityA.velocityX * nx + entityA.velocityY * ny;
+        if (dotA > 0) {
+          entityA.velocityX -= dotA * nx;
+          entityA.velocityY -= dotA * ny;
+        }
+
+        const dotB = entityB.velocityX * nx + entityB.velocityY * ny;
+        if (dotB < 0) {
+          entityB.velocityX -= dotB * nx;
+          entityB.velocityY -= dotB * ny;
+        }
+
+        if (entityA.physicsBody) {
+          entityA.physicsBody.setPosition(entityA.worldX, entityA.worldY);
+        }
+        if (entityB.physicsBody) {
+          entityB.physicsBody.setPosition(entityB.worldX, entityB.worldY);
+        }
       }
     }
   }
