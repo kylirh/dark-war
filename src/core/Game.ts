@@ -17,6 +17,7 @@ import { generateDungeon } from "./Map";
 import { createPlayer, PlayerEntity } from "../entities/Player";
 import { createMutant, createRat, MonsterEntity } from "../entities/Monster";
 import { createItem, ItemEntity } from "../entities/Item";
+import { createExplosive, ExplosiveEntity } from "../entities/Explosive";
 import { RNG } from "../utils/RNG";
 import { dist, passable } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
@@ -47,6 +48,7 @@ export class Game {
       stairs: [0, 0],
       log: [],
       options: { fov: true },
+      effects: [],
       sim: {
         nowTick: 0,
         mode: "REALTIME",
@@ -58,6 +60,7 @@ export class Game {
       },
       commandsByTick: new Map(),
       eventQueue: [],
+      shouldDescend: false,
     };
   }
 
@@ -79,6 +82,7 @@ export class Game {
       stairs: dungeon.stairs,
       log: [],
       options: { fov: true },
+      effects: [],
       // NEW: Simulation system
       sim: {
         nowTick: 0,
@@ -91,6 +95,7 @@ export class Game {
       },
       commandsByTick: new Map(),
       eventQueue: [],
+      shouldDescend: false,
     };
 
     // Add player to entities
@@ -140,6 +145,20 @@ export class Game {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entities.push(createItem(x, y, ItemType.KEYCARD));
+      freeTiles.splice(tileIndex, 1);
+    }
+
+    for (let i = 0; i < 4 && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
+      this.state.entities.push(createItem(x, y, ItemType.GRENADE));
+      freeTiles.splice(tileIndex, 1);
+    }
+
+    for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
+      const tileIndex = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[tileIndex];
+      this.state.entities.push(createItem(x, y, ItemType.LAND_MINE));
       freeTiles.splice(tileIndex, 1);
     }
 
@@ -216,8 +235,10 @@ export class Game {
     this.state.explored.clear();
 
     // Reset player position
-    this.state.player.x = dungeon.start[0];
-    this.state.player.y = dungeon.start[1];
+    (this.state.player as PlayerEntity).setPositionFromGrid(
+      dungeon.start[0],
+      dungeon.start[1],
+    );
     this.state.player.nextActTick = this.state.sim.nowTick;
 
     // Remove monsters and items
@@ -287,8 +308,9 @@ export class Game {
 
   /**
    * Update death status based on player HP
+   * Returns true if player just died this check (for UI layer to handle)
    */
-  public updateDeathStatus(): void {
+  public updateDeathStatus(): boolean {
     if (this.state.player.hp <= 0 && !this.isDead) {
       this.isDead = true;
 
@@ -302,12 +324,9 @@ export class Game {
       // Speed up time to normal (remove time dilation)
       this.state.sim.targetTimeScale = 1.0;
 
-      // Show game over overlay
-      const gameOverOverlay = document.getElementById("game-over-overlay");
-      if (gameOverOverlay) {
-        gameOverOverlay.classList.add("visible");
-      }
+      return true; // Signal that death just occurred
     }
+    return false;
   }
 
   /**
@@ -358,6 +377,19 @@ export class Game {
         const i = createItem(entity.x, entity.y, (entity as Item).type);
         Object.assign(i, entity);
         entities.push(i);
+      } else if (
+        entity.kind === EntityKind.EXPLOSIVE &&
+        !(entity instanceof ExplosiveEntity)
+      ) {
+        const explosive = createExplosive(
+          (entity as any).worldX,
+          (entity as any).worldY,
+          (entity as any).type,
+          (entity as any).armed,
+          (entity as any).fuseTicks,
+        );
+        Object.assign(explosive, entity);
+        entities.push(explosive);
       } else {
         entities.push(entity);
       }
@@ -373,6 +405,7 @@ export class Game {
       player,
       log: data.log || [],
       options: { fov: true },
+      effects: [],
       sim: {
         nowTick: data.sim.nowTick,
         mode: data.sim.mode,
@@ -384,6 +417,7 @@ export class Game {
       },
       commandsByTick: new Map(),
       eventQueue: [],
+      shouldDescend: false,
     };
 
     this.isDead = false;

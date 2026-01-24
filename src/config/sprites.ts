@@ -48,6 +48,9 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [MonsterType.MUTANT]: { x: 0, y: 2 },
   [MonsterType.RAT]: { x: 1, y: 2 },
   bullet: { x: 2, y: 2 },
+  explosion_1: { x: 3, y: 2 },
+  explosion_2: { x: 4, y: 2 },
+  explosion_3: { x: 5, y: 2 },
 
   // ========================================
   // Row 3 - Items
@@ -56,4 +59,12 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [ItemType.AMMO]: { x: 1, y: 3 },
   [ItemType.MEDKIT]: { x: 2, y: 3 },
   [ItemType.KEYCARD]: { x: 3, y: 3 },
+  [ItemType.GRENADE]: { x: 4, y: 3 },
+  [ItemType.LAND_MINE]: { x: 5, y: 3 },
 };
+
+export const EXPLOSION_FRAMES: SpriteCoordinate[] = [
+  SPRITE_COORDS.explosion_1,
+  SPRITE_COORDS.explosion_2,
+  SPRITE_COORDS.explosion_3,
+];

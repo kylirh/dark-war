@@ -1,4 +1,4 @@
-import { EntityKind, ItemType } from "../types";
+import { EntityKind, WeaponType } from "../types";
 import { ContinuousEntity } from "./ContinuousEntity";
 
 let nextPlayerId = 1000; // Start player IDs at 1000
@@ -12,11 +12,13 @@ export class PlayerEntity extends ContinuousEntity {
   public hpMax: number;
   public hp: number;
   public sight: number;
-  public weapon: ItemType;
+  public weapon: WeaponType;
   public ammo: number;
   public ammoReserve: number;
   public keys: number;
   public score: number;
+  public grenades: number;
+  public landMines: number;
 
   constructor(gridX: number, gridY: number) {
     super(nextPlayerId++, gridX, gridY);
@@ -24,11 +26,13 @@ export class PlayerEntity extends ContinuousEntity {
     this.hpMax = 20;
     this.hp = 20;
     this.sight = 9;
-    this.weapon = ItemType.PISTOL;
+    this.weapon = WeaponType.PISTOL;
     this.ammo = 12;
     this.ammoReserve = 24;
     this.keys = 0;
     this.score = 0;
+    this.grenades = 2;
+    this.landMines = 1;
     this.nextActTick = 0;
   }
 }
