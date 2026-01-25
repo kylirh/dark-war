@@ -297,6 +297,15 @@ export interface SerializedState {
 export const MAP_WIDTH = 64;
 export const MAP_HEIGHT = 36;
 
+/**
+ * Cumulative damage thresholds (in hits) that drive wall rendering states.
+ *
+ * - 0–2: no visible damage
+ * - 3–5: light damage (first damaged sprite/overlay)
+ * - 6–8: heavy damage (second, more damaged sprite/overlay)
+ *
+ * Values at or above WALL_MAX_DAMAGE should be treated as fully destroyed.
+ */
 export const WALL_DAMAGE_THRESHOLDS = [3, 6];
 export const WALL_MAX_DAMAGE = 9;
 
