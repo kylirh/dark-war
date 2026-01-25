@@ -369,16 +369,20 @@ class DarkWar {
     // Update explosives
     this.physics.updateExplosives(state, scaledDt);
 
+    // Rebuild colliders immediately if walls were destroyed (outside sim tick)
+    // This prevents players from colliding with invisible walls when bullets
+    // destroy walls during real-time physics updates
+    if (state.mapDirty) {
+      state.mapDirty = false;
+      this.physics.initializeMap(state.map);
+    }
+
     // Advance simulation ticks with time scaling
     state.sim.accumulatorMs += scaledDt * 1000;
     while (state.sim.accumulatorMs >= SIM_DT_MS) {
       stepSimulationTick(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
       this.game.updateFOV();
-      if (state.mapDirty) {
-        state.mapDirty = false;
-        this.physics.initializeMap(state.map);
-      }
 
       // Update physics for any tiles that changed (e.g., doors opening/closing)
       if (state.changedTiles && state.changedTiles.size > 0) {
