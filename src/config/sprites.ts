@@ -35,6 +35,8 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [TileType.DOOR_OPEN]: { x: 3, y: 0 },
   [TileType.DOOR_LOCKED]: { x: 2, y: 0 }, // Same sprite as closed door
   [TileType.STAIRS]: { x: 5, y: 0 },
+  wall_damaged_1: { x: 6, y: 0 },
+  wall_damaged_2: { x: 7, y: 0 },
 
   // ========================================
   // Row 1 - Player

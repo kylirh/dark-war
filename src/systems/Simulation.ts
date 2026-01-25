@@ -15,9 +15,11 @@ import {
   Explosive,
   TILE_DEFINITIONS,
   CELL_CONFIG,
+  MAP_HEIGHT,
+  MAP_WIDTH,
 } from "../types";
 import { idx, tileAt, passable } from "../utils/helpers";
-import { MAP_WIDTH } from "../types";
+import { applyWallDamageAt } from "../utils/walls";
 import { Sound, SoundEffect } from "./Sound";
 import { RNG } from "../utils/RNG";
 import { computeFOVFrom } from "./FOV";
@@ -555,6 +557,18 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
     case WeaponType.MELEE: {
       const target = findMeleeTarget(state, player, angle);
       if (!target) {
+        const dx = Math.round(Math.cos(angle));
+        const dy = Math.round(Math.sin(angle));
+        const targetX = player.x + dx;
+        const targetY = player.y + dy;
+        const hitWall = applyWallDamageAt(state, targetX, targetY, 2);
+        if (hitWall) {
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "You chip the wall." },
+          });
+          return;
+        }
         pushEvent(state, {
           type: EventType.MESSAGE,
           data: { type: "MESSAGE", message: "You swing at empty air." },
@@ -1045,6 +1059,23 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
         (entity as Item).type === ItemType.LAND_MINE)
     ) {
       itemsToTrigger.push(entity as Item);
+    }
+  }
+
+  const minX = Math.max(0, Math.floor(data.x - data.radius) - 1);
+  const maxX = Math.min(MAP_WIDTH - 1, Math.ceil(data.x + data.radius) + 1);
+  const minY = Math.max(0, Math.floor(data.y - data.radius) - 1);
+  const maxY = Math.min(MAP_HEIGHT - 1, Math.ceil(data.y + data.radius) + 1);
+
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const tileCenterX = x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+      const tileCenterY = y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+      const dx = tileCenterX - worldX;
+      const dy = tileCenterY - worldY;
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq > radiusPx * radiusPx) continue;
+      applyWallDamageAt(state, x, y, data.damage);
     }
   }
 

@@ -41,6 +41,8 @@ export class Game {
     return {
       depth: 1,
       map: new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL),
+      wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
+      mapDirty: false,
       visible: new Set(),
       explored: new Set(),
       entities: [],
@@ -76,6 +78,8 @@ export class Game {
     this.state = {
       depth,
       map: dungeon.map,
+      wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
+      mapDirty: false,
       visible: new Set(),
       explored: new Set(),
       entities: [],
@@ -340,6 +344,7 @@ export class Game {
     return {
       depth: this.state.depth,
       map: this.state.map,
+      wallDamage: this.state.wallDamage,
       stairs: this.state.stairs,
       player: this.state.player,
       entities: this.state.entities.filter((e) => e !== this.state.player),
@@ -356,6 +361,10 @@ export class Game {
    * Load game state from serialized data
    */
   public deserialize(data: SerializedState): void {
+    const wallDamage =
+      data.wallDamage && data.wallDamage.length === data.map.length
+        ? data.wallDamage.slice()
+        : new Array(data.map.length).fill(0);
     // Reconstruct player entity (may be plain object from old save)
     let player = data.player;
     if (!(player instanceof PlayerEntity)) {
@@ -402,6 +411,8 @@ export class Game {
     this.state = {
       depth: data.depth,
       map: data.map,
+      wallDamage,
+      mapDirty: false,
       stairs: data.stairs,
       visible: new Set(),
       explored: new Set(data.explored),
