@@ -261,6 +261,7 @@ export class Physics {
       (bodyA as any).isWall &&
       isSolidEntity(entityB)
     ) {
+      if (!entityB) return; // Type guard
       // Push entity out with small safety margin to prevent tunneling
       const separation = 1.01; // 1% extra separation
       entityB.worldX += response.overlapV.x * separation;
@@ -299,6 +300,7 @@ export class Physics {
       (bodyB as any).isWall &&
       isSolidEntity(entityA)
     ) {
+      if (!entityA) return; // Type guard
       // Push entity out with small safety margin to prevent tunneling
       const separation = 1.01; // 1% extra separation
       entityA.worldX -= response.overlapV.x * separation;
@@ -334,6 +336,7 @@ export class Physics {
         entityA.physicsBody.setPosition(entityA.worldX, entityA.worldY);
       }
     } else if (isSolidEntity(entityA) && isSolidEntity(entityB)) {
+      if (!entityA || !entityB) return; // Type guard
       const overlapX = response.overlapV.x;
       const overlapY = response.overlapV.y;
       const overlapMag = Math.hypot(overlapX, overlapY);
