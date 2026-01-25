@@ -61,6 +61,7 @@ export class Game {
       commandsByTick: new Map(),
       eventQueue: [],
       shouldDescend: false,
+      changedTiles: new Set(),
     };
   }
 
@@ -96,6 +97,7 @@ export class Game {
       commandsByTick: new Map(),
       eventQueue: [],
       shouldDescend: false,
+      changedTiles: new Set(),
     };
 
     // Add player to entities

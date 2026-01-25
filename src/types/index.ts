@@ -265,6 +265,7 @@ export interface GameState {
   commandsByTick: Map<number, Command[]>;
   eventQueue: GameEvent[];
   shouldDescend: boolean;
+  changedTiles?: Set<number>; // Track tiles that changed for physics updates
 }
 
 // ========================================

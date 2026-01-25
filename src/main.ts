@@ -37,7 +37,9 @@ import {
 import {
   CommandType,
   TileType,
+  EventType,
   CELL_CONFIG,
+  MAP_WIDTH,
   SLOWMO_SCALE,
   REAL_TIME_SPEED,
   TIME_SCALE_TRANSITION_SPEED,
@@ -373,6 +375,17 @@ class DarkWar {
       stepSimulationTick(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
       this.game.updateFOV();
+
+      // Update physics for any tiles that changed (e.g., doors opening/closing)
+      if (state.changedTiles && state.changedTiles.size > 0) {
+        for (const tileIndex of state.changedTiles) {
+          const x = tileIndex % MAP_WIDTH;
+          const y = Math.floor(tileIndex / MAP_WIDTH);
+          const tile = state.map[tileIndex];
+          this.physics.updateTile(x, y, tile);
+        }
+        state.changedTiles.clear();
+      }
 
       // Check if player died and handle UI
       const playerJustDied = this.game.updateDeathStatus();
