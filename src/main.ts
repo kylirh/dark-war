@@ -422,6 +422,13 @@ class DarkWar {
     }
     this.lastPlayerHp = state.player.hp;
 
+    if (state.pendingWallRemovals.length > 0) {
+      for (const tileIndex of state.pendingWallRemovals) {
+        this.physics.removeWallAt(tileIndex);
+      }
+      state.pendingWallRemovals = [];
+    }
+
     // Check if player has stopped moving
     const player = state.player;
     const playerMoving =

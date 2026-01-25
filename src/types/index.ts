@@ -250,6 +250,8 @@ export interface DungeonData {
 export interface GameState {
   depth: number;
   map: TileType[];
+  wallHealth: number[];
+  pendingWallRemovals: number[];
   visible: Set<number>;
   explored: Set<number>;
   entities: Entity[];
@@ -275,6 +277,7 @@ export interface GameState {
 export interface SerializedState {
   depth: number;
   map: TileType[];
+  wallHealth?: number[];
   stairs: [number, number];
   player: Player;
   entities: Entity[];

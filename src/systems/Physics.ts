@@ -29,6 +29,7 @@ import { ItemEntity } from "../entities/Item";
 import { BulletEntity } from "../entities/Bullet";
 import { ExplosiveEntity } from "../entities/Explosive";
 import { idx, tileAt } from "../utils/helpers";
+import { applyWallDamage } from "../utils/walls";
 import { Sound, SoundEffect } from "./Sound";
 
 // Collision radii - sized to allow smooth corridor navigation
@@ -84,6 +85,7 @@ export class Physics {
           );
           box.isStatic = true;
           (box as any).isWall = true;
+          (box as any).tileIndex = tileIndex;
 
           this.wallBodies.set(tileIndex, box);
         }
@@ -395,6 +397,17 @@ export class Physics {
 
           // Hit wall
           if ((other as any).isWall) {
+            const tileIndex = (other as any).tileIndex;
+            if (typeof tileIndex === "number") {
+              const destroyed = applyWallDamage(
+                state,
+                tileIndex,
+                bullet.damage,
+              );
+              if (destroyed) {
+                this.removeWallAt(tileIndex);
+              }
+            }
             this.removeEntity(bullet);
             const index = state.entities.indexOf(bullet);
             if (index > -1) state.entities.splice(index, 1);
@@ -554,5 +567,12 @@ export class Physics {
    */
   public getSystem(): System {
     return this.system;
+  }
+
+  public removeWallAt(tileIndex: number): void {
+    const body = this.wallBodies.get(tileIndex);
+    if (!body) return;
+    this.system.remove(body);
+    this.wallBodies.delete(tileIndex);
   }
 }

@@ -21,6 +21,7 @@ import { createExplosive, ExplosiveEntity } from "../entities/Explosive";
 import { RNG } from "../utils/RNG";
 import { dist, passable } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
+import { createWallHealth } from "../utils/walls";
 
 /**
  * Main game state manager
@@ -41,6 +42,8 @@ export class Game {
     return {
       depth: 1,
       map: new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL),
+      wallHealth: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
+      pendingWallRemovals: [],
       visible: new Set(),
       explored: new Set(),
       entities: [],
@@ -76,6 +79,8 @@ export class Game {
     this.state = {
       depth,
       map: dungeon.map,
+      wallHealth: createWallHealth(dungeon.map),
+      pendingWallRemovals: [],
       visible: new Set(),
       explored: new Set(),
       entities: [],
@@ -340,6 +345,7 @@ export class Game {
     return {
       depth: this.state.depth,
       map: this.state.map,
+      wallHealth: this.state.wallHealth,
       stairs: this.state.stairs,
       player: this.state.player,
       entities: this.state.entities.filter((e) => e !== this.state.player),
@@ -402,6 +408,8 @@ export class Game {
     this.state = {
       depth: data.depth,
       map: data.map,
+      wallHealth: data.wallHealth ?? createWallHealth(data.map),
+      pendingWallRemovals: [],
       stairs: data.stairs,
       visible: new Set(),
       explored: new Set(data.explored),

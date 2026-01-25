@@ -17,13 +17,14 @@ import {
   CELL_CONFIG,
 } from "../types";
 import { idx, tileAt, passable } from "../utils/helpers";
-import { MAP_WIDTH } from "../types";
+import { MAP_WIDTH, MAP_HEIGHT } from "../types";
 import { Sound, SoundEffect } from "./Sound";
 import { RNG } from "../utils/RNG";
 import { computeFOVFrom } from "./FOV";
 import { createBullet } from "../entities/Bullet";
 import { createExplosive, ExplosiveEntity } from "../entities/Explosive";
 import { createItem } from "../entities/Item";
+import { applyWallDamage } from "../utils/walls";
 
 // ========================================
 // Constants
@@ -38,6 +39,7 @@ export const MAX_EVENTS_PER_TICK = 1000;
 export const MAX_COMMANDS_PER_TICK = 1000;
 const GRENADE_FUSE_TICKS = 14; // ~0.7s at 20 ticks/sec
 const MELEE_ARC = Math.PI / 3;
+const MELEE_WALL_DAMAGE = 1;
 
 const EXPLOSIVE_CONFIG: Record<
   ItemType.GRENADE | ItemType.LAND_MINE,
@@ -555,6 +557,26 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
     case WeaponType.MELEE: {
       const target = findMeleeTarget(state, player, angle);
       if (!target) {
+        const [dx, dy] = directionFromAngle(angle);
+        const targetX = player.x + dx;
+        const targetY = player.y + dy;
+        if (
+          targetX >= 0 &&
+          targetX < MAP_WIDTH &&
+          targetY >= 0 &&
+          targetY < MAP_HEIGHT
+        ) {
+          const tileIndex = idx(targetX, targetY);
+          if (state.map[tileIndex] === TileType.WALL) {
+            applyWallDamage(state, tileIndex, MELEE_WALL_DAMAGE);
+            pushEvent(state, {
+              type: EventType.MESSAGE,
+              data: { type: "MESSAGE", message: "You smash the wall." },
+            });
+            return;
+          }
+        }
+
         pushEvent(state, {
           type: EventType.MESSAGE,
           data: { type: "MESSAGE", message: "You swing at empty air." },
@@ -1068,6 +1090,23 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
       event.id,
     );
     state.entities = state.entities.filter((e) => e.id !== item.id);
+  }
+
+  const radiusTiles = data.radius;
+  const minX = Math.max(0, Math.floor(data.x - radiusTiles));
+  const maxX = Math.min(MAP_WIDTH - 1, Math.ceil(data.x + radiusTiles));
+  const minY = Math.max(0, Math.floor(data.y - radiusTiles));
+  const maxY = Math.min(MAP_HEIGHT - 1, Math.ceil(data.y + radiusTiles));
+
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      const distance = Math.hypot(x - data.x, y - data.y);
+      if (distance > radiusTiles) continue;
+      const tileIndex = idx(x, y);
+      if (state.map[tileIndex] === TileType.WALL) {
+        applyWallDamage(state, tileIndex, data.damage);
+      }
+    }
   }
 }
 
