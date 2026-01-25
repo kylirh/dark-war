@@ -12,6 +12,8 @@ export interface SpriteCoordinate {
   y: number;
 }
 
+export type FacingDirection = "down" | "up" | "left" | "right";
+
 // Sprite sheet configuration
 export const SPRITE_SHEET_PATH = "assets/img/sprites.png";
 export const SPRITE_SIZE = 32;
@@ -43,6 +45,12 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   // ========================================
   player: { x: 0, y: 1 },
   player_dead: { x: 1, y: 1 },
+  player_walk_down_1: { x: 2, y: 1 },
+  player_walk_down_2: { x: 3, y: 1 },
+  player_walk_side_1: { x: 4, y: 1 },
+  player_walk_side_2: { x: 5, y: 1 },
+  player_walk_up_1: { x: 6, y: 1 },
+  player_walk_up_2: { x: 7, y: 1 },
 
   // ========================================
   // Row 2 - Monsters/Entities
@@ -53,6 +61,10 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   explosion_1: { x: 3, y: 2 },
   explosion_2: { x: 4, y: 2 },
   explosion_3: { x: 5, y: 2 },
+  mutant_walk_1: { x: 6, y: 2 },
+  mutant_walk_2: { x: 7, y: 2 },
+  rat_walk_1: { x: 8, y: 2 },
+  rat_walk_2: { x: 9, y: 2 },
 
   // ========================================
   // Row 3 - Items
@@ -70,3 +82,30 @@ export const EXPLOSION_FRAMES: SpriteCoordinate[] = [
   SPRITE_COORDS.explosion_2,
   SPRITE_COORDS.explosion_3,
 ];
+
+export const PLAYER_WALK_FRAMES: Record<FacingDirection, SpriteCoordinate[]> = {
+  down: [SPRITE_COORDS.player_walk_down_1, SPRITE_COORDS.player_walk_down_2],
+  up: [SPRITE_COORDS.player_walk_up_1, SPRITE_COORDS.player_walk_up_2],
+  left: [SPRITE_COORDS.player_walk_side_1, SPRITE_COORDS.player_walk_side_2],
+  right: [SPRITE_COORDS.player_walk_side_1, SPRITE_COORDS.player_walk_side_2],
+};
+
+export const PLAYER_IDLE_FRAMES: Record<FacingDirection, SpriteCoordinate> = {
+  down: SPRITE_COORDS.player_walk_down_1,
+  up: SPRITE_COORDS.player_walk_up_1,
+  left: SPRITE_COORDS.player_walk_side_1,
+  right: SPRITE_COORDS.player_walk_side_1,
+};
+
+export const MONSTER_WALK_FRAMES: Record<MonsterType, SpriteCoordinate[]> = {
+  [MonsterType.MUTANT]: [
+    SPRITE_COORDS.mutant_walk_1,
+    SPRITE_COORDS.mutant_walk_2,
+  ],
+  [MonsterType.RAT]: [SPRITE_COORDS.rat_walk_1, SPRITE_COORDS.rat_walk_2],
+};
+
+export const MONSTER_IDLE_FRAMES: Record<MonsterType, SpriteCoordinate> = {
+  [MonsterType.MUTANT]: SPRITE_COORDS[MonsterType.MUTANT],
+  [MonsterType.RAT]: SPRITE_COORDS[MonsterType.RAT],
+};

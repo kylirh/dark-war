@@ -22,6 +22,11 @@ import {
   SPRITE_SIZE,
   SPRITE_COORDS,
   EXPLOSION_FRAMES,
+  PLAYER_WALK_FRAMES,
+  PLAYER_IDLE_FRAMES,
+  MONSTER_WALK_FRAMES,
+  MONSTER_IDLE_FRAMES,
+  FacingDirection,
 } from "../config/sprites";
 
 /**
@@ -39,6 +44,7 @@ export class Renderer {
   private scale: number = 2.0; // Configurable scale factor
   private cameraWorldX: number = 0; // Camera position for smooth following
   private cameraWorldY: number = 0;
+  private playerFacing: FacingDirection = "down";
 
   constructor(canvasId: string) {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -196,6 +202,85 @@ export class Renderer {
     return sprite;
   }
 
+  private getNowMs(): number {
+    if (typeof performance !== "undefined" && performance.now) {
+      return performance.now();
+    }
+    return Date.now();
+  }
+
+  private isEntityMoving(entity: {
+    velocityX?: number;
+    velocityY?: number;
+    worldX?: number;
+    worldY?: number;
+    prevWorldX?: number;
+    prevWorldY?: number;
+  }): boolean {
+    const velocityX = entity.velocityX ?? 0;
+    const velocityY = entity.velocityY ?? 0;
+    if (Math.abs(velocityX) > 0.05 || Math.abs(velocityY) > 0.05) {
+      return true;
+    }
+    if (
+      typeof entity.worldX === "number" &&
+      typeof entity.worldY === "number" &&
+      typeof entity.prevWorldX === "number" &&
+      typeof entity.prevWorldY === "number"
+    ) {
+      const dx = entity.worldX - entity.prevWorldX;
+      const dy = entity.worldY - entity.prevWorldY;
+      return Math.abs(dx) > 0.05 || Math.abs(dy) > 0.05;
+    }
+    return false;
+  }
+
+  private getEntityDirection(entity: {
+    velocityX?: number;
+    velocityY?: number;
+    worldX?: number;
+    worldY?: number;
+    prevWorldX?: number;
+    prevWorldY?: number;
+  }): FacingDirection {
+    const velocityX =
+      typeof entity.velocityX === "number" ? entity.velocityX : 0;
+    const velocityY =
+      typeof entity.velocityY === "number" ? entity.velocityY : 0;
+    if (Math.abs(velocityX) > 0.05 || Math.abs(velocityY) > 0.05) {
+      if (Math.abs(velocityX) >= Math.abs(velocityY)) {
+        return velocityX >= 0 ? "right" : "left";
+      }
+      return velocityY >= 0 ? "down" : "up";
+    }
+    if (
+      typeof entity.worldX === "number" &&
+      typeof entity.worldY === "number" &&
+      typeof entity.prevWorldX === "number" &&
+      typeof entity.prevWorldY === "number"
+    ) {
+      const dx = entity.worldX - entity.prevWorldX;
+      const dy = entity.worldY - entity.prevWorldY;
+      if (Math.abs(dx) >= Math.abs(dy) && Math.abs(dx) > 0.05) {
+        return dx >= 0 ? "right" : "left";
+      }
+      if (Math.abs(dy) > 0.05) {
+        return dy >= 0 ? "down" : "up";
+      }
+    }
+    return this.playerFacing;
+  }
+
+  private getWalkFrameIndex(
+    nowMs: number,
+    frameCount: number,
+    speedMs: number,
+    offsetMs: number = 0,
+  ): number {
+    if (frameCount <= 1) return 0;
+    return Math.floor((nowMs + offsetMs) / speedMs) % frameCount;
+  }
+
   /**
    * Render the entire game state with interpolation
    * @param state Game state
@@ -215,6 +300,7 @@ export class Renderer {
 
     const { map, visible, explored, entities, player, options, effects } =
       state;
+    const nowMs = this.getNowMs();
 
     // Update camera position for smooth following (real-time mode only)
     if (state.sim.mode === "REALTIME" && "worldX" in player) {
@@ -337,7 +423,21 @@ export class Renderer {
       let coord;
 
       if (entity.kind === EntityKind.MONSTER && "type" in entity) {
-        coord = SPRITE_COORDS[entity.type];
+        const monsterType = entity.type as MonsterType;
+        const moving = this.isEntityMoving(entity as any);
+        if (moving && MONSTER_WALK_FRAMES[monsterType]) {
+          const frames = MONSTER_WALK_FRAMES[monsterType];
+          const frameIndex = this.getWalkFrameIndex(
+            nowMs,
+            frames.length,
+            180,
+            typeof entity.id === "number" ? entity.id * 37 : 0,
+          );
+          coord = frames[frameIndex];
+        } else {
+          coord =
+            MONSTER_IDLE_FRAMES[monsterType] ?? SPRITE_COORDS[monsterType];
+        }
       } else if (
         (entity.kind === EntityKind.ITEM ||
           entity.kind === EntityKind.EXPLOSIVE) &&
@@ -390,9 +490,24 @@ export class Renderer {
       playerX = offsetX + (player as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
       playerY = offsetY + (player as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
     }
+    const playerMoving = this.isEntityMoving(player as any);
+    if (playerMoving) {
+      this.playerFacing = this.getEntityDirection(player as any);
+    }
+    const playerFacing =
+      this.playerFacing ?? this.getEntityDirection(player as any);
+
     const playerCoord = isDead
       ? SPRITE_COORDS["player_dead"]
-      : SPRITE_COORDS["player"];
+      : playerMoving
+        ? PLAYER_WALK_FRAMES[playerFacing][
+            this.getWalkFrameIndex(
+              nowMs,
+              PLAYER_WALK_FRAMES[playerFacing].length,
+              160,
+            )
+          ]
+        : PLAYER_IDLE_FRAMES[playerFacing];
 
     if (playerCoord) {
       const sprite = this.createSprite(
@@ -407,6 +522,9 @@ export class Renderer {
         sprite.anchor.set(0.5, 0.5);
 
         // Player sprite stays upright (no rotation)
+        if (!isDead && (playerFacing === "right" || playerFacing === "left")) {
+          sprite.scale.x = playerFacing === "right" ? -1 : 1;
+        }
         this.entityContainer.addChild(sprite);
       }
     }
