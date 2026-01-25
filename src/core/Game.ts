@@ -6,12 +6,14 @@ import {
   EntityKind,
   Entity,
   Monster,
+  MonsterType,
   Item,
   ItemType,
   TileType,
   SerializedState,
   MAP_WIDTH,
   MAP_HEIGHT,
+  CELL_CONFIG,
 } from "../types";
 import { generateDungeon } from "./Map";
 import { createPlayer, PlayerEntity } from "../entities/Player";
@@ -21,6 +23,7 @@ import { createExplosive, ExplosiveEntity } from "../entities/Explosive";
 import { RNG } from "../utils/RNG";
 import { dist, passable } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
+import { ContinuousEntity } from "../entities/ContinuousEntity";
 
 /**
  * Main game state manager
@@ -368,8 +371,10 @@ export class Game {
     // Reconstruct player entity (may be plain object from old save)
     let player = data.player;
     if (!(player instanceof PlayerEntity)) {
-      const p = createPlayer(player.x, player.y);
+      const [gridX, gridY] = this.getGridPositionFromSerialized(player);
+      const p = createPlayer(gridX, gridY);
       Object.assign(p, player);
+      this.syncWorldPosition(p, player);
       player = p;
     }
 
@@ -380,16 +385,40 @@ export class Game {
         entity.kind === EntityKind.MONSTER &&
         !(entity instanceof MonsterEntity)
       ) {
-        const m = createMutant(entity.x, entity.y, data.depth);
-        Object.assign(m, entity);
-        entities.push(m);
+        const [gridX, gridY] = this.getGridPositionFromSerialized(entity);
+        const monster =
+          (entity as Monster).type === MonsterType.RAT
+            ? createRat(gridX, gridY, data.depth)
+            : createMutant(gridX, gridY, data.depth);
+        Object.assign(monster, entity);
+        this.syncWorldPosition(monster, entity);
+        entities.push(monster);
+      } else if (
+        entity.kind === EntityKind.MONSTER &&
+        entity instanceof MonsterEntity
+      ) {
+        this.syncWorldPosition(entity, entity);
+        entities.push(entity);
       } else if (
         entity.kind === EntityKind.ITEM &&
         !(entity instanceof ItemEntity)
       ) {
-        const i = createItem(entity.x, entity.y, (entity as Item).type);
-        Object.assign(i, entity);
-        entities.push(i);
+        const [gridX, gridY] = this.getGridPositionFromSerialized(entity);
+        const item = createItem(
+          gridX,
+          gridY,
+          (entity as Item).type,
+          (entity as Item).amount ?? 0,
+        );
+        Object.assign(item, entity);
+        this.syncWorldPosition(item, entity);
+        entities.push(item);
+      } else if (
+        entity.kind === EntityKind.ITEM &&
+        entity instanceof ItemEntity
+      ) {
+        this.syncWorldPosition(entity, entity);
+        entities.push(entity);
       } else if (
         entity.kind === EntityKind.EXPLOSIVE &&
         !(entity instanceof ExplosiveEntity)
@@ -402,7 +431,14 @@ export class Game {
           (entity as any).fuseTicks,
         );
         Object.assign(explosive, entity);
+        this.syncWorldPosition(explosive, entity);
         entities.push(explosive);
+      } else if (
+        entity.kind === EntityKind.EXPLOSIVE &&
+        entity instanceof ExplosiveEntity
+      ) {
+        this.syncWorldPosition(entity, entity);
+        entities.push(entity);
       } else {
         entities.push(entity);
       }
@@ -437,5 +473,48 @@ export class Game {
 
     this.isDead = false;
     this.updateFOV();
+  }
+
+  private getGridPositionFromSerialized(entity: {
+    worldX?: number;
+    worldY?: number;
+    x?: number;
+    y?: number;
+  }): [number, number] {
+    if (typeof entity.worldX === "number" && typeof entity.worldY === "number") {
+      return [
+        Math.floor(entity.worldX / CELL_CONFIG.w),
+        Math.floor(entity.worldY / CELL_CONFIG.h),
+      ];
+    }
+    if (typeof entity.x === "number" && typeof entity.y === "number") {
+      return [entity.x, entity.y];
+    }
+    return [0, 0];
+  }
+
+  private syncWorldPosition(
+    entity: ContinuousEntity,
+    source: {
+      worldX?: number;
+      worldY?: number;
+      prevWorldX?: number;
+      prevWorldY?: number;
+    },
+  ): void {
+    if (typeof source.worldX === "number") {
+      entity.worldX = source.worldX;
+    }
+    if (typeof source.worldY === "number") {
+      entity.worldY = source.worldY;
+    }
+    entity.prevWorldX =
+      typeof source.prevWorldX === "number"
+        ? source.prevWorldX
+        : entity.worldX;
+    entity.prevWorldY =
+      typeof source.prevWorldY === "number"
+        ? source.prevWorldY
+        : entity.worldY;
   }
 }
