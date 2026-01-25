@@ -22,7 +22,7 @@ import {
   MAP_WIDTH,
   MAP_HEIGHT,
 } from "../types";
-import { ContinuousEntity } from "../entities/ContinuousEntity";
+import { GameObject } from "../entities/GameObject";
 import { PlayerEntity } from "../entities/Player";
 import { MonsterEntity } from "../entities/Monster";
 import { ItemEntity } from "../entities/Item";
@@ -130,7 +130,7 @@ export class Physics {
   /**
    * Add or update entity physics body
    */
-  public updateEntityBody(entity: ContinuousEntity): void {
+  public updateEntityBody(entity: GameObject): void {
     // Remove existing body if present
     if (entity.physicsBody) {
       this.system.remove(entity.physicsBody);
@@ -179,7 +179,7 @@ export class Physics {
   /**
    * Remove entity from physics system
    */
-  public removeEntity(entity: ContinuousEntity): void {
+  public removeEntity(entity: GameObject): void {
     if (entity.physicsBody) {
       this.system.remove(entity.physicsBody);
       entity.physicsBody = undefined;
@@ -202,14 +202,14 @@ export class Physics {
 
     // Ensure all entities have physics bodies
     for (const entity of state.entities) {
-      if (entity instanceof ContinuousEntity && !entity.physicsBody) {
+      if (entity instanceof GameObject && !entity.physicsBody) {
         this.updateEntityBody(entity);
       }
     }
 
     // Process each entity
     for (const entity of state.entities) {
-      if (!(entity instanceof ContinuousEntity)) continue;
+      if (!(entity instanceof GameObject)) continue;
 
       // Items are static - never move them
       if (entity.kind === EntityKind.ITEM) {
@@ -340,21 +340,21 @@ export class Physics {
   private getEntityFromBody(
     state: GameState,
     body: Circle | Box,
-  ): ContinuousEntity | undefined {
+  ): GameObject | undefined {
     const entityId = (body as any).entityId;
     if (entityId === undefined) return undefined;
 
     const entity = state.entities.find((e) => e.id === entityId);
     if (
       entity &&
-      (entity instanceof ContinuousEntity ||
+      (entity instanceof GameObject ||
         entity instanceof PlayerEntity ||
         entity instanceof MonsterEntity ||
         entity instanceof ItemEntity ||
         entity instanceof BulletEntity ||
         entity instanceof ExplosiveEntity)
     ) {
-      return entity as ContinuousEntity;
+      return entity as GameObject;
     }
     return undefined;
   }

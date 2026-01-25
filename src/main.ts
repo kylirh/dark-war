@@ -76,7 +76,7 @@ class DarkWar {
   private inputHandler: InputHandler;
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
-  private autoMoveDoorTarget: { x: number; y: number } | null = null;
+  private autoMoveDoorTarget: { gridX: number; gridY: number } | null = null;
   private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
   private wasPlayerMoving: boolean = false;
   private lastPlayerWorldX?: number;
@@ -260,8 +260,8 @@ class DarkWar {
         tileType === TileType.DOOR_LOCKED;
 
       if (isDoor) {
-        const dx = tileX - state.player.x;
-        const dy = tileY - state.player.y;
+        const dx = tileX - state.player.gridX;
+        const dy = tileY - state.player.gridY;
 
         if (Math.abs(dx) + Math.abs(dy) === 1) {
           this.handleInteract(dx, dy);
@@ -271,8 +271,8 @@ class DarkWar {
 
       // Find path to clicked tile (or closest reachable)
       const path = findPathToClosestReachable(
-        state.player.x,
-        state.player.y,
+        state.player.gridX,
+        state.player.gridY,
         tileX,
         tileY,
         state.map,
@@ -283,7 +283,9 @@ class DarkWar {
       if (path && path.length > 1) {
         // Store path for auto-movement (skip first element which is current position)
         this.autoMovePath = path.slice(1);
-        this.autoMoveDoorTarget = isDoor ? { x: tileX, y: tileY } : null;
+        this.autoMoveDoorTarget = isDoor
+          ? { gridX: tileX, gridY: tileY }
+          : null;
         // Speed up to real-time during click-to-move
         state.sim.targetTimeScale = 1.0;
       }
@@ -586,8 +588,8 @@ class DarkWar {
         state.sim.targetTimeScale = SLOWMO_SCALE;
 
         if (doorTarget) {
-          const doorDx = doorTarget.x - player.x;
-          const doorDy = doorTarget.y - player.y;
+          const doorDx = doorTarget.gridX - player.gridX;
+          const doorDy = doorTarget.gridY - player.gridY;
           if (Math.abs(doorDx) + Math.abs(doorDy) === 1) {
             this.handleInteract(doorDx, doorDy);
           }
@@ -753,8 +755,8 @@ class DarkWar {
     // Resume time when player acts
     state.sim.targetTimeScale = 1.0;
 
-    const targetX = player.x + dx;
-    const targetY = player.y + dy;
+    const targetX = player.gridX + dx;
+    const targetY = player.gridY + dy;
 
     const tick = state.sim.nowTick;
 

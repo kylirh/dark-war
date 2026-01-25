@@ -110,7 +110,7 @@ src/
 │  ├─ GameLoop.ts     # 60Hz fixed timestep loop
 │  └─ Map.ts          # Dungeon generation (BSP)
 ├─ entities/
-│  ├─ ContinuousEntity.ts  # Base class with worldX/worldY
+│  ├─ GameObject.ts  # Base class with worldX/worldY
 │  ├─ Player.ts       # Player entity
 │  ├─ Monster.ts      # Monster entities
 │  ├─ Item.ts         # Item entities
@@ -179,8 +179,8 @@ npm run watch        # Watch mode for development
 **Coordinates**:
 
 - Always use `worldX/worldY` for entity position
-- Never set `x/y` directly (they're read-only getters)
-- Movement: Set `velocityX/velocityY` and `targetWorldX/targetWorldY`
+- Never set `gridX/gridY` directly (they're read-only getters derived from worldX/worldY)
+- Movement: Set `velocityX/velocityY` to move entities
 
 **State Management**:
 

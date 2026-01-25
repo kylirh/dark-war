@@ -3,17 +3,16 @@
  */
 
 import { EntityKind } from "../types";
-import { ContinuousEntity } from "./ContinuousEntity";
+import { GameObject } from "./GameObject";
 
 /**
  * Bullet entity with continuous world coordinates
  */
-export class BulletEntity extends ContinuousEntity {
-  public readonly kind = EntityKind.BULLET;
-
+export class BulletEntity extends GameObject {
   public damage: number;
-  public ownerId: string;
+  public readonly kind = EntityKind.BULLET;
   public maxDistance: number;
+  public ownerId: string;
   public traveledDistance: number = 0;
 
   constructor(

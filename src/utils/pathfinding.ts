@@ -13,7 +13,7 @@ export function findPath(
   endY: number,
   map: TileType[],
   explored: Set<number>,
-  entities: Entity[]
+  entities: Entity[],
 ): [number, number][] | null {
   // Check if target is in bounds, passable, and explored
   if (!inBounds(endX, endY)) return null;
@@ -45,7 +45,7 @@ export function findPath(
     const isDestination = x === endX && y === endY;
     if (!isDestination) {
       const monster = entities.find(
-        (e) => e.x === x && e.y === y && e.kind === EntityKind.MONSTER
+        (e) => e.gridX === x && e.gridY === y && e.kind === EntityKind.MONSTER,
       );
       if (monster) return false;
     }
@@ -83,7 +83,7 @@ export function findPathToClosestReachable(
   endY: number,
   map: TileType[],
   explored: Set<number>,
-  entities: Entity[]
+  entities: Entity[],
 ): [number, number][] | null {
   if (!inBounds(endX, endY)) return null;
 
@@ -116,7 +116,7 @@ export function findPathToClosestReachable(
 
   const hasMonster = (x: number, y: number): boolean =>
     entities.some(
-      (e) => e.x === x && e.y === y && e.kind === EntityKind.MONSTER
+      (e) => e.gridX === x && e.gridY === y && e.kind === EntityKind.MONSTER,
     );
 
   const directions: [number, number][] = [
@@ -171,10 +171,7 @@ export function findPathToClosestReachable(
       const distSq = dx * dx + dy * dy;
       const steps = distance[tileIdx];
 
-      if (
-        distSq < bestDist ||
-        (distSq === bestDist && steps < bestSteps)
-      ) {
+      if (distSq < bestDist || (distSq === bestDist && steps < bestSteps)) {
         bestDist = distSq;
         bestSteps = steps;
         bestIdx = tileIdx;

@@ -34,7 +34,7 @@ export function setTile(
   map: TileType[],
   x: number,
   y: number,
-  tile: TileType
+  tile: TileType,
 ): void {
   map[idx(x, y)] = tile;
 }
@@ -54,7 +54,7 @@ export function isWalkable(
   map: TileType[],
   entities: Entity[],
   x: number,
-  y: number
+  y: number,
 ): boolean {
   if (!inBounds(x, y)) return false;
   if (!passable(map, x, y)) return false;
@@ -69,16 +69,18 @@ export function entityAt(
   entities: Entity[],
   x: number,
   y: number,
-  filter?: (e: Entity) => boolean
+  filter?: (e: Entity) => boolean,
 ): Entity | undefined {
-  return entities.find((e) => e.x === x && e.y === y && (!filter || filter(e)));
+  return entities.find(
+    (e) => e.gridX === x && e.gridY === y && (!filter || filter(e)),
+  );
 }
 
 /**
  * Find all entities at coordinates
  */
 export function entitiesAt(entities: Entity[], x: number, y: number): Entity[] {
-  return entities.filter((e) => e.x === x && e.y === y);
+  return entities.filter((e) => e.gridX === x && e.gridY === y);
 }
 
 /**
@@ -96,4 +98,21 @@ export function removeEntity(entities: Entity[], entity: Entity): void {
   if (index >= 0) {
     entities.splice(index, 1);
   }
+}
+
+/**
+ * Teleport entity to center of a grid cell
+ * Sets both worldX/worldY and prevWorldX/prevWorldY for immediate position change
+ */
+export function setPositionFromGrid(
+  entity: Entity,
+  gridX: number,
+  gridY: number,
+): void {
+  const CELL_W = 32;
+  const CELL_H = 32;
+  entity.worldX = gridX * CELL_W + CELL_W / 2;
+  entity.worldY = gridY * CELL_H + CELL_H / 2;
+  entity.prevWorldX = entity.worldX;
+  entity.prevWorldY = entity.worldY;
 }

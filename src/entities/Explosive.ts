@@ -1,7 +1,7 @@
 import { EntityKind, ItemType } from "../types";
-import { ContinuousEntity } from "./ContinuousEntity";
+import { GameObject } from "./GameObject";
 
-export class ExplosiveEntity extends ContinuousEntity {
+export class ExplosiveEntity extends GameObject {
   public readonly kind = EntityKind.EXPLOSIVE;
   public type: ItemType.GRENADE | ItemType.LAND_MINE;
   public armed: boolean;

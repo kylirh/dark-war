@@ -16,7 +16,7 @@ export function computeFOVFrom(
   map: TileType[],
   x: number,
   y: number,
-  radius: number
+  radius: number,
 ): Set<number> {
   const visible = new Set<number>();
 
@@ -45,9 +45,9 @@ export function computeFOVFrom(
 export function computeFOV(
   map: TileType[],
   player: Player,
-  explored: Set<number>
+  explored: Set<number>,
 ): Set<number> {
-  const visible = computeFOVFrom(map, player.x, player.y, player.sight);
+  const visible = computeFOVFrom(map, player.gridX, player.gridY, player.sight);
 
   // Add all visible tiles to explored
   visible.forEach((index) => explored.add(index));

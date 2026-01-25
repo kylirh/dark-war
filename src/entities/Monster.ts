@@ -1,11 +1,11 @@
 import { EntityKind, MonsterType } from "../types";
-import { ContinuousEntity } from "./ContinuousEntity";
+import { GameObject } from "./GameObject";
 import { RNG } from "../utils/RNG";
 
 /**
  * Monster entity with continuous world coordinates
  */
-export class MonsterEntity extends ContinuousEntity {
+export class MonsterEntity extends GameObject {
   public readonly kind = EntityKind.MONSTER;
 
   public type: MonsterType;

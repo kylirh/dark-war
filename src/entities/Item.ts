@@ -1,5 +1,5 @@
 import { EntityKind, ItemType } from "../types";
-import { ContinuousEntity } from "./ContinuousEntity";
+import { GameObject } from "./GameObject";
 import { RNG } from "../utils/RNG";
 
 /**
@@ -29,7 +29,7 @@ const ITEM_META = {
 /**
  * Item entity with continuous world coordinates
  */
-export class ItemEntity extends ContinuousEntity {
+export class ItemEntity extends GameObject {
   public readonly kind = EntityKind.ITEM;
 
   public type: ItemType;

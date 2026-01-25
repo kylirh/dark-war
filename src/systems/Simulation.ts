@@ -76,8 +76,13 @@ export function updateMonsterSteering(state: GameState): void {
     const pixelDistance = Math.sqrt(dx * dx + dy * dy);
 
     // Check if player is visible
-    const monsterVision = computeFOVFrom(state.map, monster.x, monster.y, 15);
-    const playerIndex = idx(player.x, player.y);
+    const monsterVision = computeFOVFrom(
+      state.map,
+      monster.gridX,
+      monster.gridY,
+      15,
+    );
+    const playerIndex = idx(player.gridX, player.gridY);
     const canSeePlayer = monsterVision.has(playerIndex);
 
     if (!canSeePlayer) {
@@ -351,8 +356,8 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
   if (!actor) return false;
 
   const data = cmd.data as { type: "MOVE"; dx: number; dy: number };
-  const nx = actor.x + data.dx;
-  const ny = actor.y + data.dy;
+  const nx = actor.gridX + data.dx;
+  const ny = actor.gridY + data.dy;
 
   // Check bounds
   if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= 36) return false;
@@ -363,8 +368,8 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
   // Check entity blocking - first try grid-based, then distance-based for continuous movement
   let blocker = state.entities.find(
     (e) =>
-      e.x === nx &&
-      e.y === ny &&
+      e.gridX === nx &&
+      e.gridY === ny &&
       (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
   );
 
@@ -512,8 +517,8 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
     inRange = distance <= MELEE_RANGE;
   } else {
     // Fall back to grid-based check
-    const dx = Math.abs(attacker.x - target.x);
-    const dy = Math.abs(attacker.y - target.y);
+    const dx = Math.abs(attacker.gridX - target.gridX);
+    const dy = Math.abs(attacker.gridY - target.gridY);
     inRange = dx <= 1 && dy <= 1;
   }
 
@@ -555,8 +560,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       if (!target) {
         const dx = Math.round(Math.cos(angle));
         const dy = Math.round(Math.sin(angle));
-        const targetX = player.x + dx;
-        const targetY = player.y + dy;
+        const targetX = player.gridX + dx;
+        const targetY = player.gridY + dy;
         const hitWall = applyWallDamageAt(state, targetX, targetY, 2);
         if (hitWall) {
           pushEvent(state, {
@@ -650,11 +655,11 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       }
 
       const [dx, dy] = directionFromAngle(angle);
-      const targetX = player.x + dx;
-      const targetY = player.y + dy;
+      const targetX = player.gridX + dx;
+      const targetY = player.gridY + dy;
       const canPlace = passable(state.map, targetX, targetY);
-      const placeX = canPlace ? targetX : player.x;
-      const placeY = canPlace ? targetY : player.y;
+      const placeX = canPlace ? targetX : player.gridX;
+      const placeY = canPlace ? targetY : player.gridY;
 
       player.landMines--;
       const mine = createExplosive(
@@ -726,7 +731,7 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
     }
 
     // Fallback to grid coordinates
-    return e.x === actor.x && e.y === actor.y;
+    return e.gridX === actor.gridX && e.gridY === actor.gridY;
   });
 
   if (itemsNearby.length === 0) {
@@ -791,7 +796,7 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
   const player = actor as Player;
-  if (player.x !== state.stairs[0] || player.y !== state.stairs[1]) {
+  if (player.gridX !== state.stairs[0] || player.gridY !== state.stairs[1]) {
     pushEvent(state, {
       type: EventType.MESSAGE,
       data: { type: "MESSAGE", message: "No stairs here." },
@@ -1136,7 +1141,7 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
               event.cause,
             );
           } else {
-            state.entities.push(createItem(monster.x, monster.y, type));
+            state.entities.push(createItem(monster.gridX, monster.gridY, type));
           }
         }
       };
@@ -1320,8 +1325,8 @@ function decideMonsterCommand(
     const MELEE_RANGE = CELL_CONFIG.w * 1.5; // 1.5 tiles for melee
     inMeleeRange = pixelDistance <= MELEE_RANGE;
   } else {
-    const dx = player.x - monster.x;
-    const dy = player.y - monster.y;
+    const dx = player.gridX - monster.gridX;
+    const dy = player.gridY - monster.gridY;
     distance = Math.max(Math.abs(dx), Math.abs(dy));
     inMeleeRange = distance === 1;
   }
@@ -1342,8 +1347,13 @@ function decideMonsterCommand(
   // Check field of view and distance (only chase if player is visible and within 15 tiles)
   // Use same FOV algorithm as player for consistent vision
   // Slightly longer range than player (9 tiles) to make them more threatening
-  const monsterVision = computeFOVFrom(state.map, monster.x, monster.y, 15);
-  const playerIndex = idx(player.x, player.y);
+  const monsterVision = computeFOVFrom(
+    state.map,
+    monster.gridX,
+    monster.gridY,
+    15,
+  );
+  const playerIndex = idx(player.gridX, player.gridY);
   const canSeePlayer = monsterVision.has(playerIndex);
 
   if (!canSeePlayer) {
@@ -1360,14 +1370,14 @@ function decideMonsterCommand(
         [-1, -1],
       ];
       const [moveX, moveY] = RNG.choose(dirs);
-      const nx = monster.x + moveX;
-      const ny = monster.y + moveY;
+      const nx = monster.gridX + moveX;
+      const ny = monster.gridY + moveY;
 
       if (passable(state.map, nx, ny)) {
         const blocker = state.entities.find(
           (e) =>
-            e.x === nx &&
-            e.y === ny &&
+            e.gridX === nx &&
+            e.gridY === ny &&
             (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
         );
 
@@ -1399,22 +1409,22 @@ function decideMonsterCommand(
 
   // Chase player (greedy step with fallback directions)
   // Always use grid-based dx/dy for movement direction
-  const dx = player.x - monster.x;
-  const dy = player.y - monster.y;
+  const dx = player.gridX - monster.gridX;
+  const dy = player.gridY - monster.gridY;
   const moveX = dx > 0 ? 1 : dx < 0 ? -1 : 0;
   const moveY = dy > 0 ? 1 : dy < 0 ? -1 : 0;
 
   // Try preferred direction first
   const tryMove = (testX: number, testY: number): boolean => {
-    const nx = monster.x + testX;
-    const ny = monster.y + testY;
+    const nx = monster.gridX + testX;
+    const ny = monster.gridY + testY;
 
     if (!passable(state.map, nx, ny)) return false;
 
     const blocker = state.entities.find(
       (e) =>
-        e.x === nx &&
-        e.y === ny &&
+        e.gridX === nx &&
+        e.gridY === ny &&
         (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
     );
 
@@ -1446,9 +1456,10 @@ function decideMonsterCommand(
   for (const [testX, testY] of allDirs) {
     if (testX === 0 && testY === 0) continue;
 
-    const newX = monster.x + testX;
-    const newY = monster.y + testY;
-    const newDist = Math.abs(player.x - newX) + Math.abs(player.y - newY);
+    const newX = monster.gridX + testX;
+    const newY = monster.gridY + testY;
+    const newDist =
+      Math.abs(player.gridX - newX) + Math.abs(player.gridY - newY);
     const currentDist = Math.abs(dx) + Math.abs(dy);
     const score = currentDist - newDist; // Higher score = closer to player
 

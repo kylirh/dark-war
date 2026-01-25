@@ -402,9 +402,9 @@ export class Renderer {
 
     for (const entity of sortedEntities) {
       // Type guard to ensure we have required properties
-      if (!("x" in entity) || !("y" in entity)) continue;
+      if (!("gridX" in entity) || !("gridY" in entity)) continue;
 
-      const tileIndex = idx(entity.x, entity.y);
+      const tileIndex = idx(entity.gridX, entity.gridY);
       if (options.fov && !visible.has(tileIndex)) continue;
 
       // Use current world position (no interpolation for instant movement)
@@ -534,7 +534,7 @@ export class Renderer {
    * Center viewport on player position with smart scrolling
    */
   public centerOnPlayer(
-    player: { x: number; y: number; worldX?: number; worldY?: number },
+    player: { gridX: number; gridY: number; worldX?: number; worldY?: number },
     smooth: boolean = true,
   ): void {
     if (!this.viewportElement) return;
@@ -546,11 +546,11 @@ export class Renderer {
     const playerWorldX =
       typeof player.worldX === "number"
         ? player.worldX
-        : player.x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+        : player.gridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     const playerWorldY =
       typeof player.worldY === "number"
         ? player.worldY
-        : player.y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+        : player.gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
     const playerScreenX = (offsetX + playerWorldX) * this.scale;
     const playerScreenY = (offsetY + playerWorldY) * this.scale;
 

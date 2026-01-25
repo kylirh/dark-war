@@ -21,9 +21,9 @@ import { createMutant, createRat, MonsterEntity } from "../entities/Monster";
 import { createItem, ItemEntity } from "../entities/Item";
 import { createExplosive, ExplosiveEntity } from "../entities/Explosive";
 import { RNG } from "../utils/RNG";
-import { dist, passable } from "../utils/helpers";
+import { dist, passable, setPositionFromGrid } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
-import { ContinuousEntity } from "../entities/ContinuousEntity";
+import { GameObject } from "../entities/GameObject";
 
 /**
  * Main state manager
@@ -246,7 +246,8 @@ export class Game {
     this.state.explored.clear();
 
     // Reset player position
-    (this.state.player as PlayerEntity).setPositionFromGrid(
+    setPositionFromGrid(
+      this.state.player as PlayerEntity,
       dungeon.start[0],
       dungeon.start[1],
     );
@@ -478,8 +479,8 @@ export class Game {
   private getGridPositionFromSerialized(entity: {
     worldX?: number;
     worldY?: number;
-    x?: number;
-    y?: number;
+    gridX?: number;
+    gridY?: number;
   }): [number, number] {
     if (
       typeof entity.worldX === "number" &&
@@ -490,14 +491,14 @@ export class Game {
         Math.floor(entity.worldY / CELL_CONFIG.h),
       ];
     }
-    if (typeof entity.x === "number" && typeof entity.y === "number") {
-      return [entity.x, entity.y];
+    if (typeof entity.gridX === "number" && typeof entity.gridY === "number") {
+      return [entity.gridX, entity.gridY];
     }
     return [0, 0];
   }
 
   private syncWorldPosition(
-    entity: ContinuousEntity,
+    entity: GameObject,
     source: {
       worldX?: number;
       worldY?: number;

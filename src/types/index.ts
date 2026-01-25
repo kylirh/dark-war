@@ -58,13 +58,13 @@ export enum WeaponType {
 
 // Note: Entity types now reference class instances from entity factories
 // The x, y properties are getters that return gridX, gridY
-// Actual entities extend ContinuousEntity with worldX, worldY as source of truth
+// Actual entities extend GameObject with worldX, worldY as source of truth
 
 export interface BaseEntity {
   id: string;
   kind: EntityKind;
-  x: number; // Derived from worldX (getter in ContinuousEntity)
-  y: number; // Derived from worldY (getter in ContinuousEntity)
+  gridX: number; // Derived from worldX (getter in GameObject)
+  gridY: number; // Derived from worldY (getter in GameObject)
   nextActTick?: number;
 
   // Continuous world coordinates (source of truth)
@@ -79,6 +79,9 @@ export interface BaseEntity {
 
   // Facing direction
   facingAngle: number;
+
+  // Physics body (set and managed by physics system)
+  physicsBody?: any; // Body from detect-collisions
 }
 
 export interface Player extends BaseEntity {
