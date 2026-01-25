@@ -276,6 +276,8 @@ class DarkWar {
         // Store path for auto-movement (skip first element which is current position)
         this.autoMovePath = path.slice(1);
         this.autoMoveDoorTarget = isDoor ? { x: tileX, y: tileY } : null;
+        // Speed up to real-time during click-to-move
+        state.sim.targetTimeScale = 1.0;
       }
     });
 
@@ -420,7 +422,13 @@ class DarkWar {
       state.sim.targetTimeScale = 1.0;
     }
 
-    if (!playerMoving && !this.playerActedThisTick && !isDead) {
+    // Only enter slow-mo if player is not auto-moving
+    if (
+      !playerMoving &&
+      !this.playerActedThisTick &&
+      !isDead &&
+      !this.autoMovePath
+    ) {
       state.sim.targetTimeScale = SLOWMO_SCALE;
     }
 
@@ -514,6 +522,8 @@ class DarkWar {
       (player as any).velocityX = 0;
       (player as any).velocityY = 0;
     }
+    // Return to slow-mo when auto-move is interrupted
+    state.sim.targetTimeScale = SLOWMO_SCALE;
   }
 
   private updateAutoMove(state: ReturnType<Game["getState"]>): void {
@@ -539,7 +549,8 @@ class DarkWar {
     const dy = targetWorldY - (player as any).worldY;
     const distance = Math.hypot(dx, dy);
 
-    if (distance <= 1) {
+    // Use larger threshold to prevent oscillation (about 1/4 of a tile)
+    if (distance <= 8) {
       (player as any).worldX = targetWorldX;
       (player as any).worldY = targetWorldY;
       (player as any).velocityX = 0;
@@ -550,6 +561,8 @@ class DarkWar {
         const doorTarget = this.autoMoveDoorTarget;
         this.autoMoveDoorTarget = null;
         this.autoMovePath = null;
+        // Return to slow-mo when auto-move completes
+        state.sim.targetTimeScale = SLOWMO_SCALE;
 
         if (doorTarget) {
           const doorDx = doorTarget.x - player.x;
@@ -562,9 +575,13 @@ class DarkWar {
       return;
     }
 
+    // Slow down when approaching waypoint to prevent overshooting
     const speed = MOVEMENT_SPEED;
-    (player as any).velocityX = (dx / distance) * speed;
-    (player as any).velocityY = (dy / distance) * speed;
+    const approachDistance = 16; // Start slowing within half a tile
+    const speedMultiplier = Math.min(1, distance / approachDistance);
+
+    (player as any).velocityX = (dx / distance) * speed * speedMultiplier;
+    (player as any).velocityY = (dy / distance) * speed * speedMultiplier;
     (player as any).facingAngle = Math.atan2(dy, dx);
   }
 
