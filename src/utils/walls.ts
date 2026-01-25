@@ -9,13 +9,19 @@ export function applyWallDamageAtIndex(
   if (tileIndex < 0 || tileIndex >= state.map.length) return false;
   if (state.map[tileIndex] !== TileType.WALL) return false;
 
-  const current = state.wallDamage[tileIndex] || 0;
+  // Ensure wallDamage is kept in sync with map length before accessing.
+  if (state.wallDamage.length < state.map.length) {
+    state.wallDamage.length = state.map.length;
+  }
+
+  const wallDamage = state.wallDamage;
+  const current = wallDamage[tileIndex] ?? 0;
   const next = Math.min(WALL_MAX_DAMAGE, current + amount);
-  state.wallDamage[tileIndex] = next;
+  wallDamage[tileIndex] = next;
 
   if (next >= WALL_MAX_DAMAGE) {
     state.map[tileIndex] = TileType.FLOOR;
-    state.wallDamage[tileIndex] = 0;
+    wallDamage[tileIndex] = 0;
     state.mapDirty = true;
     return true;
   }
