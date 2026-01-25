@@ -1,4 +1,4 @@
-// Debug configuration
+// Debug flag. TODO: Create a function to toggle debugging the entire game that can be triggered at runtime and also set as a build option.
 const DEBUG = false;
 
 import {
@@ -26,8 +26,8 @@ import { computeFOV } from "../systems/FOV";
 import { ContinuousEntity } from "../entities/ContinuousEntity";
 
 /**
- * Main game state manager
- * Orchestrates all game systems and manages game state
+ * Main state manager
+ * Orchestrates all systems and manages state
  */
 export class Game {
   private state: GameState;
@@ -481,7 +481,10 @@ export class Game {
     x?: number;
     y?: number;
   }): [number, number] {
-    if (typeof entity.worldX === "number" && typeof entity.worldY === "number") {
+    if (
+      typeof entity.worldX === "number" &&
+      typeof entity.worldY === "number"
+    ) {
       return [
         Math.floor(entity.worldX / CELL_CONFIG.w),
         Math.floor(entity.worldY / CELL_CONFIG.h),
@@ -509,12 +512,8 @@ export class Game {
       entity.worldY = source.worldY;
     }
     entity.prevWorldX =
-      typeof source.prevWorldX === "number"
-        ? source.prevWorldX
-        : entity.worldX;
+      typeof source.prevWorldX === "number" ? source.prevWorldX : entity.worldX;
     entity.prevWorldY =
-      typeof source.prevWorldY === "number"
-        ? source.prevWorldY
-        : entity.worldY;
+      typeof source.prevWorldY === "number" ? source.prevWorldY : entity.worldY;
   }
 }
