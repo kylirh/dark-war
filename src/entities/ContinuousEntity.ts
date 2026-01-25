@@ -19,7 +19,7 @@ import { Body } from "detect-collisions";
  * Base properties for all continuous entities
  */
 export abstract class ContinuousEntity {
-  public id: number;
+  public id: string;
   public abstract kind: EntityKind;
 
   // Source of Truth: World coordinates (float, in pixels)
@@ -43,8 +43,8 @@ export abstract class ContinuousEntity {
   // Physics body reference (set by Physics system)
   public physicsBody?: Body;
 
-  constructor(id: number, gridX: number, gridY: number) {
-    this.id = id;
+  constructor(gridX: number, gridY: number) {
+    this.id = crypto.randomUUID();
 
     // Initialize world position to center of grid cell
     this.worldX = gridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;

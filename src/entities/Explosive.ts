@@ -1,8 +1,6 @@
 import { EntityKind, ItemType } from "../types";
 import { ContinuousEntity } from "./ContinuousEntity";
 
-let nextExplosiveId = 5000;
-
 export class ExplosiveEntity extends ContinuousEntity {
   public readonly kind = EntityKind.EXPLOSIVE;
   public type: ItemType.GRENADE | ItemType.LAND_MINE;
@@ -16,7 +14,7 @@ export class ExplosiveEntity extends ContinuousEntity {
     armed: boolean,
     fuseTicks?: number,
   ) {
-    super(nextExplosiveId++, 0, 0);
+    super(0, 0);
     this.worldX = worldX;
     this.worldY = worldY;
     this.prevWorldX = worldX;

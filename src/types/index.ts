@@ -61,7 +61,7 @@ export enum WeaponType {
 // Actual entities extend ContinuousEntity with worldX, worldY as source of truth
 
 export interface BaseEntity {
-  id: number;
+  id: string;
   kind: EntityKind;
   x: number; // Derived from worldX (getter in ContinuousEntity)
   y: number; // Derived from worldY (getter in ContinuousEntity)
@@ -115,7 +115,7 @@ export interface Item extends BaseEntity {
 export interface Bullet extends BaseEntity {
   kind: EntityKind.BULLET;
   damage: number;
-  ownerId: number;
+  ownerId: string;
   maxDistance: number;
   traveledDistance: number;
 }
@@ -128,7 +128,7 @@ export interface Explosive extends BaseEntity {
 }
 
 export interface Effect {
-  id: number;
+  id: string;
   type: "explosion";
   worldX: number;
   worldY: number;
@@ -169,9 +169,9 @@ export enum CommandType {
 }
 
 export interface Command {
-  id: number;
+  id: string;
   tick: number;
-  actorId: number;
+  actorId: string;
   type: CommandType;
   data: CommandData;
   priority: number;
@@ -180,7 +180,7 @@ export interface Command {
 
 export type CommandData =
   | { type: "MOVE"; dx: number; dy: number }
-  | { type: "MELEE"; targetId: number }
+  | { type: "MELEE"; targetId: string }
   | { type: "FIRE"; dx: number; dy: number }
   | { type: "WAIT" }
   | { type: "PICKUP" }
@@ -201,29 +201,29 @@ export enum EventType {
 }
 
 export interface GameEvent {
-  id: number;
+  id: string;
   type: EventType;
   data: EventData;
-  cause?: number;
+  cause?: string;
   depth: number;
 }
 
 export type EventData =
   | {
       type: "DAMAGE";
-      targetId: number;
+      targetId: string;
       amount: number;
-      sourceId?: number;
+      sourceId?: string;
       fromExplosion?: boolean;
     }
-  | { type: "DEATH"; entityId: number; fromExplosion?: boolean }
+  | { type: "DEATH"; entityId: string; fromExplosion?: boolean }
   | { type: "EXPLOSION"; x: number; y: number; radius: number; damage: number }
   | { type: "DROP_LOOT"; x: number; y: number; itemType: ItemType }
   | { type: "MESSAGE"; message: string }
   | { type: "DOOR_OPEN"; x: number; y: number }
-  | { type: "PICKUP_ITEM"; actorId: number; itemId: number }
-  | { type: "PLAYER_DEATH"; playerId: number }
-  | { type: "NPC_TALK"; npcId: number; message: string };
+  | { type: "PICKUP_ITEM"; actorId: string; itemId: string }
+  | { type: "PLAYER_DEATH"; playerId: string }
+  | { type: "NPC_TALK"; npcId: string; message: string };
 
 // ========================================
 // Map and Room Types

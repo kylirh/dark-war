@@ -5,8 +5,6 @@
 import { EntityKind } from "../types";
 import { ContinuousEntity } from "./ContinuousEntity";
 
-let nextBulletId = 4000; // Start bullet IDs at 4000
-
 /**
  * Bullet entity with continuous world coordinates
  */
@@ -14,7 +12,7 @@ export class BulletEntity extends ContinuousEntity {
   public readonly kind = EntityKind.BULLET;
 
   public damage: number;
-  public ownerId: number;
+  public ownerId: string;
   public maxDistance: number;
   public traveledDistance: number = 0;
 
@@ -24,11 +22,11 @@ export class BulletEntity extends ContinuousEntity {
     velocityX: number,
     velocityY: number,
     damage: number,
-    ownerId: number,
+    ownerId: string,
     maxDistance: number = 640, // 20 tiles * 32 pixels
   ) {
     // Bullets don't use grid initialization, set world position directly
-    super(nextBulletId++, 0, 0);
+    super(0, 0);
 
     this.worldX = worldX;
     this.worldY = worldY;
@@ -56,7 +54,7 @@ export function createBullet(
   velocityX: number,
   velocityY: number,
   damage: number,
-  ownerId: number,
+  ownerId: string,
   maxDistance?: number,
 ): BulletEntity {
   return new BulletEntity(

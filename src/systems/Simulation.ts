@@ -49,10 +49,6 @@ const EXPLOSIVE_CONFIG: Record<
   [ItemType.LAND_MINE]: { radius: 2, damage: 8 },
 };
 
-let nextCommandId = 1;
-let nextEventId = 1;
-let nextEffectId = 1;
-
 // ========================================
 // Steering Behaviors (Continuous Movement AI)
 // ========================================
@@ -123,7 +119,7 @@ export function enqueueCommand(
   state: GameState,
   cmd: Omit<Command, "id">,
 ): void {
-  const fullCmd: Command = { ...cmd, id: nextCommandId++ };
+  const fullCmd: Command = { ...cmd, id: crypto.randomUUID() };
 
   if (!state.commandsByTick.has(fullCmd.tick)) {
     state.commandsByTick.set(fullCmd.tick, []);
@@ -184,10 +180,10 @@ export function pushEvent(
   event: Omit<GameEvent, "id" | "depth">,
 ): void {
   const depth = event.cause ? getEventDepth(state, event.cause) + 1 : 0;
-  state.eventQueue.push({ ...event, id: nextEventId++, depth });
+  state.eventQueue.push({ ...event, id: crypto.randomUUID(), depth });
 }
 
-function getEventDepth(state: GameState, causeId: number): number {
+function getEventDepth(state: GameState, causeId: string): number {
   const causeEvent = state.eventQueue.find((e) => e.id === causeId);
   return causeEvent ? causeEvent.depth : 0;
 }
@@ -213,8 +209,8 @@ export function stepSimulationTick(state: GameState): void {
   // Sort player commands deterministically
   playerCommands.sort((a, b) => {
     if (a.priority !== b.priority) return b.priority - a.priority;
-    if (a.actorId !== b.actorId) return a.actorId - b.actorId;
-    return a.id - b.id;
+    if (a.actorId !== b.actorId) return a.actorId.localeCompare(b.actorId);
+    return a.id.localeCompare(b.id);
   });
 
   // Resolve player commands
@@ -237,8 +233,8 @@ export function stepSimulationTick(state: GameState): void {
   // Sort AI commands deterministically
   aiCommands.sort((a, b) => {
     if (a.priority !== b.priority) return b.priority - a.priority;
-    if (a.actorId !== b.actorId) return a.actorId - b.actorId;
-    return a.id - b.id;
+    if (a.actorId !== b.actorId) return a.actorId.localeCompare(b.actorId);
+    return a.id.localeCompare(b.id);
   });
 
   // 3. Resolve AI commands
@@ -265,7 +261,7 @@ export function stepSimulationTick(state: GameState): void {
 // Actor Readiness
 // ========================================
 
-function canActorAct(state: GameState, actorId: number, tick: number): boolean {
+function canActorAct(state: GameState, actorId: string, tick: number): boolean {
   const entity = state.entities.find((e) => e.id === actorId);
   if (!entity) return false;
 
@@ -500,7 +496,7 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
   const attacker = state.entities.find((e) => e.id === cmd.actorId);
   if (!attacker) return;
 
-  const data = cmd.data as { type: "MELEE"; targetId: number };
+  const data = cmd.data as { type: "MELEE"; targetId: string };
   const target = state.entities.find((e) => e.id === data.targetId);
   if (!target) return;
 
@@ -822,7 +818,7 @@ function triggerExplosion(
   worldX: number,
   worldY: number,
   type: ItemType.GRENADE | ItemType.LAND_MINE,
-  cause?: number,
+  cause?: string,
 ): void {
   const gridX = Math.floor(worldX / CELL_CONFIG.w);
   const gridY = Math.floor(worldY / CELL_CONFIG.h);
@@ -948,9 +944,9 @@ function processEvent(state: GameState, event: GameEvent): void {
 function processDamageEvent(state: GameState, event: GameEvent): void {
   const data = event.data as {
     type: "DAMAGE";
-    targetId: number;
+    targetId: string;
     amount: number;
-    sourceId?: number;
+    sourceId?: string;
     fromExplosion?: boolean;
   };
   const target = state.entities.find((e) => e.id === data.targetId);
@@ -1019,7 +1015,7 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
 
   Sound.play(SoundEffect.EXPLOSION);
   state.effects.push({
-    id: nextEffectId++,
+    id: crypto.randomUUID(),
     type: "explosion",
     worldX,
     worldY,
@@ -1105,7 +1101,7 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
 function processDeathEvent(state: GameState, event: GameEvent): void {
   const data = event.data as {
     type: "DEATH";
-    entityId: number;
+    entityId: string;
     fromExplosion?: boolean;
   };
   const entity = state.entities.find((e) => e.id === data.entityId);
@@ -1187,8 +1183,8 @@ function processDoorOpenEvent(state: GameState, event: GameEvent): void {
 function processPickupItemEvent(state: GameState, event: GameEvent): void {
   const data = event.data as {
     type: "PICKUP_ITEM";
-    actorId: number;
-    itemId: number;
+    actorId: string;
+    itemId: string;
   };
   const actor = state.entities.find((e) => e.id === data.actorId);
   const item = state.entities.find((e) => e.id === data.itemId) as
@@ -1271,7 +1267,7 @@ function processPlayerDeathEvent(state: GameState, event: GameEvent): void {
 function processNPCTalkEvent(state: GameState, event: GameEvent): void {
   const data = event.data as {
     type: "NPC_TALK";
-    npcId: number;
+    npcId: string;
     message: string;
   };
 
@@ -1333,7 +1329,7 @@ function decideMonsterCommand(
   // Adjacent: melee attack
   if (inMeleeRange) {
     return {
-      id: 0,
+      id: crypto.randomUUID(),
       tick,
       actorId: monster.id,
       type: CommandType.MELEE,
@@ -1377,7 +1373,7 @@ function decideMonsterCommand(
 
         if (!blocker) {
           return {
-            id: 0,
+            id: crypto.randomUUID(),
             tick,
             actorId: monster.id,
             type: CommandType.MOVE,
@@ -1391,7 +1387,7 @@ function decideMonsterCommand(
 
     // Wait if can't wander
     return {
-      id: 0,
+      id: crypto.randomUUID(),
       tick,
       actorId: monster.id,
       type: CommandType.WAIT,
@@ -1477,7 +1473,7 @@ function decideMonsterCommand(
   for (const [testX, testY] of uniqueDirections) {
     if (tryMove(testX, testY)) {
       return {
-        id: 0,
+        id: crypto.randomUUID(),
         tick,
         actorId: monster.id,
         type: CommandType.MOVE,
@@ -1490,7 +1486,7 @@ function decideMonsterCommand(
 
   // Wait if can't move anywhere
   return {
-    id: 0,
+    id: crypto.randomUUID(),
     tick,
     actorId: monster.id,
     type: CommandType.WAIT,

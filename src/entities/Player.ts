@@ -1,8 +1,6 @@
 import { EntityKind, WeaponType } from "../types";
 import { ContinuousEntity } from "./ContinuousEntity";
 
-let nextPlayerId = 1000; // Start player IDs at 1000
-
 /**
  * Player entity with continuous world coordinates
  */
@@ -21,7 +19,7 @@ export class PlayerEntity extends ContinuousEntity {
   public landMines: number;
 
   constructor(gridX: number, gridY: number) {
-    super(nextPlayerId++, gridX, gridY);
+    super(gridX, gridY);
 
     this.hpMax = 20;
     this.hp = 20;

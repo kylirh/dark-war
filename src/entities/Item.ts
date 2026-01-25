@@ -2,8 +2,6 @@ import { EntityKind, ItemType } from "../types";
 import { ContinuousEntity } from "./ContinuousEntity";
 import { RNG } from "../utils/RNG";
 
-let nextItemId = 3000; // Start item IDs at 3000
-
 /**
  * Item metadata definitions
  */
@@ -40,7 +38,7 @@ export class ItemEntity extends ContinuousEntity {
   public heal?: number;
 
   constructor(gridX: number, gridY: number, type: ItemType, amount?: number) {
-    super(nextItemId++, gridX, gridY);
+    super(gridX, gridY);
 
     this.type = type;
     this.name = ITEM_META[type].name;

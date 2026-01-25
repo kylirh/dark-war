@@ -2,8 +2,6 @@ import { EntityKind, MonsterType } from "../types";
 import { ContinuousEntity } from "./ContinuousEntity";
 import { RNG } from "../utils/RNG";
 
-let nextMonsterId = 2000; // Start monster IDs at 2000
-
 /**
  * Monster entity with continuous world coordinates
  */
@@ -17,7 +15,7 @@ export class MonsterEntity extends ContinuousEntity {
   public landMines: number;
 
   constructor(gridX: number, gridY: number, type: MonsterType, depth: number) {
-    super(nextMonsterId++, gridX, gridY);
+    super(gridX, gridY);
 
     this.type = type;
     this.hp = 6 + depth;
