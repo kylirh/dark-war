@@ -559,18 +559,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       if (!target) {
         const dx = Math.round(Math.cos(angle));
         const dy = Math.round(Math.sin(angle));
-        const tileSize =
-          (CELL_CONFIG as any).tileSize && (CELL_CONFIG as any).tileSize > 0
-            ? (CELL_CONFIG as any).tileSize
-            : 1;
-        const originTileX = Math.floor(
-          ((player as any).worldX as number) / tileSize,
-        );
-        const originTileY = Math.floor(
-          ((player as any).worldY as number) / tileSize,
-        );
-        const targetX = originTileX + dx;
-        const targetY = originTileY + dy;
+        const targetX = player.x + dx;
+        const targetY = player.y + dy;
         const hitWall = applyWallDamageAt(state, targetX, targetY, 2);
         if (hitWall) {
           pushEvent(state, {
