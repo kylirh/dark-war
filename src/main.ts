@@ -221,8 +221,14 @@ class DarkWar {
 
     canvas.style.cursor = "pointer";
 
-    // Left click: move
+    // Left click: shoot
     canvas.addEventListener("click", (event) => {
+      this.handleMouseFire(event);
+    });
+
+    // Right click: move
+    canvas.addEventListener("contextmenu", (event) => {
+      event.preventDefault();
       const state = this.game.getState();
       const scale = this.renderer.getScale();
 
@@ -281,12 +287,6 @@ class DarkWar {
         // Speed up to real-time during click-to-move
         state.sim.targetTimeScale = 1.0;
       }
-    });
-
-    // Right click or Shift+Click: shoot
-    canvas.addEventListener("contextmenu", (event) => {
-      event.preventDefault();
-      this.handleMouseFire(event);
     });
 
     canvas.addEventListener(
