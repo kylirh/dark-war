@@ -23,9 +23,9 @@ import { applyWallDamageAt } from "../utils/walls";
 import { Sound, SoundEffect } from "./Sound";
 import { RNG } from "../utils/RNG";
 import { computeFOVFrom } from "./FOV";
-import { createBullet } from "../entities/Bullet";
-import { createExplosive, ExplosiveEntity } from "../entities/Explosive";
-import { createItem } from "../entities/Item";
+import { BulletEntity } from "../entities/BulletEntity";
+import { ExplosiveEntity } from "../entities/ExplosiveEntity";
+import { ItemEntity } from "../entities/ItemEntity";
 
 // ========================================
 // Constants
@@ -601,7 +601,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       Sound.play(SoundEffect.SHOOT);
 
       const BULLET_SPEED = 600; // pixels per second
-      const bullet = createBullet(
+      const bullet = new BulletEntity(
         (player as any).worldX,
         (player as any).worldY,
         Math.cos(angle) * BULLET_SPEED,
@@ -629,7 +629,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
 
       player.grenades--;
       const THROW_SPEED = 360;
-      const grenade = createExplosive(
+      const grenade = new ExplosiveEntity(
         (player as any).worldX,
         (player as any).worldY,
         ItemType.GRENADE,
@@ -662,7 +662,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       const placeY = canPlace ? targetY : player.gridY;
 
       player.landMines--;
-      const mine = createExplosive(
+      const mine = new ExplosiveEntity(
         placeX * CELL_CONFIG.w + CELL_CONFIG.w / 2,
         placeY * CELL_CONFIG.h + CELL_CONFIG.h / 2,
         ItemType.LAND_MINE,
@@ -1141,7 +1141,9 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
               event.cause,
             );
           } else {
-            state.entities.push(createItem(monster.gridX, monster.gridY, type));
+            state.entities.push(
+              new ItemEntity(monster.gridX, monster.gridY, type),
+            );
           }
         }
       };

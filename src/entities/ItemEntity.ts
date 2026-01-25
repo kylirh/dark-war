@@ -1,5 +1,5 @@
 import { EntityKind, ItemType } from "../types";
-import { GameObject } from "./GameObject";
+import { GameEntity } from "./GameEntity";
 import { RNG } from "../utils/RNG";
 
 /**
@@ -27,15 +27,23 @@ const ITEM_META = {
 };
 
 /**
- * Item entity with continuous world coordinates
+ * Represents an item that can be picked up and used
  */
-export class ItemEntity extends GameObject {
+export class ItemEntity extends GameEntity {
+  /** Entity type identifier */
   public readonly kind = EntityKind.ITEM;
 
-  public type: ItemType;
-  public name: string;
+  /** Amount of resource (e.g., ammo quantity) */
   public amount?: number;
+
+  /** Health restored by this item (for medkits) */
   public heal?: number;
+
+  /** Display name of the item */
+  public name: string;
+
+  /** Item type (pistol, ammo, medkit, etc.) */
+  public type: ItemType;
 
   constructor(gridX: number, gridY: number, type: ItemType, amount?: number) {
     super(gridX, gridY);
@@ -50,20 +58,8 @@ export class ItemEntity extends GameObject {
       this.heal = 6 + RNG.int(8);
     }
 
-    // Items are static - ensure zero velocity
+    // Items are static. This ensures zero velocity.
     this.velocityX = 0;
     this.velocityY = 0;
   }
-}
-
-/**
- * Create an item entity (factory function for backward compatibility)
- */
-export function createItem(
-  x: number,
-  y: number,
-  type: ItemType,
-  amount = 0,
-): ItemEntity {
-  return new ItemEntity(x, y, type, amount);
 }

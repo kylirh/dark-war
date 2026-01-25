@@ -1,11 +1,21 @@
 import { EntityKind, ItemType } from "../types";
-import { GameObject } from "./GameObject";
+import { GameEntity } from "./GameEntity";
 
-export class ExplosiveEntity extends GameObject {
+/**
+ * Represents grenades and land mines
+ */
+export class ExplosiveEntity extends GameEntity {
+  /** Entity type identifier */
   public readonly kind = EntityKind.EXPLOSIVE;
-  public type: ItemType.GRENADE | ItemType.LAND_MINE;
+
+  /** Whether the explosive is armed and ready to detonate */
   public armed: boolean;
+
+  /** Number of ticks until detonation (for timed explosives) */
   public fuseTicks?: number;
+
+  /** Type of explosive (grenade or land mine) */
+  public type: ItemType.GRENADE | ItemType.LAND_MINE;
 
   constructor(
     worldX: number,
@@ -23,14 +33,4 @@ export class ExplosiveEntity extends GameObject {
     this.armed = armed;
     this.fuseTicks = fuseTicks;
   }
-}
-
-export function createExplosive(
-  worldX: number,
-  worldY: number,
-  type: ItemType.GRENADE | ItemType.LAND_MINE,
-  armed: boolean,
-  fuseTicks?: number,
-): ExplosiveEntity {
-  return new ExplosiveEntity(worldX, worldY, type, armed, fuseTicks);
 }

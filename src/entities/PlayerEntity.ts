@@ -1,20 +1,41 @@
 import { EntityKind, WeaponType } from "../types";
-import { GameObject } from "./GameObject";
+import { GameEntity } from "./GameEntity";
 
 /**
- * Player entity with continuous world coordinates
+ * Represents the player
  */
-export class PlayerEntity extends GameObject {
-  public ammo: number;
-  public ammoReserve: number;
-  public grenades: number;
-  public hp: number;
+export class PlayerEntity extends GameEntity {
+  /** Entity type identifier */
   public readonly kind = EntityKind.PLAYER;
+
+  /** Current ammunition in equipped weapon */
+  public ammo: number;
+
+  /** Ammunition in reserve (not in weapon) */
+  public ammoReserve: number;
+
+  /** Number of grenades carried */
+  public grenades: number;
+
+  /** Current health points */
+  public hp: number;
+
+  /** Maximum health points */
   public hpMax: number;
+
+  /** Number of keycards held */
   public keys: number;
+
+  /** Number of land mines carried */
   public landMines: number;
+
+  /** Player score (accumulated through gameplay) */
   public score: number;
+
+  /** Vision range in tiles */
   public sight: number;
+
+  /** Currently equipped weapon type */
   public weapon: WeaponType;
 
   constructor(gridX: number, gridY: number) {
@@ -32,11 +53,4 @@ export class PlayerEntity extends GameObject {
     this.sight = 9;
     this.weapon = WeaponType.PISTOL;
   }
-}
-
-/**
- * Create a new player entity (factory function for backward compatibility)
- */
-export function createPlayer(gridX: number, gridY: number): PlayerEntity {
-  return new PlayerEntity(gridX, gridY);
 }

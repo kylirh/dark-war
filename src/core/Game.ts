@@ -16,14 +16,14 @@ import {
   CELL_CONFIG,
 } from "../types";
 import { generateDungeon } from "./Map";
-import { createPlayer, PlayerEntity } from "../entities/Player";
-import { createMutant, createRat, MonsterEntity } from "../entities/Monster";
-import { createItem, ItemEntity } from "../entities/Item";
-import { createExplosive, ExplosiveEntity } from "../entities/Explosive";
+import { PlayerEntity } from "../entities/PlayerEntity";
+import { MonsterEntity } from "../entities/MonsterEntity";
+import { ItemEntity } from "../entities/ItemEntity";
+import { ExplosiveEntity } from "../entities/ExplosiveEntity";
 import { RNG } from "../utils/RNG";
 import { dist, passable, setPositionFromGrid } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
-import { GameObject } from "../entities/GameObject";
+import { GameEntity } from "../entities/GameEntity";
 
 /**
  * Main state manager
@@ -49,7 +49,7 @@ export class Game {
       visible: new Set(),
       explored: new Set(),
       entities: [],
-      player: createPlayer(0, 0),
+      player: new PlayerEntity(0, 0),
       stairs: [0, 0],
       log: [],
       options: { fov: true },
@@ -86,7 +86,7 @@ export class Game {
       visible: new Set(),
       explored: new Set(),
       entities: [],
-      player: createPlayer(dungeon.start[0], dungeon.start[1]),
+      player: new PlayerEntity(dungeon.start[0], dungeon.start[1]),
       stairs: dungeon.stairs,
       log: [],
       options: { fov: true },
@@ -123,10 +123,14 @@ export class Game {
       if (dist([x, y], dungeon.start) > 8) {
         const spawnRat = RNG.chance(0.5);
         if (spawnRat) {
-          this.state.entities.push(createRat(x, y, depth));
+          this.state.entities.push(
+            new MonsterEntity(x, y, MonsterType.RAT, depth),
+          );
           ratCount++;
         } else {
-          this.state.entities.push(createMutant(x, y, depth));
+          this.state.entities.push(
+            new MonsterEntity(x, y, MonsterType.MUTANT, depth),
+          );
           mutantCount++;
         }
         // Remove tile from available pool
@@ -139,35 +143,35 @@ export class Game {
     for (let i = 0; i < 10 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(createItem(x, y, ItemType.AMMO));
+      this.state.entities.push(new ItemEntity(x, y, ItemType.AMMO));
       freeTiles.splice(tileIndex, 1);
     }
 
     for (let i = 0; i < 6 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(createItem(x, y, ItemType.MEDKIT));
+      this.state.entities.push(new ItemEntity(x, y, ItemType.MEDKIT));
       freeTiles.splice(tileIndex, 1);
     }
 
     for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(createItem(x, y, ItemType.KEYCARD));
+      this.state.entities.push(new ItemEntity(x, y, ItemType.KEYCARD));
       freeTiles.splice(tileIndex, 1);
     }
 
     for (let i = 0; i < 4 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(createItem(x, y, ItemType.GRENADE));
+      this.state.entities.push(new ItemEntity(x, y, ItemType.GRENADE));
       freeTiles.splice(tileIndex, 1);
     }
 
     for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(createItem(x, y, ItemType.LAND_MINE));
+      this.state.entities.push(new ItemEntity(x, y, ItemType.LAND_MINE));
       freeTiles.splice(tileIndex, 1);
     }
 
@@ -270,9 +274,13 @@ export class Game {
       if (dist([x, y], dungeon.start) > 8) {
         const spawnRat = RNG.chance(0.5);
         if (spawnRat) {
-          this.state.entities.push(createRat(x, y, this.state.depth));
+          this.state.entities.push(
+            new MonsterEntity(x, y, MonsterType.RAT, this.state.depth),
+          );
         } else {
-          this.state.entities.push(createMutant(x, y, this.state.depth));
+          this.state.entities.push(
+            new MonsterEntity(x, y, MonsterType.MUTANT, this.state.depth),
+          );
         }
         freeTiles.splice(tileIndex, 1);
       }
@@ -282,21 +290,21 @@ export class Game {
     for (let i = 0; i < 10 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(createItem(x, y, ItemType.AMMO));
+      this.state.entities.push(new ItemEntity(x, y, ItemType.AMMO));
       freeTiles.splice(tileIndex, 1);
     }
 
     for (let i = 0; i < 6 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(createItem(x, y, ItemType.MEDKIT));
+      this.state.entities.push(new ItemEntity(x, y, ItemType.MEDKIT));
       freeTiles.splice(tileIndex, 1);
     }
 
     for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(createItem(x, y, ItemType.KEYCARD));
+      this.state.entities.push(new ItemEntity(x, y, ItemType.KEYCARD));
       freeTiles.splice(tileIndex, 1);
     }
 
@@ -373,7 +381,7 @@ export class Game {
     let player = data.player;
     if (!(player instanceof PlayerEntity)) {
       const [gridX, gridY] = this.getGridPositionFromSerialized(player);
-      const p = createPlayer(gridX, gridY);
+      const p = new PlayerEntity(gridX, gridY);
       Object.assign(p, player);
       this.syncWorldPosition(p, player);
       player = p;
@@ -387,10 +395,14 @@ export class Game {
         !(entity instanceof MonsterEntity)
       ) {
         const [gridX, gridY] = this.getGridPositionFromSerialized(entity);
-        const monster =
+        const monster = new MonsterEntity(
+          gridX,
+          gridY,
           (entity as Monster).type === MonsterType.RAT
-            ? createRat(gridX, gridY, data.depth)
-            : createMutant(gridX, gridY, data.depth);
+            ? MonsterType.RAT
+            : MonsterType.MUTANT,
+          data.depth,
+        );
         Object.assign(monster, entity);
         this.syncWorldPosition(monster, entity);
         entities.push(monster);
@@ -405,7 +417,7 @@ export class Game {
         !(entity instanceof ItemEntity)
       ) {
         const [gridX, gridY] = this.getGridPositionFromSerialized(entity);
-        const item = createItem(
+        const item = new ItemEntity(
           gridX,
           gridY,
           (entity as Item).type,
@@ -424,7 +436,7 @@ export class Game {
         entity.kind === EntityKind.EXPLOSIVE &&
         !(entity instanceof ExplosiveEntity)
       ) {
-        const explosive = createExplosive(
+        const explosive = new ExplosiveEntity(
           (entity as any).worldX,
           (entity as any).worldY,
           (entity as any).type,
@@ -498,7 +510,7 @@ export class Game {
   }
 
   private syncWorldPosition(
-    entity: GameObject,
+    entity: GameEntity,
     source: {
       worldX?: number;
       worldY?: number;

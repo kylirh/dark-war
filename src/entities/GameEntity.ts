@@ -4,7 +4,7 @@ import { Body } from "detect-collisions";
 /**
  * Base class for all game entities with physics and continuous movement
  */
-export abstract class GameObject {
+export abstract class GameEntity {
   /** Facing direction in radians (0 = right, PI/2 = down, PI = left, 3PI/2 = up) */
   public facingAngle: number = 0;
 

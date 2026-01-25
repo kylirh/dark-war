@@ -22,12 +22,12 @@ import {
   MAP_WIDTH,
   MAP_HEIGHT,
 } from "../types";
-import { GameObject } from "../entities/GameObject";
-import { PlayerEntity } from "../entities/Player";
-import { MonsterEntity } from "../entities/Monster";
-import { ItemEntity } from "../entities/Item";
-import { BulletEntity } from "../entities/Bullet";
-import { ExplosiveEntity } from "../entities/Explosive";
+import { GameEntity } from "../entities/GameEntity";
+import { PlayerEntity } from "../entities/PlayerEntity";
+import { MonsterEntity } from "../entities/MonsterEntity";
+import { ItemEntity } from "../entities/ItemEntity";
+import { BulletEntity } from "../entities/BulletEntity";
+import { ExplosiveEntity } from "../entities/ExplosiveEntity";
 import { idx, tileAt } from "../utils/helpers";
 import { applyWallDamageAtIndex } from "../utils/walls";
 import { Sound, SoundEffect } from "./Sound";
@@ -130,7 +130,7 @@ export class Physics {
   /**
    * Add or update entity physics body
    */
-  public updateEntityBody(entity: GameObject): void {
+  public updateEntityBody(entity: GameEntity): void {
     // Remove existing body if present
     if (entity.physicsBody) {
       this.system.remove(entity.physicsBody);
@@ -179,7 +179,7 @@ export class Physics {
   /**
    * Remove entity from physics system
    */
-  public removeEntity(entity: GameObject): void {
+  public removeEntity(entity: GameEntity): void {
     if (entity.physicsBody) {
       this.system.remove(entity.physicsBody);
       entity.physicsBody = undefined;
@@ -202,14 +202,14 @@ export class Physics {
 
     // Ensure all entities have physics bodies
     for (const entity of state.entities) {
-      if (entity instanceof GameObject && !entity.physicsBody) {
+      if (entity instanceof GameEntity && !entity.physicsBody) {
         this.updateEntityBody(entity);
       }
     }
 
     // Process each entity
     for (const entity of state.entities) {
-      if (!(entity instanceof GameObject)) continue;
+      if (!(entity instanceof GameEntity)) continue;
 
       // Items are static - never move them
       if (entity.kind === EntityKind.ITEM) {
@@ -340,21 +340,21 @@ export class Physics {
   private getEntityFromBody(
     state: GameState,
     body: Circle | Box,
-  ): GameObject | undefined {
+  ): GameEntity | undefined {
     const entityId = (body as any).entityId;
     if (entityId === undefined) return undefined;
 
     const entity = state.entities.find((e) => e.id === entityId);
     if (
       entity &&
-      (entity instanceof GameObject ||
+      (entity instanceof GameEntity ||
         entity instanceof PlayerEntity ||
         entity instanceof MonsterEntity ||
         entity instanceof ItemEntity ||
         entity instanceof BulletEntity ||
         entity instanceof ExplosiveEntity)
     ) {
-      return entity as GameObject;
+      return entity as GameEntity;
     }
     return undefined;
   }

@@ -1,18 +1,23 @@
-/**
- * Bullet entity for projectile-based combat
- */
-
 import { EntityKind } from "../types";
-import { GameObject } from "./GameObject";
+import { GameEntity } from "./GameEntity";
 
 /**
- * Bullet entity with continuous world coordinates
+ * Represents a bullet
  */
-export class BulletEntity extends GameObject {
-  public damage: number;
+export class BulletEntity extends GameEntity {
+  /** Entity type identifier */
   public readonly kind = EntityKind.BULLET;
+
+  /** Damage dealt on impact */
+  public damage: number;
+
+  /** Maximum distance bullet can travel in pixels */
   public maxDistance: number;
+
+  /** ID of entity that fired this bullet */
   public ownerId: string;
+
+  /** Distance traveled so far in pixels */
   public traveledDistance: number = 0;
 
   constructor(
@@ -42,27 +47,4 @@ export class BulletEntity extends GameObject {
     // Set facing angle based on velocity
     this.facingAngle = Math.atan2(velocityY, velocityX);
   }
-}
-
-/**
- * Create a bullet entity (factory function)
- */
-export function createBullet(
-  worldX: number,
-  worldY: number,
-  velocityX: number,
-  velocityY: number,
-  damage: number,
-  ownerId: string,
-  maxDistance?: number,
-): BulletEntity {
-  return new BulletEntity(
-    worldX,
-    worldY,
-    velocityX,
-    velocityY,
-    damage,
-    ownerId,
-    maxDistance,
-  );
 }
