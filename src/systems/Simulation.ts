@@ -840,7 +840,10 @@ function updateExplosives(state: GameState): void {
   for (const explosive of explosives) {
     if (!explosive.armed) continue;
 
-    if (explosive.type === ItemType.GRENADE && explosive.fuseTicks !== undefined) {
+    if (
+      explosive.type === ItemType.GRENADE &&
+      explosive.fuseTicks !== undefined
+    ) {
       explosive.fuseTicks -= 1;
       if (explosive.fuseTicks <= 0) {
         triggerExplosion(
@@ -1019,7 +1022,10 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
     const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance > radiusPx) continue;
 
-    if (entity.kind === EntityKind.MONSTER || entity.kind === EntityKind.PLAYER) {
+    if (
+      entity.kind === EntityKind.MONSTER ||
+      entity.kind === EntityKind.PLAYER
+    ) {
       pushEvent(state, {
         type: EventType.DAMAGE,
         data: {
@@ -1134,10 +1140,16 @@ function processDoorOpenEvent(state: GameState, event: GameEvent): void {
     // Open the door
     state.map[i] = TileType.DOOR_OPEN;
     Sound.play(SoundEffect.DOOR_OPEN);
+    // Track tile change for physics update
+    if (!state.changedTiles) state.changedTiles = new Set();
+    state.changedTiles.add(i);
   } else if (tile === TileType.DOOR_OPEN) {
     // Close the door
     state.map[i] = TileType.DOOR_CLOSED;
     Sound.play(SoundEffect.DOOR_CLOSE);
+    // Track tile change for physics update
+    if (!state.changedTiles) state.changedTiles = new Set();
+    state.changedTiles.add(i);
   }
 }
 

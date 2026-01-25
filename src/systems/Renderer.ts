@@ -241,7 +241,7 @@ export class Renderer {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const tileIndex = idx(x, y);
         const isVisible = options.fov ? visible.has(tileIndex) : true;
-        const isExplored = explored.has(tileIndex);
+        const isExplored = options.fov ? explored.has(tileIndex) : true;
 
         if (!isExplored) continue;
 
@@ -251,6 +251,29 @@ export class Renderer {
         // Get sprite coordinates for this tile
         const tileType = map[tileIndex];
         const coord = SPRITE_COORDS[tileType];
+        const needsFloorBase =
+          tileType === TileType.DOOR_CLOSED ||
+          tileType === TileType.DOOR_OPEN ||
+          tileType === TileType.DOOR_LOCKED ||
+          tileType === TileType.STAIRS;
+
+        if (needsFloorBase) {
+          const floorCoord = SPRITE_COORDS[TileType.FLOOR];
+          if (floorCoord) {
+            const floorSprite = this.createSprite(
+              floorCoord.x,
+              floorCoord.y,
+              screenX,
+              screenY,
+            );
+            if (floorSprite) {
+              if (!isVisible) {
+                floorSprite.alpha = 0.45;
+              }
+              this.mapContainer.addChild(floorSprite);
+            }
+          }
+        }
 
         if (coord) {
           const sprite = this.createSprite(coord.x, coord.y, screenX, screenY);
