@@ -28,7 +28,6 @@ export interface InputCallbacks {
 export class InputHandler {
   private callbacks: InputCallbacks;
   private fireMode = false;
-  private interactMode = false;
 
   // Track WASD key states for continuous movement
   private keysPressed = {
@@ -110,9 +109,8 @@ export class InputHandler {
     // Escape key - cancel any active input mode
     if (key === "escape") {
       e.preventDefault();
-      if (this.fireMode || this.interactMode) {
+      if (this.fireMode) {
         this.fireMode = false;
-        this.interactMode = false;
       }
       return;
     }
@@ -121,14 +119,6 @@ export class InputHandler {
     if (key === "<") {
       e.preventDefault();
       this.callbacks.onDescend();
-      return;
-    }
-
-    // Enter interact mode (open/close doors)
-    if (key === "o") {
-      e.preventDefault();
-      this.interactMode = true;
-      this.callbacks.onInteract(0, 0); // Signal to show interact prompt
       return;
     }
 

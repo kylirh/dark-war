@@ -61,6 +61,7 @@ export class Game {
       commandsByTick: new Map(),
       eventQueue: [],
       shouldDescend: false,
+      changedTiles: new Set(),
     };
   }
 
@@ -96,6 +97,7 @@ export class Game {
       commandsByTick: new Map(),
       eventQueue: [],
       shouldDescend: false,
+      changedTiles: new Set(),
     };
 
     // Add player to entities
@@ -209,6 +211,8 @@ export class Game {
    */
   public toggleFOV(): void {
     this.state.options.fov = !this.state.options.fov;
+    // When toggling, recompute FOV to update visibility
+    this.updateFOV();
   }
 
   /**

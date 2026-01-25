@@ -91,6 +91,40 @@ export class Physics {
   }
 
   /**
+   * Update physics body for a single tile (e.g., when door opens/closes)
+   */
+  public updateTile(x: number, y: number, tile: TileType): void {
+    const tileIndex = idx(x, y);
+
+    // Remove existing wall body if present
+    const existingBody = this.wallBodies.get(tileIndex);
+    if (existingBody) {
+      this.system.remove(existingBody);
+      this.wallBodies.delete(tileIndex);
+    }
+
+    // Create new wall body if tile should block
+    if (
+      tile === TileType.WALL ||
+      tile === TileType.DOOR_CLOSED ||
+      tile === TileType.DOOR_LOCKED
+    ) {
+      const worldX = x * CELL_CONFIG.w;
+      const worldY = y * CELL_CONFIG.h;
+
+      const box = this.system.createBox(
+        { x: worldX, y: worldY },
+        CELL_CONFIG.w,
+        CELL_CONFIG.h,
+      );
+      box.isStatic = true;
+      (box as any).isWall = true;
+
+      this.wallBodies.set(tileIndex, box);
+    }
+  }
+
+  /**
    * Add or update entity physics body
    */
   public updateEntityBody(entity: ContinuousEntity): void {
@@ -238,14 +272,18 @@ export class Physics {
 
       if (absOverlapX > absOverlapY) {
         // Horizontal wall - only cancel X velocity if moving into wall
-        if ((response.overlapV.x > 0 && entityB.velocityX < 0) ||
-            (response.overlapV.x < 0 && entityB.velocityX > 0)) {
+        if (
+          (response.overlapV.x > 0 && entityB.velocityX < 0) ||
+          (response.overlapV.x < 0 && entityB.velocityX > 0)
+        ) {
           entityB.velocityX = 0;
         }
       } else if (absOverlapY > absOverlapX) {
         // Vertical wall - only cancel Y velocity if moving into wall
-        if ((response.overlapV.y > 0 && entityB.velocityY < 0) ||
-            (response.overlapV.y < 0 && entityB.velocityY > 0)) {
+        if (
+          (response.overlapV.y > 0 && entityB.velocityY < 0) ||
+          (response.overlapV.y < 0 && entityB.velocityY > 0)
+        ) {
           entityB.velocityY = 0;
         }
       } else {
@@ -272,14 +310,18 @@ export class Physics {
 
       if (absOverlapX > absOverlapY) {
         // Horizontal wall - only cancel X velocity if moving into wall
-        if ((response.overlapV.x > 0 && entityA.velocityX > 0) ||
-            (response.overlapV.x < 0 && entityA.velocityX < 0)) {
+        if (
+          (response.overlapV.x > 0 && entityA.velocityX > 0) ||
+          (response.overlapV.x < 0 && entityA.velocityX < 0)
+        ) {
           entityA.velocityX = 0;
         }
       } else if (absOverlapY > absOverlapX) {
         // Vertical wall - only cancel Y velocity if moving into wall
-        if ((response.overlapV.y > 0 && entityA.velocityY > 0) ||
-            (response.overlapV.y < 0 && entityA.velocityY < 0)) {
+        if (
+          (response.overlapV.y > 0 && entityA.velocityY > 0) ||
+          (response.overlapV.y < 0 && entityA.velocityY < 0)
+        ) {
           entityA.velocityY = 0;
         }
       } else {
@@ -448,10 +490,7 @@ export class Physics {
 
     for (const explosive of explosives) {
       // Only check collisions for moving explosives (grenades in flight)
-      if (
-        explosive.velocityX === 0 &&
-        explosive.velocityY === 0
-      ) {
+      if (explosive.velocityX === 0 && explosive.velocityY === 0) {
         continue;
       }
 
@@ -476,10 +515,7 @@ export class Physics {
             state,
             other as Circle | Box,
           );
-          if (
-            targetEntity &&
-            targetEntity.kind === EntityKind.MONSTER
-          ) {
+          if (targetEntity && targetEntity.kind === EntityKind.MONSTER) {
             shouldExplode = true;
           }
         });
