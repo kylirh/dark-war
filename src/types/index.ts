@@ -250,6 +250,8 @@ export interface DungeonData {
 export interface GameState {
   depth: number;
   map: TileType[];
+  wallDamage: number[];
+  mapDirty: boolean;
   visible: Set<number>;
   explored: Set<number>;
   entities: Entity[];
@@ -275,6 +277,7 @@ export interface GameState {
 export interface SerializedState {
   depth: number;
   map: TileType[];
+  wallDamage?: number[];
   stairs: [number, number];
   player: Player;
   entities: Entity[];
@@ -293,6 +296,9 @@ export interface SerializedState {
 
 export const MAP_WIDTH = 64;
 export const MAP_HEIGHT = 36;
+
+export const WALL_DAMAGE_THRESHOLDS = [3, 6];
+export const WALL_MAX_DAMAGE = 9;
 
 export const CELL_CONFIG = {
   w: 32,

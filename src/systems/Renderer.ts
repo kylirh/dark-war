@@ -15,6 +15,7 @@ import {
   CELL_CONFIG,
   TileType,
   MonsterType,
+  WALL_DAMAGE_THRESHOLDS,
 } from "../types";
 import { idx } from "../utils/helpers";
 import {
@@ -250,7 +251,21 @@ export class Renderer {
 
         // Get sprite coordinates for this tile
         const tileType = map[tileIndex];
-        const coord = SPRITE_COORDS[tileType];
+        let coord = SPRITE_COORDS[tileType];
+
+        // Handle wall damage sprites
+        if (tileType === TileType.WALL) {
+          const damage = state.wallDamage[tileIndex] || 0;
+          const wallSpriteKey =
+            damage >= WALL_DAMAGE_THRESHOLDS[1]
+              ? "wall_damaged_2"
+              : damage >= WALL_DAMAGE_THRESHOLDS[0]
+                ? "wall_damaged_1"
+                : TileType.WALL;
+          coord = SPRITE_COORDS[wallSpriteKey] || coord;
+        }
+
+        // Render floor base for doors and stairs
         const needsFloorBase =
           tileType === TileType.DOOR_CLOSED ||
           tileType === TileType.DOOR_OPEN ||
@@ -324,7 +339,8 @@ export class Renderer {
       if (entity.kind === EntityKind.MONSTER && "type" in entity) {
         coord = SPRITE_COORDS[entity.type];
       } else if (
-        (entity.kind === EntityKind.ITEM || entity.kind === EntityKind.EXPLOSIVE) &&
+        (entity.kind === EntityKind.ITEM ||
+          entity.kind === EntityKind.EXPLOSIVE) &&
         "type" in entity
       ) {
         coord = SPRITE_COORDS[entity.type];
@@ -428,8 +444,10 @@ export class Renderer {
     const currentScrollY = this.viewportElement.scrollTop;
 
     if (smooth) {
-      const nextScrollX = currentScrollX + (targetScrollX - currentScrollX) * 0.2;
-      const nextScrollY = currentScrollY + (targetScrollY - currentScrollY) * 0.2;
+      const nextScrollX =
+        currentScrollX + (targetScrollX - currentScrollX) * 0.2;
+      const nextScrollY =
+        currentScrollY + (targetScrollY - currentScrollY) * 0.2;
       this.viewportElement.scrollLeft = nextScrollX;
       this.viewportElement.scrollTop = nextScrollY;
     } else {

@@ -375,6 +375,10 @@ class DarkWar {
       stepSimulationTick(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
       this.game.updateFOV();
+      if (state.mapDirty) {
+        state.mapDirty = false;
+        this.physics.initializeMap(state.map);
+      }
 
       // Update physics for any tiles that changed (e.g., doors opening/closing)
       if (state.changedTiles && state.changedTiles.size > 0) {
