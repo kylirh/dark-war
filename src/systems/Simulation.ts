@@ -1083,8 +1083,8 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
       const tileCenterY = y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
       const dx = tileCenterX - worldX;
       const dy = tileCenterY - worldY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance > radiusPx) continue;
+      const distanceSq = dx * dx + dy * dy;
+      if (distanceSq > radiusPx * radiusPx) continue;
       applyWallDamageAt(state, x, y, data.damage);
     }
   }
