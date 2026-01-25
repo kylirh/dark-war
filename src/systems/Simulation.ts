@@ -1087,7 +1087,7 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
         data: {
           type: "DAMAGE",
           targetId: entity.id,
-          amount: isDirectHit ? data.directHitDamage : data.damage,
+          amount: isDirectHit ? (data.directHitDamage ?? data.damage) : data.damage,
           fromExplosion: true,
         },
         cause: event.id,
