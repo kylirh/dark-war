@@ -38,6 +38,11 @@ export class Renderer {
   private scale: number = 2.0; // Configurable scale factor
   private cameraWorldX: number = 0; // Camera position for smooth following
   private cameraWorldY: number = 0;
+  private lastDirections: Map<number, "up" | "down" | "left" | "right"> =
+    new Map();
+
+  private static readonly WALK_FRAME_HOLD = 6;
+  private static readonly WALK_FRAME_OFFSETS = [0, 1, 0, -1];
 
   constructor(canvasId: string) {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -195,6 +200,38 @@ export class Renderer {
     return sprite;
   }
 
+  private getDirectionFromVelocity(
+    entityId: number,
+    velocityX: number,
+    velocityY: number,
+  ): "up" | "down" | "left" | "right" {
+    const speed = Math.hypot(velocityX, velocityY);
+    if (speed < 0.05) {
+      return this.lastDirections.get(entityId) ?? "down";
+    }
+
+    let direction: "up" | "down" | "left" | "right";
+    if (Math.abs(velocityX) >= Math.abs(velocityY)) {
+      direction = velocityX >= 0 ? "right" : "left";
+    } else {
+      direction = velocityY >= 0 ? "down" : "up";
+    }
+
+    this.lastDirections.set(entityId, direction);
+    return direction;
+  }
+
+  private getWalkFrameOffset(
+    entityId: number,
+    tick: number,
+    alpha: number,
+  ): number {
+    const frameIndex =
+      Math.floor((tick + alpha + entityId * 0.35) / Renderer.WALK_FRAME_HOLD) %
+      Renderer.WALK_FRAME_OFFSETS.length;
+    return Renderer.WALK_FRAME_OFFSETS[frameIndex];
+  }
+
   /**
    * Render the entire game state with interpolation
    * @param state Game state
@@ -298,6 +335,20 @@ export class Renderer {
 
       let coord;
 
+      const hasVelocity =
+        "velocityX" in entity &&
+        "velocityY" in entity &&
+        (Math.abs((entity as any).velocityX) > 0.05 ||
+          Math.abs((entity as any).velocityY) > 0.05);
+      const direction =
+        entity.kind === EntityKind.MONSTER && "velocityX" in entity
+          ? this.getDirectionFromVelocity(
+              entity.id,
+              (entity as any).velocityX,
+              (entity as any).velocityY,
+            )
+          : undefined;
+
       if (entity.kind === EntityKind.MONSTER && "type" in entity) {
         coord = SPRITE_COORDS[entity.type];
       } else if (
@@ -314,6 +365,18 @@ export class Renderer {
         if (sprite) {
           // Center the sprite on its position
           sprite.anchor.set(0.5, 0.5);
+
+          if (direction && hasVelocity) {
+            sprite.y += this.getWalkFrameOffset(
+              entity.id,
+              state.sim.nowTick,
+              alpha,
+            );
+          }
+
+          if (direction === "left") {
+            sprite.scale.x = -1;
+          }
 
           // Only rotate bullets, keep player and monsters upright
           if (entity.kind === EntityKind.BULLET && "facingAngle" in entity) {
@@ -366,6 +429,29 @@ export class Renderer {
       if (sprite) {
         // Center the sprite on player position
         sprite.anchor.set(0.5, 0.5);
+
+        if (!isDead && "velocityX" in player && "velocityY" in player) {
+          const direction = this.getDirectionFromVelocity(
+            player.id,
+            (player as any).velocityX,
+            (player as any).velocityY,
+          );
+          const moving =
+            Math.abs((player as any).velocityX) > 0.05 ||
+            Math.abs((player as any).velocityY) > 0.05;
+
+          if (moving) {
+            sprite.y += this.getWalkFrameOffset(
+              player.id,
+              state.sim.nowTick,
+              alpha,
+            );
+          }
+
+          if (direction === "left") {
+            sprite.scale.x = -1;
+          }
+        }
 
         // Player sprite stays upright (no rotation)
         this.entityContainer.addChild(sprite);
