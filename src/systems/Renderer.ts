@@ -32,6 +32,8 @@ export class Renderer {
   private entityContainer: Container;
   private spriteSheet?: Texture;
   private textureCache: Map<string, Texture> = new Map();
+  private facingByEntityId: Map<number, "up" | "down" | "left" | "right"> =
+    new Map();
   private ready: boolean = false;
   private pendingRender?: { state: GameState; isDead: boolean };
   private viewportElement?: HTMLElement;
@@ -195,6 +197,81 @@ export class Renderer {
     return sprite;
   }
 
+  private getEntityMovement(entity: {
+    velocityX?: number;
+    velocityY?: number;
+    worldX?: number;
+    worldY?: number;
+    prevWorldX?: number;
+    prevWorldY?: number;
+  }): { moveX: number; moveY: number; moving: boolean } {
+    const velocityX = typeof entity.velocityX === "number" ? entity.velocityX : 0;
+    const velocityY = typeof entity.velocityY === "number" ? entity.velocityY : 0;
+    const deltaX =
+      typeof entity.worldX === "number" && typeof entity.prevWorldX === "number"
+        ? entity.worldX - entity.prevWorldX
+        : 0;
+    const deltaY =
+      typeof entity.worldY === "number" && typeof entity.prevWorldY === "number"
+        ? entity.worldY - entity.prevWorldY
+        : 0;
+    const moveX = Math.abs(velocityX) > 0.01 ? velocityX : deltaX;
+    const moveY = Math.abs(velocityY) > 0.01 ? velocityY : deltaY;
+    const moving = Math.abs(moveX) > 0.01 || Math.abs(moveY) > 0.01;
+    return { moveX, moveY, moving };
+  }
+
+  private getFacingDirection(
+    entityId: number,
+    moveX: number,
+    moveY: number,
+    moving: boolean,
+  ): "up" | "down" | "left" | "right" {
+    let direction = this.facingByEntityId.get(entityId) ?? "down";
+    if (moving) {
+      if (Math.abs(moveX) >= Math.abs(moveY)) {
+        direction = moveX >= 0 ? "right" : "left";
+      } else {
+        direction = moveY >= 0 ? "down" : "up";
+      }
+      this.facingByEntityId.set(entityId, direction);
+    }
+    return direction;
+  }
+
+  private applyWalkAnimation(
+    sprite: Sprite,
+    direction: "up" | "down" | "left" | "right",
+    moving: boolean,
+    animationTime: number,
+    intensity: number,
+  ): void {
+    const baseScaleX = sprite.scale.x;
+    const baseScaleY = sprite.scale.y;
+    const cycleTicks = 8;
+    const phase = (animationTime / cycleTicks) * Math.PI * 2;
+    const bob = Math.sin(phase) * 1.4 * intensity;
+    const sway = Math.cos(phase) * 0.8 * intensity;
+
+    sprite.scale.x = baseScaleX * (direction === "left" ? -1 : 1);
+    if (direction === "up") {
+      sprite.scale.y = baseScaleY * 0.96;
+    } else if (direction === "down") {
+      sprite.scale.y = baseScaleY * 1.04;
+    } else {
+      sprite.scale.y = baseScaleY;
+    }
+
+    if (moving) {
+      sprite.y += bob;
+      if (direction === "left" || direction === "right") {
+        sprite.x += sway;
+      } else {
+        sprite.x += sway * 0.5;
+      }
+    }
+  }
+
   /**
    * Render the entire game state with interpolation
    * @param state Game state
@@ -214,6 +291,7 @@ export class Renderer {
 
     const { map, visible, explored, entities, player, options, effects } =
       state;
+    const animationTime = state.sim.nowTick + alpha;
 
     // Update camera position for smooth following (real-time mode only)
     if (state.sim.mode === "REALTIME" && "worldX" in player) {
@@ -318,6 +396,21 @@ export class Renderer {
           // Only rotate bullets, keep player and monsters upright
           if (entity.kind === EntityKind.BULLET && "facingAngle" in entity) {
             sprite.rotation = (entity as any).facingAngle;
+          } else if (entity.kind === EntityKind.MONSTER) {
+            const movement = this.getEntityMovement(entity as any);
+            const direction = this.getFacingDirection(
+              entity.id,
+              movement.moveX,
+              movement.moveY,
+              movement.moving,
+            );
+            this.applyWalkAnimation(
+              sprite,
+              direction,
+              movement.moving,
+              animationTime,
+              0.9,
+            );
           }
           this.entityContainer.addChild(sprite);
         }
@@ -366,6 +459,23 @@ export class Renderer {
       if (sprite) {
         // Center the sprite on player position
         sprite.anchor.set(0.5, 0.5);
+
+        if (!isDead) {
+          const movement = this.getEntityMovement(player as any);
+          const direction = this.getFacingDirection(
+            player.id,
+            movement.moveX,
+            movement.moveY,
+            movement.moving,
+          );
+          this.applyWalkAnimation(
+            sprite,
+            direction,
+            movement.moving,
+            animationTime,
+            1,
+          );
+        }
 
         // Player sprite stays upright (no rotation)
         this.entityContainer.addChild(sprite);
