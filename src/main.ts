@@ -229,7 +229,8 @@ class DarkWar {
       return;
     }
 
-    canvas.style.cursor = "pointer";
+    canvas.style.cursor =
+      "url('assets/img/target-cursor.svg') 16 16, crosshair";
 
     // Left click: shoot
     canvas.addEventListener("click", (event) => {
@@ -288,11 +289,7 @@ class DarkWar {
         this.pendingRightClickTimer = null;
         this.pendingRightClickTile = null;
         if (!pendingTile) return;
-        this.triggerRightClickMove(
-          pendingTile.gridX,
-          pendingTile.gridY,
-          false,
-        );
+        this.triggerRightClickMove(pendingTile.gridX, pendingTile.gridY, false);
       }, DOUBLE_CLICK_DELAY_MS);
     });
 
