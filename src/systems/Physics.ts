@@ -18,6 +18,7 @@ import {
   GameState,
   EntityKind,
   TileType,
+  EventType,
   CELL_CONFIG,
   MAP_WIDTH,
   MAP_HEIGHT,
@@ -31,6 +32,7 @@ import { ExplosiveEntity } from "../entities/ExplosiveEntity";
 import { idx, tileAt } from "../utils/helpers";
 import { applyWallDamageAtIndex } from "../utils/walls";
 import { Sound, SoundEffect } from "./Sound";
+import { pushEvent } from "./Simulation";
 
 // Collision radii - sized to allow smooth corridor navigation
 // With 32px tiles, an 8px radius (16px diameter) leaves 16px clearance in corridors
@@ -418,22 +420,16 @@ export class Physics {
             targetEntity.kind === EntityKind.MONSTER &&
             targetEntity.id !== bullet.ownerId
           ) {
-            // Apply damage
-            const monster = targetEntity as MonsterEntity;
-            monster.hp -= bullet.damage;
-
-            // Check if monster died
-            if (monster.hp <= 0) {
-              Sound.play(SoundEffect.MONSTER_DEATH);
-
-              // Remove dead monster
-              this.removeEntity(monster);
-              const monsterIdx = state.entities.indexOf(monster);
-              if (monsterIdx > -1) state.entities.splice(monsterIdx, 1);
-
-              // Award score
-              state.player.score += 15;
-            }
+            // Apply damage via simulation event pipeline for drops
+            pushEvent(state, {
+              type: EventType.DAMAGE,
+              data: {
+                type: "DAMAGE",
+                targetId: targetEntity.id,
+                amount: bullet.damage,
+                sourceId: bullet.ownerId,
+              },
+            });
 
             // Remove bullet
             this.removeEntity(bullet);
@@ -456,6 +452,12 @@ export class Physics {
     );
 
     for (const explosive of explosives) {
+      if (
+        typeof explosive.ignoreOwnerTicks === "number" &&
+        explosive.ignoreOwnerTicks > 0
+      ) {
+        explosive.ignoreOwnerTicks -= 1;
+      }
       // Only check collisions for moving explosives (grenades in flight)
       if (explosive.velocityX === 0 && explosive.velocityY === 0) {
         continue;
@@ -482,7 +484,19 @@ export class Physics {
             state,
             other as Circle | Box,
           );
-          if (targetEntity && targetEntity.kind === EntityKind.MONSTER) {
+          if (!targetEntity) return;
+
+          if (
+            targetEntity.id === explosive.ownerId &&
+            (explosive.ignoreOwnerTicks ?? 0) > 0
+          ) {
+            return;
+          }
+
+          if (
+            targetEntity.kind === EntityKind.MONSTER ||
+            targetEntity.kind === EntityKind.PLAYER
+          ) {
             shouldExplode = true;
           }
         });

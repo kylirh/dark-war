@@ -17,12 +17,20 @@ export class ExplosiveEntity extends GameEntity {
   /** Type of explosive (grenade or land mine) */
   public type: ItemType.GRENADE | ItemType.LAND_MINE;
 
+  /** Entity id that spawned the explosive (used to ignore immediate collisions) */
+  public ownerId?: string;
+
+  /** Number of ticks to ignore collisions with the owner */
+  public ignoreOwnerTicks?: number;
+
   constructor(
     worldX: number,
     worldY: number,
     type: ItemType.GRENADE | ItemType.LAND_MINE,
     armed: boolean,
     fuseTicks?: number,
+    ownerId?: string,
+    ignoreOwnerTicks?: number,
   ) {
     super(0, 0);
     this.worldX = worldX;
@@ -32,5 +40,7 @@ export class ExplosiveEntity extends GameEntity {
     this.type = type;
     this.armed = armed;
     this.fuseTicks = fuseTicks;
+    this.ownerId = ownerId;
+    this.ignoreOwnerTicks = ignoreOwnerTicks;
   }
 }

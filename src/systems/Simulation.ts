@@ -40,6 +40,7 @@ export const MONSTER_ITEM_PICKUP_CHANCE = 0.85; // 85% chance to pick up items w
 export const MAX_EVENTS_PER_TICK = 1000;
 export const MAX_COMMANDS_PER_TICK = 1000;
 const GRENADE_FUSE_TICKS = 14; // ~0.7s at 20 ticks/sec
+const EXPLOSIVE_OWNER_GRACE_TICKS = 6;
 const MELEE_ARC = Math.PI / 3;
 
 const EXPLOSIVE_CONFIG: Record<
@@ -547,6 +548,55 @@ function normalizeAngle(angle: number): number {
   return result;
 }
 
+function hasClearLineOfSight(
+  map: TileType[],
+  startWorldX: number,
+  startWorldY: number,
+  endWorldX: number,
+  endWorldY: number,
+): boolean {
+  const gridX1 = Math.floor(startWorldX / CELL_CONFIG.w);
+  const gridY1 = Math.floor(startWorldY / CELL_CONFIG.h);
+  const gridX2 = Math.floor(endWorldX / CELL_CONFIG.w);
+  const gridY2 = Math.floor(endWorldY / CELL_CONFIG.h);
+
+  const dx = Math.abs(gridX2 - gridX1);
+  const dy = Math.abs(gridY2 - gridY1);
+  const sx = gridX1 < gridX2 ? 1 : -1;
+  const sy = gridY1 < gridY2 ? 1 : -1;
+  let err = dx - dy;
+
+  let x = gridX1;
+  let y = gridY1;
+
+  while (true) {
+    const tile = tileAt(map, x, y);
+    if (
+      tile === TileType.WALL ||
+      tile === TileType.DOOR_CLOSED ||
+      tile === TileType.DOOR_LOCKED
+    ) {
+      if ((x !== gridX1 || y !== gridY1) && (x !== gridX2 || y !== gridY2)) {
+        return false;
+      }
+    }
+
+    if (x === gridX2 && y === gridY2) break;
+
+    const e2 = 2 * err;
+    if (e2 > -dy) {
+      err -= dy;
+      x += sx;
+    }
+    if (e2 < dx) {
+      err += dx;
+      y += sy;
+    }
+  }
+
+  return true;
+}
+
 function findMeleeTarget(
   state: GameState,
   player: Player,
@@ -627,133 +677,217 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
 
 function resolveFireCommand(state: GameState, cmd: Command): void {
   const shooter = state.entities.find((e) => e.id === cmd.actorId);
-  if (!shooter || shooter.kind !== EntityKind.PLAYER) return;
+  if (!shooter) return;
 
-  const player = shooter as Player;
-  if (!("worldX" in player) || !("facingAngle" in player)) return;
+  const data = cmd.data as {
+    type: "FIRE";
+    dx: number;
+    dy: number;
+    weapon?: WeaponType;
+  };
+  const weaponOverride = data.weapon;
 
-  const angle = (player as any).facingAngle;
+  if (shooter.kind === EntityKind.PLAYER) {
+    const player = shooter as Player;
+    if (!("worldX" in player) || !("facingAngle" in player)) return;
 
-  switch (player.weapon) {
-    case WeaponType.MELEE: {
-      const target = findMeleeTarget(state, player, angle);
-      if (!target) {
-        const dx = Math.round(Math.cos(angle));
-        const dy = Math.round(Math.sin(angle));
-        const targetX = player.gridX + dx;
-        const targetY = player.gridY + dy;
-        const hitWall = applyWallDamageAt(state, targetX, targetY, 2);
-        if (hitWall) {
+    const angle = (player as any).facingAngle;
+    const weapon = weaponOverride ?? player.weapon;
+
+    switch (weapon) {
+      case WeaponType.MELEE: {
+        const target = findMeleeTarget(state, player, angle);
+        if (!target) {
+          const dx = Math.round(Math.cos(angle));
+          const dy = Math.round(Math.sin(angle));
+          const targetX = player.gridX + dx;
+          const targetY = player.gridY + dy;
+          const hitWall = applyWallDamageAt(state, targetX, targetY, 2);
+          if (hitWall) {
+            pushEvent(state, {
+              type: EventType.MESSAGE,
+              data: { type: "MESSAGE", message: "You chip the wall." },
+            });
+            return;
+          }
           pushEvent(state, {
             type: EventType.MESSAGE,
-            data: { type: "MESSAGE", message: "You chip the wall." },
+            data: { type: "MESSAGE", message: "You swing at empty air." },
           });
           return;
         }
+
         pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "You swing at empty air." },
+          type: EventType.DAMAGE,
+          data: {
+            type: "DAMAGE",
+            targetId: target.id,
+            amount: 2,
+            sourceId: player.id,
+          },
         });
         return;
       }
+      case WeaponType.PISTOL: {
+        if (player.ammo <= 0) {
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "*click* Out of ammo!" },
+          });
+          return;
+        }
 
-      pushEvent(state, {
-        type: EventType.DAMAGE,
-        data: {
-          type: "DAMAGE",
-          targetId: target.id,
-          amount: 2,
-          sourceId: player.id,
-        },
-      });
-      return;
+        player.ammo--;
+        Sound.play(SoundEffect.SHOOT);
+
+        const BULLET_SPEED = 600; // pixels per second
+        const bullet = new BulletEntity(
+          (player as any).worldX,
+          (player as any).worldY,
+          Math.cos(angle) * BULLET_SPEED,
+          Math.sin(angle) * BULLET_SPEED,
+          2,
+          player.id,
+          640,
+        );
+
+        state.entities.push(bullet);
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "Fired!" },
+        });
+        return;
+      }
+      case WeaponType.GRENADE: {
+        if (player.grenades <= 0) {
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "No grenades left!" },
+          });
+          return;
+        }
+
+        player.grenades--;
+        const THROW_SPEED = 360;
+        const grenade = new ExplosiveEntity(
+          (player as any).worldX,
+          (player as any).worldY,
+          ItemType.GRENADE,
+          true,
+          GRENADE_FUSE_TICKS,
+          player.id,
+          EXPLOSIVE_OWNER_GRACE_TICKS,
+        );
+        grenade.velocityX = Math.cos(angle) * THROW_SPEED;
+        grenade.velocityY = Math.sin(angle) * THROW_SPEED;
+        grenade.worldX += grenade.velocityX * (SIM_DT_MS / 1000);
+        grenade.worldY += grenade.velocityY * (SIM_DT_MS / 1000);
+        state.entities.push(grenade);
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "Grenade out!" },
+        });
+        return;
+      }
+      case WeaponType.LAND_MINE: {
+        if (player.landMines <= 0) {
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "No land mines left!" },
+          });
+          return;
+        }
+
+        const [dx, dy] = directionFromAngle(angle);
+        const targetX = player.gridX + dx;
+        const targetY = player.gridY + dy;
+        const canPlace = passable(state.map, targetX, targetY);
+        const placeX = canPlace ? targetX : player.gridX;
+        const placeY = canPlace ? targetY : player.gridY;
+
+        player.landMines--;
+        const mine = new ExplosiveEntity(
+          placeX * CELL_CONFIG.w + CELL_CONFIG.w / 2,
+          placeY * CELL_CONFIG.h + CELL_CONFIG.h / 2,
+          ItemType.LAND_MINE,
+          true,
+          undefined,
+          player.id,
+          EXPLOSIVE_OWNER_GRACE_TICKS,
+        );
+        state.entities.push(mine);
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "Mine armed." },
+        });
+        return;
+      }
+      default:
+        return;
     }
-    case WeaponType.PISTOL: {
-      if (player.ammo <= 0) {
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "*click* Out of ammo!" },
-        });
+  }
+
+  if (shooter.kind === EntityKind.MONSTER) {
+    const monster = shooter as Monster;
+    if (!("worldX" in monster) || !("worldY" in monster)) return;
+    const target = state.player;
+
+    const dx = (target as any).worldX - (monster as any).worldX;
+    const dy = (target as any).worldY - (monster as any).worldY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance === 0) return;
+
+    const weapon = weaponOverride ?? WeaponType.GRENADE;
+
+    switch (weapon) {
+      case WeaponType.GRENADE: {
+        if (monster.grenades <= 0) return;
+
+        const THROW_SPEED = 320;
+        const leadTime = distance / THROW_SPEED;
+        const targetVelocityX = (target as any).velocityX ?? 0;
+        const targetVelocityY = (target as any).velocityY ?? 0;
+        const predictedX = (target as any).worldX + targetVelocityX * leadTime;
+        const predictedY = (target as any).worldY + targetVelocityY * leadTime;
+        const angle = Math.atan2(
+          predictedY - (monster as any).worldY,
+          predictedX - (monster as any).worldX,
+        );
+
+        monster.grenades--;
+        const grenade = new ExplosiveEntity(
+          (monster as any).worldX,
+          (monster as any).worldY,
+          ItemType.GRENADE,
+          true,
+          GRENADE_FUSE_TICKS,
+          monster.id,
+          EXPLOSIVE_OWNER_GRACE_TICKS,
+        );
+        grenade.velocityX = Math.cos(angle) * THROW_SPEED;
+        grenade.velocityY = Math.sin(angle) * THROW_SPEED;
+        grenade.worldX += grenade.velocityX * (SIM_DT_MS / 1000);
+        grenade.worldY += grenade.velocityY * (SIM_DT_MS / 1000);
+        state.entities.push(grenade);
         return;
       }
-
-      player.ammo--;
-      Sound.play(SoundEffect.SHOOT);
-
-      const BULLET_SPEED = 600; // pixels per second
-      const bullet = new BulletEntity(
-        (player as any).worldX,
-        (player as any).worldY,
-        Math.cos(angle) * BULLET_SPEED,
-        Math.sin(angle) * BULLET_SPEED,
-        2,
-        player.id,
-        640,
-      );
-
-      state.entities.push(bullet);
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "Fired!" },
-      });
-      return;
-    }
-    case WeaponType.GRENADE: {
-      if (player.grenades <= 0) {
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "No grenades left!" },
-        });
+      case WeaponType.LAND_MINE: {
+        if (monster.landMines <= 0) return;
+        monster.landMines--;
+        const mine = new ExplosiveEntity(
+          (monster as any).worldX,
+          (monster as any).worldY,
+          ItemType.LAND_MINE,
+          true,
+          undefined,
+          monster.id,
+          EXPLOSIVE_OWNER_GRACE_TICKS,
+        );
+        state.entities.push(mine);
         return;
       }
-
-      player.grenades--;
-      const THROW_SPEED = 360;
-      const grenade = new ExplosiveEntity(
-        (player as any).worldX,
-        (player as any).worldY,
-        ItemType.GRENADE,
-        true,
-        GRENADE_FUSE_TICKS,
-      );
-      grenade.velocityX = Math.cos(angle) * THROW_SPEED;
-      grenade.velocityY = Math.sin(angle) * THROW_SPEED;
-      state.entities.push(grenade);
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "Grenade out!" },
-      });
-      return;
-    }
-    case WeaponType.LAND_MINE: {
-      if (player.landMines <= 0) {
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "No land mines left!" },
-        });
+      default:
         return;
-      }
-
-      const [dx, dy] = directionFromAngle(angle);
-      const targetX = player.gridX + dx;
-      const targetY = player.gridY + dy;
-      const canPlace = passable(state.map, targetX, targetY);
-      const placeX = canPlace ? targetX : player.gridX;
-      const placeY = canPlace ? targetY : player.gridY;
-
-      player.landMines--;
-      const mine = new ExplosiveEntity(
-        placeX * CELL_CONFIG.w + CELL_CONFIG.w / 2,
-        placeY * CELL_CONFIG.h + CELL_CONFIG.h / 2,
-        ItemType.LAND_MINE,
-        true,
-      );
-      state.entities.push(mine);
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "Mine armed." },
-      });
-      return;
     }
   }
 }
@@ -955,6 +1089,14 @@ function updateExplosives(state: GameState): void {
     if (explosive.type === ItemType.LAND_MINE) {
       const triggerRadius = CELL_CONFIG.w * 0.45;
       const triggered = actors.some((actor) => {
+        if (
+          explosive.ownerId &&
+          explosive.ignoreOwnerTicks &&
+          explosive.ignoreOwnerTicks > 0 &&
+          actor.id === explosive.ownerId
+        ) {
+          return false;
+        }
         const dx = (actor as any).worldX - explosive.worldX;
         const dy = (actor as any).worldY - explosive.worldY;
         return Math.sqrt(dx * dx + dy * dy) <= triggerRadius;
@@ -1438,6 +1580,50 @@ function decideMonsterCommand(
       type: CommandType.MELEE,
       data: { type: "MELEE", targetId: player.id },
       priority: 0,
+      source: "AI",
+    };
+  }
+
+  // Throw grenade if available, clear line-of-sight, and enough space
+  const monsterWorldX = (monster as any).worldX;
+  const monsterWorldY = (monster as any).worldY;
+  const playerWorldX = (player as any).worldX;
+  const playerWorldY = (player as any).worldY;
+  const hasGrenadeLOS = hasClearLineOfSight(
+    state.map,
+    monsterWorldX,
+    monsterWorldY,
+    playerWorldX,
+    playerWorldY,
+  );
+
+  if (
+    monster.grenades > 0 &&
+    distance <= 8 &&
+    distance >= 2 &&
+    hasGrenadeLOS &&
+    RNG.chance(0.35)
+  ) {
+    return {
+      id: crypto.randomUUID(),
+      tick,
+      actorId: monster.id,
+      type: CommandType.FIRE,
+      data: { type: "FIRE", dx: 0, dy: 0, weapon: WeaponType.GRENADE },
+      priority: 1,
+      source: "AI",
+    };
+  }
+
+  // Lay land mine if available and close to player
+  if (monster.landMines > 0 && distance <= 3 && RNG.chance(0.25)) {
+    return {
+      id: crypto.randomUUID(),
+      tick,
+      actorId: monster.id,
+      type: CommandType.FIRE,
+      data: { type: "FIRE", dx: 0, dy: 0, weapon: WeaponType.LAND_MINE },
+      priority: 1,
       source: "AI",
     };
   }

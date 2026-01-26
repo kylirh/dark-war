@@ -136,6 +136,8 @@ export interface Explosive extends BaseEntity {
   type: ItemType.GRENADE | ItemType.LAND_MINE;
   armed: boolean;
   fuseTicks?: number;
+  ownerId?: string;
+  ignoreOwnerTicks?: number;
 }
 
 export interface Effect {
@@ -192,7 +194,7 @@ export interface Command {
 export type CommandData =
   | { type: "MOVE"; dx: number; dy: number }
   | { type: "MELEE"; targetId: string }
-  | { type: "FIRE"; dx: number; dy: number }
+  | { type: "FIRE"; dx: number; dy: number; weapon?: WeaponType }
   | { type: "WAIT" }
   | { type: "PICKUP" }
   | { type: "INTERACT"; x: number; y: number }
