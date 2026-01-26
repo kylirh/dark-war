@@ -36,6 +36,7 @@ export const MONSTER_ACTION_DELAY = 5; // Monsters act every N ticks (player act
 export const MONSTER_AI_UPDATE_INTERVAL = 5; // Update monster velocities every 5 ticks (~4 Hz)
 export const MONSTER_SPEED = 225; // pixels per second
 export const MONSTER_ARRIVAL_RADIUS = CELL_CONFIG.w * 1.5; // Stop when within 1.5 tiles for attack
+export const MONSTER_ITEM_PICKUP_CHANCE = 0.85; // 85% chance to pick up items when overlapping
 export const MAX_EVENTS_PER_TICK = 1000;
 export const MAX_COMMANDS_PER_TICK = 1000;
 const GRENADE_FUSE_TICKS = 14; // ~0.7s at 20 ticks/sec
@@ -248,6 +249,9 @@ export function stepSimulationTick(state: GameState): void {
     resolveCommand(state, cmd);
   }
 
+  // 3.5 Monsters can pick up items when overlapping them
+  processMonsterItemPickups(state);
+
   // 4. Process event queue until empty
   processEventQueue(state);
 
@@ -260,6 +264,82 @@ export function stepSimulationTick(state: GameState): void {
   }
 
   state.sim.nowTick++;
+}
+
+// ========================================
+// Monster Item Pickup (Auto)
+// ========================================
+
+function processMonsterItemPickups(state: GameState): void {
+  const monsters = state.entities.filter(
+    (e): e is Monster => e.kind === EntityKind.MONSTER && e.hp > 0,
+  );
+  if (monsters.length === 0) return;
+
+  const items = state.entities.filter(
+    (e): e is Item => e.kind === EntityKind.ITEM,
+  );
+  if (items.length === 0) return;
+
+  const PICKUP_RADIUS = 24;
+  const pickedItemIds = new Set<string>();
+
+  for (const monster of monsters) {
+    if (!monster.carriedItems) {
+      monster.carriedItems = [];
+    }
+    for (const item of items) {
+      if (pickedItemIds.has(item.id)) continue;
+
+      let isOverlapping = false;
+
+      if ("worldX" in monster && "worldX" in item) {
+        const dx = (item as any).worldX - (monster as any).worldX;
+        const dy = (item as any).worldY - (monster as any).worldY;
+        isOverlapping = Math.sqrt(dx * dx + dy * dy) <= PICKUP_RADIUS;
+      } else {
+        isOverlapping =
+          item.gridX === monster.gridX && item.gridY === monster.gridY;
+      }
+
+      if (!isOverlapping) continue;
+
+      if (!RNG.chance(MONSTER_ITEM_PICKUP_CHANCE)) continue;
+
+      switch (item.type) {
+        case ItemType.MEDKIT:
+          continue;
+        case ItemType.GRENADE:
+          monster.grenades += item.amount || 1;
+          break;
+        case ItemType.LAND_MINE:
+          monster.landMines += item.amount || 1;
+          break;
+        case ItemType.AMMO:
+          monster.carriedItems.push({
+            type: ItemType.AMMO,
+            amount: item.amount,
+          });
+          break;
+        case ItemType.KEYCARD:
+          monster.carriedItems.push({
+            type: ItemType.KEYCARD,
+          });
+          break;
+        case ItemType.PISTOL:
+          monster.carriedItems.push({
+            type: ItemType.PISTOL,
+          });
+          break;
+      }
+
+      pickedItemIds.add(item.id);
+    }
+  }
+
+  if (pickedItemIds.size > 0) {
+    state.entities = state.entities.filter((e) => !pickedItemIds.has(e.id));
+  }
 }
 
 // ========================================
@@ -1114,6 +1194,9 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
 
   if (entity.kind === EntityKind.MONSTER) {
     const monster = entity as Monster;
+    if (!monster.carriedItems) {
+      monster.carriedItems = [];
+    }
 
     // Play death sound
     Sound.play(SoundEffect.MONSTER_DEATH);
@@ -1150,6 +1233,19 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
 
       spawnExplosive(ItemType.GRENADE, monster.grenades);
       spawnExplosive(ItemType.LAND_MINE, monster.landMines);
+    }
+
+    if (monster.carriedItems.length > 0) {
+      for (const carried of monster.carriedItems) {
+        const item = new ItemEntity(monster.gridX, monster.gridY, carried.type);
+        if (typeof carried.amount === "number") {
+          item.amount = carried.amount;
+        }
+        if (typeof carried.heal === "number") {
+          item.heal = carried.heal;
+        }
+        state.entities.push(item);
+      }
     }
 
     // Remove from entity list

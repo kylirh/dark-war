@@ -101,10 +101,18 @@ export interface Player extends BaseEntity {
 export interface Monster extends BaseEntity {
   kind: EntityKind.MONSTER;
   type: MonsterType;
+  hpMax: number;
   hp: number;
   dmg: number;
   grenades: number;
   landMines: number;
+  carriedItems: CarriedItem[];
+}
+
+export interface CarriedItem {
+  type: ItemType;
+  amount?: number;
+  heal?: number;
 }
 
 export interface Item extends BaseEntity {

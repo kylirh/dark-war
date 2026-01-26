@@ -1,4 +1,4 @@
-import { EntityKind, MonsterType } from "../types";
+import { EntityKind, ItemType, MonsterType } from "../types";
 import { GameEntity } from "./GameEntity";
 import { RNG } from "../utils/RNG";
 
@@ -8,6 +8,9 @@ import { RNG } from "../utils/RNG";
 export class MonsterEntity extends GameEntity {
   /** Entity type identifier */
   public readonly kind = EntityKind.MONSTER;
+
+  /** Max health points */
+  public hpMax: number;
 
   /** Damage dealt per attack */
   public dmg: number;
@@ -21,6 +24,9 @@ export class MonsterEntity extends GameEntity {
   /** Number of land mines carried */
   public landMines: number;
 
+  /** Items carried beyond direct counters */
+  public carriedItems: { type: ItemType; amount?: number; heal?: number }[];
+
   /** Monster type (mutant, rat, etc.) */
   public type: MonsterType;
 
@@ -28,10 +34,12 @@ export class MonsterEntity extends GameEntity {
     super(gridX, gridY);
 
     this.type = type;
-    this.hp = 6 + depth;
+    this.hpMax = 6 + depth;
+    this.hp = this.hpMax;
     this.dmg = 2 + Math.floor(depth / 2);
     this.grenades = RNG.chance(0.12) ? 1 : 0;
     this.landMines = this.grenades === 0 && RNG.chance(0.08) ? 1 : 0;
+    this.carriedItems = [];
     this.nextActTick = 0;
   }
 }

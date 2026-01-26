@@ -410,12 +410,24 @@ export class Game {
           data.depth,
         );
         Object.assign(monster, entity);
+        if (typeof monster.hpMax !== "number") {
+          monster.hpMax = Math.max(monster.hp, 1);
+        }
+        if (!monster.carriedItems) {
+          monster.carriedItems = [];
+        }
         this.syncWorldPosition(monster, entity);
         entities.push(monster);
       } else if (
         entity.kind === EntityKind.MONSTER &&
         entity instanceof MonsterEntity
       ) {
+        if (typeof entity.hpMax !== "number") {
+          entity.hpMax = Math.max(entity.hp, 1);
+        }
+        if (!entity.carriedItems) {
+          entity.carriedItems = [];
+        }
         this.syncWorldPosition(entity, entity);
         entities.push(entity);
       } else if (
