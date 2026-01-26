@@ -451,7 +451,16 @@ export class Renderer {
           entity.kind === EntityKind.EXPLOSIVE) &&
         "type" in entity
       ) {
-        coord = SPRITE_COORDS[entity.type];
+        if (
+          entity.kind === EntityKind.EXPLOSIVE &&
+          entity.type === ItemType.LAND_MINE &&
+          "armed" in entity &&
+          entity.armed
+        ) {
+          coord = SPRITE_COORDS["land_mine_active"];
+        } else {
+          coord = SPRITE_COORDS[entity.type];
+        }
       } else if (entity.kind === EntityKind.BULLET) {
         coord = SPRITE_COORDS["bullet"];
       }
