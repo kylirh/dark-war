@@ -21,6 +21,7 @@ import { idx } from "../utils/helpers";
 import {
   SPRITE_SIZE,
   SPRITE_COORDS,
+  FLOOR_VARIANTS,
   EXPLOSION_FRAMES,
   PLAYER_WALK_FRAMES,
   PLAYER_IDLE_FRAMES,
@@ -338,6 +339,11 @@ export class Renderer {
         // Get sprite coordinates for this tile
         const tileType = map[tileIndex];
         let coord = SPRITE_COORDS[tileType];
+        if (tileType === TileType.FLOOR) {
+          const floorVariant = state.floorVariant ?? 0;
+          coord =
+            FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
+        }
 
         // Handle wall damage sprites
         if (tileType === TileType.WALL) {
@@ -359,7 +365,9 @@ export class Renderer {
           tileType === TileType.STAIRS;
 
         if (needsFloorBase) {
-          const floorCoord = SPRITE_COORDS[TileType.FLOOR];
+          const floorVariant = state.floorVariant ?? 0;
+          const floorCoord =
+            FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
           if (floorCoord) {
             const floorSprite = this.createSprite(
               floorCoord.x,

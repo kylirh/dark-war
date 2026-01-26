@@ -77,6 +77,12 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [ItemType.LAND_MINE]: { x: 5, y: 3 },
 };
 
+export const FLOOR_VARIANTS: SpriteCoordinate[] = [
+  SPRITE_COORDS[TileType.FLOOR],
+  { x: 8, y: 0 },
+  { x: 9, y: 0 },
+];
+
 export const EXPLOSION_FRAMES: SpriteCoordinate[] = [
   SPRITE_COORDS.explosion_1,
   SPRITE_COORDS.explosion_2,

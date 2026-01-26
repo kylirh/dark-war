@@ -7,6 +7,7 @@ import { setTile, tileAt } from "../utils/helpers";
  */
 export function generateDungeon(): DungeonData {
   const map: TileType[] = new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL);
+  const floorVariant = RNG.int(3);
   const rooms: Room[] = [];
 
   // Generate rooms
@@ -71,7 +72,7 @@ export function generateDungeon(): DungeonData {
 
   setTile(map, stairs[0], stairs[1], TileType.STAIRS);
 
-  return { map, start, stairs, rooms };
+  return { map, floorVariant, start, stairs, rooms };
 }
 
 /**

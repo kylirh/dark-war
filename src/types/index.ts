@@ -241,6 +241,7 @@ export interface Room {
 
 export interface DungeonData {
   map: TileType[];
+  floorVariant: number;
   start: [number, number];
   stairs: [number, number];
   rooms: Room[];
@@ -253,6 +254,7 @@ export interface DungeonData {
 export interface GameState {
   depth: number;
   map: TileType[];
+  floorVariant: number;
   wallDamage: number[];
   mapDirty: boolean;
   visible: Set<number>;
@@ -280,6 +282,7 @@ export interface GameState {
 export interface SerializedState {
   depth: number;
   map: TileType[];
+  floorVariant?: number;
   wallDamage?: number[];
   stairs: [number, number];
   player: Player;

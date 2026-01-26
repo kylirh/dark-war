@@ -44,6 +44,7 @@ export class Game {
     return {
       depth: 1,
       map: new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL),
+      floorVariant: 0,
       wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
       mapDirty: false,
       visible: new Set(),
@@ -81,6 +82,7 @@ export class Game {
     this.state = {
       depth,
       map: dungeon.map,
+      floorVariant: dungeon.floorVariant,
       wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
       mapDirty: false,
       visible: new Set(),
@@ -245,6 +247,7 @@ export class Game {
 
     const dungeon = generateDungeon();
     this.state.map = dungeon.map;
+    this.state.floorVariant = dungeon.floorVariant;
     this.state.stairs = dungeon.stairs;
     this.state.visible.clear();
     this.state.explored.clear();
@@ -356,6 +359,7 @@ export class Game {
     return {
       depth: this.state.depth,
       map: this.state.map,
+      floorVariant: this.state.floorVariant,
       wallDamage: this.state.wallDamage,
       stairs: this.state.stairs,
       player: this.state.player,
@@ -373,6 +377,8 @@ export class Game {
    * Load game state from serialized data
    */
   public deserialize(data: SerializedState): void {
+    const floorVariant =
+      typeof data.floorVariant === "number" ? data.floorVariant : RNG.int(3);
     const wallDamage =
       data.wallDamage && data.wallDamage.length === data.map.length
         ? data.wallDamage.slice()
@@ -460,6 +466,7 @@ export class Game {
     this.state = {
       depth: data.depth,
       map: data.map,
+      floorVariant,
       wallDamage,
       mapDirty: false,
       stairs: data.stairs,
