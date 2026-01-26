@@ -228,6 +228,7 @@ export type EventData =
       amount: number;
       sourceId?: string;
       fromExplosion?: boolean;
+      suppressHitSound?: boolean;
     }
   | { type: "DEATH"; entityId: string; fromExplosion?: boolean }
   | { type: "EXPLOSION"; x: number; y: number; radius: number; damage: number }

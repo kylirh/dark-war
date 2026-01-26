@@ -428,6 +428,7 @@ export class Physics {
                 targetId: targetEntity.id,
                 amount: bullet.damage,
                 sourceId: bullet.ownerId,
+                suppressHitSound: true,
               },
             });
 

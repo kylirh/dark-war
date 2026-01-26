@@ -1175,6 +1175,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     amount: number;
     sourceId?: string;
     fromExplosion?: boolean;
+    suppressHitSound?: boolean;
   };
   const target = state.entities.find((e) => e.id === data.targetId);
   if (!target) return;
@@ -1210,8 +1211,10 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     const monster = target as Monster;
     monster.hp -= data.amount;
 
-    // Play monster hit sound
-    Sound.play(SoundEffect.HIT_MONSTER);
+    if (!data.suppressHitSound) {
+      // Play monster hit sound
+      Sound.play(SoundEffect.HIT_MONSTER);
+    }
 
     if (monster.hp <= 0) {
       pushEvent(state, {
