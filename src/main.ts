@@ -1,3 +1,30 @@
+import { Game } from "./core/Game";
+import { GameLoop } from "./core/GameLoop";
+import { InputCallbacks, InputHandler, MOVEMENT_SPEED } from "./systems/Input";
+import { MouseTracker } from "./systems/MouseTracker";
+import { Physics } from "./systems/Physics";
+import { Renderer } from "./systems/Renderer";
+import {
+  enqueueCommand,
+  SIM_DT_MS,
+  stepSimulationTick,
+} from "./systems/Simulation";
+import { Sound } from "./systems/Sound";
+import { UI } from "./systems/UI";
+import {
+  CELL_CONFIG,
+  CommandType,
+  EntityKind,
+  MAP_WIDTH,
+  REAL_TIME_SPEED,
+  SLOWMO_SCALE,
+  TileType,
+  TIME_SCALE_TRANSITION_SPEED,
+  WeaponType,
+} from "./types";
+import { idx, inBounds } from "./utils/helpers";
+import { findPathToClosestReachable } from "./utils/pathfinding";
+
 /**
  * Dark War - Main Entry Point
  *
@@ -14,39 +41,17 @@
  * - Entity-Component pattern with continuous coordinates
  */
 
-// Debug configuration - set to true to enable performance logging
+/** Enable debug logging for the entire game */
 const DEBUG = false;
 
-// Mouse wheel throttling constants
-const WHEEL_THROTTLE_MS = 150; // Minimum time between weapon switches (ms)
-const WHEEL_DELTA_THRESHOLD = 30; // Minimum accumulated deltaY to trigger switch
+/** The delay between clicks to count as double-click */
+const DOUBLE_CLICK_DELAY_MS = 320;
 
-import { Game } from "./core/Game";
-import { GameLoop } from "./core/GameLoop";
-import { Renderer } from "./systems/Renderer";
-import { Physics } from "./systems/Physics";
-import { MouseTracker } from "./systems/MouseTracker";
-import { UI } from "./systems/UI";
-import { InputHandler, InputCallbacks, MOVEMENT_SPEED } from "./systems/Input";
-import { Sound } from "./systems/Sound";
-import {
-  enqueueCommand,
-  stepSimulationTick,
-  SIM_DT_MS,
-} from "./systems/Simulation";
-import {
-  CommandType,
-  TileType,
-  EventType,
-  CELL_CONFIG,
-  MAP_WIDTH,
-  SLOWMO_SCALE,
-  REAL_TIME_SPEED,
-  TIME_SCALE_TRANSITION_SPEED,
-  WeaponType,
-} from "./types";
-import { findPathToClosestReachable } from "./utils/pathfinding";
-import { idx, inBounds } from "./utils/helpers";
+/** The minimum accumulated deltaY to trigger the scroll wheel. Tunes the scroll wheel's sensitivity. */
+const SCROLL_WHEEL_DELTA_THRESHOLD = 50; // Minimum accumulated deltaY to trigger the scroll wheel. Tunes the scroll wheel's sensitivity.
+
+/** The delay between allowed scroll wheel changes. Tunes the scroll wheel's sensitivity. */
+const SCROLL_WHEEL_THROTTLE_MS = 200; //
 
 // Global reference to save system
 declare global {
@@ -63,7 +68,7 @@ declare global {
 }
 
 /**
- * Main game application
+ * The main game application
  */
 class DarkWar {
   private game: Game;
@@ -77,6 +82,7 @@ class DarkWar {
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
   private autoMoveDoorTarget: { gridX: number; gridY: number } | null = null;
+  private autoMovePickupTarget: { gridX: number; gridY: number } | null = null;
   private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
   private wasPlayerMoving: boolean = false;
   private lastPlayerWorldX?: number;
@@ -84,6 +90,10 @@ class DarkWar {
   private lastWheelTime: number = 0; // Track last weapon cycle time
   private wheelDeltaAccumulator: number = 0; // Accumulate wheel delta
   private lastPlayerHp?: number;
+  private lastRightClickTime: number = 0;
+  private lastRightClickTile: { gridX: number; gridY: number } | null = null;
+  private pendingRightClickTimer: number | null = null;
+  private pendingRightClickTile: { gridX: number; gridY: number } | null = null;
 
   constructor() {
     if (DEBUG) console.time("Game initialization");
@@ -229,7 +239,6 @@ class DarkWar {
     // Right click: move
     canvas.addEventListener("contextmenu", (event) => {
       event.preventDefault();
-      const state = this.game.getState();
       const scale = this.renderer.getScale();
 
       // Get canvas bounding rect
@@ -251,44 +260,40 @@ class DarkWar {
         return;
       }
 
-      const tileIdx = idx(tileX, tileY);
-      const tileType = state.map[tileIdx];
+      const now = performance.now();
+      const isSameTileAsLastClick =
+        this.lastRightClickTile &&
+        this.lastRightClickTile.gridX === tileX &&
+        this.lastRightClickTile.gridY === tileY;
+      const isDoubleRightClick =
+        isSameTileAsLastClick &&
+        now - this.lastRightClickTime <= DOUBLE_CLICK_DELAY_MS;
+      this.lastRightClickTime = now;
+      this.lastRightClickTile = { gridX: tileX, gridY: tileY };
 
-      const isDoor =
-        tileType === TileType.DOOR_CLOSED ||
-        tileType === TileType.DOOR_OPEN ||
-        tileType === TileType.DOOR_LOCKED;
-
-      if (isDoor) {
-        const dx = tileX - state.player.gridX;
-        const dy = tileY - state.player.gridY;
-
-        if (Math.abs(dx) + Math.abs(dy) === 1) {
-          this.handleInteract(dx, dy);
-          return;
-        }
+      if (this.pendingRightClickTimer !== null) {
+        window.clearTimeout(this.pendingRightClickTimer);
+        this.pendingRightClickTimer = null;
+        this.pendingRightClickTile = null;
       }
 
-      // Find path to clicked tile (or closest reachable)
-      const path = findPathToClosestReachable(
-        state.player.gridX,
-        state.player.gridY,
-        tileX,
-        tileY,
-        state.map,
-        state.explored,
-        state.entities,
-      );
-
-      if (path && path.length > 1) {
-        // Store path for auto-movement (skip first element which is current position)
-        this.autoMovePath = path.slice(1);
-        this.autoMoveDoorTarget = isDoor
-          ? { gridX: tileX, gridY: tileY }
-          : null;
-        // Speed up to real-time during click-to-move
-        state.sim.targetTimeScale = 1.0;
+      if (isDoubleRightClick) {
+        this.triggerRightClickMove(tileX, tileY, true);
+        return;
       }
+
+      this.pendingRightClickTile = { gridX: tileX, gridY: tileY };
+      this.pendingRightClickTimer = window.setTimeout(() => {
+        const pendingTile = this.pendingRightClickTile;
+        this.pendingRightClickTimer = null;
+        this.pendingRightClickTile = null;
+        if (!pendingTile) return;
+        this.triggerRightClickMove(
+          pendingTile.gridX,
+          pendingTile.gridY,
+          false,
+        );
+      }, DOUBLE_CLICK_DELAY_MS);
     });
 
     canvas.addEventListener(
@@ -304,8 +309,8 @@ class DarkWar {
 
         // Only switch weapon if enough time has passed AND enough delta accumulated
         if (
-          timeSinceLastSwitch >= WHEEL_THROTTLE_MS &&
-          Math.abs(this.wheelDeltaAccumulator) >= WHEEL_DELTA_THRESHOLD
+          timeSinceLastSwitch >= SCROLL_WHEEL_THROTTLE_MS &&
+          Math.abs(this.wheelDeltaAccumulator) >= SCROLL_WHEEL_DELTA_THRESHOLD
         ) {
           const direction = this.wheelDeltaAccumulator > 0 ? 1 : -1;
           this.handleCycleWeapon(direction);
@@ -315,6 +320,66 @@ class DarkWar {
       },
       { passive: false },
     );
+  }
+
+  private triggerRightClickMove(
+    tileX: number,
+    tileY: number,
+    wantsPickup: boolean,
+  ): void {
+    const state = this.game.getState();
+    this.autoMovePickupTarget = null;
+
+    const hasItemOnTile =
+      wantsPickup &&
+      state.entities.some(
+        (entity) =>
+          entity.kind === EntityKind.ITEM &&
+          entity.gridX === tileX &&
+          entity.gridY === tileY,
+      );
+    const shouldPickupOnArrive = wantsPickup && hasItemOnTile;
+
+    const tileIdx = idx(tileX, tileY);
+    const tileType = state.map[tileIdx];
+
+    const isDoor =
+      tileType === TileType.DOOR_CLOSED ||
+      tileType === TileType.DOOR_OPEN ||
+      tileType === TileType.DOOR_LOCKED;
+
+    if (isDoor) {
+      this.autoMovePickupTarget = null;
+      const dx = tileX - state.player.gridX;
+      const dy = tileY - state.player.gridY;
+
+      if (Math.abs(dx) + Math.abs(dy) === 1) {
+        this.handleInteract(dx, dy);
+        return;
+      }
+    }
+
+    // Find path to clicked tile (or closest reachable)
+    const path = findPathToClosestReachable(
+      state.player.gridX,
+      state.player.gridY,
+      tileX,
+      tileY,
+      state.map,
+      state.explored,
+      state.entities,
+    );
+
+    if (path && path.length > 1) {
+      // Store path for auto-movement (skip first element which is current position)
+      this.autoMovePath = path.slice(1);
+      this.autoMoveDoorTarget = isDoor ? { gridX: tileX, gridY: tileY } : null;
+      this.autoMovePickupTarget = shouldPickupOnArrive
+        ? { gridX: tileX, gridY: tileY }
+        : null;
+      // Speed up to real-time during click-to-move
+      state.sim.targetTimeScale = 1.0;
+    }
   }
 
   /**
@@ -536,6 +601,7 @@ class DarkWar {
   private cancelAutoMove(): void {
     this.autoMovePath = null;
     this.autoMoveDoorTarget = null;
+    this.autoMovePickupTarget = null;
   }
 
   private stopAutoMove(state: ReturnType<Game["getState"]>): void {
@@ -582,7 +648,9 @@ class DarkWar {
 
       if (!this.autoMovePath || this.autoMovePath.length === 0) {
         const doorTarget = this.autoMoveDoorTarget;
+        const pickupTarget = this.autoMovePickupTarget;
         this.autoMoveDoorTarget = null;
+        this.autoMovePickupTarget = null;
         this.autoMovePath = null;
         // Return to slow-mo when auto-move completes
         state.sim.targetTimeScale = SLOWMO_SCALE;
@@ -593,6 +661,14 @@ class DarkWar {
           if (Math.abs(doorDx) + Math.abs(doorDy) === 1) {
             this.handleInteract(doorDx, doorDy);
           }
+        }
+
+        if (
+          pickupTarget &&
+          pickupTarget.gridX === player.gridX &&
+          pickupTarget.gridY === player.gridY
+        ) {
+          this.handlePickup();
         }
       }
       return;
