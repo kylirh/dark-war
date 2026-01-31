@@ -254,6 +254,7 @@ export interface Room {
 export interface DungeonData {
   map: TileType[];
   floorVariant: number;
+  wallSet: WallSet;
   start: [number, number];
   stairs: [number, number];
   rooms: Room[];
@@ -267,6 +268,7 @@ export interface GameState {
   depth: number;
   map: TileType[];
   floorVariant: number;
+  wallSet: WallSet;
   wallDamage: number[];
   mapDirty: boolean;
   visible: Set<number>;
@@ -296,6 +298,7 @@ export interface SerializedState {
   depth: number;
   map: TileType[];
   floorVariant?: number;
+  wallSet?: WallSet;
   wallDamage?: number[];
   stairs: [number, number];
   player: Player;
@@ -315,6 +318,8 @@ export interface SerializedState {
 
 export const MAP_WIDTH = 64;
 export const MAP_HEIGHT = 36;
+
+export type WallSet = "concrete" | "wood";
 
 /**
  * Cumulative damage thresholds (in hits) that drive tile rendering states.

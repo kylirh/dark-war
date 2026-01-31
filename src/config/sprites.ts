@@ -32,6 +32,7 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   // Row 0 - Tiles
   // ========================================
   [TileType.WALL]: { x: 0, y: 0 },
+  wall_wood: { x: 10, y: 0 },
   [TileType.FLOOR]: { x: 1, y: 0 },
   [TileType.DOOR_CLOSED]: { x: 2, y: 0 },
   [TileType.DOOR_OPEN]: { x: 3, y: 0 },
@@ -40,6 +41,8 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [TileType.HOLE]: { x: 14, y: 0 },
   wall_damaged_1: { x: 6, y: 0 },
   wall_damaged_2: { x: 7, y: 0 },
+  wall_wood_damaged_1: { x: 11, y: 0 },
+  wall_wood_damaged_2: { x: 12, y: 0 },
   floor_damaged: { x: 13, y: 0 },
   hole: { x: 14, y: 0 },
 

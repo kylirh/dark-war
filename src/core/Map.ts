@@ -1,4 +1,11 @@
-import { TileType, DungeonData, Room, MAP_WIDTH, MAP_HEIGHT } from "../types";
+import {
+  TileType,
+  DungeonData,
+  Room,
+  MAP_WIDTH,
+  MAP_HEIGHT,
+  WallSet,
+} from "../types";
 import { RNG } from "../utils/RNG";
 import { setTile, tileAt } from "../utils/helpers";
 
@@ -8,6 +15,7 @@ import { setTile, tileAt } from "../utils/helpers";
 export function generateDungeon(): DungeonData {
   const map: TileType[] = new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL);
   const floorVariant = RNG.int(3);
+  const wallSet: WallSet = RNG.chance(0.5) ? "wood" : "concrete";
   const rooms: Room[] = [];
 
   // Generate rooms
@@ -75,7 +83,7 @@ export function generateDungeon(): DungeonData {
 
   setTile(map, stairs[0], stairs[1], TileType.STAIRS);
 
-  return { map, floorVariant, start, stairs, rooms };
+  return { map, floorVariant, wallSet, start, stairs, rooms };
 }
 
 /**
@@ -97,7 +105,7 @@ function carveHorizontal(
   map: TileType[],
   x1: number,
   x2: number,
-  y: number
+  y: number,
 ): void {
   const startX = Math.min(x1, x2);
   const endX = Math.max(x1, x2);
@@ -113,7 +121,7 @@ function carveVertical(
   map: TileType[],
   y1: number,
   y2: number,
-  x: number
+  x: number,
 ): void {
   const startY = Math.min(y1, y2);
   const endY = Math.max(y1, y2);

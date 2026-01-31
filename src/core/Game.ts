@@ -45,6 +45,7 @@ export class Game {
       depth: 1,
       map: new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL),
       floorVariant: 0,
+      wallSet: "concrete",
       wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
       mapDirty: false,
       visible: new Set(),
@@ -84,6 +85,7 @@ export class Game {
       depth,
       map: dungeon.map,
       floorVariant: dungeon.floorVariant,
+      wallSet: dungeon.wallSet,
       wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
       mapDirty: false,
       visible: new Set(),
@@ -253,12 +255,14 @@ export class Game {
     const dungeon = generateDungeon();
     this.state.map = dungeon.map;
     this.state.floorVariant = dungeon.floorVariant;
+    this.state.wallSet = dungeon.wallSet;
     this.state.stairs = dungeon.stairs;
     this.state.visible.clear();
     this.state.explored.clear();
 
     const targetStart = descendTarget
-      ? this.findNearestPassableTile(dungeon.map, descendTarget) || dungeon.start
+      ? this.findNearestPassableTile(dungeon.map, descendTarget) ||
+        dungeon.start
       : dungeon.start;
 
     // Reset player position
@@ -413,6 +417,7 @@ export class Game {
       depth: this.state.depth,
       map: this.state.map,
       floorVariant: this.state.floorVariant,
+      wallSet: this.state.wallSet,
       wallDamage: this.state.wallDamage,
       stairs: this.state.stairs,
       player: this.state.player,
@@ -432,6 +437,7 @@ export class Game {
   public deserialize(data: SerializedState): void {
     const floorVariant =
       typeof data.floorVariant === "number" ? data.floorVariant : RNG.int(3);
+    const wallSet = data.wallSet === "wood" ? "wood" : "concrete";
     const wallDamage =
       data.wallDamage && data.wallDamage.length === data.map.length
         ? data.wallDamage.slice()
@@ -532,6 +538,7 @@ export class Game {
       depth: data.depth,
       map: data.map,
       floorVariant,
+      wallSet,
       wallDamage,
       mapDirty: false,
       stairs: data.stairs,

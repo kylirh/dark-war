@@ -364,12 +364,19 @@ export class Renderer {
           baseCoord = floorCoord;
           tileCoord = SPRITE_COORDS[tileType];
         } else if (tileType === TileType.WALL) {
+          const isWood = state.wallSet === "wood";
           const wallSpriteKey =
             damage >= WALL_DAMAGE_THRESHOLDS[1]
-              ? "wall_damaged_2"
+              ? isWood
+                ? "wall_wood_damaged_2"
+                : "wall_damaged_2"
               : damage >= WALL_DAMAGE_THRESHOLDS[0]
-                ? "wall_damaged_1"
-                : TileType.WALL;
+                ? isWood
+                  ? "wall_wood_damaged_1"
+                  : "wall_damaged_1"
+                : isWood
+                  ? "wall_wood"
+                  : TileType.WALL;
           tileCoord = SPRITE_COORDS[wallSpriteKey] || SPRITE_COORDS[tileType];
         } else {
           tileCoord = SPRITE_COORDS[tileType];
