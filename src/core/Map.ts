@@ -56,6 +56,9 @@ export function generateDungeon(): DungeonData {
   // Add doors at corridor-room transitions
   addDoors(map);
 
+  // Reinforce level boundaries with indestructible walls
+  reinforceBoundaryWalls(map);
+
   // Place starting position and stairs
   const startRoom = rooms[0];
   const stairRoom = RNG.choose(rooms.slice(Math.max(1, rooms.length - 6)));
@@ -149,5 +152,20 @@ function addDoors(map: TileType[]): void {
         }
       }
     }
+  }
+}
+
+/**
+ * Ensure the outer edge of the map is solid wall tiles.
+ */
+function reinforceBoundaryWalls(map: TileType[]): void {
+  for (let x = 0; x < MAP_WIDTH; x++) {
+    setTile(map, x, 0, TileType.WALL);
+    setTile(map, x, MAP_HEIGHT - 1, TileType.WALL);
+  }
+
+  for (let y = 0; y < MAP_HEIGHT; y++) {
+    setTile(map, 0, y, TileType.WALL);
+    setTile(map, MAP_WIDTH - 1, y, TileType.WALL);
   }
 }

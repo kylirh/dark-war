@@ -1,4 +1,4 @@
-import { GameState, TileType, WALL_MAX_DAMAGE } from "../types";
+import { GameState, TileType, WALL_MAX_DAMAGE, MAP_WIDTH, MAP_HEIGHT } from "../types";
 import { idx, inBounds } from "./helpers";
 
 export function applyWallDamageAtIndex(
@@ -7,6 +7,13 @@ export function applyWallDamageAtIndex(
   amount: number,
 ): boolean {
   if (tileIndex < 0 || tileIndex >= state.map.length) return false;
+  const width = MAP_WIDTH;
+  const height = MAP_HEIGHT;
+  const x = tileIndex % width;
+  const y = Math.floor(tileIndex / width);
+  if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
+    return false;
+  }
   if (state.map[tileIndex] !== TileType.WALL) return false;
 
   // Ensure wallDamage is kept in sync with map length before accessing.

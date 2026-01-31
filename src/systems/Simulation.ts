@@ -703,10 +703,27 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           const targetX = player.gridX + dx;
           const targetY = player.gridY + dy;
           const hitWall = applyWallDamageAt(state, targetX, targetY, 2);
+          const targetTile = tileAt(state.map, targetX, targetY);
+          const isPerimeterWall =
+            targetTile === TileType.WALL &&
+            (targetX <= 0 ||
+              targetY <= 0 ||
+              targetX >= MAP_WIDTH - 1 ||
+              targetY >= MAP_HEIGHT - 1);
           if (hitWall) {
             pushEvent(state, {
               type: EventType.MESSAGE,
               data: { type: "MESSAGE", message: "You chip the wall." },
+            });
+            return;
+          }
+          if (isPerimeterWall) {
+            pushEvent(state, {
+              type: EventType.MESSAGE,
+              data: {
+                type: "MESSAGE",
+                message: "The wall seems impervious to damage.",
+              },
             });
             return;
           }

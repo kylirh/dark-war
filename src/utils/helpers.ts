@@ -24,6 +24,7 @@ export function inBounds(x: number, y: number): boolean {
  * Get tile type at coordinates
  */
 export function tileAt(map: TileType[], x: number, y: number): TileType {
+  if (!inBounds(x, y)) return TileType.WALL;
   return map[idx(x, y)];
 }
 
@@ -43,6 +44,7 @@ export function setTile(
  * Check if tile is passable (not blocked)
  */
 export function passable(map: TileType[], x: number, y: number): boolean {
+  if (!inBounds(x, y)) return false;
   const tile = TILE_DEFINITIONS[tileAt(map, x, y)];
   return tile && !tile.block;
 }
