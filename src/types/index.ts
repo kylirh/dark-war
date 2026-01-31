@@ -8,8 +8,9 @@ export enum TileType {
   DOOR_CLOSED = 2,
   DOOR_OPEN = 3,
   DOOR_LOCKED = 4,
-  STAIRS = 5,
-  HOLE = 6,
+  STAIRS_DOWN = 5,
+  STAIRS_UP = 6,
+  HOLE = 7,
 }
 
 export interface TileDefinition {
@@ -180,6 +181,7 @@ export enum CommandType {
   INTERACT = "INTERACT",
   RELOAD = "RELOAD",
   DESCEND = "DESCEND",
+  ASCEND = "ASCEND",
 }
 
 export interface Command {
@@ -200,7 +202,8 @@ export type CommandData =
   | { type: "PICKUP" }
   | { type: "INTERACT"; x: number; y: number }
   | { type: "RELOAD" }
-  | { type: "DESCEND" };
+  | { type: "DESCEND" }
+  | { type: "ASCEND" };
 
 export enum EventType {
   DAMAGE = "DAMAGE",
@@ -256,7 +259,7 @@ export interface DungeonData {
   floorVariant: number;
   wallSet: WallSet;
   start: [number, number];
-  stairs: [number, number];
+  stairsDown: [number, number];
   rooms: Room[];
 }
 
@@ -275,7 +278,8 @@ export interface GameState {
   explored: Set<number>;
   entities: Entity[];
   player: Player;
-  stairs: [number, number];
+  stairsDown: [number, number];
+  stairsUp: [number, number] | null;
   log: string[];
   options: {
     fov: boolean;
@@ -286,6 +290,7 @@ export interface GameState {
   commandsByTick: Map<number, Command[]>;
   eventQueue: GameEvent[];
   shouldDescend: boolean;
+  shouldAscend: boolean;
   descendTarget?: [number, number];
   changedTiles?: Set<number>; // Track tiles that changed for physics updates
   holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
@@ -301,16 +306,29 @@ export interface SerializedState {
   floorVariant?: number;
   wallSet?: WallSet;
   wallDamage?: number[];
-  stairs: [number, number];
+  stairsDown: [number, number];
+  stairsUp?: [number, number] | null;
   player: Player;
   entities: Entity[];
   explored: number[];
   log: string[];
+  levels?: SerializedLevelState[];
   // NEW: Save simulation state
   sim: {
     nowTick: number;
     mode: "PLANNING" | "REALTIME";
   };
+}
+
+export interface SerializedLevelState {
+  depth: number;
+  map: TileType[];
+  floorVariant: number;
+  wallDamage: number[];
+  stairsDown: [number, number];
+  stairsUp: [number, number] | null;
+  explored: number[];
+  entities: Entity[];
 }
 
 // ========================================
@@ -380,7 +398,14 @@ export const TILE_DEFINITIONS: Record<TileType, TileDefinition> = {
     block: true,
     opaque: true,
   },
-  [TileType.STAIRS]: {
+  [TileType.STAIRS_DOWN]: {
+    ch: ">",
+    color: "#7bd88f",
+    bg: "#0b0e12",
+    block: false,
+    opaque: false,
+  },
+  [TileType.STAIRS_UP]: {
     ch: "<",
     color: "#7bd88f",
     bg: "#0b0e12",

@@ -21,9 +21,20 @@ import { MonsterEntity } from "../entities/MonsterEntity";
 import { ItemEntity } from "../entities/ItemEntity";
 import { ExplosiveEntity } from "../entities/ExplosiveEntity";
 import { RNG } from "../utils/RNG";
-import { dist, passable, setPositionFromGrid } from "../utils/helpers";
+import { dist, passable, setPositionFromGrid, setTile } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
 import { GameEntity } from "../entities/GameEntity";
+
+interface LevelSnapshot {
+  depth: number;
+  map: TileType[];
+  floorVariant: number;
+  wallDamage: number[];
+  explored: Set<number>;
+  entities: Entity[];
+  stairsDown: [number, number];
+  stairsUp: [number, number] | null;
+}
 
 /**
  * Main state manager
@@ -32,6 +43,7 @@ import { GameEntity } from "../entities/GameEntity";
 export class Game {
   private state: GameState;
   private isDead = false;
+  private levels = new Map<number, LevelSnapshot>();
 
   constructor() {
     this.state = this.createInitialState();
@@ -52,7 +64,8 @@ export class Game {
       explored: new Set(),
       entities: [],
       player: new PlayerEntity(0, 0),
-      stairs: [0, 0],
+      stairsDown: [0, 0],
+      stairsUp: null,
       log: [],
       options: { fov: true },
       effects: [],
@@ -68,6 +81,7 @@ export class Game {
       commandsByTick: new Map(),
       eventQueue: [],
       shouldDescend: false,
+      shouldAscend: false,
       descendTarget: undefined,
       changedTiles: new Set(),
       holeCreatedTiles: new Set(),
@@ -80,6 +94,7 @@ export class Game {
   public reset(depth: number = 1): void {
     if (DEBUG) console.time("reset: total");
     this.isDead = false;
+    this.levels = new Map();
     const dungeon = generateDungeon();
 
     this.state = {
@@ -93,7 +108,8 @@ export class Game {
       explored: new Set(),
       entities: [],
       player: new PlayerEntity(dungeon.start[0], dungeon.start[1]),
-      stairs: dungeon.stairs,
+      stairsDown: dungeon.stairsDown,
+      stairsUp: null,
       log: [],
       options: { fov: true },
       effects: [],
@@ -110,6 +126,7 @@ export class Game {
       commandsByTick: new Map(),
       eventQueue: [],
       shouldDescend: false,
+      shouldAscend: false,
       descendTarget: undefined,
       changedTiles: new Set(),
       holeCreatedTiles: new Set(),
@@ -119,7 +136,7 @@ export class Game {
     this.state.entities.push(this.state.player);
 
     // Get free tiles once, upfront (optimized for performance)
-    const freeTiles = this.getFreeTilesOptimized(dungeon.start);
+    const freeTiles = this.getFreeTilesOptimized(dungeon.map);
 
     // Spawn monsters
     let ratCount = 0;
@@ -192,11 +209,11 @@ export class Game {
   /**
    * Get all walkable tiles (optimized - doesn't check entities)
    */
-  private getFreeTilesOptimized(_start: [number, number]): [number, number][] {
+  private getFreeTilesOptimized(map: TileType[]): [number, number][] {
     const tiles: [number, number][] = [];
     for (let y = 1; y < MAP_HEIGHT - 1; y++) {
       for (let x = 1; x < MAP_WIDTH - 1; x++) {
-        if (passable(this.state.map, x, y)) {
+        if (passable(map, x, y)) {
           tiles.push([x, y]);
         }
       }
@@ -245,89 +262,164 @@ export class Game {
     }
   }
 
-  /**
-   * Descend to next level (called after tick completes with descend flag)
-   */
-  public descend(): void {
-    this.state.depth++;
+  private saveCurrentLevelSnapshot(): void {
+    const currentDepth = this.state.depth;
+    const snapshot: LevelSnapshot = {
+      depth: currentDepth,
+      map: this.state.map,
+      floorVariant: this.state.floorVariant,
+      wallDamage: this.state.wallDamage,
+      explored: new Set(this.state.explored),
+      entities: this.state.entities.filter((e) => e !== this.state.player),
+      stairsDown: this.state.stairsDown,
+      stairsUp: this.state.stairsUp,
+    };
+    this.levels.set(currentDepth, snapshot);
+  }
 
-    const descendTarget = this.state.descendTarget;
-    this.state.descendTarget = undefined;
-
-    const dungeon = generateDungeon();
-    this.state.map = dungeon.map;
-    this.state.floorVariant = dungeon.floorVariant;
-    this.state.wallSet = dungeon.wallSet;
-    this.state.stairs = dungeon.stairs;
+  private applyLevelSnapshot(
+    snapshot: LevelSnapshot,
+    playerEntry: [number, number],
+  ): void {
+    this.state.map = snapshot.map;
+    this.state.floorVariant = snapshot.floorVariant;
+    this.state.wallDamage = snapshot.wallDamage;
+    this.state.explored = new Set(snapshot.explored);
     this.state.visible.clear();
-    this.state.explored.clear();
+    this.state.stairsDown = snapshot.stairsDown;
+    this.state.stairsUp = snapshot.stairsUp;
 
-    const targetStart = descendTarget
-      ? this.findNearestPassableTile(dungeon.map, descendTarget) ||
-        dungeon.start
-      : dungeon.start;
-
-    // Reset player position
     setPositionFromGrid(
       this.state.player as PlayerEntity,
-      targetStart[0],
-      targetStart[1],
+      playerEntry[0],
+      playerEntry[1],
     );
     this.state.player.nextActTick = this.state.sim.nowTick;
 
-    // Remove monsters and items
-    this.state.entities = this.state.entities.filter(
-      (e) => e.kind === EntityKind.PLAYER,
+    this.state.entities = [
+      this.state.player,
+      ...snapshot.entities.map((entity) => entity),
+    ];
+  }
+
+  private buildNewLevel(depth: number): LevelSnapshot {
+    const dungeon = generateDungeon();
+    const stairsUpPosition: [number, number] = [
+      dungeon.start[0],
+      dungeon.start[1],
+    ];
+
+    setTile(
+      dungeon.map,
+      stairsUpPosition[0],
+      stairsUpPosition[1],
+      TileType.STAIRS_UP,
     );
 
-    // Get free tiles once, upfront
-    const freeTiles = this.getFreeTilesOptimized(targetStart);
+    return {
+      depth,
+      map: dungeon.map,
+      floorVariant: dungeon.floorVariant,
+      wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
+      explored: new Set(),
+      entities: this.spawnLevelEntities(dungeon.map, dungeon.start, depth),
+      stairsDown: dungeon.stairsDown,
+      stairsUp: stairsUpPosition,
+    };
+  }
 
-    // Spawn new monsters
-    const monsterCount = 8 + this.state.depth;
+  private spawnLevelEntities(
+    map: TileType[],
+    start: [number, number],
+    depth: number,
+  ): Entity[] {
+    const entities: Entity[] = [];
+    const freeTiles = this.getFreeTilesOptimized(map);
+
+    // Spawn monsters
+    const monsterCount = depth === 1 ? 30 : 8 + depth;
+    let ratCount = 0;
+    let mutantCount = 0;
     for (let i = 0; i < monsterCount && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
 
-      if (dist([x, y], targetStart) > 8) {
+      if (dist([x, y], start) > 8) {
         const spawnRat = RNG.chance(0.5);
         if (spawnRat) {
-          this.state.entities.push(
-            new MonsterEntity(x, y, MonsterType.RAT, this.state.depth),
-          );
+          entities.push(new MonsterEntity(x, y, MonsterType.RAT, depth));
+          ratCount++;
         } else {
-          this.state.entities.push(
-            new MonsterEntity(x, y, MonsterType.MUTANT, this.state.depth),
-          );
+          entities.push(new MonsterEntity(x, y, MonsterType.MUTANT, depth));
+          mutantCount++;
         }
         freeTiles.splice(tileIndex, 1);
       }
     }
+    if (DEBUG && depth === 1) {
+      console.log(`Spawned ${ratCount} rats, ${mutantCount} mutants`);
+    }
 
     // Spawn items
-    for (let i = 0; i < 10 && freeTiles.length > 0; i++) {
-      const tileIndex = RNG.int(freeTiles.length);
-      const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(new ItemEntity(x, y, ItemType.AMMO));
-      freeTiles.splice(tileIndex, 1);
-    }
+    const spawnItems = (
+      count: number,
+      type: ItemType,
+      amount?: number,
+    ): void => {
+      for (let i = 0; i < count && freeTiles.length > 0; i++) {
+        const tileIndex = RNG.int(freeTiles.length);
+        const [x, y] = freeTiles[tileIndex];
+        entities.push(new ItemEntity(x, y, type, amount ?? 0));
+        freeTiles.splice(tileIndex, 1);
+      }
+    };
 
-    for (let i = 0; i < 6 && freeTiles.length > 0; i++) {
-      const tileIndex = RNG.int(freeTiles.length);
-      const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(new ItemEntity(x, y, ItemType.MEDKIT));
-      freeTiles.splice(tileIndex, 1);
-    }
+    spawnItems(10, ItemType.AMMO);
+    spawnItems(6, ItemType.MEDKIT);
+    spawnItems(3, ItemType.KEYCARD);
+    spawnItems(4, ItemType.GRENADE);
+    spawnItems(3, ItemType.LAND_MINE);
 
-    for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
-      const tileIndex = RNG.int(freeTiles.length);
-      const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(new ItemEntity(x, y, ItemType.KEYCARD));
-      freeTiles.splice(tileIndex, 1);
-    }
+    return entities;
+  }
 
+  /**
+   * Descend to next level (called after tick completes with descend flag)
+   */
+  public descend(): void {
+    const nextDepth = this.state.depth + 1;
+    this.saveCurrentLevelSnapshot();
+    this.state.depth = nextDepth;
+
+    const existingLevel = this.levels.get(nextDepth);
+    const snapshot = existingLevel ?? this.buildNewLevel(nextDepth);
+
+    this.applyLevelSnapshot(snapshot, snapshot.stairsUp ?? snapshot.stairsDown);
     this.updateFOV();
-    this.addLog(`Level ${this.state.depth}`);
+    this.addLog(`You descend into level ${this.state.depth}.`);
+  }
+
+  /**
+   * Ascend to previous level (called after tick completes with ascend flag)
+   */
+  public ascend(): void {
+    if (this.state.depth <= 1) {
+      return;
+    }
+
+    const previousDepth = this.state.depth - 1;
+
+    this.saveCurrentLevelSnapshot();
+    this.state.depth = previousDepth;
+
+    const snapshot = this.levels.get(previousDepth);
+    if (!snapshot) {
+      return;
+    }
+
+    this.applyLevelSnapshot(snapshot, snapshot.stairsDown);
+    this.updateFOV();
+    this.addLog(`You ascend to level ${this.state.depth}.`);
   }
 
   private findNearestPassableTile(
@@ -415,17 +507,30 @@ export class Game {
    * Serialize game state for saving
    */
   public serialize(): SerializedState {
+    const levels = Array.from(this.levels.values()).map((snapshot) => ({
+      depth: snapshot.depth,
+      map: snapshot.map,
+      floorVariant: snapshot.floorVariant,
+      wallDamage: snapshot.wallDamage,
+      stairsDown: snapshot.stairsDown,
+      stairsUp: snapshot.stairsUp,
+      explored: Array.from(snapshot.explored),
+      entities: snapshot.entities,
+    }));
+
     return {
       depth: this.state.depth,
       map: this.state.map,
       floorVariant: this.state.floorVariant,
       wallSet: this.state.wallSet,
       wallDamage: this.state.wallDamage,
-      stairs: this.state.stairs,
+      stairsDown: this.state.stairsDown,
+      stairsUp: this.state.stairsUp,
       player: this.state.player,
       entities: this.state.entities.filter((e) => e !== this.state.player),
       explored: Array.from(this.state.explored),
       log: this.state.log.slice(0, 50),
+      levels,
       sim: {
         nowTick: this.state.sim.nowTick,
         mode: this.state.sim.mode,
@@ -454,87 +559,10 @@ export class Game {
       player = p;
     }
 
-    // Reconstruct other entities
-    const entities: Entity[] = [player];
-    for (const entity of data.entities) {
-      if (
-        entity.kind === EntityKind.MONSTER &&
-        !(entity instanceof MonsterEntity)
-      ) {
-        const [gridX, gridY] = this.getGridPositionFromSerialized(entity);
-        const monster = new MonsterEntity(
-          gridX,
-          gridY,
-          (entity as Monster).type === MonsterType.RAT
-            ? MonsterType.RAT
-            : MonsterType.MUTANT,
-          data.depth,
-        );
-        Object.assign(monster, entity);
-        if (typeof monster.hpMax !== "number") {
-          monster.hpMax = Math.max(monster.hp, 1);
-        }
-        if (!monster.carriedItems) {
-          monster.carriedItems = [];
-        }
-        this.syncWorldPosition(monster, entity);
-        entities.push(monster);
-      } else if (
-        entity.kind === EntityKind.MONSTER &&
-        entity instanceof MonsterEntity
-      ) {
-        if (typeof entity.hpMax !== "number") {
-          entity.hpMax = Math.max(entity.hp, 1);
-        }
-        if (!entity.carriedItems) {
-          entity.carriedItems = [];
-        }
-        this.syncWorldPosition(entity, entity);
-        entities.push(entity);
-      } else if (
-        entity.kind === EntityKind.ITEM &&
-        !(entity instanceof ItemEntity)
-      ) {
-        const [gridX, gridY] = this.getGridPositionFromSerialized(entity);
-        const item = new ItemEntity(
-          gridX,
-          gridY,
-          (entity as Item).type,
-          (entity as Item).amount ?? 0,
-        );
-        Object.assign(item, entity);
-        this.syncWorldPosition(item, entity);
-        entities.push(item);
-      } else if (
-        entity.kind === EntityKind.ITEM &&
-        entity instanceof ItemEntity
-      ) {
-        this.syncWorldPosition(entity, entity);
-        entities.push(entity);
-      } else if (
-        entity.kind === EntityKind.EXPLOSIVE &&
-        !(entity instanceof ExplosiveEntity)
-      ) {
-        const explosive = new ExplosiveEntity(
-          (entity as any).worldX,
-          (entity as any).worldY,
-          (entity as any).type,
-          (entity as any).armed,
-          (entity as any).fuseTicks,
-        );
-        Object.assign(explosive, entity);
-        this.syncWorldPosition(explosive, entity);
-        entities.push(explosive);
-      } else if (
-        entity.kind === EntityKind.EXPLOSIVE &&
-        entity instanceof ExplosiveEntity
-      ) {
-        this.syncWorldPosition(entity, entity);
-        entities.push(entity);
-      } else {
-        entities.push(entity);
-      }
-    }
+    const entities: Entity[] = [
+      player,
+      ...this.hydrateEntities(data.entities, data.depth),
+    ];
 
     this.state = {
       depth: data.depth,
@@ -543,7 +571,9 @@ export class Game {
       wallSet,
       wallDamage,
       mapDirty: false,
-      stairs: data.stairs,
+      stairsDown: data.stairsDown ??
+        (data as { stairs?: [number, number] }).stairs ?? [0, 0],
+      stairsUp: data.stairsUp ?? null,
       visible: new Set(),
       explored: new Set(data.explored),
       entities,
@@ -563,12 +593,112 @@ export class Game {
       commandsByTick: new Map(),
       eventQueue: [],
       shouldDescend: false,
+      shouldAscend: false,
       descendTarget: undefined,
+      changedTiles: new Set(),
       holeCreatedTiles: new Set(),
     };
 
+    this.levels = new Map();
+    for (const level of data.levels ?? []) {
+      this.levels.set(level.depth, {
+        depth: level.depth,
+        map: level.map,
+        floorVariant: level.floorVariant,
+        wallDamage: level.wallDamage,
+        stairsDown: level.stairsDown,
+        stairsUp: level.stairsUp ?? null,
+        explored: new Set(level.explored),
+        entities: this.hydrateEntities(level.entities, level.depth),
+      });
+    }
+
     this.isDead = false;
     this.updateFOV();
+  }
+
+  private hydrateEntities(entities: Entity[], depth: number): Entity[] {
+    const hydrated: Entity[] = [];
+    for (const entity of entities) {
+      if (
+        entity.kind === EntityKind.MONSTER &&
+        !(entity instanceof MonsterEntity)
+      ) {
+        const [gridX, gridY] = this.getGridPositionFromSerialized(entity);
+        const monster = new MonsterEntity(
+          gridX,
+          gridY,
+          (entity as Monster).type === MonsterType.RAT
+            ? MonsterType.RAT
+            : MonsterType.MUTANT,
+          depth,
+        );
+        Object.assign(monster, entity);
+        if (typeof monster.hpMax !== "number") {
+          monster.hpMax = Math.max(monster.hp, 1);
+        }
+        if (!monster.carriedItems) {
+          monster.carriedItems = [];
+        }
+        this.syncWorldPosition(monster, entity);
+        hydrated.push(monster);
+      } else if (
+        entity.kind === EntityKind.MONSTER &&
+        entity instanceof MonsterEntity
+      ) {
+        if (typeof entity.hpMax !== "number") {
+          entity.hpMax = Math.max(entity.hp, 1);
+        }
+        if (!entity.carriedItems) {
+          entity.carriedItems = [];
+        }
+        this.syncWorldPosition(entity, entity);
+        hydrated.push(entity);
+      } else if (
+        entity.kind === EntityKind.ITEM &&
+        !(entity instanceof ItemEntity)
+      ) {
+        const [gridX, gridY] = this.getGridPositionFromSerialized(entity);
+        const item = new ItemEntity(
+          gridX,
+          gridY,
+          (entity as Item).type,
+          (entity as Item).amount ?? 0,
+        );
+        Object.assign(item, entity);
+        this.syncWorldPosition(item, entity);
+        hydrated.push(item);
+      } else if (
+        entity.kind === EntityKind.ITEM &&
+        entity instanceof ItemEntity
+      ) {
+        this.syncWorldPosition(entity, entity);
+        hydrated.push(entity);
+      } else if (
+        entity.kind === EntityKind.EXPLOSIVE &&
+        !(entity instanceof ExplosiveEntity)
+      ) {
+        const explosive = new ExplosiveEntity(
+          (entity as any).worldX,
+          (entity as any).worldY,
+          (entity as any).type,
+          (entity as any).armed,
+          (entity as any).fuseTicks,
+        );
+        Object.assign(explosive, entity);
+        this.syncWorldPosition(explosive, entity);
+        hydrated.push(explosive);
+      } else if (
+        entity.kind === EntityKind.EXPLOSIVE &&
+        entity instanceof ExplosiveEntity
+      ) {
+        this.syncWorldPosition(entity, entity);
+        hydrated.push(entity);
+      } else {
+        hydrated.push(entity);
+      }
+    }
+    return hydrated;
   }
 
   private getGridPositionFromSerialized(entity: {

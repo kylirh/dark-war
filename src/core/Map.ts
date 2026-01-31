@@ -7,7 +7,7 @@ import {
   WallSet,
 } from "../types";
 import { RNG } from "../utils/RNG";
-import { setTile, tileAt } from "../utils/helpers";
+import { setTile } from "../utils/helpers";
 
 /**
  * Generate a dungeon using BSP-lite algorithm with rooms and corridors
@@ -76,14 +76,14 @@ export function generateDungeon(): DungeonData {
     Math.floor(startRoom.y + startRoom.h / 2),
   ];
 
-  const stairs: [number, number] = [
+  const stairsDown: [number, number] = [
     Math.floor(stairRoom.x + stairRoom.w / 2),
     Math.floor(stairRoom.y + stairRoom.h / 2),
   ];
 
-  setTile(map, stairs[0], stairs[1], TileType.STAIRS);
+  setTile(map, stairsDown[0], stairsDown[1], TileType.STAIRS_DOWN);
 
-  return { map, floorVariant, wallSet, start, stairs, rooms };
+  return { map, floorVariant, wallSet, start, stairsDown, rooms };
 }
 
 /**

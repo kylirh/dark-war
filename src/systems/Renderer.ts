@@ -355,15 +355,37 @@ export class Renderer {
         } else if (tileType === TileType.HOLE) {
           baseCoord = floorCoord;
           overlayCoord = SPRITE_COORDS.hole;
-        } else if (
+        }
+
+        const needsFloorBase =
           tileType === TileType.DOOR_CLOSED ||
           tileType === TileType.DOOR_OPEN ||
           tileType === TileType.DOOR_LOCKED ||
-          tileType === TileType.STAIRS
-        ) {
-          baseCoord = floorCoord;
+          tileType === TileType.STAIRS_DOWN ||
+          tileType === TileType.STAIRS_UP;
+
+        if (needsFloorBase) {
+          const floorVariant = state.floorVariant ?? 0;
+          const floorCoord =
+            FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
+          if (floorCoord) {
+            const floorSprite = this.createSprite(
+              floorCoord.x,
+              floorCoord.y,
+              screenX,
+              screenY,
+            );
+            if (floorSprite) {
+              if (!isVisible) {
+                floorSprite.alpha = 0.45;
+              }
+              this.mapContainer.addChild(floorSprite);
+            }
+          }
+          // Set tile coordinate for doors and stairs
           tileCoord = SPRITE_COORDS[tileType];
         } else if (tileType === TileType.WALL) {
+          // Wall rendering with damage states
           const isWood = state.wallSet === "wood";
           const wallSpriteKey =
             damage >= WALL_DAMAGE_THRESHOLDS[1]
@@ -379,6 +401,7 @@ export class Renderer {
                   : TileType.WALL;
           tileCoord = SPRITE_COORDS[wallSpriteKey] || SPRITE_COORDS[tileType];
         } else {
+          // Default: use sprite coordinate for the tile type
           tileCoord = SPRITE_COORDS[tileType];
         }
 

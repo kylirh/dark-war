@@ -499,6 +499,9 @@ function resolveCommand(state: GameState, cmd: Command): void {
     case CommandType.DESCEND:
       resolveDescendCommand(state, cmd);
       break;
+    case CommandType.ASCEND:
+      resolveAscendCommand(state, cmd);
+      break;
     case CommandType.WAIT:
       break;
   }
@@ -1126,7 +1129,10 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
   const player = actor as Player;
-  if (player.gridX !== state.stairs[0] || player.gridY !== state.stairs[1]) {
+  if (
+    player.gridX !== state.stairsDown[0] ||
+    player.gridY !== state.stairsDown[1]
+  ) {
     pushEvent(state, {
       type: EventType.MESSAGE,
       data: { type: "MESSAGE", message: "No stairs here." },
@@ -1143,6 +1149,35 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
   // Set flag for Game.ts to handle
   state.descendTarget = undefined;
   state.shouldDescend = true;
+}
+
+// ========================================
+// Ascend Command
+// ========================================
+
+function resolveAscendCommand(state: GameState, cmd: Command): void {
+  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  if (!actor || actor.kind !== EntityKind.PLAYER) return;
+
+  const player = actor as Player;
+  if (
+    !state.stairsUp ||
+    player.gridX !== state.stairsUp[0] ||
+    player.gridY !== state.stairsUp[1]
+  ) {
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "No stairs here." },
+    });
+    return;
+  }
+
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: { type: "MESSAGE", message: "You ascend..." },
+  });
+
+  state.shouldAscend = true;
 }
 
 // ========================================

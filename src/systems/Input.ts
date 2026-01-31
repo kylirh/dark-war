@@ -15,7 +15,6 @@ export interface InputCallbacks {
   onPickup: () => void;
   onWait: () => void;
   onReload: () => void;
-  onDescend: () => void;
   onToggleFOV: () => void;
   onToggleRealTime: () => void;
   onResumePause: (reason: string) => void;
@@ -112,13 +111,6 @@ export class InputHandler {
       if (this.fireMode) {
         this.fireMode = false;
       }
-      return;
-    }
-
-    // Descend stairs
-    if (key === "<") {
-      e.preventDefault();
-      this.callbacks.onDescend();
       return;
     }
 
