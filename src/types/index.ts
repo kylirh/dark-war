@@ -9,6 +9,7 @@ export enum TileType {
   DOOR_OPEN = 3,
   DOOR_LOCKED = 4,
   STAIRS = 5,
+  HOLE = 6,
 }
 
 export interface TileDefinition {
@@ -283,6 +284,7 @@ export interface GameState {
   commandsByTick: Map<number, Command[]>;
   eventQueue: GameEvent[];
   shouldDescend: boolean;
+  descendTarget?: [number, number];
   changedTiles?: Set<number>; // Track tiles that changed for physics updates
 }
 
@@ -315,16 +317,19 @@ export const MAP_WIDTH = 64;
 export const MAP_HEIGHT = 36;
 
 /**
- * Cumulative damage thresholds (in hits) that drive wall rendering states.
+ * Cumulative damage thresholds (in hits) that drive tile rendering states.
  *
  * - 0–2: no visible damage
  * - 3–5: light damage (first damaged sprite/overlay)
  * - 6–8: heavy damage (second, more damaged sprite/overlay)
  *
- * Values at or above WALL_MAX_DAMAGE should be treated as fully destroyed.
+ * Values at or above *_MAX_DAMAGE should be treated as fully destroyed.
  */
 export const WALL_DAMAGE_THRESHOLDS = [3, 6];
 export const WALL_MAX_DAMAGE = 9;
+export const FLOOR_DAMAGE_THRESHOLDS = [3, 6];
+export const FLOOR_MAX_DAMAGE = 9;
+export const HOLE_FALL_DAMAGE = 3;
 
 export const CELL_CONFIG = {
   w: 32,
@@ -372,6 +377,13 @@ export const TILE_DEFINITIONS: Record<TileType, TileDefinition> = {
   [TileType.STAIRS]: {
     ch: "<",
     color: "#7bd88f",
+    bg: "#0b0e12",
+    block: false,
+    opaque: false,
+  },
+  [TileType.HOLE]: {
+    ch: "O",
+    color: "#14171d",
     bg: "#0b0e12",
     block: false,
     opaque: false,

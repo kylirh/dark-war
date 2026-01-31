@@ -17,6 +17,7 @@ import {
   CELL_CONFIG,
   MAP_HEIGHT,
   MAP_WIDTH,
+  HOLE_FALL_DAMAGE,
 } from "../types";
 import { idx, tileAt, passable } from "../utils/helpers";
 import { applyWallDamageAt } from "../utils/walls";
@@ -253,6 +254,9 @@ export function stepSimulationTick(state: GameState): void {
   // 3.5 Monsters can pick up items when overlapping them
   processMonsterItemPickups(state);
 
+  // 3.6 Handle player falling through holes
+  processPlayerHoleFalls(state);
+
   // 4. Process event queue until empty
   processEventQueue(state);
 
@@ -341,6 +345,39 @@ function processMonsterItemPickups(state: GameState): void {
   if (pickedItemIds.size > 0) {
     state.entities = state.entities.filter((e) => !pickedItemIds.has(e.id));
   }
+}
+
+// ========================================
+// Hole Falls (Player Only)
+// ========================================
+
+function processPlayerHoleFalls(state: GameState): void {
+  if (state.shouldDescend) return;
+
+  const player = state.entities.find(
+    (e): e is Player => e.kind === EntityKind.PLAYER,
+  );
+  if (!player) return;
+
+  const tile = tileAt(state.map, player.gridX, player.gridY);
+  if (tile !== TileType.HOLE) return;
+
+  state.descendTarget = [player.gridX, player.gridY];
+  state.shouldDescend = true;
+
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: { type: "MESSAGE", message: "You fall through the floor!" },
+  });
+
+  pushEvent(state, {
+    type: EventType.DAMAGE,
+    data: {
+      type: "DAMAGE",
+      targetId: player.id,
+      amount: HOLE_FALL_DAMAGE,
+    },
+  });
 }
 
 // ========================================
@@ -713,7 +750,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           if (hitWall) {
             pushEvent(state, {
               type: EventType.MESSAGE,
-              data: { type: "MESSAGE", message: "You chip the wall." },
+              data: { type: "MESSAGE", message: "You chip the surface." },
             });
             return;
           }
@@ -1042,6 +1079,7 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
   });
 
   // Set flag for Game.ts to handle
+  state.descendTarget = undefined;
   state.shouldDescend = true;
 }
 

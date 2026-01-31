@@ -67,6 +67,7 @@ export class Game {
       commandsByTick: new Map(),
       eventQueue: [],
       shouldDescend: false,
+      descendTarget: undefined,
       changedTiles: new Set(),
     };
   }
@@ -106,6 +107,7 @@ export class Game {
       commandsByTick: new Map(),
       eventQueue: [],
       shouldDescend: false,
+      descendTarget: undefined,
       changedTiles: new Set(),
     };
 
@@ -245,6 +247,9 @@ export class Game {
   public descend(): void {
     this.state.depth++;
 
+    const descendTarget = this.state.descendTarget;
+    this.state.descendTarget = undefined;
+
     const dungeon = generateDungeon();
     this.state.map = dungeon.map;
     this.state.floorVariant = dungeon.floorVariant;
@@ -252,11 +257,15 @@ export class Game {
     this.state.visible.clear();
     this.state.explored.clear();
 
+    const targetStart = descendTarget
+      ? this.findNearestPassableTile(dungeon.map, descendTarget) || dungeon.start
+      : dungeon.start;
+
     // Reset player position
     setPositionFromGrid(
       this.state.player as PlayerEntity,
-      dungeon.start[0],
-      dungeon.start[1],
+      targetStart[0],
+      targetStart[1],
     );
     this.state.player.nextActTick = this.state.sim.nowTick;
 
@@ -266,7 +275,7 @@ export class Game {
     );
 
     // Get free tiles once, upfront
-    const freeTiles = this.getFreeTilesOptimized(dungeon.start);
+    const freeTiles = this.getFreeTilesOptimized(targetStart);
 
     // Spawn new monsters
     const monsterCount = 8 + this.state.depth;
@@ -274,7 +283,7 @@ export class Game {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
 
-      if (dist([x, y], dungeon.start) > 8) {
+      if (dist([x, y], targetStart) > 8) {
         const spawnRat = RNG.chance(0.5);
         if (spawnRat) {
           this.state.entities.push(
@@ -313,6 +322,50 @@ export class Game {
 
     this.updateFOV();
     this.addLog(`Level ${this.state.depth}`);
+  }
+
+  private findNearestPassableTile(
+    map: TileType[],
+    target: [number, number],
+  ): [number, number] | null {
+    const [startX, startY] = target;
+    if (
+      startX >= 0 &&
+      startY >= 0 &&
+      startX < MAP_WIDTH &&
+      startY < MAP_HEIGHT &&
+      passable(map, startX, startY)
+    ) {
+      return [startX, startY];
+    }
+
+    const visited = new Array(MAP_WIDTH * MAP_HEIGHT).fill(false);
+    const queue: [number, number][] = [];
+    const enqueue = (x: number, y: number) => {
+      if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return;
+      const index = x + y * MAP_WIDTH;
+      if (visited[index]) return;
+      visited[index] = true;
+      queue.push([x, y]);
+    };
+
+    enqueue(startX, startY);
+
+    while (queue.length > 0) {
+      const [x, y] = queue.shift() as [number, number];
+      if (x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT) {
+        if (passable(map, x, y)) {
+          return [x, y];
+        }
+      }
+
+      enqueue(x + 1, y);
+      enqueue(x - 1, y);
+      enqueue(x, y + 1);
+      enqueue(x, y - 1);
+    }
+
+    return null;
   }
 
   /**
@@ -501,6 +554,7 @@ export class Game {
       commandsByTick: new Map(),
       eventQueue: [],
       shouldDescend: false,
+      descendTarget: undefined,
     };
 
     this.isDead = false;

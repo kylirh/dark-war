@@ -15,6 +15,7 @@ import {
   CELL_CONFIG,
   TileType,
   MonsterType,
+  FLOOR_DAMAGE_THRESHOLDS,
   WALL_DAMAGE_THRESHOLDS,
 } from "../types";
 import { idx } from "../utils/helpers";
@@ -336,63 +337,62 @@ export class Renderer {
         const screenX = offsetX + x * CELL_CONFIG.w;
         const screenY = offsetY + y * CELL_CONFIG.h;
 
-        // Get sprite coordinates for this tile
         const tileType = map[tileIndex];
-        let coord = SPRITE_COORDS[tileType];
-        if (tileType === TileType.FLOOR) {
-          const floorVariant = state.floorVariant ?? 0;
-          coord =
-            FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
-        }
+        const floorVariant = state.floorVariant ?? 0;
+        const floorCoord =
+          FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
+        const damage = state.wallDamage[tileIndex] || 0;
 
-        // Handle wall damage sprites
-        if (tileType === TileType.WALL) {
-          const damage = state.wallDamage[tileIndex] || 0;
+        let baseCoord: { x: number; y: number } | null = null;
+        let overlayCoord: { x: number; y: number } | null = null;
+        let tileCoord: { x: number; y: number } | null = null;
+
+        if (tileType === TileType.FLOOR) {
+          baseCoord = floorCoord;
+          if (damage >= FLOOR_DAMAGE_THRESHOLDS[0]) {
+            overlayCoord = SPRITE_COORDS.floor_damaged;
+          }
+        } else if (tileType === TileType.HOLE) {
+          baseCoord = floorCoord;
+          overlayCoord = SPRITE_COORDS.hole;
+        } else if (
+          tileType === TileType.DOOR_CLOSED ||
+          tileType === TileType.DOOR_OPEN ||
+          tileType === TileType.DOOR_LOCKED ||
+          tileType === TileType.STAIRS
+        ) {
+          baseCoord = floorCoord;
+          tileCoord = SPRITE_COORDS[tileType];
+        } else if (tileType === TileType.WALL) {
           const wallSpriteKey =
             damage >= WALL_DAMAGE_THRESHOLDS[1]
               ? "wall_damaged_2"
               : damage >= WALL_DAMAGE_THRESHOLDS[0]
                 ? "wall_damaged_1"
                 : TileType.WALL;
-          coord = SPRITE_COORDS[wallSpriteKey] || coord;
+          tileCoord = SPRITE_COORDS[wallSpriteKey] || SPRITE_COORDS[tileType];
+        } else {
+          tileCoord = SPRITE_COORDS[tileType];
         }
 
-        // Render floor base for doors and stairs
-        const needsFloorBase =
-          tileType === TileType.DOOR_CLOSED ||
-          tileType === TileType.DOOR_OPEN ||
-          tileType === TileType.DOOR_LOCKED ||
-          tileType === TileType.STAIRS;
-
-        if (needsFloorBase) {
-          const floorVariant = state.floorVariant ?? 0;
-          const floorCoord =
-            FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
-          if (floorCoord) {
-            const floorSprite = this.createSprite(
-              floorCoord.x,
-              floorCoord.y,
-              screenX,
-              screenY,
-            );
-            if (floorSprite) {
-              if (!isVisible) {
-                floorSprite.alpha = 0.45;
-              }
-              this.mapContainer.addChild(floorSprite);
-            }
-          }
-        }
-
-        if (coord) {
+        const renderSprite = (coord: { x: number; y: number }) => {
           const sprite = this.createSprite(coord.x, coord.y, screenX, screenY);
           if (sprite) {
-            // Dim unexplored tiles
             if (!isVisible) {
               sprite.alpha = 0.45;
             }
             this.mapContainer.addChild(sprite);
           }
+        };
+
+        if (baseCoord) {
+          renderSprite(baseCoord);
+        }
+        if (overlayCoord) {
+          renderSprite(overlayCoord);
+        }
+        if (tileCoord) {
+          renderSprite(tileCoord);
         }
       }
     }
