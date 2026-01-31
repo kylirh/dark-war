@@ -304,33 +304,10 @@ export class Game {
 
   private buildNewLevel(depth: number): LevelSnapshot {
     const dungeon = generateDungeon();
-    
-    // Pick a random room for stairs up (not the starting room)
-    const rooms = (dungeon as any).rooms || [];
-    let stairsUpRoom = rooms.length > 1 ? rooms[RNG.int(rooms.length)] : null;
-    
-    // Ensure stairs up is not in the same room as the spawn point
-    if (stairsUpRoom) {
-      const startRoom = rooms.find(
-        (r: any) =>
-          dungeon.start[0] >= r.x &&
-          dungeon.start[0] < r.x + r.w &&
-          dungeon.start[1] >= r.y &&
-          dungeon.start[1] < r.y + r.h,
-      );
-      if (stairsUpRoom === startRoom && rooms.length > 1) {
-        // Pick a different room
-        const otherRooms = rooms.filter((r: any) => r !== startRoom);
-        stairsUpRoom = otherRooms[RNG.int(otherRooms.length)];
-      }
-    }
-
-    const stairsUpPosition: [number, number] = stairsUpRoom
-      ? [
-          Math.floor(stairsUpRoom.x + stairsUpRoom.w / 2),
-          Math.floor(stairsUpRoom.y + stairsUpRoom.h / 2),
-        ]
-      : [dungeon.start[0], dungeon.start[1]];
+    const stairsUpPosition: [number, number] = [
+      dungeon.start[0],
+      dungeon.start[1],
+    ];
 
     setTile(
       dungeon.map,
@@ -411,33 +388,24 @@ export class Game {
    */
   public descend(): void {
     const nextDepth = this.state.depth + 1;
-    const descendTarget = this.state.descendTarget;
-    this.state.descendTarget = undefined;
-    
+    const fallPosition = this.state.descendTarget;
     this.saveCurrentLevelSnapshot();
     this.state.depth = nextDepth;
 
     const existingLevel = this.levels.get(nextDepth);
     const snapshot = existingLevel ?? this.buildNewLevel(nextDepth);
 
-    // Determine landing position
-    let landingPos: [number, number];
-    if (descendTarget) {
-      // Player fell through a hole - find nearest passable tile
-      const nearestPassable = this.findNearestPassableTile(
-        snapshot.map,
-        descendTarget,
-      );
-      landingPos = nearestPassable ?? snapshot.stairsUp ?? snapshot.stairsDown;
+    // If falling through a hole, land at nearest passable tile to fall position
+    // Otherwise, land at stairs (normal stair descent)
+    let landingPosition: [number, number];
+    if (fallPosition) {
+      const nearestTile = this.findNearestPassableTile(snapshot.map, fallPosition);
+      landingPosition = nearestTile ?? snapshot.stairsUp ?? snapshot.stairsDown;
     } else {
-      // Normal stairs descent - always land at stairs up
-      if (!snapshot.stairsUp) {
-        console.warn(`Level ${nextDepth} missing stairsUp, using stairsDown as fallback`);
-      }
-      landingPos = snapshot.stairsUp ?? snapshot.stairsDown;
+      landingPosition = snapshot.stairsUp ?? snapshot.stairsDown;
     }
 
-    this.applyLevelSnapshot(snapshot, landingPos);
+    this.applyLevelSnapshot(snapshot, landingPosition);
     this.updateFOV();
     this.addLog(`You descend into level ${this.state.depth}.`);
   }
