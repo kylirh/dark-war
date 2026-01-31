@@ -83,6 +83,7 @@ class DarkWar {
   private autoMovePath: [number, number][] | null = null;
   private autoMoveDoorTarget: { gridX: number; gridY: number } | null = null;
   private autoMovePickupTarget: { gridX: number; gridY: number } | null = null;
+  private autoMoveHoleTarget: { gridX: number; gridY: number } | null = null;
   private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
   private wasPlayerMoving: boolean = false;
   private lastPlayerWorldX?: number;
@@ -288,11 +289,7 @@ class DarkWar {
         this.pendingRightClickTimer = null;
         this.pendingRightClickTile = null;
         if (!pendingTile) return;
-        this.triggerRightClickMove(
-          pendingTile.gridX,
-          pendingTile.gridY,
-          false,
-        );
+        this.triggerRightClickMove(pendingTile.gridX, pendingTile.gridY, false);
       }, DOUBLE_CLICK_DELAY_MS);
     });
 
@@ -329,6 +326,7 @@ class DarkWar {
   ): void {
     const state = this.game.getState();
     this.autoMovePickupTarget = null;
+    this.autoMoveHoleTarget = null;
 
     const hasItemOnTile =
       wantsPickup &&
@@ -342,6 +340,17 @@ class DarkWar {
 
     const tileIdx = idx(tileX, tileY);
     const tileType = state.map[tileIdx];
+
+    const isHole = tileType === TileType.HOLE;
+
+    if (
+      isHole &&
+      state.player.gridX === tileX &&
+      state.player.gridY === tileY
+    ) {
+      this.executeHoleJump(tileX, tileY);
+      return;
+    }
 
     const isDoor =
       tileType === TileType.DOOR_CLOSED ||
@@ -377,6 +386,7 @@ class DarkWar {
       this.autoMovePickupTarget = shouldPickupOnArrive
         ? { gridX: tileX, gridY: tileY }
         : null;
+      this.autoMoveHoleTarget = isHole ? { gridX: tileX, gridY: tileY } : null;
       // Speed up to real-time during click-to-move
       state.sim.targetTimeScale = 1.0;
     }
@@ -602,6 +612,7 @@ class DarkWar {
     this.autoMovePath = null;
     this.autoMoveDoorTarget = null;
     this.autoMovePickupTarget = null;
+    this.autoMoveHoleTarget = null;
   }
 
   private stopAutoMove(state: ReturnType<Game["getState"]>): void {
@@ -649,11 +660,12 @@ class DarkWar {
       if (!this.autoMovePath || this.autoMovePath.length === 0) {
         const doorTarget = this.autoMoveDoorTarget;
         const pickupTarget = this.autoMovePickupTarget;
+        const holeTarget = this.autoMoveHoleTarget;
         this.autoMoveDoorTarget = null;
         this.autoMovePickupTarget = null;
+        this.autoMoveHoleTarget = null;
         this.autoMovePath = null;
-        // Return to slow-mo when auto-move completes
-        state.sim.targetTimeScale = SLOWMO_SCALE;
+        let queuedHoleJump = false;
 
         if (doorTarget) {
           const doorDx = doorTarget.gridX - player.gridX;
@@ -670,6 +682,24 @@ class DarkWar {
         ) {
           this.handlePickup();
         }
+
+        if (
+          holeTarget &&
+          holeTarget.gridX === player.gridX &&
+          holeTarget.gridY === player.gridY
+        ) {
+          const holeTile =
+            state.map[idx(holeTarget.gridX, holeTarget.gridY)] ===
+            TileType.HOLE;
+          if (holeTile) {
+            this.queueHoleJump(holeTarget.gridX, holeTarget.gridY);
+            this.playerActedThisTick = true;
+            queuedHoleJump = true;
+          }
+        }
+
+        // Return to slow-mo when auto-move completes
+        state.sim.targetTimeScale = queuedHoleJump ? 1.0 : SLOWMO_SCALE;
       }
       return;
     }
@@ -791,6 +821,40 @@ class DarkWar {
       source: "PLAYER",
     });
 
+    this.playerActedThisTick = true;
+
+    // Execute immediately
+    stepSimulationTick(state);
+    this.game.updateFOV();
+    const playerJustDied = this.game.updateDeathStatus();
+    if (playerJustDied) {
+      const gameOverOverlay = document.getElementById("game-over-overlay");
+      if (gameOverOverlay) {
+        gameOverOverlay.classList.add("visible");
+      }
+    }
+
+    this.autoSave();
+  }
+
+  private queueHoleJump(tileX: number, tileY: number): void {
+    const state = this.game.getState();
+    if (!state.holeCreatedTiles) {
+      state.holeCreatedTiles = new Set();
+    }
+    state.holeCreatedTiles.add(idx(tileX, tileY));
+  }
+
+  private executeHoleJump(tileX: number, tileY: number): void {
+    if (this.game.isPlayerDead()) {
+      return;
+    }
+
+    const state = this.game.getState();
+    this.queueHoleJump(tileX, tileY);
+
+    // Resume time when player acts
+    state.sim.targetTimeScale = 1.0;
     this.playerActedThisTick = true;
 
     // Execute immediately
