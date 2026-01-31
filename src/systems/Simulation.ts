@@ -250,14 +250,14 @@ export function stepSimulationTick(state: GameState): void {
     if (!canActorAct(state, cmd.actorId, tick)) continue;
     resolveCommand(state, cmd);
   }
-
   // 3.5 Monsters can pick up items when overlapping them
   processMonsterItemPickups(state);
 
-  // 3.6 Handle player falling through holes
-  processPlayerHoleFalls(state);
-
   // 4. Process event queue until empty
+  processEventQueue(state);
+
+  // 4.5 Handle hole falling checks (player + monsters)
+  processHoleFalls(state);
   processEventQueue(state);
 
   // 5. Cleanup and increment
@@ -348,20 +348,61 @@ function processMonsterItemPickups(state: GameState): void {
 }
 
 // ========================================
-// Hole Falls (Player Only)
+// Hole Falls (Player + Monsters)
 // ========================================
 
-function processPlayerHoleFalls(state: GameState): void {
-  if (state.shouldDescend) return;
+function processHoleFalls(state: GameState): void {
+  if (state.shouldDescend) {
+    if (state.holeCreatedTiles && state.holeCreatedTiles.size > 0) {
+      state.holeCreatedTiles.clear();
+    }
+    return;
+  }
+
+  const holeCreatedTiles = state.holeCreatedTiles;
+  const holeCreated = holeCreatedTiles && holeCreatedTiles.size > 0;
 
   const player = state.entities.find(
     (e): e is Player => e.kind === EntityKind.PLAYER,
   );
-  if (!player) return;
 
-  const tile = tileAt(state.map, player.gridX, player.gridY);
-  if (tile !== TileType.HOLE) return;
+  if (player && holeCreated) {
+    const playerTileIndex = idx(player.gridX, player.gridY);
+    if (holeCreatedTiles?.has(playerTileIndex)) {
+      triggerPlayerFall(state, player);
+    }
+  }
 
+  const monsters = state.entities.filter(
+    (e): e is Monster => e.kind === EntityKind.MONSTER && e.hp > 0,
+  );
+
+  for (const monster of monsters) {
+    const monsterTileIndex = idx(monster.gridX, monster.gridY);
+
+    if (holeCreated && holeCreatedTiles?.has(monsterTileIndex)) {
+      triggerMonsterFall(state, monster);
+      continue;
+    }
+
+    const tile = tileAt(state.map, monster.gridX, monster.gridY);
+    if (tile !== TileType.HOLE) continue;
+
+    const movedOntoHole =
+      Math.floor(monster.prevWorldX / CELL_CONFIG.w) !== monster.gridX ||
+      Math.floor(monster.prevWorldY / CELL_CONFIG.h) !== monster.gridY;
+
+    if (movedOntoHole && RNG.chance(0.5)) {
+      triggerMonsterFall(state, monster);
+    }
+  }
+
+  if (holeCreatedTiles && holeCreatedTiles.size > 0) {
+    holeCreatedTiles.clear();
+  }
+}
+
+function triggerPlayerFall(state: GameState, player: Player): void {
   state.descendTarget = [player.gridX, player.gridY];
   state.shouldDescend = true;
 
@@ -378,6 +419,27 @@ function processPlayerHoleFalls(state: GameState): void {
       amount: HOLE_FALL_DAMAGE,
     },
   });
+}
+
+function triggerMonsterFall(state: GameState, monster: Monster): void {
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: {
+      type: "MESSAGE",
+      message: `The ${monster.type} falls through the floor!`,
+    },
+  });
+
+  pushEvent(state, {
+    type: EventType.DAMAGE,
+    data: {
+      type: "DAMAGE",
+      targetId: monster.id,
+      amount: HOLE_FALL_DAMAGE,
+    },
+  });
+
+  state.entities = state.entities.filter((e) => e.id !== monster.id);
 }
 
 // ========================================

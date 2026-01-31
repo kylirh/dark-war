@@ -288,6 +288,7 @@ export interface GameState {
   shouldDescend: boolean;
   descendTarget?: [number, number];
   changedTiles?: Set<number>; // Track tiles that changed for physics updates
+  holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
 }
 
 // ========================================

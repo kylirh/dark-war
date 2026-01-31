@@ -70,6 +70,7 @@ export class Game {
       shouldDescend: false,
       descendTarget: undefined,
       changedTiles: new Set(),
+      holeCreatedTiles: new Set(),
     };
   }
 
@@ -111,6 +112,7 @@ export class Game {
       shouldDescend: false,
       descendTarget: undefined,
       changedTiles: new Set(),
+      holeCreatedTiles: new Set(),
     };
 
     // Add player to entities
@@ -562,6 +564,7 @@ export class Game {
       eventQueue: [],
       shouldDescend: false,
       descendTarget: undefined,
+      holeCreatedTiles: new Set(),
     };
 
     this.isDead = false;

@@ -45,6 +45,10 @@ export function applyWallDamageAtIndex(
   if (next >= maxDamage) {
     if (isFloor) {
       state.map[tileIndex] = TileType.HOLE;
+      if (!state.holeCreatedTiles) {
+        state.holeCreatedTiles = new Set();
+      }
+      state.holeCreatedTiles.add(tileIndex);
     } else {
       state.map[tileIndex] = TileType.FLOOR;
     }
