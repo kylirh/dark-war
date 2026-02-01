@@ -400,8 +400,9 @@ export class Renderer {
                   ? "wall_wood"
                   : TileType.WALL;
           tileCoord = SPRITE_COORDS[wallSpriteKey] || SPRITE_COORDS[tileType];
-        } else {
+        } else if (tileType !== TileType.FLOOR && tileType !== TileType.HOLE) {
           // Default: use sprite coordinate for the tile type
+          // (FLOOR and HOLE already handled via baseCoord/overlayCoord)
           tileCoord = SPRITE_COORDS[tileType];
         }
 

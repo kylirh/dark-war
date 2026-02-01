@@ -399,7 +399,10 @@ export class Game {
     // Otherwise, land at stairs (normal stair descent)
     let landingPosition: [number, number];
     if (fallPosition) {
-      const nearestTile = this.findNearestPassableTile(snapshot.map, fallPosition);
+      const nearestTile = this.findNearestPassableTile(
+        snapshot.map,
+        fallPosition,
+      );
       landingPosition = nearestTile ?? snapshot.stairsUp ?? snapshot.stairsDown;
     } else {
       landingPosition = snapshot.stairsUp ?? snapshot.stairsDown;
