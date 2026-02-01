@@ -332,6 +332,7 @@ export interface SerializedLevelState {
   stairsUp: [number, number] | null;
   explored: number[];
   entities: Entity[];
+  enhancedVision?: boolean;
 }
 
 // ========================================

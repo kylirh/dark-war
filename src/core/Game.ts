@@ -35,6 +35,7 @@ interface LevelSnapshot {
   entities: Entity[];
   stairsDown: [number, number];
   stairsUp: [number, number] | null;
+  enhancedVision: boolean;
 }
 
 /**
@@ -253,11 +254,11 @@ export class Game {
         this.state.explored,
       );
       this.checkExplorationCompletion(accessible);
-    }
-
-    if (this.state.enhancedVision) {
-      accessible.forEach((index) => this.state.explored.add(index));
-      this.state.visible = new Set(accessible);
+    } else {
+      // Enhanced vision: show all explored tiles without FOV dimming
+      // Don't compute new FOV to avoid auto-revealing new areas
+      console.log(`Enhanced vision active. Visible = Explored: ${this.state.explored.size} tiles`);
+      this.state.visible = new Set(this.state.explored);
     }
   }
 
@@ -293,6 +294,7 @@ export class Game {
       entities: this.state.entities.filter((e) => e !== this.state.player),
       stairsDown: this.state.stairsDown,
       stairsUp: this.state.stairsUp,
+      enhancedVision: this.state.enhancedVision,
     };
     this.levels.set(currentDepth, snapshot);
   }
@@ -309,6 +311,7 @@ export class Game {
     this.state.accessible.clear();
     this.state.stairsDown = snapshot.stairsDown;
     this.state.stairsUp = snapshot.stairsUp;
+    this.state.enhancedVision = snapshot.enhancedVision;
 
     setPositionFromGrid(
       this.state.player as PlayerEntity,
@@ -346,6 +349,7 @@ export class Game {
       entities: this.spawnLevelEntities(dungeon.map, dungeon.start, depth),
       stairsDown: dungeon.stairsDown,
       stairsUp: stairsUpPosition,
+      enhancedVision: false,
     };
   }
 
@@ -551,6 +555,7 @@ export class Game {
       stairsUp: snapshot.stairsUp,
       explored: Array.from(snapshot.explored),
       entities: snapshot.entities,
+      enhancedVision: snapshot.enhancedVision,
     }));
 
     return {
@@ -648,6 +653,7 @@ export class Game {
         stairsUp: level.stairsUp ?? null,
         explored: new Set(level.explored),
         entities: this.hydrateEntities(level.entities, level.depth),
+        enhancedVision: level.enhancedVision ?? false,
       });
     }
 
@@ -739,10 +745,7 @@ export class Game {
     return hydrated;
   }
 
-  private computeAccessibleTiles(
-    startX: number,
-    startY: number,
-  ): Set<number> {
+  private computeAccessibleTiles(startX: number, startY: number): Set<number> {
     const accessible = new Set<number>();
     const queue: Array<[number, number]> = [[startX, startY]];
     const visited = new Set<string>();
@@ -787,7 +790,7 @@ export class Game {
 
     if (exploredAccessibleCount / accessibleCount >= 0.9) {
       this.state.enhancedVision = true;
-      this.state.options.fov = false;
+      console.log(`Enhanced vision activated! Explored: ${this.state.explored.size} tiles`);
       this.addLog("Level successfully explored!");
       Sound.play(SoundEffect.LEVEL_EXPLORED);
     }

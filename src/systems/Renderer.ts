@@ -342,7 +342,7 @@ export class Renderer {
         const isRevealed = usingShadowFov
           ? explored.has(tileIndex)
           : enhancedVision
-            ? explored.has(tileIndex) || accessible.has(tileIndex)
+            ? explored.has(tileIndex)
             : true;
         const isVisible = usingShadowFov
           ? visible.has(tileIndex)
