@@ -74,12 +74,12 @@ export class Physics {
           tile === TileType.DOOR_CLOSED ||
           tile === TileType.DOOR_LOCKED
         ) {
-          // Position box at tile corner (not center) for proper alignment
-          const worldX = x * CELL_CONFIG.w;
-          const worldY = y * CELL_CONFIG.h;
+          // Position box at tile center to match entity coordinates
+          const worldX = x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+          const worldY = y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
 
           // createBox parameters: position, width, height
-          // Position is top-left corner, dimensions are full size
+          // Position is center, dimensions are full size
           const box = this.system.createBox(
             { x: worldX, y: worldY },
             CELL_CONFIG.w, // 32px full width
@@ -114,8 +114,8 @@ export class Physics {
       tile === TileType.DOOR_CLOSED ||
       tile === TileType.DOOR_LOCKED
     ) {
-      const worldX = x * CELL_CONFIG.w;
-      const worldY = y * CELL_CONFIG.h;
+      const worldX = x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+      const worldY = y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
 
       const box = this.system.createBox(
         { x: worldX, y: worldY },
@@ -124,6 +124,7 @@ export class Physics {
       );
       box.isStatic = true;
       (box as any).isWall = true;
+      (box as any).tileIndex = tileIndex;
 
       this.wallBodies.set(tileIndex, box);
     }
@@ -262,8 +263,18 @@ export class Physics {
     const entityA = this.getEntityFromBody(state, bodyA);
     const entityB = this.getEntityFromBody(state, bodyB);
 
+    const isSolidEntity = (entity?: GameEntity): boolean =>
+      !!entity &&
+      (entity.kind === EntityKind.PLAYER || entity.kind === EntityKind.MONSTER);
+
     // Wall collision - push entity out of wall with wall sliding
-    if ((bodyA as any).isWall && entityB && entityB.kind !== EntityKind.ITEM) {
+    if (
+      (bodyA as any).isWall &&
+      entityB &&
+      entityB.kind !== EntityKind.ITEM &&
+      entityB.kind !== EntityKind.BULLET &&
+      entityB.kind !== EntityKind.EXPLOSIVE
+    ) {
       // Push entity out with small safety margin to prevent tunneling
       const separation = 1.01; // 1% extra separation
       entityB.worldX += response.overlapV.x * separation;
@@ -301,7 +312,9 @@ export class Physics {
     } else if (
       (bodyB as any).isWall &&
       entityA &&
-      entityA.kind !== EntityKind.ITEM
+      entityA.kind !== EntityKind.ITEM &&
+      entityA.kind !== EntityKind.BULLET &&
+      entityA.kind !== EntityKind.EXPLOSIVE
     ) {
       // Push entity out with small safety margin to prevent tunneling
       const separation = 1.01; // 1% extra separation
@@ -336,6 +349,38 @@ export class Physics {
 
       if (entityA.physicsBody) {
         entityA.physicsBody.setPosition(entityA.worldX, entityA.worldY);
+      }
+    } else if (isSolidEntity(entityA) && isSolidEntity(entityB)) {
+      // TypeScript narrow check - both entities are confirmed solid at this point
+      if (!entityA || !entityB) return;
+
+      const separation = 0.505;
+      entityA.worldX -= response.overlapV.x * separation;
+      entityA.worldY -= response.overlapV.y * separation;
+      entityB.worldX += response.overlapV.x * separation;
+      entityB.worldY += response.overlapV.y * separation;
+
+      if (response.overlapV.x > 0) {
+        if (entityA.velocityX > 0) entityA.velocityX = 0;
+        if (entityB.velocityX < 0) entityB.velocityX = 0;
+      } else if (response.overlapV.x < 0) {
+        if (entityA.velocityX < 0) entityA.velocityX = 0;
+        if (entityB.velocityX > 0) entityB.velocityX = 0;
+      }
+
+      if (response.overlapV.y > 0) {
+        if (entityA.velocityY > 0) entityA.velocityY = 0;
+        if (entityB.velocityY < 0) entityB.velocityY = 0;
+      } else if (response.overlapV.y < 0) {
+        if (entityA.velocityY < 0) entityA.velocityY = 0;
+        if (entityB.velocityY > 0) entityB.velocityY = 0;
+      }
+
+      if (entityA.physicsBody) {
+        entityA.physicsBody.setPosition(entityA.worldX, entityA.worldY);
+      }
+      if (entityB.physicsBody) {
+        entityB.physicsBody.setPosition(entityB.worldX, entityB.worldY);
       }
     }
   }
