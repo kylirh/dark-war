@@ -24,6 +24,7 @@ import { RNG } from "../utils/RNG";
 import { dist, passable, setPositionFromGrid, setTile } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
 import { GameEntity } from "../entities/GameEntity";
+import { Sound, SoundEffect } from "../systems/Sound";
 
 interface LevelSnapshot {
   depth: number;
@@ -62,6 +63,8 @@ export class Game {
       mapDirty: false,
       visible: new Set(),
       explored: new Set(),
+      accessible: new Set(),
+      enhancedVision: false,
       entities: [],
       player: new PlayerEntity(0, 0),
       stairsDown: [0, 0],
@@ -106,6 +109,8 @@ export class Game {
       mapDirty: false,
       visible: new Set(),
       explored: new Set(),
+      accessible: new Set(),
+      enhancedVision: false,
       entities: [],
       player: new PlayerEntity(dungeon.start[0], dungeon.start[1]),
       stairsDown: dungeon.stairsDown,
@@ -235,17 +240,32 @@ export class Game {
    * Update field of view
    */
   public updateFOV(): void {
-    this.state.visible = computeFOV(
-      this.state.map,
-      this.state.player,
-      this.state.explored,
+    const accessible = this.computeAccessibleTiles(
+      this.state.player.gridX,
+      this.state.player.gridY,
     );
+    this.state.accessible = accessible;
+
+    if (!this.state.enhancedVision) {
+      this.state.visible = computeFOV(
+        this.state.map,
+        this.state.player,
+        this.state.explored,
+      );
+      this.checkExplorationCompletion(accessible);
+    }
+
+    if (this.state.enhancedVision) {
+      accessible.forEach((index) => this.state.explored.add(index));
+      this.state.visible = new Set(accessible);
+    }
   }
 
   /**
    * Toggle FOV option
    */
   public toggleFOV(): void {
+    if (this.state.enhancedVision) return;
     this.state.options.fov = !this.state.options.fov;
     // When toggling, recompute FOV to update visibility
     this.updateFOV();
@@ -286,6 +306,7 @@ export class Game {
     this.state.wallDamage = snapshot.wallDamage;
     this.state.explored = new Set(snapshot.explored);
     this.state.visible.clear();
+    this.state.accessible.clear();
     this.state.stairsDown = snapshot.stairsDown;
     this.state.stairsUp = snapshot.stairsUp;
 
@@ -543,6 +564,7 @@ export class Game {
       player: this.state.player,
       entities: this.state.entities.filter((e) => e !== this.state.player),
       explored: Array.from(this.state.explored),
+      enhancedVision: this.state.enhancedVision,
       log: this.state.log.slice(0, 50),
       levels,
       sim: {
@@ -590,6 +612,8 @@ export class Game {
       stairsUp: data.stairsUp ?? null,
       visible: new Set(),
       explored: new Set(data.explored),
+      accessible: new Set(),
+      enhancedVision: data.enhancedVision ?? false,
       entities,
       player,
       log: data.log || [],
@@ -713,6 +737,60 @@ export class Game {
       }
     }
     return hydrated;
+  }
+
+  private computeAccessibleTiles(
+    startX: number,
+    startY: number,
+  ): Set<number> {
+    const accessible = new Set<number>();
+    const queue: Array<[number, number]> = [[startX, startY]];
+    const visited = new Set<string>();
+
+    while (queue.length > 0) {
+      const [x, y] = queue.shift() as [number, number];
+      const key = `${x},${y}`;
+      if (visited.has(key)) continue;
+      visited.add(key);
+
+      if (
+        x < 0 ||
+        y < 0 ||
+        x >= MAP_WIDTH ||
+        y >= MAP_HEIGHT ||
+        !passable(this.state.map, x, y)
+      ) {
+        continue;
+      }
+
+      accessible.add(x + y * MAP_WIDTH);
+
+      queue.push([x + 1, y]);
+      queue.push([x - 1, y]);
+      queue.push([x, y + 1]);
+      queue.push([x, y - 1]);
+    }
+
+    return accessible;
+  }
+
+  private checkExplorationCompletion(accessible: Set<number>): void {
+    const accessibleCount = accessible.size;
+    if (accessibleCount === 0) return;
+
+    let exploredAccessibleCount = 0;
+    for (const index of accessible) {
+      if (this.state.explored.has(index)) {
+        exploredAccessibleCount += 1;
+      }
+    }
+
+    if (exploredAccessibleCount / accessibleCount >= 0.9) {
+      this.state.enhancedVision = true;
+      this.state.options.fov = false;
+      this.addLog("Level successfully explored!");
+      Sound.play(SoundEffect.LEVEL_EXPLORED);
+    }
   }
 
   private getGridPositionFromSerialized(entity: {

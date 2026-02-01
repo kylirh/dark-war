@@ -300,9 +300,19 @@ export class Renderer {
       return;
     }
 
-    const { map, visible, explored, entities, player, options, effects } =
-      state;
+    const {
+      map,
+      visible,
+      explored,
+      accessible,
+      enhancedVision,
+      entities,
+      player,
+      options,
+      effects,
+    } = state;
     const nowMs = this.getNowMs();
+    const usingShadowFov = options.fov && !enhancedVision;
 
     // Update camera position for smooth following (real-time mode only)
     if (state.sim.mode === "REALTIME" && "worldX" in player) {
@@ -329,15 +339,24 @@ export class Renderer {
     for (let y = 0; y < MAP_HEIGHT; y++) {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const tileIndex = idx(x, y);
-        const isVisible = options.fov ? visible.has(tileIndex) : true;
-        const isExplored = options.fov ? explored.has(tileIndex) : true;
+        const isRevealed = usingShadowFov
+          ? explored.has(tileIndex)
+          : enhancedVision
+            ? explored.has(tileIndex) || accessible.has(tileIndex)
+            : true;
+        const isVisible = usingShadowFov
+          ? visible.has(tileIndex)
+          : enhancedVision
+            ? isRevealed
+            : true;
+        const tileType =
+          enhancedVision && !isRevealed ? TileType.WALL : map[tileIndex];
 
-        if (!isExplored) continue;
+        if (!isRevealed && !enhancedVision) continue;
 
         const screenX = offsetX + x * CELL_CONFIG.w;
         const screenY = offsetY + y * CELL_CONFIG.h;
 
-        const tileType = map[tileIndex];
         const floorVariant = state.floorVariant ?? 0;
         const floorCoord =
           FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
@@ -376,7 +395,7 @@ export class Renderer {
               screenY,
             );
             if (floorSprite) {
-              if (!isVisible) {
+              if (!isVisible && usingShadowFov) {
                 floorSprite.alpha = 0.45;
               }
               this.mapContainer.addChild(floorSprite);
@@ -409,7 +428,8 @@ export class Renderer {
         const renderSprite = (coord: { x: number; y: number }) => {
           const sprite = this.createSprite(coord.x, coord.y, screenX, screenY);
           if (sprite) {
-            if (!isVisible) {
+            // Dim explored but not visible tiles
+            if (!isVisible && usingShadowFov) {
               sprite.alpha = 0.45;
             }
             this.mapContainer.addChild(sprite);
@@ -444,7 +464,12 @@ export class Renderer {
       if (!("gridX" in entity) || !("gridY" in entity)) continue;
 
       const tileIndex = idx(entity.gridX, entity.gridY);
-      if (options.fov && !visible.has(tileIndex)) continue;
+      const shouldRenderEntity = usingShadowFov
+        ? visible.has(tileIndex)
+        : enhancedVision
+          ? explored.has(tileIndex) || accessible.has(tileIndex)
+          : true;
+      if (!shouldRenderEntity) continue;
 
       // Use current world position (no interpolation for instant movement)
       let screenX: number, screenY: number;

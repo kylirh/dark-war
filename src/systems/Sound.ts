@@ -16,6 +16,7 @@ export enum SoundEffect {
   RELOAD = "reload",
   MONSTER_DEATH = "death",
   EXPLOSION = "explosion",
+  LEVEL_EXPLORED = "level-explored",
 }
 
 /**

@@ -276,6 +276,8 @@ export interface GameState {
   mapDirty: boolean;
   visible: Set<number>;
   explored: Set<number>;
+  accessible: Set<number>;
+  enhancedVision: boolean;
   entities: Entity[];
   player: Player;
   stairsDown: [number, number];
@@ -311,6 +313,7 @@ export interface SerializedState {
   player: Player;
   entities: Entity[];
   explored: number[];
+  enhancedVision?: boolean;
   log: string[];
   levels?: SerializedLevelState[];
   // NEW: Save simulation state

@@ -52,13 +52,5 @@ export function computeFOV(
   // Add all visible tiles to explored
   visible.forEach((index) => explored.add(index));
 
-  // Limit explored set size to prevent unbounded memory growth
-  // Keep only the most recently explored tiles (last 2000)
-  if (explored.size > 2000) {
-    const toKeep = Array.from(explored).slice(-1500);
-    explored.clear();
-    toKeep.forEach((i) => explored.add(i));
-  }
-
   return visible;
 }
