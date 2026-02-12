@@ -6,6 +6,7 @@ import {
   EntityKind,
   Entity,
   Monster,
+  Player,
   MonsterType,
   Item,
   ItemType,
@@ -14,6 +15,8 @@ import {
   MAP_WIDTH,
   MAP_HEIGHT,
   CELL_CONFIG,
+  MultiplayerMode,
+  WallSet,
 } from "../types";
 import { generateDungeon } from "./Map";
 import { PlayerEntity } from "../entities/PlayerEntity";
@@ -29,6 +32,7 @@ interface LevelSnapshot {
   depth: number;
   map: TileType[];
   floorVariant: number;
+  wallSet: WallSet;
   wallDamage: number[];
   explored: Set<number>;
   entities: Entity[];
@@ -44,8 +48,12 @@ export class Game {
   private state: GameState;
   private isDead = false;
   private levels = new Map<number, LevelSnapshot>();
+  private multiplayerMode: MultiplayerMode;
+  private localPlayerId?: string;
 
-  constructor() {
+  constructor(options?: { mode?: MultiplayerMode; localPlayerId?: string }) {
+    this.multiplayerMode = options?.mode ?? "offline";
+    this.localPlayerId = options?.localPlayerId;
     this.state = this.createInitialState();
   }
 
@@ -53,6 +61,17 @@ export class Game {
    * Create initial game state
    */
   private createInitialState(): GameState {
+    const player = new PlayerEntity(0, 0);
+    const localPlayerId = this.localPlayerId ?? player.id;
+    this.localPlayerId = localPlayerId;
+    const explored = new Set<number>();
+    const visibilityByPlayer = new Map<string, Set<number>>([
+      [localPlayerId, new Set<number>()],
+    ]);
+    const exploredByPlayer = new Map<string, Set<number>>([
+      [localPlayerId, explored],
+    ]);
+
     return {
       depth: 1,
       map: new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL),
@@ -61,14 +80,21 @@ export class Game {
       wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
       mapDirty: false,
       visible: new Set(),
-      explored: new Set(),
+      explored,
+      visibilityByPlayer,
+      exploredByPlayer,
       entities: [],
-      player: new PlayerEntity(0, 0),
+      players: [player],
+      player,
       stairsDown: [0, 0],
       stairsUp: null,
       log: [],
       options: { fov: true },
       effects: [],
+      multiplayer: {
+        mode: this.multiplayerMode,
+        localPlayerId,
+      },
       sim: {
         nowTick: 0,
         mode: "REALTIME",
@@ -97,6 +123,17 @@ export class Game {
     this.levels = new Map();
     const dungeon = generateDungeon();
 
+    const player = new PlayerEntity(dungeon.start[0], dungeon.start[1]);
+    const localPlayerId = this.localPlayerId ?? player.id;
+    this.localPlayerId = localPlayerId;
+    const explored = new Set<number>();
+    const visibilityByPlayer = new Map<string, Set<number>>([
+      [localPlayerId, new Set<number>()],
+    ]);
+    const exploredByPlayer = new Map<string, Set<number>>([
+      [localPlayerId, explored],
+    ]);
+
     this.state = {
       depth,
       map: dungeon.map,
@@ -105,14 +142,21 @@ export class Game {
       wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
       mapDirty: false,
       visible: new Set(),
-      explored: new Set(),
+      explored,
+      visibilityByPlayer,
+      exploredByPlayer,
       entities: [],
-      player: new PlayerEntity(dungeon.start[0], dungeon.start[1]),
+      players: [player],
+      player,
       stairsDown: dungeon.stairsDown,
       stairsUp: null,
       log: [],
       options: { fov: true },
       effects: [],
+      multiplayer: {
+        mode: this.multiplayerMode,
+        localPlayerId,
+      },
       // NEW: Simulation system
       sim: {
         nowTick: 0,
@@ -235,11 +279,110 @@ export class Game {
    * Update field of view
    */
   public updateFOV(): void {
-    this.state.visible = computeFOV(
-      this.state.map,
-      this.state.player,
-      this.state.explored,
+    const playerId = this.state.multiplayer.localPlayerId;
+    this.updateFOVForPlayer(playerId);
+  }
+
+  public updateFOVForPlayer(playerId: string): void {
+    const player = this.getPlayerById(playerId);
+    if (!player) return;
+    let explored = this.state.exploredByPlayer.get(playerId);
+    if (!explored) {
+      explored = new Set<number>();
+      this.state.exploredByPlayer.set(playerId, explored);
+    }
+    const visible = computeFOV(this.state.map, player, explored);
+    this.state.visibilityByPlayer.set(playerId, visible);
+    if (playerId === this.state.multiplayer.localPlayerId) {
+      this.state.visible = visible;
+      this.state.explored = explored;
+    }
+  }
+
+  public setLocalPlayerId(playerId: string): boolean {
+    const player = this.getPlayerById(playerId);
+    if (!player) return false;
+
+    this.localPlayerId = playerId;
+    this.state.multiplayer.localPlayerId = playerId;
+    this.state.player = player;
+    this.syncLocalExploredState();
+    this.updateFOVForPlayer(playerId);
+    return true;
+  }
+
+  public addNetworkPlayer(playerId: string): Player {
+    const existingPlayer = this.getPlayerById(playerId);
+    if (existingPlayer) {
+      if (!this.state.exploredByPlayer.has(playerId)) {
+        this.state.exploredByPlayer.set(playerId, new Set<number>());
+      }
+      if (!this.state.visibilityByPlayer.has(playerId)) {
+        this.state.visibilityByPlayer.set(playerId, new Set<number>());
+      }
+      return existingPlayer;
+    }
+
+    const reference: [number, number] = this.state.stairsUp
+      ? [this.state.stairsUp[0], this.state.stairsUp[1]]
+      : [this.state.stairsDown[0], this.state.stairsDown[1]];
+    const [spawnX, spawnY] = this.findSpawnTile(reference);
+
+    const player = new PlayerEntity(spawnX, spawnY);
+    player.id = playerId;
+    player.nextActTick = this.state.sim.nowTick;
+
+    this.state.players.push(player);
+    this.state.entities.push(player);
+    this.state.exploredByPlayer.set(playerId, new Set<number>());
+    this.state.visibilityByPlayer.set(playerId, new Set<number>());
+
+    this.updateFOVForPlayer(playerId);
+    return player;
+  }
+
+  public removeNetworkPlayer(playerId: string): void {
+    const removedPlayer = this.getPlayerById(playerId);
+    if (!removedPlayer) return;
+
+    this.state.players = this.state.players.filter(
+      (player) => player.id !== playerId,
     );
+    this.state.entities = this.state.entities.filter(
+      (entity) => entity.id !== playerId,
+    );
+    this.state.exploredByPlayer.delete(playerId);
+    this.state.visibilityByPlayer.delete(playerId);
+
+    const fallbackPlayer = this.state.players[0];
+
+    if (this.state.player.id === playerId) {
+      this.state.player = fallbackPlayer ?? removedPlayer;
+    }
+
+    if (this.state.multiplayer.localPlayerId === playerId) {
+      this.state.multiplayer.localPlayerId =
+        fallbackPlayer?.id ?? removedPlayer.id;
+      this.localPlayerId = this.state.multiplayer.localPlayerId;
+      this.syncLocalExploredState();
+    }
+  }
+
+  public serializeForPlayer(playerId: string): SerializedState {
+    const state = this.serialize();
+    const player = this.getPlayerById(playerId);
+    if (player) {
+      state.player = this.stripRuntimeEntityState(player) as Player;
+    }
+    const explored = this.state.exploredByPlayer.get(playerId);
+    if (explored) {
+      state.explored = Array.from(explored);
+    }
+    state.multiplayer = {
+      mode: this.state.multiplayer.mode,
+      localPlayerId: playerId,
+    };
+    return state;
   }
 
   /**
@@ -268,9 +411,12 @@ export class Game {
       depth: currentDepth,
       map: this.state.map,
       floorVariant: this.state.floorVariant,
+      wallSet: this.state.wallSet,
       wallDamage: this.state.wallDamage,
       explored: new Set(this.state.explored),
-      entities: this.state.entities.filter((e) => e !== this.state.player),
+      entities: this.state.entities.filter(
+        (entity) => entity.kind !== EntityKind.PLAYER,
+      ),
       stairsDown: this.state.stairsDown,
       stairsUp: this.state.stairsUp,
     };
@@ -283,23 +429,23 @@ export class Game {
   ): void {
     this.state.map = snapshot.map;
     this.state.floorVariant = snapshot.floorVariant;
+    this.state.wallSet = snapshot.wallSet;
     this.state.wallDamage = snapshot.wallDamage;
     this.state.explored = new Set(snapshot.explored);
     this.state.visible.clear();
     this.state.stairsDown = snapshot.stairsDown;
     this.state.stairsUp = snapshot.stairsUp;
 
-    setPositionFromGrid(
-      this.state.player as PlayerEntity,
-      playerEntry[0],
-      playerEntry[1],
-    );
-    this.state.player.nextActTick = this.state.sim.nowTick;
+    for (const player of this.state.players) {
+      setPositionFromGrid(player as PlayerEntity, playerEntry[0], playerEntry[1]);
+      player.nextActTick = this.state.sim.nowTick;
+    }
 
     this.state.entities = [
-      this.state.player,
+      ...this.state.players,
       ...snapshot.entities.map((entity) => entity),
     ];
+    this.syncLocalExploredState();
   }
 
   private buildNewLevel(depth: number): LevelSnapshot {
@@ -320,6 +466,7 @@ export class Game {
       depth,
       map: dungeon.map,
       floorVariant: dungeon.floorVariant,
+      wallSet: dungeon.wallSet,
       wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
       explored: new Set(),
       entities: this.spawnLevelEntities(dungeon.map, dungeon.start, depth),
@@ -525,12 +672,20 @@ export class Game {
       depth: snapshot.depth,
       map: snapshot.map,
       floorVariant: snapshot.floorVariant,
+      wallSet: snapshot.wallSet,
       wallDamage: snapshot.wallDamage,
       stairsDown: snapshot.stairsDown,
       stairsUp: snapshot.stairsUp,
       explored: Array.from(snapshot.explored),
-      entities: snapshot.entities,
+      entities: snapshot.entities.map((entity) =>
+        this.stripRuntimeEntityState(entity),
+      ),
     }));
+
+    const exploredByPlayer: Record<string, number[]> = {};
+    for (const [playerId, explored] of this.state.exploredByPlayer.entries()) {
+      exploredByPlayer[playerId] = Array.from(explored);
+    }
 
     return {
       depth: this.state.depth,
@@ -540,11 +695,18 @@ export class Game {
       wallDamage: this.state.wallDamage,
       stairsDown: this.state.stairsDown,
       stairsUp: this.state.stairsUp,
-      player: this.state.player,
-      entities: this.state.entities.filter((e) => e !== this.state.player),
+      player: this.stripRuntimeEntityState(this.state.player) as Player,
+      players: this.state.players.map((player) =>
+        this.stripRuntimeEntityState(player) as Player,
+      ),
+      entities: this.state.entities
+        .filter((entity) => entity.kind !== EntityKind.PLAYER)
+        .map((entity) => this.stripRuntimeEntityState(entity)),
       explored: Array.from(this.state.explored),
+      exploredByPlayer,
       log: this.state.log.slice(0, 50),
       levels,
+      multiplayer: this.state.multiplayer,
       sim: {
         nowTick: this.state.sim.nowTick,
         mode: this.state.sim.mode,
@@ -563,20 +725,37 @@ export class Game {
       data.wallDamage && data.wallDamage.length === data.map.length
         ? data.wallDamage.slice()
         : new Array(data.map.length).fill(0);
-    // Reconstruct player entity (may be plain object from old save)
-    let player = data.player;
-    if (!(player instanceof PlayerEntity)) {
-      const [gridX, gridY] = this.getGridPositionFromSerialized(player);
-      const p = new PlayerEntity(gridX, gridY);
-      Object.assign(p, player);
-      this.syncWorldPosition(p, player);
-      player = p;
-    }
+    const players = this.hydratePlayers(
+      data.players ?? [data.player],
+      data.depth,
+    );
+    const localPlayerId =
+      data.multiplayer?.localPlayerId ?? players[0]?.id ?? data.player.id;
+    this.localPlayerId = localPlayerId;
+    const player =
+      players.find((candidate) => candidate.id === localPlayerId) ??
+      players[0];
 
+    const nonPlayerEntities = data.entities.filter(
+      (entity) => entity.kind !== EntityKind.PLAYER,
+    );
     const entities: Entity[] = [
-      player,
-      ...this.hydrateEntities(data.entities, data.depth),
+      ...players,
+      ...this.hydrateEntities(nonPlayerEntities, data.depth),
     ];
+
+    const exploredByPlayer = new Map<string, Set<number>>();
+    if (data.exploredByPlayer) {
+      for (const [playerId, explored] of Object.entries(
+        data.exploredByPlayer,
+      )) {
+        exploredByPlayer.set(playerId, new Set(explored));
+      }
+    }
+    if (!exploredByPlayer.has(localPlayerId)) {
+      exploredByPlayer.set(localPlayerId, new Set(data.explored));
+    }
+    const visibilityByPlayer = new Map<string, Set<number>>();
 
     this.state = {
       depth: data.depth,
@@ -590,11 +769,18 @@ export class Game {
       stairsUp: data.stairsUp ?? null,
       visible: new Set(),
       explored: new Set(data.explored),
+      visibilityByPlayer,
+      exploredByPlayer,
       entities,
+      players,
       player,
       log: data.log || [],
       options: { fov: true },
       effects: [],
+      multiplayer: {
+        mode: data.multiplayer?.mode ?? this.multiplayerMode,
+        localPlayerId,
+      },
       sim: {
         nowTick: data.sim.nowTick,
         mode: data.sim.mode,
@@ -619,6 +805,7 @@ export class Game {
         depth: level.depth,
         map: level.map,
         floorVariant: level.floorVariant,
+        wallSet: level.wallSet === "wood" ? "wood" : "concrete",
         wallDamage: level.wallDamage,
         stairsDown: level.stairsDown,
         stairsUp: level.stairsUp ?? null,
@@ -629,6 +816,19 @@ export class Game {
 
     this.isDead = false;
     this.updateFOV();
+  }
+
+  private hydratePlayers(players: Player[], depth: number): Player[] {
+    return players.map((player) => {
+      if (player instanceof PlayerEntity) {
+        return player;
+      }
+      const [gridX, gridY] = this.getGridPositionFromSerialized(player);
+      const p = new PlayerEntity(gridX, gridY);
+      Object.assign(p, player);
+      this.syncWorldPosition(p, player);
+      return p;
+    });
   }
 
   private hydrateEntities(entities: Entity[], depth: number): Entity[] {
@@ -713,6 +913,60 @@ export class Game {
       }
     }
     return hydrated;
+  }
+
+  public getPlayerById(playerId: string): Player | undefined {
+    return this.state.players.find((player) => player.id === playerId);
+  }
+
+  private stripRuntimeEntityState(entity: Entity): Entity {
+    const plain = { ...(entity as object) } as Record<string, unknown>;
+    delete plain.physicsBody;
+    return plain as unknown as Entity;
+  }
+
+  private findSpawnTile(preferred: [number, number]): [number, number] {
+    const visited = new Set<number>();
+    const queue: [number, number][] = [];
+    const enqueue = (x: number, y: number) => {
+      if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return;
+      const index = x + y * MAP_WIDTH;
+      if (visited.has(index)) return;
+      visited.add(index);
+      queue.push([x, y]);
+    };
+
+    enqueue(preferred[0], preferred[1]);
+    while (queue.length > 0) {
+      const [x, y] = queue.shift() as [number, number];
+      if (passable(this.state.map, x, y) && !this.isActorOccupied(x, y)) {
+        return [x, y];
+      }
+      enqueue(x + 1, y);
+      enqueue(x - 1, y);
+      enqueue(x, y + 1);
+      enqueue(x, y - 1);
+    }
+
+    return [preferred[0], preferred[1]];
+  }
+
+  private isActorOccupied(x: number, y: number): boolean {
+    return this.state.entities.some(
+      (entity) =>
+        (entity.kind === EntityKind.PLAYER ||
+          entity.kind === EntityKind.MONSTER) &&
+        entity.gridX === x &&
+        entity.gridY === y,
+    );
+  }
+
+  private syncLocalExploredState(): void {
+    const localPlayerId = this.state.multiplayer.localPlayerId;
+    const explored = this.state.exploredByPlayer.get(localPlayerId);
+    if (explored) {
+      this.state.explored = new Set(explored);
+    }
   }
 
   private getGridPositionFromSerialized(entity: {

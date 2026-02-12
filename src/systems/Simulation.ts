@@ -52,6 +52,34 @@ const EXPLOSIVE_CONFIG: Record<
   [ItemType.LAND_MINE]: { radius: 2, damage: 8 },
 };
 
+function getAlivePlayers(state: GameState): Player[] {
+  return state.entities.filter(
+    (entity): entity is Player =>
+      entity.kind === EntityKind.PLAYER && entity.hp > 0,
+  );
+}
+
+function getClosestPlayer(
+  state: GameState,
+  source: { worldX: number; worldY: number },
+): Player | null {
+  const players = getAlivePlayers(state);
+  if (players.length === 0) return null;
+
+  let closest: Player | null = null;
+  let bestDistanceSq = Number.POSITIVE_INFINITY;
+  for (const player of players) {
+    const dx = player.worldX - source.worldX;
+    const dy = player.worldY - source.worldY;
+    const distanceSq = dx * dx + dy * dy;
+    if (distanceSq < bestDistanceSq) {
+      bestDistanceSq = distanceSq;
+      closest = player;
+    }
+  }
+  return closest;
+}
+
 // ========================================
 // Steering Behaviors (Continuous Movement AI)
 // ========================================
@@ -64,11 +92,17 @@ export function updateMonsterSteering(state: GameState): void {
   const monsters = state.entities.filter(
     (e): e is Monster => e.kind === EntityKind.MONSTER,
   );
-  const player = state.player;
 
   for (const monster of monsters) {
     // Skip if monster doesn't have continuous coordinates
     if (!("worldX" in monster) || !("worldY" in monster)) continue;
+
+    const player = getClosestPlayer(state, monster);
+    if (!player) {
+      (monster as any).velocityX = 0;
+      (monster as any).velocityY = 0;
+      continue;
+    }
 
     const monsterEntity = monster as any;
     const playerEntity = player as any;
@@ -362,14 +396,14 @@ function processHoleFalls(state: GameState): void {
   const holeCreatedTiles = state.holeCreatedTiles;
   const holeCreated = holeCreatedTiles && holeCreatedTiles.size > 0;
 
-  const player = state.entities.find(
-    (e): e is Player => e.kind === EntityKind.PLAYER,
-  );
-
-  if (player && holeCreated) {
-    const playerTileIndex = idx(player.gridX, player.gridY);
-    if (holeCreatedTiles?.has(playerTileIndex)) {
-      triggerPlayerFall(state, player);
+  const players = getAlivePlayers(state);
+  if (holeCreated) {
+    for (const player of players) {
+      const playerTileIndex = idx(player.gridX, player.gridY);
+      if (holeCreatedTiles?.has(playerTileIndex)) {
+        triggerPlayerFall(state, player);
+        break;
+      }
     }
   }
 
@@ -543,7 +577,7 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
   const ny = actor.gridY + data.dy;
 
   // Check bounds
-  if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= 36) return false;
+  if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= MAP_HEIGHT) return false;
 
   // Check passability
   if (!passable(state.map, nx, ny)) return false;
@@ -949,7 +983,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
   if (shooter.kind === EntityKind.MONSTER) {
     const monster = shooter as Monster;
     if (!("worldX" in monster) || !("worldY" in monster)) return;
-    const target = state.player;
+    const target = getClosestPlayer(state, monster);
+    if (!target) return;
 
     const dx = (target as any).worldX - (monster as any).worldX;
     const dy = (target as any).worldY - (monster as any).worldY;
@@ -1375,6 +1410,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
           type: "DEATH",
           entityId: monster.id,
           fromExplosion: data.fromExplosion,
+          sourceId: data.sourceId,
         },
         cause: event.id,
       });
@@ -1485,6 +1521,7 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
     type: "DEATH";
     entityId: string;
     fromExplosion?: boolean;
+    sourceId?: string;
   };
   const entity = state.entities.find((e) => e.id === data.entityId);
   if (!entity) return;
@@ -1504,7 +1541,16 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
       cause: event.id,
     });
 
-    state.player.score += 10;
+    const scoringPlayer =
+      (data.sourceId
+        ? state.entities.find(
+            (entity): entity is Player =>
+              entity.kind === EntityKind.PLAYER && entity.id === data.sourceId,
+          )
+        : null) ?? getClosestPlayer(state, monster);
+    if (scoringPlayer) {
+      scoringPlayer.score += 10;
+    }
 
     if (monster.grenades > 0 || monster.landMines > 0) {
       const spawnExplosive = (
@@ -1706,7 +1752,18 @@ function decideMonsterCommand(
   monster: Monster,
   tick: number,
 ): Command | null {
-  const { player } = state;
+  const player = getClosestPlayer(state, monster);
+  if (!player) {
+    return {
+      id: crypto.randomUUID(),
+      tick,
+      actorId: monster.id,
+      type: CommandType.WAIT,
+      data: { type: "WAIT" },
+      priority: 0,
+      source: "AI",
+    };
+  }
 
   // Calculate distance - prefer continuous if available
   let distance: number;

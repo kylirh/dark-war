@@ -43,6 +43,35 @@ This will:
 2. Compile TypeScript to JavaScript
 3. Launch the Electron application
 
+### Multiplayer (Authoritative Server)
+
+1. Start the multiplayer server:
+
+```bash
+npm run multiplayer:server
+```
+
+2. Start each game client in online mode:
+
+```bash
+npm run dev:online
+```
+
+By default this connects to `ws://localhost:7777` in room `default`.
+
+For additional clients (without rebuilding each time), run:
+
+```bash
+npm run online:client -- --name=Alice --room=default
+npm run online:client -- --name=Bob --room=default
+```
+
+You can also pass custom launch args directly:
+
+```bash
+electron . --mode=online --server=ws://localhost:7777 --room=my-room --name=Alice
+```
+
 ### Watch Mode
 
 For active development with auto-rebuild on file changes:
@@ -99,11 +128,12 @@ dark-war/
 
 - **WASD** - Move continuously in 8 directions
 - **Mouse** - Aim weapon
-- **Right Click** - Use current weapon (melee/shot/throw/place)
+- **Left Click** - Use current weapon (melee/shot/throw/place)
+- **Right Click** - Click-to-move (offline only)
 - **Mouse Wheel** or **1-4** - Cycle weapons (1 melee, 2 pistol, 3 grenade, 4 land mine)
 - **G** - Pick up items
 - **R** - Reload pistol
-- **O** - Open/close door (directional)
+- **O** - Open/close door in your current movement direction
 - **V** - Toggle field of view visualization
 - **<** - Descend stairs to next level
 

@@ -16,6 +16,7 @@ import {
   CommandType,
   EntityKind,
   MAP_WIDTH,
+  MultiplayerMode,
   REAL_TIME_SPEED,
   SLOWMO_SCALE,
   TileType,
@@ -23,7 +24,12 @@ import {
   WeaponType,
 } from "./types";
 import { idx, inBounds } from "./utils/helpers";
+import {
+  MultiplayerConfig,
+  getMultiplayerConfigFromUrl,
+} from "./utils/multiplayer";
 import { findPathToClosestReachable } from "./utils/pathfinding";
+import { MultiplayerClient, NetworkAction } from "./net/MultiplayerClient";
 
 /**
  * Dark War - Main Entry Point
@@ -100,11 +106,17 @@ class DarkWar {
   private lastRightClickTile: { gridX: number; gridY: number } | null = null;
   private pendingRightClickTimer: number | null = null;
   private pendingRightClickTile: { gridX: number; gridY: number } | null = null;
+  private multiplayerMode: MultiplayerMode;
+  private multiplayerConfig: MultiplayerConfig;
+  private multiplayerClient: MultiplayerClient | null = null;
+  private onlineConnected: boolean = false;
 
   constructor() {
     if (DEBUG) console.time("Game initialization");
     if (DEBUG) console.time("Create Game instance");
-    this.game = new Game();
+    this.multiplayerConfig = getMultiplayerConfigFromUrl();
+    this.multiplayerMode = this.multiplayerConfig.mode;
+    this.game = new Game({ mode: this.multiplayerMode });
     if (DEBUG) console.timeEnd("Create Game instance");
 
     if (DEBUG) console.time("Create Physics");
@@ -167,12 +179,19 @@ class DarkWar {
     // Setup native menu handlers for Electron
     this.setupNativeMenuHandlers();
 
-    // Try to load saved game, otherwise start new
-    if (DEBUG) console.time("Load or start game");
-    // Skip localStorage on initial load (slow in Electron)
-    // User can explicitly load via menu if save exists
-    this.game.reset(1);
-    if (DEBUG) console.timeEnd("Load or start game");
+    if (this.multiplayerMode === "online") {
+      this.game.addLog(
+        `Connecting to ${this.multiplayerConfig.serverUrl} (${this.multiplayerConfig.roomId})...`,
+      );
+      this.connectToMultiplayer();
+    } else {
+      // Try to load saved game, otherwise start new
+      if (DEBUG) console.time("Load or start game");
+      // Skip localStorage on initial load (slow in Electron)
+      // User can explicitly load via menu if save exists
+      this.game.reset(1);
+      if (DEBUG) console.timeEnd("Load or start game");
+    }
 
     if (DEBUG) console.time("First render");
     this.render(0);
@@ -224,6 +243,88 @@ class DarkWar {
     }
   }
 
+  private isOnlineMode(): boolean {
+    return this.multiplayerMode === "online";
+  }
+
+  private isLocalPlayerDead(): boolean {
+    if (this.isOnlineMode()) {
+      return this.game.getState().player.hp <= 0;
+    }
+    return this.game.isPlayerDead();
+  }
+
+  private connectToMultiplayer(): void {
+    this.multiplayerClient = new MultiplayerClient(
+      this.multiplayerConfig.serverUrl,
+      this.multiplayerConfig.roomId,
+      this.multiplayerConfig.playerName,
+    );
+
+    this.multiplayerClient.onConnected((playerId, roomId) => {
+      this.onlineConnected = true;
+      this.game.addLog(`Connected as ${playerId.slice(0, 8)} in room ${roomId}.`);
+      this.render(0);
+    });
+
+    this.multiplayerClient.onState((serializedState) => {
+      this.applyOnlineState(serializedState);
+    });
+
+    this.multiplayerClient.onDisconnected(() => {
+      this.onlineConnected = false;
+      this.game.addLog("Disconnected from multiplayer server.");
+      this.render(0);
+    });
+
+    this.multiplayerClient.onError((message) => {
+      this.game.addLog(message);
+      this.render(0);
+    });
+
+    this.multiplayerClient.connect();
+  }
+
+  private applyOnlineState(serializedState: ReturnType<Game["serialize"]>): void {
+    this.game.deserialize(serializedState);
+    const state = this.game.getState();
+    state.sim.timeScale = 1.0;
+    state.sim.targetTimeScale = 1.0;
+    state.sim.accumulatorMs = 0;
+
+    const isDead = state.player.hp <= 0;
+    const gameOverOverlay = document.getElementById("game-over-overlay");
+    if (gameOverOverlay) {
+      if (isDead) {
+        gameOverOverlay.classList.add("visible");
+      } else {
+        gameOverOverlay.classList.remove("visible");
+      }
+    }
+
+    this.lastPlayerHp = state.player.hp;
+    this.render(0);
+  }
+
+  private sendOnlineAction(action: NetworkAction): boolean {
+    if (
+      !this.isOnlineMode() ||
+      !this.multiplayerClient ||
+      !this.onlineConnected
+    ) {
+      return false;
+    }
+    this.multiplayerClient.sendAction(action);
+    return true;
+  }
+
+  private getWeaponSlot(weapon: WeaponType): number {
+    if (weapon === WeaponType.MELEE) return 1;
+    if (weapon === WeaponType.PISTOL) return 2;
+    if (weapon === WeaponType.GRENADE) return 3;
+    return 4;
+  }
+
   /**
    * Setup click-to-move functionality
    */
@@ -244,6 +345,13 @@ class DarkWar {
     // Right click: move
     canvas.addEventListener("contextmenu", (event) => {
       event.preventDefault();
+
+      if (this.isOnlineMode()) {
+        // In online mode, right click mirrors left click fire behavior.
+        this.handleMouseFire(event);
+        return;
+      }
+
       const scale = this.renderer.getScale();
 
       // Get canvas bounding rect
@@ -328,6 +436,11 @@ class DarkWar {
     tileY: number,
     wantsPickup: boolean,
   ): void {
+    if (this.isOnlineMode()) {
+      this.handleFire(0, 0);
+      return;
+    }
+
     const state = this.game.getState();
     this.autoMovePickupTarget = null;
     this.autoMoveHoleTarget = null;
@@ -437,12 +550,22 @@ class DarkWar {
    */
   private update(dt: number): void {
     const state = this.game.getState();
-    const isDead = this.game.isPlayerDead();
+    const isDead = this.isLocalPlayerDead();
 
     // Update mouse tracker with current camera position and scale
     const cameraPos = this.renderer.getCameraPosition();
     this.mouseTracker.setCameraPosition(cameraPos.x, cameraPos.y);
     this.mouseTracker.setScale(this.renderer.getScale());
+
+    if (this.isOnlineMode()) {
+      if (!this.onlineConnected) {
+        state.sim.targetTimeScale = 0;
+      }
+      if (this.playerActedThisTick) {
+        this.playerActedThisTick = false;
+      }
+      return;
+    }
 
     this.updateAutoMove(state);
 
@@ -588,7 +711,7 @@ class DarkWar {
    */
   private render(alpha: number): void {
     const state = this.game.getState();
-    const isDead = this.game.isPlayerDead();
+    const isDead = this.isLocalPlayerDead();
     const player = state.player;
 
     this.renderer.render(state, isDead, alpha);
@@ -633,8 +756,28 @@ class DarkWar {
     const state = this.game.getState();
     const player = state.player;
 
+    if (this.isOnlineMode()) {
+      if (!this.onlineConnected) {
+        if ("velocityX" in player && "velocityY" in player) {
+          (player as any).velocityX = 0;
+          (player as any).velocityY = 0;
+        }
+        return;
+      }
+      if (this.isLocalPlayerDead()) return;
+      if ("velocityX" in player && "velocityY" in player) {
+        (player as any).velocityX = vx;
+        (player as any).velocityY = vy;
+      }
+      this.multiplayerClient?.sendVelocity(vx, vy);
+      if (vx !== 0 || vy !== 0) {
+        this.cancelAutoMove();
+      }
+      return;
+    }
+
     // Don't allow movement if player is dead
-    if (this.game.isPlayerDead()) {
+    if (this.isLocalPlayerDead()) {
       return;
     }
 
@@ -661,6 +804,11 @@ class DarkWar {
     this.autoMovePickupTarget = null;
     this.autoMoveHoleTarget = null;
     this.autoMoveStairsTarget = null;
+    if (this.pendingRightClickTimer !== null) {
+      window.clearTimeout(this.pendingRightClickTimer);
+      this.pendingRightClickTimer = null;
+    }
+    this.pendingRightClickTile = null;
   }
 
   private stopAutoMove(state: ReturnType<Game["getState"]>): void {
@@ -679,7 +827,7 @@ class DarkWar {
       return;
     }
 
-    if (this.game.isPlayerDead()) {
+    if (this.isLocalPlayerDead()) {
       this.stopAutoMove(state);
       return;
     }
@@ -781,15 +929,29 @@ class DarkWar {
    */
   private handleFire(dx: number, dy: number): void {
     // Don't allow actions if player is dead
-    if (this.game.isPlayerDead()) {
+    if (this.isLocalPlayerDead()) {
       return;
     }
 
     this.cancelAutoMove();
 
     const state = this.game.getState();
-    const playerId = state.player.id;
     const player = state.player;
+
+    if (this.isOnlineMode()) {
+      let facingAngle: number | undefined;
+      if ("worldX" in player && "worldY" in player) {
+        facingAngle = this.mouseTracker.getAngleFrom(
+          (player as any).worldX,
+          (player as any).worldY,
+        );
+      }
+      this.sendOnlineAction({ type: "FIRE", dx, dy, facingAngle });
+      this.playerActedThisTick = true;
+      return;
+    }
+
+    const playerId = state.player.id;
 
     // Resume time when player acts
     state.sim.targetTimeScale = 1.0;
@@ -835,6 +997,12 @@ class DarkWar {
     if (slot === 4) weapon = WeaponType.LAND_MINE;
 
     if (!weapon) return;
+
+    if (this.isOnlineMode()) {
+      this.multiplayerClient?.selectWeapon(slot);
+      return;
+    }
+
     player.weapon = weapon;
     this.game.addLog(`Weapon set: ${weapon}.`);
   }
@@ -851,6 +1019,13 @@ class DarkWar {
     const currentIndex = weapons.indexOf(player.weapon);
     const nextIndex =
       (currentIndex + direction + weapons.length) % weapons.length;
+
+    if (this.isOnlineMode()) {
+      const nextWeapon = weapons[nextIndex];
+      this.multiplayerClient?.selectWeapon(this.getWeaponSlot(nextWeapon));
+      return;
+    }
+
     player.weapon = weapons[nextIndex];
     this.game.addLog(`Weapon set: ${player.weapon}.`);
   }
@@ -860,11 +1035,17 @@ class DarkWar {
    */
   private handleWait(): void {
     // Don't allow actions if player is dead
-    if (this.game.isPlayerDead()) {
+    if (this.isLocalPlayerDead()) {
       return;
     }
 
     this.cancelAutoMove();
+
+    if (this.isOnlineMode()) {
+      this.sendOnlineAction({ type: "WAIT" });
+      this.playerActedThisTick = true;
+      return;
+    }
 
     const state = this.game.getState();
     const playerId = state.player.id;
@@ -908,7 +1089,13 @@ class DarkWar {
   }
 
   private executeHoleJump(tileX: number, tileY: number): void {
-    if (this.game.isPlayerDead()) {
+    if (this.isLocalPlayerDead()) {
+      return;
+    }
+
+    if (this.isOnlineMode()) {
+      this.game.addLog("Hole-jump shortcut is disabled in online multiplayer.");
+      this.render(0);
       return;
     }
 
@@ -938,7 +1125,7 @@ class DarkWar {
    */
   private handleInteract(dx: number, dy: number): void {
     // Don't allow actions if player is dead
-    if (this.game.isPlayerDead()) {
+    if (this.isLocalPlayerDead()) {
       return;
     }
 
@@ -947,6 +1134,12 @@ class DarkWar {
     // Show prompt if no direction given
     if (dx === 0 && dy === 0) {
       this.game.addLog("Which direction?");
+      return;
+    }
+
+    if (this.isOnlineMode()) {
+      this.sendOnlineAction({ type: "INTERACT", dx, dy });
+      this.playerActedThisTick = true;
       return;
     }
 
@@ -992,11 +1185,17 @@ class DarkWar {
    */
   private handlePickup(): void {
     // Don't allow actions if player is dead
-    if (this.game.isPlayerDead()) {
+    if (this.isLocalPlayerDead()) {
       return;
     }
 
     this.cancelAutoMove();
+
+    if (this.isOnlineMode()) {
+      this.sendOnlineAction({ type: "PICKUP" });
+      this.playerActedThisTick = true;
+      return;
+    }
 
     const state = this.game.getState();
     const playerId = state.player.id;
@@ -1036,11 +1235,17 @@ class DarkWar {
    */
   private handleReload(): void {
     // Don't allow actions if player is dead
-    if (this.game.isPlayerDead()) {
+    if (this.isLocalPlayerDead()) {
       return;
     }
 
     this.cancelAutoMove();
+
+    if (this.isOnlineMode()) {
+      this.sendOnlineAction({ type: "RELOAD" });
+      this.playerActedThisTick = true;
+      return;
+    }
 
     const state = this.game.getState();
     const playerId = state.player.id;
@@ -1080,11 +1285,17 @@ class DarkWar {
    */
   private handleDescend(): void {
     // Don't allow actions if player is dead
-    if (this.game.isPlayerDead()) {
+    if (this.isLocalPlayerDead()) {
       return;
     }
 
     this.cancelAutoMove();
+
+    if (this.isOnlineMode()) {
+      this.sendOnlineAction({ type: "DESCEND" });
+      this.playerActedThisTick = true;
+      return;
+    }
 
     const state = this.game.getState();
     const playerId = state.player.id;
@@ -1126,11 +1337,17 @@ class DarkWar {
    */
   private handleAscend(): void {
     // Don't allow actions if player is dead
-    if (this.game.isPlayerDead()) {
+    if (this.isLocalPlayerDead()) {
       return;
     }
 
     this.cancelAutoMove();
+
+    if (this.isOnlineMode()) {
+      this.sendOnlineAction({ type: "ASCEND" });
+      this.playerActedThisTick = true;
+      return;
+    }
 
     const state = this.game.getState();
     const playerId = state.player.id;
@@ -1178,6 +1395,9 @@ class DarkWar {
    * Toggle real-time mode on/off
    */
   private handleToggleRealTime(): void {
+    if (this.isOnlineMode()) {
+      return;
+    }
     this.realTimeToggled = !this.realTimeToggled;
     const state = this.game.getState();
     state.sim.targetTimeScale = this.realTimeToggled ? 1.0 : SLOWMO_SCALE;
@@ -1187,6 +1407,12 @@ class DarkWar {
    * Handle new game
    */
   private handleNewGame(): void {
+    if (this.isOnlineMode()) {
+      this.multiplayerClient?.requestNewGame();
+      return;
+    }
+
+    this.cancelAutoMove();
     this.game.reset(1);
 
     // Hide game over overlay
@@ -1216,6 +1442,12 @@ class DarkWar {
    * Handle save game
    */
   private handleSave(): void {
+    if (this.isOnlineMode()) {
+      this.game.addLog("Save is disabled in online multiplayer.");
+      this.render(0);
+      return;
+    }
+
     const saveData = JSON.stringify(this.game.serialize());
 
     // Try Electron save first
@@ -1245,8 +1477,16 @@ class DarkWar {
   /**
    * Handle load game
    */
-  private handleLoad(): void {
-    if (this.loadGame()) {
+  private async handleLoad(): Promise<void> {
+    if (this.isOnlineMode()) {
+      this.game.addLog("Load is disabled in online multiplayer.");
+      this.render(0);
+      return;
+    }
+
+    this.cancelAutoMove();
+
+    if (await this.loadGame()) {
       this.game.addLog("Game loaded.");
 
       // Reinitialize physics for loaded level
@@ -1268,6 +1508,10 @@ class DarkWar {
    * Auto-save game state
    */
   private autoSave(): void {
+    if (this.isOnlineMode()) {
+      return;
+    }
+
     const saveData = JSON.stringify(this.game.serialize());
 
     // Try Electron save first
@@ -1288,11 +1532,23 @@ class DarkWar {
   /**
    * Load game from save
    */
-  private loadGame(): boolean {
-    // Try Electron load first
+  private async loadGame(): Promise<boolean> {
+    if (this.isOnlineMode()) {
+      return false;
+    }
+
     if (window.native?.saveRead) {
-      // This is async, but we'll use localStorage for initial load
-      // Electron save will be used for explicit save/load actions
+      try {
+        const result = await window.native.saveRead();
+        if (result.ok && typeof result.data === "string") {
+          const state = JSON.parse(result.data);
+          this.game.deserialize(state);
+          if (DEBUG) console.log("✓ Save game loaded from native storage");
+          return true;
+        }
+      } catch (error) {
+        console.error("Failed to load native save:", error);
+      }
     }
 
     // Try localStorage
@@ -1304,8 +1560,8 @@ class DarkWar {
         if (DEBUG) console.log("✓ Save game loaded");
         return true;
       }
-    } catch (e) {
-      console.error("Failed to load save:", e);
+    } catch (error) {
+      console.error("Failed to load save:", error);
     }
 
     return false;
@@ -1317,7 +1573,7 @@ class DarkWar {
   public setScale(scale: number): void {
     this.renderer.setScale(scale);
     const state = this.game.getState();
-    this.renderer.render(state, this.game.isPlayerDead(), 0);
+    this.renderer.render(state, this.isLocalPlayerDead(), 0);
     this.renderer.centerOnPlayer(state.player, false);
   }
 }

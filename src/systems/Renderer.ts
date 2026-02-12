@@ -428,9 +428,9 @@ export class Renderer {
       }
     }
 
-    // Render entities (items first, then monsters), excluding player
+    // Render entities (items first, then monsters), excluding local player
     const sortedEntities = entities
-      .filter((e) => e.kind !== EntityKind.PLAYER)
+      .filter((e) => e.kind !== EntityKind.PLAYER || e.id !== player.id)
       .sort((a, b) => {
         const aIsItem = a.kind === EntityKind.ITEM ? 1 : 0;
         const bIsItem = b.kind === EntityKind.ITEM ? 1 : 0;
@@ -477,6 +477,20 @@ export class Renderer {
           coord =
             MONSTER_IDLE_FRAMES[monsterType] ?? SPRITE_COORDS[monsterType];
         }
+      } else if (entity.kind === EntityKind.PLAYER) {
+        const remotePlayer = entity as any;
+        const moving = this.isEntityMoving(remotePlayer);
+        const facing = this.getEntityDirection(remotePlayer);
+        coord = moving
+          ? PLAYER_WALK_FRAMES[facing][
+              this.getWalkFrameIndex(
+                nowMs,
+                PLAYER_WALK_FRAMES[facing].length,
+                160,
+                41,
+              )
+            ]
+          : PLAYER_IDLE_FRAMES[facing];
       } else if (
         (entity.kind === EntityKind.ITEM ||
           entity.kind === EntityKind.EXPLOSIVE) &&
@@ -505,6 +519,12 @@ export class Renderer {
           // Only rotate bullets, keep player and monsters upright
           if (entity.kind === EntityKind.BULLET && "facingAngle" in entity) {
             sprite.rotation = (entity as any).facingAngle;
+          } else if (entity.kind === EntityKind.PLAYER) {
+            sprite.tint = 0xa7f3d0;
+            const facing = this.getEntityDirection(entity as any);
+            if (facing === "right" || facing === "left") {
+              sprite.scale.x = facing === "right" ? -1 : 1;
+            }
           }
           this.entityContainer.addChild(sprite);
         }

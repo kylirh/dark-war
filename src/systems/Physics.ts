@@ -124,6 +124,7 @@ export class Physics {
       );
       box.isStatic = true;
       (box as any).isWall = true;
+      (box as any).tileIndex = tileIndex;
 
       this.wallBodies.set(tileIndex, box);
     }

@@ -2,6 +2,43 @@ const { app, BrowserWindow, ipcMain, Menu } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
+function parseGameQueryFromArgs(argv) {
+  const query = {};
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (!arg.startsWith("--")) continue;
+    let rawKey = "";
+    let value = "";
+
+    if (arg.includes("=")) {
+      const [keyPart, ...valueParts] = arg.slice(2).split("=");
+      rawKey = keyPart;
+      value = valueParts.join("=");
+    } else {
+      rawKey = arg.slice(2);
+      const next = argv[i + 1];
+      if (next && !next.startsWith("--")) {
+        value = next;
+        i++;
+      }
+    }
+
+    if (!rawKey) continue;
+    value = value.trim();
+    if (!value) continue;
+
+    if (
+      rawKey === "mode" ||
+      rawKey === "server" ||
+      rawKey === "room" ||
+      rawKey === "name"
+    ) {
+      query[rawKey] = value;
+    }
+  }
+  return query;
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
@@ -15,7 +52,8 @@ function createWindow() {
     },
   });
 
-  win.loadFile(path.join(__dirname, "..", "app", "index.html"));
+  const query = parseGameQueryFromArgs(process.argv.slice(1));
+  win.loadFile(path.join(__dirname, "..", "app", "index.html"), { query });
   return win;
 }
 

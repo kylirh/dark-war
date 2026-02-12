@@ -54,6 +54,13 @@ export enum WeaponType {
   LAND_MINE = "land-mine",
 }
 
+export type MultiplayerMode = "offline" | "online";
+
+export interface MultiplayerState {
+  mode: MultiplayerMode;
+  localPlayerId: string;
+}
+
 // ========================================
 // Entity Interfaces
 // ========================================
@@ -234,7 +241,12 @@ export type EventData =
       fromExplosion?: boolean;
       suppressHitSound?: boolean;
     }
-  | { type: "DEATH"; entityId: string; fromExplosion?: boolean }
+  | {
+      type: "DEATH";
+      entityId: string;
+      fromExplosion?: boolean;
+      sourceId?: string;
+    }
   | { type: "EXPLOSION"; x: number; y: number; radius: number; damage: number }
   | { type: "DROP_LOOT"; x: number; y: number; itemType: ItemType }
   | { type: "MESSAGE"; message: string }
@@ -276,7 +288,10 @@ export interface GameState {
   mapDirty: boolean;
   visible: Set<number>;
   explored: Set<number>;
+  visibilityByPlayer: Map<string, Set<number>>;
+  exploredByPlayer: Map<string, Set<number>>;
   entities: Entity[];
+  players: Player[];
   player: Player;
   stairsDown: [number, number];
   stairsUp: [number, number] | null;
@@ -285,6 +300,7 @@ export interface GameState {
     fov: boolean;
   };
   effects: Effect[];
+  multiplayer: MultiplayerState;
   // NEW: Simulation system
   sim: SimulationState;
   commandsByTick: Map<number, Command[]>;
@@ -309,10 +325,16 @@ export interface SerializedState {
   stairsDown: [number, number];
   stairsUp?: [number, number] | null;
   player: Player;
+  players?: Player[];
   entities: Entity[];
   explored: number[];
+  exploredByPlayer?: Record<string, number[]>;
   log: string[];
   levels?: SerializedLevelState[];
+  multiplayer?: {
+    mode: MultiplayerMode;
+    localPlayerId: string;
+  };
   // NEW: Save simulation state
   sim: {
     nowTick: number;
@@ -324,6 +346,7 @@ export interface SerializedLevelState {
   depth: number;
   map: TileType[];
   floorVariant: number;
+  wallSet?: WallSet;
   wallDamage: number[];
   stairsDown: [number, number];
   stairsUp: [number, number] | null;

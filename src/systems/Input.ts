@@ -27,6 +27,7 @@ export interface InputCallbacks {
 export class InputHandler {
   private callbacks: InputCallbacks;
   private fireMode = false;
+  private lastInteractDirection: Direction = [0, 0];
 
   // Track WASD key states for continuous movement
   private keysPressed = {
@@ -76,6 +77,7 @@ export class InputHandler {
       e.preventDefault();
       if (!this.keysPressed.w) {
         this.keysPressed.w = true;
+        this.lastInteractDirection = [0, -1];
         this.updateVelocity();
       }
       return;
@@ -84,6 +86,7 @@ export class InputHandler {
       e.preventDefault();
       if (!this.keysPressed.a) {
         this.keysPressed.a = true;
+        this.lastInteractDirection = [-1, 0];
         this.updateVelocity();
       }
       return;
@@ -92,6 +95,7 @@ export class InputHandler {
       e.preventDefault();
       if (!this.keysPressed.s) {
         this.keysPressed.s = true;
+        this.lastInteractDirection = [0, 1];
         this.updateVelocity();
       }
       return;
@@ -100,6 +104,7 @@ export class InputHandler {
       e.preventDefault();
       if (!this.keysPressed.d) {
         this.keysPressed.d = true;
+        this.lastInteractDirection = [1, 0];
         this.updateVelocity();
       }
       return;
@@ -111,6 +116,14 @@ export class InputHandler {
       if (this.fireMode) {
         this.fireMode = false;
       }
+      return;
+    }
+
+    // Interact with doors
+    if (key === "o") {
+      e.preventDefault();
+      const [dx, dy] = this.getInteractDirection();
+      this.callbacks.onInteract(dx, dy);
       return;
     }
 
@@ -199,6 +212,22 @@ export class InputHandler {
 
     // Update player velocity
     this.callbacks.onUpdateVelocity(vx, vy);
+  }
+
+  private getInteractDirection(): Direction {
+    let dx = 0;
+    let dy = 0;
+    if (this.keysPressed.a) dx -= 1;
+    if (this.keysPressed.d) dx += 1;
+    if (this.keysPressed.w) dy -= 1;
+    if (this.keysPressed.s) dy += 1;
+
+    if (Math.abs(dx) + Math.abs(dy) === 1) {
+      this.lastInteractDirection = [dx, dy];
+      return this.lastInteractDirection;
+    }
+
+    return this.lastInteractDirection;
   }
 
   public isInFireMode(): boolean {

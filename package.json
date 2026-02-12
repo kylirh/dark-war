@@ -9,14 +9,21 @@
     "build": "npm run build:ts && electron-builder -mwl",
     "build:ts": "tsc && vite build",
     "dev": "npm run build:ts && electron .",
-    "type-check": "tsc --noEmit",
+    "dev:online": "npm run build:ts && electron . --mode=online --server=ws://localhost:7777 --room=default",
+    "online:client": "electron . --mode=online --server=ws://localhost:7777 --room=default",
+    "multiplayer:server": "tsx server/multiplayer-server.ts",
+    "type-check": "npm run type-check:client && npm run type-check:server",
+    "type-check:client": "tsc --noEmit",
+    "type-check:server": "tsc --noEmit -p tsconfig.server.json",
     "watch": "vite build --watch"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/rot-js": "^0.6.5",
+    "@types/ws": "^8.18.1",
     "electron": "^31.3.0",
     "electron-builder": "^24.13.3",
+    "tsx": "^4.20.5",
     "typescript": "^5.3.0",
     "vite": "^5.0.0"
   },
@@ -50,6 +57,7 @@
   "dependencies": {
     "detect-collisions": "^10.10.2025",
     "pixi.js": "^8.14.0",
-    "rot-js": "^2.2.1"
+    "rot-js": "^2.2.1",
+    "ws": "^8.18.3"
   }
 }
