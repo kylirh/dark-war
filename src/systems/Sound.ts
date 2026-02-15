@@ -1,5 +1,3 @@
-import { RNG } from "../utils/RNG";
-
 /**
  * Sound effect types available in the game
  */
@@ -119,7 +117,8 @@ class SoundManager {
       SoundEffect.PLAYER_HIT_5,
     ];
 
-    const randomHit = RNG.choose(hitSounds);
+    // Use Math.random instead of RNG to avoid desyncing deterministic game RNG
+    const randomHit = hitSounds[Math.floor(Math.random() * hitSounds.length)];
     this.play(randomHit);
   }
 

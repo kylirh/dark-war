@@ -237,4 +237,15 @@ export class InputHandler {
   public cancelFireMode(): void {
     this.fireMode = false;
   }
+
+  /**
+   * Reset all key states (useful when starting a new game)
+   */
+  public resetKeys(): void {
+    this.keysPressed.w = false;
+    this.keysPressed.a = false;
+    this.keysPressed.s = false;
+    this.keysPressed.d = false;
+    this.updateVelocity();
+  }
 }

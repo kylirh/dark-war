@@ -310,6 +310,7 @@ export interface GameState {
   descendTarget?: [number, number];
   changedTiles?: Set<number>; // Track tiles that changed for physics updates
   holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
+  pendingSounds: string[]; // Sound effects queued during simulation for playback
 }
 
 // ========================================
@@ -339,7 +340,11 @@ export interface SerializedState {
   sim: {
     nowTick: number;
     mode: "PLANNING" | "REALTIME";
+    timeScale?: number;
+    targetTimeScale?: number;
   };
+  sounds?: string[]; // Sound effects to play on receiving client
+  effects?: Effect[]; // Visual effects (explosions, etc.)
 }
 
 export interface SerializedLevelState {

@@ -31,7 +31,7 @@ import { BulletEntity } from "../entities/BulletEntity";
 import { ExplosiveEntity } from "../entities/ExplosiveEntity";
 import { idx, tileAt } from "../utils/helpers";
 import { applyWallDamageAtIndex } from "../utils/walls";
-import { Sound, SoundEffect } from "./Sound";
+
 import { pushEvent } from "./Simulation";
 
 // Collision radii - sized to allow smooth corridor navigation
@@ -231,6 +231,31 @@ export class Physics {
       // Apply velocity directly (continuous movement, no targets)
       entity.worldX += entity.velocityX * dt;
       entity.worldY += entity.velocityY * dt;
+
+      // Clamp to world bounds to prevent entities escaping the map
+      const entityRadius = entity.kind === EntityKind.PLAYER ? PLAYER_RADIUS
+        : entity.kind === EntityKind.MONSTER ? MONSTER_RADIUS
+        : entity.kind === EntityKind.BULLET ? BULLET_RADIUS
+        : entity.kind === EntityKind.EXPLOSIVE ? EXPLOSIVE_RADIUS
+        : 8;
+      const minBound = CELL_CONFIG.w + entityRadius;
+      const maxBoundX = (MAP_WIDTH - 1) * CELL_CONFIG.w - entityRadius;
+      const maxBoundY = (MAP_HEIGHT - 1) * CELL_CONFIG.h - entityRadius;
+
+      if (entity.worldX < minBound) {
+        entity.worldX = minBound;
+        entity.velocityX = 0;
+      } else if (entity.worldX > maxBoundX) {
+        entity.worldX = maxBoundX;
+        entity.velocityX = 0;
+      }
+      if (entity.worldY < minBound) {
+        entity.worldY = minBound;
+        entity.velocityY = 0;
+      } else if (entity.worldY > maxBoundY) {
+        entity.worldY = maxBoundY;
+        entity.velocityY = 0;
+      }
 
       // Update physics body position
       if (entity.physicsBody) {

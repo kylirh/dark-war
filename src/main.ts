@@ -9,7 +9,7 @@ import {
   SIM_DT_MS,
   stepSimulationTick,
 } from "./systems/Simulation";
-import { Sound } from "./systems/Sound";
+import { Sound, SoundEffect } from "./systems/Sound";
 import { UI } from "./systems/UI";
 import {
   CELL_CONFIG,
@@ -286,11 +286,15 @@ class DarkWar {
   }
 
   private applyOnlineState(serializedState: ReturnType<Game["serialize"]>): void {
+    // Play any sounds queued by the server before deserializing
+    if (serializedState.sounds && serializedState.sounds.length > 0) {
+      for (const sound of serializedState.sounds) {
+        Sound.play(sound as SoundEffect);
+      }
+    }
+
     this.game.deserialize(serializedState);
     const state = this.game.getState();
-    state.sim.timeScale = 1.0;
-    state.sim.targetTimeScale = 1.0;
-    state.sim.accumulatorMs = 0;
 
     const isDead = state.player.hp <= 0;
     const gameOverOverlay = document.getElementById("game-over-overlay");
@@ -345,12 +349,6 @@ class DarkWar {
     // Right click: move
     canvas.addEventListener("contextmenu", (event) => {
       event.preventDefault();
-
-      if (this.isOnlineMode()) {
-        // In online mode, right click mirrors left click fire behavior.
-        this.handleMouseFire(event);
-        return;
-      }
 
       const scale = this.renderer.getScale();
 
@@ -436,11 +434,6 @@ class DarkWar {
     tileY: number,
     wantsPickup: boolean,
   ): void {
-    if (this.isOnlineMode()) {
-      this.handleFire(0, 0);
-      return;
-    }
-
     const state = this.game.getState();
     this.autoMovePickupTarget = null;
     this.autoMoveHoleTarget = null;
@@ -981,6 +974,13 @@ class DarkWar {
 
     // Execute immediately
     stepSimulationTick(state);
+    
+    // Play any sounds queued during the simulation tick
+    for (const sound of state.pendingSounds) {
+      Sound.play(sound as SoundEffect);
+    }
+    state.pendingSounds.length = 0;
+    
     this.game.updateFOV();
 
     this.autoSave();
@@ -1068,6 +1068,13 @@ class DarkWar {
 
     // Execute immediately
     stepSimulationTick(state);
+    
+    // Play any sounds queued during the simulation tick
+    for (const sound of state.pendingSounds) {
+      Sound.play(sound as SoundEffect);
+    }
+    state.pendingSounds.length = 0;
+    
     this.game.updateFOV();
     const playerJustDied = this.game.updateDeathStatus();
     if (playerJustDied) {
@@ -1108,6 +1115,13 @@ class DarkWar {
 
     // Execute immediately
     stepSimulationTick(state);
+    
+    // Play any sounds queued during the simulation tick
+    for (const sound of state.pendingSounds) {
+      Sound.play(sound as SoundEffect);
+    }
+    state.pendingSounds.length = 0;
+    
     this.game.updateFOV();
     const playerJustDied = this.game.updateDeathStatus();
     if (playerJustDied) {
@@ -1168,6 +1182,13 @@ class DarkWar {
 
     // Execute immediately
     stepSimulationTick(state);
+    
+    // Play any sounds queued during the simulation tick
+    for (const sound of state.pendingSounds) {
+      Sound.play(sound as SoundEffect);
+    }
+    state.pendingSounds.length = 0;
+    
     this.game.updateFOV();
     const playerJustDied = this.game.updateDeathStatus();
     if (playerJustDied) {
@@ -1218,6 +1239,13 @@ class DarkWar {
 
     // Execute immediately
     stepSimulationTick(state);
+    
+    // Play any sounds queued during the simulation tick
+    for (const sound of state.pendingSounds) {
+      Sound.play(sound as SoundEffect);
+    }
+    state.pendingSounds.length = 0;
+    
     this.game.updateFOV();
     const playerJustDied = this.game.updateDeathStatus();
     if (playerJustDied) {
@@ -1268,6 +1296,13 @@ class DarkWar {
 
     // Execute immediately
     stepSimulationTick(state);
+    
+    // Play any sounds queued during the simulation tick
+    for (const sound of state.pendingSounds) {
+      Sound.play(sound as SoundEffect);
+    }
+    state.pendingSounds.length = 0;
+    
     this.game.updateFOV();
     const playerJustDied = this.game.updateDeathStatus();
     if (playerJustDied) {
@@ -1316,6 +1351,13 @@ class DarkWar {
 
     if (state.sim.mode === "PLANNING") {
       stepSimulationTick(state);
+      
+      // Play any sounds queued during the simulation tick
+      for (const sound of state.pendingSounds) {
+        Sound.play(sound as SoundEffect);
+      }
+      state.pendingSounds.length = 0;
+      
       this.game.updateFOV();
 
       if (state.shouldDescend) {
@@ -1368,6 +1410,13 @@ class DarkWar {
 
     if (state.sim.mode === "PLANNING") {
       stepSimulationTick(state);
+      
+      // Play any sounds queued during the simulation tick
+      for (const sound of state.pendingSounds) {
+        Sound.play(sound as SoundEffect);
+      }
+      state.pendingSounds.length = 0;
+      
       this.game.updateFOV();
 
       if (state.shouldAscend) {
@@ -1408,6 +1457,8 @@ class DarkWar {
    */
   private handleNewGame(): void {
     if (this.isOnlineMode()) {
+      // Reset input state to prevent phantom movement after new game in multiplayer
+      this.inputHandler.resetKeys();
       this.multiplayerClient?.requestNewGame();
       return;
     }

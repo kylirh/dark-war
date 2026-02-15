@@ -23,6 +23,7 @@ import { PlayerEntity } from "../entities/PlayerEntity";
 import { MonsterEntity } from "../entities/MonsterEntity";
 import { ItemEntity } from "../entities/ItemEntity";
 import { ExplosiveEntity } from "../entities/ExplosiveEntity";
+import { BulletEntity } from "../entities/BulletEntity";
 import { RNG } from "../utils/RNG";
 import { dist, passable, setPositionFromGrid, setTile } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
@@ -111,6 +112,7 @@ export class Game {
       descendTarget: undefined,
       changedTiles: new Set(),
       holeCreatedTiles: new Set(),
+      pendingSounds: [],
     };
   }
 
@@ -124,7 +126,7 @@ export class Game {
     const dungeon = generateDungeon();
 
     const player = new PlayerEntity(dungeon.start[0], dungeon.start[1]);
-    const localPlayerId = this.localPlayerId ?? player.id;
+    const localPlayerId = player.id;
     this.localPlayerId = localPlayerId;
     const explored = new Set<number>();
     const visibilityByPlayer = new Map<string, Set<number>>([
@@ -174,6 +176,7 @@ export class Game {
       descendTarget: undefined,
       changedTiles: new Set(),
       holeCreatedTiles: new Set(),
+      pendingSounds: [],
     };
 
     // Add player to entities
@@ -710,7 +713,11 @@ export class Game {
       sim: {
         nowTick: this.state.sim.nowTick,
         mode: this.state.sim.mode,
+        timeScale: this.state.sim.timeScale,
+        targetTimeScale: this.state.sim.targetTimeScale,
       },
+      sounds: this.state.pendingSounds.splice(0),
+      effects: this.state.effects,
     };
   }
 
@@ -776,7 +783,7 @@ export class Game {
       player,
       log: data.log || [],
       options: { fov: true },
-      effects: [],
+      effects: data.effects || [],
       multiplayer: {
         mode: data.multiplayer?.mode ?? this.multiplayerMode,
         localPlayerId,
@@ -784,8 +791,8 @@ export class Game {
       sim: {
         nowTick: data.sim.nowTick,
         mode: data.sim.mode,
-        timeScale: 1.0,
-        targetTimeScale: 1.0,
+        timeScale: data.sim.timeScale ?? 1.0,
+        targetTimeScale: data.sim.targetTimeScale ?? 1.0,
         accumulatorMs: 0,
         lastFrameMs: performance.now(),
         pauseReasons: new Set(),
@@ -797,6 +804,7 @@ export class Game {
       descendTarget: undefined,
       changedTiles: new Set(),
       holeCreatedTiles: new Set(),
+      pendingSounds: [],
     };
 
     this.levels = new Map();
@@ -905,6 +913,28 @@ export class Game {
       } else if (
         entity.kind === EntityKind.EXPLOSIVE &&
         entity instanceof ExplosiveEntity
+      ) {
+        this.syncWorldPosition(entity, entity);
+        hydrated.push(entity);
+      } else if (
+        entity.kind === EntityKind.BULLET &&
+        !(entity instanceof BulletEntity)
+      ) {
+        const bullet = new BulletEntity(
+          (entity as any).worldX || 0,
+          (entity as any).worldY || 0,
+          (entity as any).velocityX || 0,
+          (entity as any).velocityY || 0,
+          (entity as any).damage || 0,
+          (entity as any).ownerId || "",
+          (entity as any).maxDistance || 640,
+        );
+        Object.assign(bullet, entity);
+        this.syncWorldPosition(bullet, entity);
+        hydrated.push(bullet);
+      } else if (
+        entity.kind === EntityKind.BULLET &&
+        entity instanceof BulletEntity
       ) {
         this.syncWorldPosition(entity, entity);
         hydrated.push(entity);

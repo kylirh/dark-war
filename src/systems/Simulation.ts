@@ -21,7 +21,7 @@ import {
 } from "../types";
 import { idx, tileAt, passable } from "../utils/helpers";
 import { applyWallDamageAt } from "../utils/walls";
-import { Sound, SoundEffect } from "./Sound";
+import { SoundEffect } from "./Sound";
 import { RNG } from "../utils/RNG";
 import { computeFOVFrom } from "./FOV";
 import { BulletEntity } from "../entities/BulletEntity";
@@ -891,7 +891,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         }
 
         player.ammo--;
-        Sound.play(SoundEffect.SHOOT);
+        state.pendingSounds.push(SoundEffect.SHOOT);
 
         const BULLET_SPEED = 600; // pixels per second
         const bullet = new BulletEntity(
@@ -1069,7 +1069,7 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
   player.ammoReserve -= take;
 
   // Play reload sound
-  Sound.play(SoundEffect.RELOAD);
+  state.pendingSounds.push(SoundEffect.RELOAD);
 
   pushEvent(state, {
     type: EventType.MESSAGE,
@@ -1378,8 +1378,15 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     // Don't let HP go below 0
     if (player.hp < 0) player.hp = 0;
 
-    // Play hit sound
-    Sound.playPlayerHit();
+    // Queue random player hit sound (using Math.random to avoid desyncing RNG)
+    const hitSounds: SoundEffect[] = [
+      SoundEffect.PLAYER_HIT_1,
+      SoundEffect.PLAYER_HIT_2,
+      SoundEffect.PLAYER_HIT_3,
+      SoundEffect.PLAYER_HIT_4,
+      SoundEffect.PLAYER_HIT_5,
+    ];
+    state.pendingSounds.push(hitSounds[Math.floor(Math.random() * hitSounds.length)]);
 
     pushEvent(state, {
       type: EventType.MESSAGE,
@@ -1388,6 +1395,10 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     });
 
     if (player.hp <= 0) {
+      // Stop movement immediately on death to prevent sliding
+      player.velocityX = 0;
+      player.velocityY = 0;
+
       pushEvent(state, {
         type: EventType.PLAYER_DEATH,
         data: { type: "PLAYER_DEATH", playerId: player.id },
@@ -1400,7 +1411,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
 
     if (!data.suppressHitSound) {
       // Play monster hit sound
-      Sound.play(SoundEffect.HIT_MONSTER);
+      state.pendingSounds.push(SoundEffect.HIT_MONSTER);
     }
 
     if (monster.hp <= 0) {
@@ -1431,7 +1442,7 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
   const worldY = data.y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
   const radiusPx = data.radius * CELL_CONFIG.w;
 
-  Sound.play(SoundEffect.EXPLOSION);
+  state.pendingSounds.push(SoundEffect.EXPLOSION);
   state.effects.push({
     id: crypto.randomUUID(),
     type: "explosion",
@@ -1533,7 +1544,7 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
     }
 
     // Play death sound
-    Sound.play(SoundEffect.MONSTER_DEATH);
+    state.pendingSounds.push(SoundEffect.MONSTER_DEATH);
 
     pushEvent(state, {
       type: EventType.MESSAGE,
@@ -1612,14 +1623,14 @@ function processDoorOpenEvent(state: GameState, event: GameEvent): void {
   if (tile === TileType.DOOR_CLOSED || tile === TileType.DOOR_LOCKED) {
     // Open the door
     state.map[i] = TileType.DOOR_OPEN;
-    Sound.play(SoundEffect.DOOR_OPEN);
+    state.pendingSounds.push(SoundEffect.DOOR_OPEN);
     // Track tile change for physics update
     if (!state.changedTiles) state.changedTiles = new Set();
     state.changedTiles.add(i);
   } else if (tile === TileType.DOOR_OPEN) {
     // Close the door
     state.map[i] = TileType.DOOR_CLOSED;
-    Sound.play(SoundEffect.DOOR_CLOSE);
+    state.pendingSounds.push(SoundEffect.DOOR_CLOSE);
     // Track tile change for physics update
     if (!state.changedTiles) state.changedTiles = new Set();
     state.changedTiles.add(i);
@@ -1700,13 +1711,22 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
 }
 
 function processPlayerDeathEvent(state: GameState, event: GameEvent): void {
+  const data = event.data as { type: "PLAYER_DEATH"; playerId: string };
+
+  // Stop dead player's movement immediately (works for both single and multiplayer)
+  const player = state.players.find((p) => p.id === data.playerId);
+  if (player) {
+    player.velocityX = 0;
+    player.velocityY = 0;
+  }
+
   pushEvent(state, {
     type: EventType.MESSAGE,
     data: { type: "MESSAGE", message: "You have died." },
     cause: event.id,
   });
 
-  // Note: Death handling (stopping movement, showing overlay, time adjustment)
+  // Note: Additional death handling (showing overlay, time adjustment)
   // is done in Game.updateDeathStatus() which is called after each simulation tick
 }
 

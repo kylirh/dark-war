@@ -4,7 +4,7 @@ import { Game } from "../src/core/Game";
 import { Physics } from "../src/systems/Physics";
 import { enqueueCommand, SIM_DT_MS, stepSimulationTick } from "../src/systems/Simulation";
 import { Sound } from "../src/systems/Sound";
-import { CommandType, EntityKind, MAP_WIDTH, WeaponType } from "../src/types";
+import { CommandType, EntityKind, MAP_WIDTH, SLOWMO_SCALE, TIME_SCALE_TRANSITION_SPEED, WeaponType } from "../src/types";
 
 type IncomingAction =
   | { type: "FIRE"; dx: number; dy: number; facingAngle?: number }
@@ -50,6 +50,7 @@ class RoomSession {
   private readonly closeRoom: (roomId: string) => void;
   private tickHandle: NodeJS.Timeout;
   private placeholderPlayerId: string;
+  private playerActedThisTick: boolean = false;
 
   constructor(id: string, closeRoom: (roomId: string) => void) {
     this.id = id;
@@ -150,12 +151,20 @@ class RoomSession {
 
     player.velocityX = Number.isFinite(clampedVx) ? clampedVx : 0;
     player.velocityY = Number.isFinite(clampedVy) ? clampedVy : 0;
+
+    // Any movement input should resume time (Superhot mechanic)
+    if (vx !== 0 || vy !== 0) {
+      this.playerActedThisTick = true;
+    }
   }
 
   private applyAction(playerId: string, action: IncomingAction): void {
     const state = this.game.getState();
     const player = this.game.getPlayerById(playerId);
     if (!player || player.hp <= 0) return;
+
+    // Any action should resume time (Superhot mechanic)
+    this.playerActedThisTick = true;
 
     const tick = state.sim.nowTick;
 
@@ -253,7 +262,10 @@ class RoomSession {
     this.placeholderPlayerId = this.game.getState().player.id;
 
     for (const playerId of clientIds) {
-      this.game.addNetworkPlayer(playerId);
+      const player = this.game.addNetworkPlayer(playerId);
+      // Zero velocities for new players to prevent phantom movement
+      player.velocityX = 0;
+      player.velocityY = 0;
     }
     this.game.removeNetworkPlayer(this.placeholderPlayerId);
     this.game.addLog("New game started.");
@@ -264,6 +276,13 @@ class RoomSession {
 
   private rebuildPhysics(): void {
     const state = this.game.getState();
+    // Clear existing entity physics body references before rebuilding
+    // so updateEntityBody creates fresh bodies
+    for (const entity of state.entities) {
+      if ("physicsBody" in entity) {
+        (entity as any).physicsBody = undefined;
+      }
+    }
     this.physics.initializeMap(state.map);
     for (const entity of state.entities) {
       this.physics.updateEntityBody(entity as any);
@@ -276,39 +295,89 @@ class RoomSession {
     const state = this.game.getState();
     const dt = SIM_DT_MS / 1000;
     state.sim.mode = "REALTIME";
-    state.sim.timeScale = 1.0;
-    state.sim.targetTimeScale = 1.0;
 
-    this.physics.updatePhysics(state, dt);
-    this.physics.updateBullets(state, dt);
-    this.physics.updateExplosives(state, dt);
+    // Superhot time dilation: slow time when no players are active
+    const anyPlayerActive = state.players.some(
+      (p) =>
+        p.hp > 0 &&
+        (Math.abs(p.velocityX) > 0.1 || Math.abs(p.velocityY) > 0.1),
+    ) || this.playerActedThisTick;
+
+    // Check if all players are dead - run at full speed
+    const allDead = state.players.every((p) => p.hp <= 0);
+
+    if (allDead) {
+      state.sim.targetTimeScale = 1.0;
+    } else if (anyPlayerActive) {
+      state.sim.targetTimeScale = 1.0;
+    } else {
+      state.sim.targetTimeScale = SLOWMO_SCALE;
+    }
+
+    // Smooth time scale transition
+    const timeDiff = state.sim.targetTimeScale - state.sim.timeScale;
+    if (Math.abs(timeDiff) > 0.001) {
+      if (timeDiff > 0) {
+        state.sim.timeScale = Math.min(
+          state.sim.timeScale + TIME_SCALE_TRANSITION_SPEED,
+          state.sim.targetTimeScale,
+        );
+      } else {
+        state.sim.timeScale = Math.max(
+          state.sim.timeScale - TIME_SCALE_TRANSITION_SPEED,
+          state.sim.targetTimeScale,
+        );
+      }
+    } else {
+      state.sim.timeScale = state.sim.targetTimeScale;
+    }
+
+    // Scale physics dt by time scale
+    const scaledDt = dt * state.sim.timeScale;
+
+    this.physics.updatePhysics(state, scaledDt);
+    this.physics.updateBullets(state, scaledDt);
+    this.physics.updateExplosives(state, scaledDt);
 
     if (state.mapDirty) {
       state.mapDirty = false;
       this.physics.initializeMap(state.map);
     }
 
-    stepSimulationTick(state);
+    // Advance simulation ticks with time scaling (accumulator pattern)
+    state.sim.accumulatorMs += scaledDt * 1000;
+    while (state.sim.accumulatorMs >= SIM_DT_MS) {
+      stepSimulationTick(state);
+      state.sim.accumulatorMs -= SIM_DT_MS;
 
-    if (state.changedTiles && state.changedTiles.size > 0) {
-      for (const tileIndex of state.changedTiles) {
-        const x = tileIndex % MAP_WIDTH;
-        const y = Math.floor(tileIndex / MAP_WIDTH);
-        this.physics.updateTile(x, y, state.map[tileIndex]);
+      if (state.changedTiles && state.changedTiles.size > 0) {
+        for (const tileIndex of state.changedTiles) {
+          const x = tileIndex % MAP_WIDTH;
+          const y = Math.floor(tileIndex / MAP_WIDTH);
+          this.physics.updateTile(x, y, state.map[tileIndex]);
+        }
+        state.changedTiles.clear();
       }
-      state.changedTiles.clear();
-    }
 
-    if (state.shouldDescend) {
-      state.shouldDescend = false;
-      this.game.descend();
-      this.rebuildPhysics();
-    }
+      if (state.shouldDescend) {
+        state.shouldDescend = false;
+        this.game.descend();
+        this.rebuildPhysics();
+      }
 
-    if (state.shouldAscend) {
-      state.shouldAscend = false;
-      this.game.ascend();
-      this.rebuildPhysics();
+      if (state.shouldAscend) {
+        state.shouldAscend = false;
+        this.game.ascend();
+        this.rebuildPhysics();
+      }
+
+      // Zero velocity for dead players (Fix 3: dead slide)
+      for (const player of state.players) {
+        if (player.hp <= 0) {
+          player.velocityX = 0;
+          player.velocityY = 0;
+        }
+      }
     }
 
     for (const player of state.players) {
@@ -316,6 +385,9 @@ class RoomSession {
         this.game.updateFOVForPlayer(player.id);
       }
     }
+
+    // Reset per-tick flags
+    this.playerActedThisTick = false;
 
     this.broadcastState();
   }
