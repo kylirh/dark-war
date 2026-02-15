@@ -17,6 +17,7 @@ import {
   CELL_CONFIG,
   MAP_HEIGHT,
   MAP_WIDTH,
+  HOLE_FALL_DAMAGE,
 } from "../types";
 import { idx, tileAt, passable } from "../utils/helpers";
 import { applyWallDamageAt } from "../utils/walls";
@@ -249,11 +250,14 @@ export function stepSimulationTick(state: GameState): void {
     if (!canActorAct(state, cmd.actorId, tick)) continue;
     resolveCommand(state, cmd);
   }
-
   // 3.5 Monsters can pick up items when overlapping them
   processMonsterItemPickups(state);
 
   // 4. Process event queue until empty
+  processEventQueue(state);
+
+  // 4.5 Handle hole falling checks (player + monsters)
+  processHoleFalls(state);
   processEventQueue(state);
 
   // 5. Cleanup and increment
@@ -344,6 +348,101 @@ function processMonsterItemPickups(state: GameState): void {
 }
 
 // ========================================
+// Hole Falls (Player + Monsters)
+// ========================================
+
+function processHoleFalls(state: GameState): void {
+  if (state.shouldDescend) {
+    if (state.holeCreatedTiles && state.holeCreatedTiles.size > 0) {
+      state.holeCreatedTiles.clear();
+    }
+    return;
+  }
+
+  const holeCreatedTiles = state.holeCreatedTiles;
+  const holeCreated = holeCreatedTiles && holeCreatedTiles.size > 0;
+
+  const player = state.entities.find(
+    (e): e is Player => e.kind === EntityKind.PLAYER,
+  );
+
+  if (player && holeCreated) {
+    const playerTileIndex = idx(player.gridX, player.gridY);
+    if (holeCreatedTiles?.has(playerTileIndex)) {
+      triggerPlayerFall(state, player);
+    }
+  }
+
+  const monsters = state.entities.filter(
+    (e): e is Monster => e.kind === EntityKind.MONSTER && e.hp > 0,
+  );
+
+  for (const monster of monsters) {
+    const monsterTileIndex = idx(monster.gridX, monster.gridY);
+
+    if (holeCreated && holeCreatedTiles?.has(monsterTileIndex)) {
+      triggerMonsterFall(state, monster);
+      continue;
+    }
+
+    const tile = tileAt(state.map, monster.gridX, monster.gridY);
+    if (tile !== TileType.HOLE) continue;
+
+    const movedOntoHole =
+      Math.floor(monster.prevWorldX / CELL_CONFIG.w) !== monster.gridX ||
+      Math.floor(monster.prevWorldY / CELL_CONFIG.h) !== monster.gridY;
+
+    if (movedOntoHole && RNG.chance(0.5)) {
+      triggerMonsterFall(state, monster);
+    }
+  }
+
+  if (holeCreatedTiles && holeCreatedTiles.size > 0) {
+    holeCreatedTiles.clear();
+  }
+}
+
+function triggerPlayerFall(state: GameState, player: Player): void {
+  state.descendTarget = [player.gridX, player.gridY];
+  state.shouldDescend = true;
+
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: { type: "MESSAGE", message: "You fall through the floor!" },
+  });
+
+  pushEvent(state, {
+    type: EventType.DAMAGE,
+    data: {
+      type: "DAMAGE",
+      targetId: player.id,
+      amount: HOLE_FALL_DAMAGE,
+    },
+  });
+}
+
+function triggerMonsterFall(state: GameState, monster: Monster): void {
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: {
+      type: "MESSAGE",
+      message: `The ${monster.type} falls through the floor!`,
+    },
+  });
+
+  pushEvent(state, {
+    type: EventType.DAMAGE,
+    data: {
+      type: "DAMAGE",
+      targetId: monster.id,
+      amount: HOLE_FALL_DAMAGE,
+    },
+  });
+
+  state.entities = state.entities.filter((e) => e.id !== monster.id);
+}
+
+// ========================================
 // Actor Readiness
 // ========================================
 
@@ -399,6 +498,9 @@ function resolveCommand(state: GameState, cmd: Command): void {
       break;
     case CommandType.DESCEND:
       resolveDescendCommand(state, cmd);
+      break;
+    case CommandType.ASCEND:
+      resolveAscendCommand(state, cmd);
       break;
     case CommandType.WAIT:
       break;
@@ -703,10 +805,27 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           const targetX = player.gridX + dx;
           const targetY = player.gridY + dy;
           const hitWall = applyWallDamageAt(state, targetX, targetY, 2);
+          const targetTile = tileAt(state.map, targetX, targetY);
+          const isPerimeterWall =
+            targetTile === TileType.WALL &&
+            (targetX <= 0 ||
+              targetY <= 0 ||
+              targetX >= MAP_WIDTH - 1 ||
+              targetY >= MAP_HEIGHT - 1);
           if (hitWall) {
             pushEvent(state, {
               type: EventType.MESSAGE,
-              data: { type: "MESSAGE", message: "You chip the wall." },
+              data: { type: "MESSAGE", message: "You chip the surface." },
+            });
+            return;
+          }
+          if (isPerimeterWall) {
+            pushEvent(state, {
+              type: EventType.MESSAGE,
+              data: {
+                type: "MESSAGE",
+                message: "The wall seems impervious to damage.",
+              },
             });
             return;
           }
@@ -1010,7 +1129,10 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
   const player = actor as Player;
-  if (player.gridX !== state.stairs[0] || player.gridY !== state.stairs[1]) {
+  if (
+    player.gridX !== state.stairsDown[0] ||
+    player.gridY !== state.stairsDown[1]
+  ) {
     pushEvent(state, {
       type: EventType.MESSAGE,
       data: { type: "MESSAGE", message: "No stairs here." },
@@ -1025,7 +1147,37 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
   });
 
   // Set flag for Game.ts to handle
+  state.descendTarget = undefined;
   state.shouldDescend = true;
+}
+
+// ========================================
+// Ascend Command
+// ========================================
+
+function resolveAscendCommand(state: GameState, cmd: Command): void {
+  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  if (!actor || actor.kind !== EntityKind.PLAYER) return;
+
+  const player = actor as Player;
+  if (
+    !state.stairsUp ||
+    player.gridX !== state.stairsUp[0] ||
+    player.gridY !== state.stairsUp[1]
+  ) {
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "No stairs here." },
+    });
+    return;
+  }
+
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: { type: "MESSAGE", message: "You ascend..." },
+  });
+
+  state.shouldAscend = true;
 }
 
 // ========================================

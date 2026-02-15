@@ -1,6 +1,13 @@
-import { TileType, DungeonData, Room, MAP_WIDTH, MAP_HEIGHT } from "../types";
+import {
+  TileType,
+  DungeonData,
+  Room,
+  MAP_WIDTH,
+  MAP_HEIGHT,
+  WallSet,
+} from "../types";
 import { RNG } from "../utils/RNG";
-import { setTile, tileAt } from "../utils/helpers";
+import { setTile } from "../utils/helpers";
 
 /**
  * Generate a dungeon using BSP-lite algorithm with rooms and corridors
@@ -8,6 +15,7 @@ import { setTile, tileAt } from "../utils/helpers";
 export function generateDungeon(): DungeonData {
   const map: TileType[] = new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL);
   const floorVariant = RNG.int(3);
+  const wallSet: WallSet = RNG.chance(0.5) ? "wood" : "concrete";
   const rooms: Room[] = [];
 
   // Generate rooms
@@ -56,6 +64,9 @@ export function generateDungeon(): DungeonData {
   // Add doors at corridor-room transitions
   addDoors(map);
 
+  // Reinforce level boundaries with indestructible walls
+  reinforceBoundaryWalls(map);
+
   // Place starting position and stairs
   const startRoom = rooms[0];
   const stairRoom = RNG.choose(rooms.slice(Math.max(1, rooms.length - 6)));
@@ -65,14 +76,14 @@ export function generateDungeon(): DungeonData {
     Math.floor(startRoom.y + startRoom.h / 2),
   ];
 
-  const stairs: [number, number] = [
+  const stairsDown: [number, number] = [
     Math.floor(stairRoom.x + stairRoom.w / 2),
     Math.floor(stairRoom.y + stairRoom.h / 2),
   ];
 
-  setTile(map, stairs[0], stairs[1], TileType.STAIRS);
+  setTile(map, stairsDown[0], stairsDown[1], TileType.STAIRS_DOWN);
 
-  return { map, floorVariant, start, stairs, rooms };
+  return { map, floorVariant, wallSet, start, stairsDown, rooms };
 }
 
 /**
@@ -94,7 +105,7 @@ function carveHorizontal(
   map: TileType[],
   x1: number,
   x2: number,
-  y: number
+  y: number,
 ): void {
   const startX = Math.min(x1, x2);
   const endX = Math.max(x1, x2);
@@ -110,7 +121,7 @@ function carveVertical(
   map: TileType[],
   y1: number,
   y2: number,
-  x: number
+  x: number,
 ): void {
   const startY = Math.min(y1, y2);
   const endY = Math.max(y1, y2);
@@ -149,5 +160,20 @@ function addDoors(map: TileType[]): void {
         }
       }
     }
+  }
+}
+
+/**
+ * Ensure the outer edge of the map is solid wall tiles.
+ */
+function reinforceBoundaryWalls(map: TileType[]): void {
+  for (let x = 0; x < MAP_WIDTH; x++) {
+    setTile(map, x, 0, TileType.WALL);
+    setTile(map, x, MAP_HEIGHT - 1, TileType.WALL);
+  }
+
+  for (let y = 0; y < MAP_HEIGHT; y++) {
+    setTile(map, 0, y, TileType.WALL);
+    setTile(map, MAP_WIDTH - 1, y, TileType.WALL);
   }
 }

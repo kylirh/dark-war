@@ -8,7 +8,9 @@ export enum TileType {
   DOOR_CLOSED = 2,
   DOOR_OPEN = 3,
   DOOR_LOCKED = 4,
-  STAIRS = 5,
+  STAIRS_DOWN = 5,
+  STAIRS_UP = 6,
+  HOLE = 7,
 }
 
 export interface TileDefinition {
@@ -179,6 +181,7 @@ export enum CommandType {
   INTERACT = "INTERACT",
   RELOAD = "RELOAD",
   DESCEND = "DESCEND",
+  ASCEND = "ASCEND",
 }
 
 export interface Command {
@@ -199,7 +202,8 @@ export type CommandData =
   | { type: "PICKUP" }
   | { type: "INTERACT"; x: number; y: number }
   | { type: "RELOAD" }
-  | { type: "DESCEND" };
+  | { type: "DESCEND" }
+  | { type: "ASCEND" };
 
 export enum EventType {
   DAMAGE = "DAMAGE",
@@ -253,8 +257,9 @@ export interface Room {
 export interface DungeonData {
   map: TileType[];
   floorVariant: number;
+  wallSet: WallSet;
   start: [number, number];
-  stairs: [number, number];
+  stairsDown: [number, number];
   rooms: Room[];
 }
 
@@ -266,13 +271,15 @@ export interface GameState {
   depth: number;
   map: TileType[];
   floorVariant: number;
+  wallSet: WallSet;
   wallDamage: number[];
   mapDirty: boolean;
   visible: Set<number>;
   explored: Set<number>;
   entities: Entity[];
   player: Player;
-  stairs: [number, number];
+  stairsDown: [number, number];
+  stairsUp: [number, number] | null;
   log: string[];
   options: {
     fov: boolean;
@@ -283,7 +290,10 @@ export interface GameState {
   commandsByTick: Map<number, Command[]>;
   eventQueue: GameEvent[];
   shouldDescend: boolean;
+  shouldAscend: boolean;
+  descendTarget?: [number, number];
   changedTiles?: Set<number>; // Track tiles that changed for physics updates
+  holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
 }
 
 // ========================================
@@ -294,17 +304,31 @@ export interface SerializedState {
   depth: number;
   map: TileType[];
   floorVariant?: number;
+  wallSet?: WallSet;
   wallDamage?: number[];
-  stairs: [number, number];
+  stairsDown: [number, number];
+  stairsUp?: [number, number] | null;
   player: Player;
   entities: Entity[];
   explored: number[];
   log: string[];
+  levels?: SerializedLevelState[];
   // NEW: Save simulation state
   sim: {
     nowTick: number;
     mode: "PLANNING" | "REALTIME";
   };
+}
+
+export interface SerializedLevelState {
+  depth: number;
+  map: TileType[];
+  floorVariant: number;
+  wallDamage: number[];
+  stairsDown: [number, number];
+  stairsUp: [number, number] | null;
+  explored: number[];
+  entities: Entity[];
 }
 
 // ========================================
@@ -314,17 +338,22 @@ export interface SerializedState {
 export const MAP_WIDTH = 64;
 export const MAP_HEIGHT = 36;
 
+export type WallSet = "concrete" | "wood";
+
 /**
- * Cumulative damage thresholds (in hits) that drive wall rendering states.
+ * Cumulative damage thresholds (in hits) that drive tile rendering states.
  *
  * - 0–2: no visible damage
  * - 3–5: light damage (first damaged sprite/overlay)
  * - 6–8: heavy damage (second, more damaged sprite/overlay)
  *
- * Values at or above WALL_MAX_DAMAGE should be treated as fully destroyed.
+ * Values at or above *_MAX_DAMAGE should be treated as fully destroyed.
  */
 export const WALL_DAMAGE_THRESHOLDS = [3, 6];
 export const WALL_MAX_DAMAGE = 9;
+export const FLOOR_DAMAGE_THRESHOLDS = [3, 6];
+export const FLOOR_MAX_DAMAGE = 9;
+export const HOLE_FALL_DAMAGE = 3;
 
 export const CELL_CONFIG = {
   w: 32,
@@ -369,9 +398,23 @@ export const TILE_DEFINITIONS: Record<TileType, TileDefinition> = {
     block: true,
     opaque: true,
   },
-  [TileType.STAIRS]: {
+  [TileType.STAIRS_DOWN]: {
+    ch: ">",
+    color: "#7bd88f",
+    bg: "#0b0e12",
+    block: false,
+    opaque: false,
+  },
+  [TileType.STAIRS_UP]: {
     ch: "<",
     color: "#7bd88f",
+    bg: "#0b0e12",
+    block: false,
+    opaque: false,
+  },
+  [TileType.HOLE]: {
+    ch: "O",
+    color: "#14171d",
     bg: "#0b0e12",
     block: false,
     opaque: false,

@@ -83,6 +83,12 @@ class DarkWar {
   private autoMovePath: [number, number][] | null = null;
   private autoMoveDoorTarget: { gridX: number; gridY: number } | null = null;
   private autoMovePickupTarget: { gridX: number; gridY: number } | null = null;
+  private autoMoveHoleTarget: { gridX: number; gridY: number } | null = null;
+  private autoMoveStairsTarget: {
+    gridX: number;
+    gridY: number;
+    direction: "up" | "down";
+  } | null = null;
   private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
   private wasPlayerMoving: boolean = false;
   private lastPlayerWorldX?: number;
@@ -138,7 +144,6 @@ class DarkWar {
       onPickup: () => this.handlePickup(),
       onWait: () => this.handleWait(),
       onReload: () => this.handleReload(),
-      onDescend: () => this.handleDescend(),
       onToggleFOV: () => this.handleToggleFOV(),
       onToggleRealTime: () => this.handleToggleRealTime(),
       onResumePause: (reason) => this.game.resumeFromPause(reason),
@@ -326,6 +331,7 @@ class DarkWar {
   ): void {
     const state = this.game.getState();
     this.autoMovePickupTarget = null;
+    this.autoMoveHoleTarget = null;
 
     const hasItemOnTile =
       wantsPickup &&
@@ -339,6 +345,42 @@ class DarkWar {
 
     const tileIdx = idx(tileX, tileY);
     const tileType = state.map[tileIdx];
+
+    const isHole = tileType === TileType.HOLE;
+    const isStairsDown = tileType === TileType.STAIRS_DOWN;
+    const isStairsUp = tileType === TileType.STAIRS_UP;
+
+    if (
+      isHole &&
+      state.player.gridX === tileX &&
+      state.player.gridY === tileY
+    ) {
+      this.executeHoleJump(tileX, tileY);
+      return;
+    }
+
+    if (isStairsDown || isStairsUp) {
+      this.autoMovePickupTarget = null;
+      this.autoMoveDoorTarget = null;
+      this.autoMoveHoleTarget = null;
+
+      if (state.player.gridX === tileX && state.player.gridY === tileY) {
+        if (isStairsDown) {
+          this.handleDescend();
+        } else {
+          this.handleAscend();
+        }
+        return;
+      }
+
+      this.autoMoveStairsTarget = {
+        gridX: tileX,
+        gridY: tileY,
+        direction: isStairsDown ? "down" : "up",
+      };
+    } else {
+      this.autoMoveStairsTarget = null;
+    }
 
     const isDoor =
       tileType === TileType.DOOR_CLOSED ||
@@ -371,11 +413,15 @@ class DarkWar {
       // Store path for auto-movement (skip first element which is current position)
       this.autoMovePath = path.slice(1);
       this.autoMoveDoorTarget = isDoor ? { gridX: tileX, gridY: tileY } : null;
-      this.autoMovePickupTarget = shouldPickupOnArrive
-        ? { gridX: tileX, gridY: tileY }
-        : null;
+      this.autoMovePickupTarget =
+        !this.autoMoveStairsTarget && shouldPickupOnArrive
+          ? { gridX: tileX, gridY: tileY }
+          : null;
+      this.autoMoveHoleTarget = isHole ? { gridX: tileX, gridY: tileY } : null;
       // Speed up to real-time during click-to-move
       state.sim.targetTimeScale = 1.0;
+    } else {
+      this.autoMoveStairsTarget = null;
     }
   }
 
@@ -472,6 +518,21 @@ class DarkWar {
       if (state.shouldDescend) {
         state.shouldDescend = false;
         this.game.descend();
+
+        this.physics.initializeMap(state.map);
+        for (const entity of state.entities) {
+          this.physics.updateEntityBody(entity as any);
+        }
+
+        setTimeout(() => {
+          const newState = this.game.getState();
+          this.renderer.centerOnPlayer(newState.player, false);
+        }, 50);
+      }
+
+      if (state.shouldAscend) {
+        state.shouldAscend = false;
+        this.game.ascend();
 
         this.physics.initializeMap(state.map);
         for (const entity of state.entities) {
@@ -599,6 +660,8 @@ class DarkWar {
     this.autoMovePath = null;
     this.autoMoveDoorTarget = null;
     this.autoMovePickupTarget = null;
+    this.autoMoveHoleTarget = null;
+    this.autoMoveStairsTarget = null;
   }
 
   private stopAutoMove(state: ReturnType<Game["getState"]>): void {
@@ -646,11 +709,14 @@ class DarkWar {
       if (!this.autoMovePath || this.autoMovePath.length === 0) {
         const doorTarget = this.autoMoveDoorTarget;
         const pickupTarget = this.autoMovePickupTarget;
+        const holeTarget = this.autoMoveHoleTarget;
+        const stairsTarget = this.autoMoveStairsTarget;
         this.autoMoveDoorTarget = null;
         this.autoMovePickupTarget = null;
+        this.autoMoveHoleTarget = null;
+        this.autoMoveStairsTarget = null;
         this.autoMovePath = null;
-        // Return to slow-mo when auto-move completes
-        state.sim.targetTimeScale = SLOWMO_SCALE;
+        let queuedHoleJump = false;
 
         if (doorTarget) {
           const doorDx = doorTarget.gridX - player.gridX;
@@ -667,6 +733,36 @@ class DarkWar {
         ) {
           this.handlePickup();
         }
+
+        if (
+          holeTarget &&
+          holeTarget.gridX === player.gridX &&
+          holeTarget.gridY === player.gridY
+        ) {
+          const holeTile =
+            state.map[idx(holeTarget.gridX, holeTarget.gridY)] ===
+            TileType.HOLE;
+          if (holeTile) {
+            this.queueHoleJump(holeTarget.gridX, holeTarget.gridY);
+            this.playerActedThisTick = true;
+            queuedHoleJump = true;
+          }
+        }
+
+        if (
+          stairsTarget &&
+          stairsTarget.gridX === player.gridX &&
+          stairsTarget.gridY === player.gridY
+        ) {
+          if (stairsTarget.direction === "down") {
+            this.handleDescend();
+          } else {
+            this.handleAscend();
+          }
+        }
+
+        // Return to slow-mo when auto-move completes
+        state.sim.targetTimeScale = queuedHoleJump ? 1.0 : SLOWMO_SCALE;
       }
       return;
     }
@@ -788,6 +884,40 @@ class DarkWar {
       source: "PLAYER",
     });
 
+    this.playerActedThisTick = true;
+
+    // Execute immediately
+    stepSimulationTick(state);
+    this.game.updateFOV();
+    const playerJustDied = this.game.updateDeathStatus();
+    if (playerJustDied) {
+      const gameOverOverlay = document.getElementById("game-over-overlay");
+      if (gameOverOverlay) {
+        gameOverOverlay.classList.add("visible");
+      }
+    }
+
+    this.autoSave();
+  }
+
+  private queueHoleJump(tileX: number, tileY: number): void {
+    const state = this.game.getState();
+    if (!state.holeCreatedTiles) {
+      state.holeCreatedTiles = new Set();
+    }
+    state.holeCreatedTiles.add(idx(tileX, tileY));
+  }
+
+  private executeHoleJump(tileX: number, tileY: number): void {
+    if (this.game.isPlayerDead()) {
+      return;
+    }
+
+    const state = this.game.getState();
+    this.queueHoleJump(tileX, tileY);
+
+    // Resume time when player acts
+    state.sim.targetTimeScale = 1.0;
     this.playerActedThisTick = true;
 
     // Execute immediately
@@ -981,6 +1111,52 @@ class DarkWar {
       if (state.shouldDescend) {
         state.shouldDescend = false;
         this.game.descend();
+        // Center on player after level transition
+        setTimeout(() => {
+          const newState = this.game.getState();
+          this.renderer.centerOnPlayer(newState.player, false);
+        }, 50);
+      }
+    }
+
+    this.autoSave();
+  }
+
+  /**
+   * Handle ascending stairs
+   */
+  private handleAscend(): void {
+    // Don't allow actions if player is dead
+    if (this.game.isPlayerDead()) {
+      return;
+    }
+
+    this.cancelAutoMove();
+
+    const state = this.game.getState();
+    const playerId = state.player.id;
+
+    const tick =
+      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
+
+    enqueueCommand(state, {
+      tick,
+      actorId: playerId,
+      type: CommandType.ASCEND,
+      data: { type: "ASCEND" },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    this.playerActedThisTick = true;
+
+    if (state.sim.mode === "PLANNING") {
+      stepSimulationTick(state);
+      this.game.updateFOV();
+
+      if (state.shouldAscend) {
+        state.shouldAscend = false;
+        this.game.ascend();
         // Center on player after level transition
         setTimeout(() => {
           const newState = this.game.getState();

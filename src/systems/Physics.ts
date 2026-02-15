@@ -223,6 +223,10 @@ export class Physics {
         continue;
       }
 
+      // Store previous position for movement/animation logic
+      entity.prevWorldX = entity.worldX;
+      entity.prevWorldY = entity.worldY;
+
       // Apply velocity directly (continuous movement, no targets)
       entity.worldX += entity.velocityX * dt;
       entity.worldY += entity.velocityY * dt;
