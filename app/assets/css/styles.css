@@ -4,6 +4,7 @@
   --ink: #e6edf3;
   --ink-dim: #a9b1bb;
   --border: rgba(255, 255, 255, 0.06);
+  --cursor-bullseye: url("../img/bullseye-cursor.svg") 16 16, crosshair;
 }
 
 * {
@@ -23,6 +24,7 @@ body {
   overflow: hidden;
   line-height: 1.4em;
   -webkit-font-smoothing: none;
+  cursor: var(--cursor-bullseye);
 }
 
 .app-container {
@@ -49,7 +51,7 @@ body {
   background: rgba(0, 0, 0, 0.4);
   border: 0;
   color: white;
-  cursor: pointer;
+  cursor: var(--cursor-bullseye);
   z-index: 10;
   transition: all 0.2s ease;
   display: flex;
@@ -148,7 +150,7 @@ body {
   color: #ffd54f;
   font-family: "Chicago_12", sans-serif;
   font-size: 32px;
-  cursor: pointer;
+  cursor: var(--cursor-bullseye);
   text-transform: uppercase;
   letter-spacing: 2px;
   transition:
@@ -184,6 +186,7 @@ body {
   display: block;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  cursor: var(--cursor-bullseye);
 }
 
 .sidebar {
@@ -211,7 +214,7 @@ body {
   border-right: none;
   border-radius: 8px 0 0 8px;
   padding: 12px 8px;
-  cursor: pointer;
+  cursor: var(--cursor-bullseye);
   z-index: 100;
   transition: right 0.3s ease;
   color: var(--ink);
