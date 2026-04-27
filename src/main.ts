@@ -310,6 +310,13 @@ class DarkWar {
     this.render(0);
   }
 
+  private playPendingSounds(state: ReturnType<Game["getState"]>): void {
+    for (const sound of state.pendingSounds) {
+      Sound.play(sound as SoundEffect);
+    }
+    state.pendingSounds.length = 0;
+  }
+
   private sendOnlineAction(action: NetworkAction): boolean {
     if (
       !this.isOnlineMode() ||
@@ -606,6 +613,7 @@ class DarkWar {
     state.sim.accumulatorMs += scaledDt * 1000;
     while (state.sim.accumulatorMs >= SIM_DT_MS) {
       stepSimulationTick(state);
+      this.playPendingSounds(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
       this.game.updateFOV();
 
