@@ -1,5 +1,6 @@
 import { Game } from "./core/Game";
 import { GameLoop } from "./core/GameLoop";
+import { GameEntity } from "./entities/GameEntity";
 import { InputCallbacks, InputHandler, MOVEMENT_SPEED } from "./systems/Input";
 import { MouseTracker } from "./systems/MouseTracker";
 import { Physics } from "./systems/Physics";
@@ -13,6 +14,7 @@ import { Sound, SoundEffect } from "./systems/Sound";
 import { UI } from "./systems/UI";
 import {
   CELL_CONFIG,
+  CommandData,
   CommandType,
   EntityKind,
   MAP_WIDTH,
@@ -52,6 +54,15 @@ const DEBUG = false;
 
 /** The delay between clicks to count as double-click */
 const DOUBLE_CLICK_DELAY_MS = 320;
+
+/** Delay before the initial or reset camera recenter runs. */
+const INITIAL_CAMERA_CENTER_DELAY_MS = 100;
+
+/** Delay before recentering after a level transition. */
+const LEVEL_TRANSITION_CAMERA_DELAY_MS = 50;
+
+/** Minimum delay between repeated online-unavailable log messages. */
+const ONLINE_ACTION_UNAVAILABLE_LOG_THROTTLE_MS = 1000;
 
 /** The minimum accumulated deltaY to trigger the scroll wheel. Tunes the scroll wheel's sensitivity. */
 const SCROLL_WHEEL_DELTA_THRESHOLD = 50; // Minimum accumulated deltaY to trigger the scroll wheel. Tunes the scroll wheel's sensitivity.
@@ -110,6 +121,85 @@ class DarkWar {
   private multiplayerConfig: MultiplayerConfig;
   private multiplayerClient: MultiplayerClient | null = null;
   private onlineConnected: boolean = false;
+  private gameCanvas: HTMLCanvasElement | null = null;
+  private newGameButton: HTMLElement | null = null;
+  private lastOnlineUnavailableLogAt: number = 0;
+  private readonly onCanvasClick = (): void => {
+    this.handleMouseFire();
+  };
+  private readonly onCanvasContextMenu = (event: MouseEvent): void => {
+    event.preventDefault();
+
+    const canvas = this.gameCanvas;
+    if (!canvas) {
+      return;
+    }
+
+    const scale = this.renderer.getScale();
+    const rect = canvas.getBoundingClientRect();
+    const canvasX = event.clientX - rect.left;
+    const canvasY = event.clientY - rect.top;
+    const gameX = canvasX / scale;
+    const gameY = canvasY / scale;
+    const tileX = Math.floor((gameX - CELL_CONFIG.padX) / CELL_CONFIG.w);
+    const tileY = Math.floor((gameY - CELL_CONFIG.padY) / CELL_CONFIG.h);
+
+    if (!inBounds(tileX, tileY)) {
+      return;
+    }
+
+    const now = performance.now();
+    const isSameTileAsLastClick =
+      this.lastRightClickTile &&
+      this.lastRightClickTile.gridX === tileX &&
+      this.lastRightClickTile.gridY === tileY;
+    const isDoubleRightClick =
+      isSameTileAsLastClick &&
+      now - this.lastRightClickTime <= DOUBLE_CLICK_DELAY_MS;
+    this.lastRightClickTime = now;
+    this.lastRightClickTile = { gridX: tileX, gridY: tileY };
+
+    if (this.pendingRightClickTimer !== null) {
+      window.clearTimeout(this.pendingRightClickTimer);
+      this.pendingRightClickTimer = null;
+      this.pendingRightClickTile = null;
+    }
+
+    if (isDoubleRightClick) {
+      this.triggerRightClickMove(tileX, tileY, true);
+      return;
+    }
+
+    this.pendingRightClickTile = { gridX: tileX, gridY: tileY };
+    this.pendingRightClickTimer = window.setTimeout(() => {
+      const pendingTile = this.pendingRightClickTile;
+      this.pendingRightClickTimer = null;
+      this.pendingRightClickTile = null;
+      if (!pendingTile) return;
+      this.triggerRightClickMove(pendingTile.gridX, pendingTile.gridY, false);
+    }, DOUBLE_CLICK_DELAY_MS);
+  };
+  private readonly onCanvasWheel = (event: WheelEvent): void => {
+    event.preventDefault();
+
+    const now = performance.now();
+    const timeSinceLastSwitch = now - this.lastWheelTime;
+
+    this.wheelDeltaAccumulator += event.deltaY;
+
+    if (
+      timeSinceLastSwitch >= SCROLL_WHEEL_THROTTLE_MS &&
+      Math.abs(this.wheelDeltaAccumulator) >= SCROLL_WHEEL_DELTA_THRESHOLD
+    ) {
+      const direction = this.wheelDeltaAccumulator > 0 ? 1 : -1;
+      this.handleCycleWeapon(direction);
+      this.lastWheelTime = now;
+      this.wheelDeltaAccumulator = 0;
+    }
+  };
+  private readonly onNewGameButtonClick = (): void => {
+    this.handleNewGame();
+  };
 
   constructor() {
     if (DEBUG) console.time("Game initialization");
@@ -171,9 +261,9 @@ class DarkWar {
     this.setupClickToMove();
 
     // Setup game over overlay actions
-    const newGameButton = document.getElementById("new-game-button");
-    if (newGameButton) {
-      newGameButton.addEventListener("click", () => this.handleNewGame());
+    this.newGameButton = document.getElementById("new-game-button");
+    if (this.newGameButton) {
+      this.newGameButton.addEventListener("click", this.onNewGameButtonClick);
     }
 
     // Setup native menu handlers for Electron
@@ -197,20 +287,10 @@ class DarkWar {
     this.render(0);
     if (DEBUG) console.timeEnd("First render");
 
-    // Initialize physics for current map
-    const initialState = this.game.getState();
-    this.physics.initializeMap(initialState.map);
-
-    // Initialize physics bodies for all entities
-    for (const entity of initialState.entities) {
-      this.physics.updateEntityBody(entity as any);
-    }
+    this.reinitializePhysicsForCurrentState();
 
     // Center on player initially (after first render)
-    setTimeout(() => {
-      const state = this.game.getState();
-      this.renderer.centerOnPlayer(state.player, false);
-    }, 100);
+    this.centerOnPlayerSoon(INITIAL_CAMERA_CENTER_DELAY_MS);
 
     this.gameLoop.start();
     if (DEBUG) console.timeEnd("Game initialization");
@@ -263,7 +343,9 @@ class DarkWar {
 
     this.multiplayerClient.onConnected((playerId, roomId) => {
       this.onlineConnected = true;
-      this.game.addLog(`Connected as ${playerId.slice(0, 8)} in room ${roomId}.`);
+      this.game.addLog(
+        `Connected as ${playerId.slice(0, 8)} in room ${roomId}.`,
+      );
       this.render(0);
     });
 
@@ -285,7 +367,9 @@ class DarkWar {
     this.multiplayerClient.connect();
   }
 
-  private applyOnlineState(serializedState: ReturnType<Game["serialize"]>): void {
+  private applyOnlineState(
+    serializedState: ReturnType<Game["serialize"]>,
+  ): void {
     // Play any sounds queued by the server before deserializing
     if (serializedState.sounds && serializedState.sounds.length > 0) {
       for (const sound of serializedState.sounds) {
@@ -296,18 +380,28 @@ class DarkWar {
     this.game.deserialize(serializedState);
     const state = this.game.getState();
 
-    const isDead = state.player.hp <= 0;
-    const gameOverOverlay = document.getElementById("game-over-overlay");
-    if (gameOverOverlay) {
-      if (isDead) {
-        gameOverOverlay.classList.add("visible");
-      } else {
-        gameOverOverlay.classList.remove("visible");
-      }
-    }
+    this.syncGameOverOverlay(state.player.hp <= 0);
 
     this.lastPlayerHp = state.player.hp;
     this.render(0);
+  }
+
+  private syncGameOverOverlay(isDead: boolean): void {
+    const gameOverOverlay = document.getElementById("game-over-overlay");
+    if (!gameOverOverlay) {
+      return;
+    }
+
+    if (isDead) {
+      gameOverOverlay.classList.add("visible");
+    } else {
+      gameOverOverlay.classList.remove("visible");
+    }
+  }
+
+  private syncOfflineDeathState(state: ReturnType<Game["getState"]>): void {
+    this.game.updateDeathStatus();
+    this.syncGameOverOverlay(state.player.hp <= 0);
   }
 
   private playPendingSounds(state: ReturnType<Game["getState"]>): void {
@@ -317,15 +411,141 @@ class DarkWar {
     state.pendingSounds.length = 0;
   }
 
-  private sendOnlineAction(action: NetworkAction): boolean {
+  private finalizeImmediateOfflineAction(
+    state: ReturnType<Game["getState"]>,
+    options: { autoSave?: boolean } = {},
+  ): void {
+    this.playPendingSounds(state);
+    this.game.updateFOV();
+    this.syncOfflineDeathState(state);
+
+    if (options.autoSave ?? true) {
+      this.autoSave();
+    }
+  }
+
+  private runOfflinePlayerCommand(
+    type: CommandType,
+    data: CommandData,
+    options: {
+      tick?: number;
+      resumeTime?: boolean;
+      executeImmediately?: boolean;
+      autoSave?: boolean;
+    } = {},
+  ): ReturnType<Game["getState"]> {
+    const state = this.game.getState();
+
+    if (options.resumeTime ?? true) {
+      state.sim.targetTimeScale = 1.0;
+    }
+
+    enqueueCommand(state, {
+      tick: options.tick ?? state.sim.nowTick,
+      actorId: state.player.id,
+      type,
+      data,
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    this.playerActedThisTick = true;
+
+    if (options.executeImmediately ?? true) {
+      stepSimulationTick(state);
+      this.finalizeImmediateOfflineAction(state, {
+        autoSave: options.autoSave,
+      });
+    } else if (options.autoSave ?? true) {
+      this.autoSave();
+    }
+
+    return state;
+  }
+
+  private reinitializePhysicsForCurrentState(): void {
+    const state = this.game.getState();
+    this.physics.initializeMap(state.map);
+
+    for (const entity of state.entities) {
+      if (entity instanceof GameEntity) {
+        this.physics.updateEntityBody(entity);
+      }
+    }
+  }
+
+  private centerOnPlayerSoon(delayMs: number): void {
+    setTimeout(() => {
+      const state = this.game.getState();
+      this.renderer.centerOnPlayer(state.player, false);
+    }, delayMs);
+  }
+
+  private reportOnlineActionUnavailable(): void {
+    const now = performance.now();
+    if (
+      now - this.lastOnlineUnavailableLogAt <
+      ONLINE_ACTION_UNAVAILABLE_LOG_THROTTLE_MS
+    ) {
+      return;
+    }
+
+    this.lastOnlineUnavailableLogAt = now;
+    this.game.addLog("Multiplayer action unavailable while disconnected.");
+    this.render(0);
+  }
+
+  private getReadyOnlineClient(): MultiplayerClient | null {
     if (
       !this.isOnlineMode() ||
       !this.multiplayerClient ||
       !this.onlineConnected
     ) {
+      return null;
+    }
+
+    return this.multiplayerClient;
+  }
+
+  private sendOnlineAction(action: NetworkAction): boolean {
+    const client = this.getReadyOnlineClient();
+    if (!client) {
       return false;
     }
-    this.multiplayerClient.sendAction(action);
+
+    client.sendAction(action);
+    return true;
+  }
+
+  private dispatchOnlineAction(action: NetworkAction): boolean {
+    const sent = this.sendOnlineAction(action);
+    if (sent) {
+      this.playerActedThisTick = true;
+    } else {
+      this.reportOnlineActionUnavailable();
+    }
+    return sent;
+  }
+
+  private selectOnlineWeapon(slot: number): boolean {
+    const client = this.getReadyOnlineClient();
+    if (!client) {
+      this.reportOnlineActionUnavailable();
+      return false;
+    }
+
+    client.selectWeapon(slot);
+    return true;
+  }
+
+  private requestOnlineNewGame(): boolean {
+    const client = this.getReadyOnlineClient();
+    if (!client) {
+      this.reportOnlineActionUnavailable();
+      return false;
+    }
+
+    client.requestNewGame();
     return true;
   }
 
@@ -346,94 +566,12 @@ class DarkWar {
       return;
     }
 
+    this.gameCanvas = canvas;
     canvas.style.cursor = "pointer";
 
-    // Left click: shoot
-    canvas.addEventListener("click", (event) => {
-      this.handleMouseFire(event);
-    });
-
-    // Right click: move
-    canvas.addEventListener("contextmenu", (event) => {
-      event.preventDefault();
-
-      const scale = this.renderer.getScale();
-
-      // Get canvas bounding rect
-      const rect = canvas.getBoundingClientRect();
-
-      // Convert click coordinates to canvas coordinates
-      const canvasX = event.clientX - rect.left;
-      const canvasY = event.clientY - rect.top;
-
-      // Convert to game coordinates (accounting for scale)
-      const gameX = canvasX / scale;
-      const gameY = canvasY / scale;
-
-      // Convert to tile coordinates (accounting for padding)
-      const tileX = Math.floor((gameX - CELL_CONFIG.padX) / CELL_CONFIG.w);
-      const tileY = Math.floor((gameY - CELL_CONFIG.padY) / CELL_CONFIG.h);
-
-      if (!inBounds(tileX, tileY)) {
-        return;
-      }
-
-      const now = performance.now();
-      const isSameTileAsLastClick =
-        this.lastRightClickTile &&
-        this.lastRightClickTile.gridX === tileX &&
-        this.lastRightClickTile.gridY === tileY;
-      const isDoubleRightClick =
-        isSameTileAsLastClick &&
-        now - this.lastRightClickTime <= DOUBLE_CLICK_DELAY_MS;
-      this.lastRightClickTime = now;
-      this.lastRightClickTile = { gridX: tileX, gridY: tileY };
-
-      if (this.pendingRightClickTimer !== null) {
-        window.clearTimeout(this.pendingRightClickTimer);
-        this.pendingRightClickTimer = null;
-        this.pendingRightClickTile = null;
-      }
-
-      if (isDoubleRightClick) {
-        this.triggerRightClickMove(tileX, tileY, true);
-        return;
-      }
-
-      this.pendingRightClickTile = { gridX: tileX, gridY: tileY };
-      this.pendingRightClickTimer = window.setTimeout(() => {
-        const pendingTile = this.pendingRightClickTile;
-        this.pendingRightClickTimer = null;
-        this.pendingRightClickTile = null;
-        if (!pendingTile) return;
-        this.triggerRightClickMove(pendingTile.gridX, pendingTile.gridY, false);
-      }, DOUBLE_CLICK_DELAY_MS);
-    });
-
-    canvas.addEventListener(
-      "wheel",
-      (event) => {
-        event.preventDefault();
-
-        const now = performance.now();
-        const timeSinceLastSwitch = now - this.lastWheelTime;
-
-        // Accumulate wheel delta
-        this.wheelDeltaAccumulator += event.deltaY;
-
-        // Only switch weapon if enough time has passed AND enough delta accumulated
-        if (
-          timeSinceLastSwitch >= SCROLL_WHEEL_THROTTLE_MS &&
-          Math.abs(this.wheelDeltaAccumulator) >= SCROLL_WHEEL_DELTA_THRESHOLD
-        ) {
-          const direction = this.wheelDeltaAccumulator > 0 ? 1 : -1;
-          this.handleCycleWeapon(direction);
-          this.lastWheelTime = now;
-          this.wheelDeltaAccumulator = 0; // Reset accumulator after switch
-        }
-      },
-      { passive: false },
-    );
+    canvas.addEventListener("click", this.onCanvasClick);
+    canvas.addEventListener("contextmenu", this.onCanvasContextMenu);
+    canvas.addEventListener("wheel", this.onCanvasWheel, { passive: false });
   }
 
   private triggerRightClickMove(
@@ -442,8 +580,12 @@ class DarkWar {
     wantsPickup: boolean,
   ): void {
     const state = this.game.getState();
-    this.autoMovePickupTarget = null;
-    this.autoMoveHoleTarget = null;
+
+    if (this.autoMovePath) {
+      this.stopAutoMove(state);
+    } else {
+      this.clearAutoMoveTargets();
+    }
 
     const hasItemOnTile =
       wantsPickup &&
@@ -472,9 +614,7 @@ class DarkWar {
     }
 
     if (isStairsDown || isStairsUp) {
-      this.autoMovePickupTarget = null;
-      this.autoMoveDoorTarget = null;
-      this.autoMoveHoleTarget = null;
+      this.clearAutoMoveTargets();
 
       if (state.player.gridX === tileX && state.player.gridY === tileY) {
         if (isStairsDown) {
@@ -540,7 +680,7 @@ class DarkWar {
   /**
    * Handle mouse-based firing
    */
-  private handleMouseFire(event: MouseEvent): void {
+  private handleMouseFire(): void {
     // Fire with mouse aiming (dx/dy will be ignored)
     this.handleFire(0, 0);
   }
@@ -628,44 +768,25 @@ class DarkWar {
         state.changedTiles.clear();
       }
 
-      // Check if player died and handle UI
-      const playerJustDied = this.game.updateDeathStatus();
-      if (playerJustDied) {
-        const gameOverOverlay = document.getElementById("game-over-overlay");
-        if (gameOverOverlay) {
-          gameOverOverlay.classList.add("visible");
-        }
-      }
+      this.syncOfflineDeathState(state);
 
       // Check for descend flag
       if (state.shouldDescend) {
         state.shouldDescend = false;
         this.game.descend();
 
-        this.physics.initializeMap(state.map);
-        for (const entity of state.entities) {
-          this.physics.updateEntityBody(entity as any);
-        }
+        this.reinitializePhysicsForCurrentState();
 
-        setTimeout(() => {
-          const newState = this.game.getState();
-          this.renderer.centerOnPlayer(newState.player, false);
-        }, 50);
+        this.centerOnPlayerSoon(LEVEL_TRANSITION_CAMERA_DELAY_MS);
       }
 
       if (state.shouldAscend) {
         state.shouldAscend = false;
         this.game.ascend();
 
-        this.physics.initializeMap(state.map);
-        for (const entity of state.entities) {
-          this.physics.updateEntityBody(entity as any);
-        }
+        this.reinitializePhysicsForCurrentState();
 
-        setTimeout(() => {
-          const newState = this.game.getState();
-          this.renderer.centerOnPlayer(newState.player, false);
-        }, 50);
+        this.centerOnPlayerSoon(LEVEL_TRANSITION_CAMERA_DELAY_MS);
       }
     }
 
@@ -681,10 +802,7 @@ class DarkWar {
     // Check if player has stopped moving
     const player = state.player;
     const playerMoving =
-      "velocityX" in player && "velocityY" in player
-        ? Math.abs((player as any).velocityX) > 0.1 ||
-          Math.abs((player as any).velocityY) > 0.1
-        : false;
+      Math.abs(player.velocityX) > 0.1 || Math.abs(player.velocityY) > 0.1;
 
     // Update target time scale based on player movement
     if (isDead) {
@@ -719,18 +837,9 @@ class DarkWar {
     this.ui.updateAll(state.player, state.depth, state.log, state.sim);
 
     const hasVelocity =
-      "velocityX" in player && "velocityY" in player
-        ? Math.abs((player as any).velocityX) > 0.05 ||
-          Math.abs((player as any).velocityY) > 0.05
-        : false;
-    const playerWorldX =
-      "worldX" in player
-        ? (player as any).worldX
-        : (player as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
-    const playerWorldY =
-      "worldY" in player
-        ? (player as any).worldY
-        : (player as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+      Math.abs(player.velocityX) > 0.05 || Math.abs(player.velocityY) > 0.05;
+    const playerWorldX = player.worldX;
+    const playerWorldY = player.worldY;
     const movedSinceLastFrame =
       typeof this.lastPlayerWorldX === "number" &&
       typeof this.lastPlayerWorldY === "number" &&
@@ -759,18 +868,20 @@ class DarkWar {
 
     if (this.isOnlineMode()) {
       if (!this.onlineConnected) {
-        if ("velocityX" in player && "velocityY" in player) {
-          (player as any).velocityX = 0;
-          (player as any).velocityY = 0;
-        }
+        player.velocityX = 0;
+        player.velocityY = 0;
         return;
       }
       if (this.isLocalPlayerDead()) return;
-      if ("velocityX" in player && "velocityY" in player) {
-        (player as any).velocityX = vx;
-        (player as any).velocityY = vy;
+      player.velocityX = vx;
+      player.velocityY = vy;
+      const client = this.getReadyOnlineClient();
+      if (!client) {
+        player.velocityX = 0;
+        player.velocityY = 0;
+        return;
       }
-      this.multiplayerClient?.sendVelocity(vx, vy);
+      client.sendVelocity(vx, vy);
       if (vx !== 0 || vy !== 0) {
         this.cancelAutoMove();
       }
@@ -783,10 +894,8 @@ class DarkWar {
     }
 
     // Set player velocity directly
-    if ("velocityX" in player && "velocityY" in player) {
-      (player as any).velocityX = vx;
-      (player as any).velocityY = vy;
-    }
+    player.velocityX = vx;
+    player.velocityY = vy;
 
     // If player is moving, resume time
     if (vx !== 0 || vy !== 0) {
@@ -801,10 +910,7 @@ class DarkWar {
    */
   private cancelAutoMove(): void {
     this.autoMovePath = null;
-    this.autoMoveDoorTarget = null;
-    this.autoMovePickupTarget = null;
-    this.autoMoveHoleTarget = null;
-    this.autoMoveStairsTarget = null;
+    this.clearAutoMoveTargets();
     if (this.pendingRightClickTimer !== null) {
       window.clearTimeout(this.pendingRightClickTimer);
       this.pendingRightClickTimer = null;
@@ -812,13 +918,18 @@ class DarkWar {
     this.pendingRightClickTile = null;
   }
 
+  private clearAutoMoveTargets(): void {
+    this.autoMoveDoorTarget = null;
+    this.autoMovePickupTarget = null;
+    this.autoMoveHoleTarget = null;
+    this.autoMoveStairsTarget = null;
+  }
+
   private stopAutoMove(state: ReturnType<Game["getState"]>): void {
     this.cancelAutoMove();
     const player = state.player;
-    if ("velocityX" in player && "velocityY" in player) {
-      (player as any).velocityX = 0;
-      (player as any).velocityY = 0;
-    }
+    player.velocityX = 0;
+    player.velocityY = 0;
     // Return to slow-mo when auto-move is interrupted
     state.sim.targetTimeScale = SLOWMO_SCALE;
   }
@@ -834,24 +945,21 @@ class DarkWar {
     }
 
     const player = state.player;
-    if (!("worldX" in player && "worldY" in player)) {
-      return;
-    }
 
     const [targetX, targetY] = this.autoMovePath[0];
     const targetWorldX = targetX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     const targetWorldY = targetY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
 
-    const dx = targetWorldX - (player as any).worldX;
-    const dy = targetWorldY - (player as any).worldY;
+    const dx = targetWorldX - player.worldX;
+    const dy = targetWorldY - player.worldY;
     const distance = Math.hypot(dx, dy);
 
     // Use larger threshold to prevent oscillation (about 1/4 of a tile)
     if (distance <= 8) {
-      (player as any).worldX = targetWorldX;
-      (player as any).worldY = targetWorldY;
-      (player as any).velocityX = 0;
-      (player as any).velocityY = 0;
+      player.worldX = targetWorldX;
+      player.worldY = targetWorldY;
+      player.velocityX = 0;
+      player.velocityY = 0;
       this.autoMovePath.shift();
 
       if (!this.autoMovePath || this.autoMovePath.length === 0) {
@@ -859,10 +967,7 @@ class DarkWar {
         const pickupTarget = this.autoMovePickupTarget;
         const holeTarget = this.autoMoveHoleTarget;
         const stairsTarget = this.autoMoveStairsTarget;
-        this.autoMoveDoorTarget = null;
-        this.autoMovePickupTarget = null;
-        this.autoMoveHoleTarget = null;
-        this.autoMoveStairsTarget = null;
+        this.clearAutoMoveTargets();
         this.autoMovePath = null;
         let queuedHoleJump = false;
 
@@ -920,9 +1025,9 @@ class DarkWar {
     const approachDistance = 16; // Start slowing within half a tile
     const speedMultiplier = Math.min(1, distance / approachDistance);
 
-    (player as any).velocityX = (dx / distance) * speed * speedMultiplier;
-    (player as any).velocityY = (dy / distance) * speed * speedMultiplier;
-    (player as any).facingAngle = Math.atan2(dy, dx);
+    player.velocityX = (dx / distance) * speed * speedMultiplier;
+    player.velocityY = (dy / distance) * speed * speedMultiplier;
+    player.facingAngle = Math.atan2(dy, dx);
   }
 
   /**
@@ -941,57 +1046,23 @@ class DarkWar {
 
     if (this.isOnlineMode()) {
       let facingAngle: number | undefined;
-      if ("worldX" in player && "worldY" in player) {
-        facingAngle = this.mouseTracker.getAngleFrom(
-          (player as any).worldX,
-          (player as any).worldY,
-        );
-      }
-      this.sendOnlineAction({ type: "FIRE", dx, dy, facingAngle });
-      this.playerActedThisTick = true;
+      facingAngle = this.mouseTracker.getAngleFrom(
+        player.worldX,
+        player.worldY,
+      );
+      this.dispatchOnlineAction({ type: "FIRE", dx, dy, facingAngle });
       return;
     }
 
-    const playerId = state.player.id;
-
-    // Resume time when player acts
-    state.sim.targetTimeScale = 1.0;
-
     // Set player's facing angle based on mouse position for bullet direction
-    if ("worldX" in player && "worldY" in player) {
-      const mousePos = this.mouseTracker.getWorldPosition();
-      const angle = this.mouseTracker.getAngleFrom(
-        (player as any).worldX,
-        (player as any).worldY,
-      );
-      (player as any).facingAngle = angle;
-    }
+    const angle = this.mouseTracker.getAngleFrom(player.worldX, player.worldY);
+    player.facingAngle = angle;
 
-    const tick = state.sim.nowTick;
-
-    enqueueCommand(state, {
-      tick,
-      actorId: playerId,
-      type: CommandType.FIRE,
-      data: { type: "FIRE", dx, dy },
-      priority: 0,
-      source: "PLAYER",
+    this.runOfflinePlayerCommand(CommandType.FIRE, {
+      type: "FIRE",
+      dx,
+      dy,
     });
-
-    this.playerActedThisTick = true;
-
-    // Execute immediately
-    stepSimulationTick(state);
-    
-    // Play any sounds queued during the simulation tick
-    for (const sound of state.pendingSounds) {
-      Sound.play(sound as SoundEffect);
-    }
-    state.pendingSounds.length = 0;
-    
-    this.game.updateFOV();
-
-    this.autoSave();
   }
 
   private handleSelectWeapon(slot: number): void {
@@ -1007,7 +1078,7 @@ class DarkWar {
     if (!weapon) return;
 
     if (this.isOnlineMode()) {
-      this.multiplayerClient?.selectWeapon(slot);
+      this.selectOnlineWeapon(slot);
       return;
     }
 
@@ -1030,7 +1101,7 @@ class DarkWar {
 
     if (this.isOnlineMode()) {
       const nextWeapon = weapons[nextIndex];
-      this.multiplayerClient?.selectWeapon(this.getWeaponSlot(nextWeapon));
+      this.selectOnlineWeapon(this.getWeaponSlot(nextWeapon));
       return;
     }
 
@@ -1050,49 +1121,11 @@ class DarkWar {
     this.cancelAutoMove();
 
     if (this.isOnlineMode()) {
-      this.sendOnlineAction({ type: "WAIT" });
-      this.playerActedThisTick = true;
+      this.dispatchOnlineAction({ type: "WAIT" });
       return;
     }
 
-    const state = this.game.getState();
-    const playerId = state.player.id;
-
-    // Resume time when player acts
-    state.sim.targetTimeScale = 1.0;
-
-    const tick = state.sim.nowTick;
-
-    enqueueCommand(state, {
-      tick,
-      actorId: playerId,
-      type: CommandType.WAIT,
-      data: { type: "WAIT" },
-      priority: 0,
-      source: "PLAYER",
-    });
-
-    this.playerActedThisTick = true;
-
-    // Execute immediately
-    stepSimulationTick(state);
-    
-    // Play any sounds queued during the simulation tick
-    for (const sound of state.pendingSounds) {
-      Sound.play(sound as SoundEffect);
-    }
-    state.pendingSounds.length = 0;
-    
-    this.game.updateFOV();
-    const playerJustDied = this.game.updateDeathStatus();
-    if (playerJustDied) {
-      const gameOverOverlay = document.getElementById("game-over-overlay");
-      if (gameOverOverlay) {
-        gameOverOverlay.classList.add("visible");
-      }
-    }
-
-    this.autoSave();
+    this.runOfflinePlayerCommand(CommandType.WAIT, { type: "WAIT" });
   }
 
   private queueHoleJump(tileX: number, tileY: number): void {
@@ -1123,23 +1156,8 @@ class DarkWar {
 
     // Execute immediately
     stepSimulationTick(state);
-    
-    // Play any sounds queued during the simulation tick
-    for (const sound of state.pendingSounds) {
-      Sound.play(sound as SoundEffect);
-    }
-    state.pendingSounds.length = 0;
-    
-    this.game.updateFOV();
-    const playerJustDied = this.game.updateDeathStatus();
-    if (playerJustDied) {
-      const gameOverOverlay = document.getElementById("game-over-overlay");
-      if (gameOverOverlay) {
-        gameOverOverlay.classList.add("visible");
-      }
-    }
 
-    this.autoSave();
+    this.finalizeImmediateOfflineAction(state);
   }
 
   /**
@@ -1160,53 +1178,21 @@ class DarkWar {
     }
 
     if (this.isOnlineMode()) {
-      this.sendOnlineAction({ type: "INTERACT", dx, dy });
-      this.playerActedThisTick = true;
+      this.dispatchOnlineAction({ type: "INTERACT", dx, dy });
       return;
     }
 
     const state = this.game.getState();
-    const playerId = state.player.id;
     const player = state.player;
-
-    // Resume time when player acts
-    state.sim.targetTimeScale = 1.0;
 
     const targetX = player.gridX + dx;
     const targetY = player.gridY + dy;
 
-    const tick = state.sim.nowTick;
-
-    enqueueCommand(state, {
-      tick,
-      actorId: playerId,
-      type: CommandType.INTERACT,
-      data: { type: "INTERACT", x: targetX, y: targetY },
-      priority: 0,
-      source: "PLAYER",
+    this.runOfflinePlayerCommand(CommandType.INTERACT, {
+      type: "INTERACT",
+      x: targetX,
+      y: targetY,
     });
-
-    this.playerActedThisTick = true;
-
-    // Execute immediately
-    stepSimulationTick(state);
-    
-    // Play any sounds queued during the simulation tick
-    for (const sound of state.pendingSounds) {
-      Sound.play(sound as SoundEffect);
-    }
-    state.pendingSounds.length = 0;
-    
-    this.game.updateFOV();
-    const playerJustDied = this.game.updateDeathStatus();
-    if (playerJustDied) {
-      const gameOverOverlay = document.getElementById("game-over-overlay");
-      if (gameOverOverlay) {
-        gameOverOverlay.classList.add("visible");
-      }
-    }
-
-    this.autoSave();
   }
 
   /**
@@ -1221,49 +1207,11 @@ class DarkWar {
     this.cancelAutoMove();
 
     if (this.isOnlineMode()) {
-      this.sendOnlineAction({ type: "PICKUP" });
-      this.playerActedThisTick = true;
+      this.dispatchOnlineAction({ type: "PICKUP" });
       return;
     }
 
-    const state = this.game.getState();
-    const playerId = state.player.id;
-
-    // Resume time when player acts
-    state.sim.targetTimeScale = 1.0;
-
-    const tick = state.sim.nowTick;
-
-    enqueueCommand(state, {
-      tick,
-      actorId: playerId,
-      type: CommandType.PICKUP,
-      data: { type: "PICKUP" },
-      priority: 0,
-      source: "PLAYER",
-    });
-
-    this.playerActedThisTick = true;
-
-    // Execute immediately
-    stepSimulationTick(state);
-    
-    // Play any sounds queued during the simulation tick
-    for (const sound of state.pendingSounds) {
-      Sound.play(sound as SoundEffect);
-    }
-    state.pendingSounds.length = 0;
-    
-    this.game.updateFOV();
-    const playerJustDied = this.game.updateDeathStatus();
-    if (playerJustDied) {
-      const gameOverOverlay = document.getElementById("game-over-overlay");
-      if (gameOverOverlay) {
-        gameOverOverlay.classList.add("visible");
-      }
-    }
-
-    this.autoSave();
+    this.runOfflinePlayerCommand(CommandType.PICKUP, { type: "PICKUP" });
   }
 
   /**
@@ -1278,49 +1226,11 @@ class DarkWar {
     this.cancelAutoMove();
 
     if (this.isOnlineMode()) {
-      this.sendOnlineAction({ type: "RELOAD" });
-      this.playerActedThisTick = true;
+      this.dispatchOnlineAction({ type: "RELOAD" });
       return;
     }
 
-    const state = this.game.getState();
-    const playerId = state.player.id;
-
-    // Resume time when player acts
-    state.sim.targetTimeScale = 1.0;
-
-    const tick = state.sim.nowTick;
-
-    enqueueCommand(state, {
-      tick,
-      actorId: playerId,
-      type: CommandType.RELOAD,
-      data: { type: "RELOAD" },
-      priority: 0,
-      source: "PLAYER",
-    });
-
-    this.playerActedThisTick = true;
-
-    // Execute immediately
-    stepSimulationTick(state);
-    
-    // Play any sounds queued during the simulation tick
-    for (const sound of state.pendingSounds) {
-      Sound.play(sound as SoundEffect);
-    }
-    state.pendingSounds.length = 0;
-    
-    this.game.updateFOV();
-    const playerJustDied = this.game.updateDeathStatus();
-    if (playerJustDied) {
-      const gameOverOverlay = document.getElementById("game-over-overlay");
-      if (gameOverOverlay) {
-        gameOverOverlay.classList.add("visible");
-      }
-    }
-
-    this.autoSave();
+    this.runOfflinePlayerCommand(CommandType.RELOAD, { type: "RELOAD" });
   }
 
   /**
@@ -1335,47 +1245,31 @@ class DarkWar {
     this.cancelAutoMove();
 
     if (this.isOnlineMode()) {
-      this.sendOnlineAction({ type: "DESCEND" });
-      this.playerActedThisTick = true;
+      this.dispatchOnlineAction({ type: "DESCEND" });
       return;
     }
 
-    const state = this.game.getState();
-    const playerId = state.player.id;
-
-    const tick =
-      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
-
-    enqueueCommand(state, {
-      tick,
-      actorId: playerId,
-      type: CommandType.DESCEND,
-      data: { type: "DESCEND" },
-      priority: 0,
-      source: "PLAYER",
-    });
-
-    this.playerActedThisTick = true;
+    const currentState = this.game.getState();
+    const state = this.runOfflinePlayerCommand(
+      CommandType.DESCEND,
+      { type: "DESCEND" },
+      {
+        tick:
+          currentState.sim.mode === "PLANNING"
+            ? currentState.sim.nowTick
+            : currentState.sim.nowTick + 1,
+        resumeTime: false,
+        executeImmediately: currentState.sim.mode === "PLANNING",
+        autoSave: false,
+      },
+    );
 
     if (state.sim.mode === "PLANNING") {
-      stepSimulationTick(state);
-      
-      // Play any sounds queued during the simulation tick
-      for (const sound of state.pendingSounds) {
-        Sound.play(sound as SoundEffect);
-      }
-      state.pendingSounds.length = 0;
-      
-      this.game.updateFOV();
-
       if (state.shouldDescend) {
         state.shouldDescend = false;
         this.game.descend();
         // Center on player after level transition
-        setTimeout(() => {
-          const newState = this.game.getState();
-          this.renderer.centerOnPlayer(newState.player, false);
-        }, 50);
+        this.centerOnPlayerSoon(LEVEL_TRANSITION_CAMERA_DELAY_MS);
       }
     }
 
@@ -1394,47 +1288,31 @@ class DarkWar {
     this.cancelAutoMove();
 
     if (this.isOnlineMode()) {
-      this.sendOnlineAction({ type: "ASCEND" });
-      this.playerActedThisTick = true;
+      this.dispatchOnlineAction({ type: "ASCEND" });
       return;
     }
 
-    const state = this.game.getState();
-    const playerId = state.player.id;
-
-    const tick =
-      state.sim.mode === "PLANNING" ? state.sim.nowTick : state.sim.nowTick + 1;
-
-    enqueueCommand(state, {
-      tick,
-      actorId: playerId,
-      type: CommandType.ASCEND,
-      data: { type: "ASCEND" },
-      priority: 0,
-      source: "PLAYER",
-    });
-
-    this.playerActedThisTick = true;
+    const currentState = this.game.getState();
+    const state = this.runOfflinePlayerCommand(
+      CommandType.ASCEND,
+      { type: "ASCEND" },
+      {
+        tick:
+          currentState.sim.mode === "PLANNING"
+            ? currentState.sim.nowTick
+            : currentState.sim.nowTick + 1,
+        resumeTime: false,
+        executeImmediately: currentState.sim.mode === "PLANNING",
+        autoSave: false,
+      },
+    );
 
     if (state.sim.mode === "PLANNING") {
-      stepSimulationTick(state);
-      
-      // Play any sounds queued during the simulation tick
-      for (const sound of state.pendingSounds) {
-        Sound.play(sound as SoundEffect);
-      }
-      state.pendingSounds.length = 0;
-      
-      this.game.updateFOV();
-
       if (state.shouldAscend) {
         state.shouldAscend = false;
         this.game.ascend();
         // Center on player after level transition
-        setTimeout(() => {
-          const newState = this.game.getState();
-          this.renderer.centerOnPlayer(newState.player, false);
-        }, 50);
+        this.centerOnPlayerSoon(LEVEL_TRANSITION_CAMERA_DELAY_MS);
       }
     }
 
@@ -1467,32 +1345,19 @@ class DarkWar {
     if (this.isOnlineMode()) {
       // Reset input state to prevent phantom movement after new game in multiplayer
       this.inputHandler.resetKeys();
-      this.multiplayerClient?.requestNewGame();
+      this.requestOnlineNewGame();
       return;
     }
 
     this.cancelAutoMove();
     this.game.reset(1);
 
-    // Hide game over overlay
-    const gameOverOverlay = document.getElementById("game-over-overlay");
-    if (gameOverOverlay) {
-      gameOverOverlay.classList.remove("visible");
-    }
-
-    // Reinitialize physics for new level
-    const state = this.game.getState();
-    this.physics.initializeMap(state.map);
-    for (const entity of state.entities) {
-      this.physics.updateEntityBody(entity as any);
-    }
+    this.syncGameOverOverlay(false);
+    this.reinitializePhysicsForCurrentState();
 
     this.render(0);
     // Center on player after new game starts
-    setTimeout(() => {
-      const state = this.game.getState();
-      this.renderer.centerOnPlayer(state.player, false);
-    }, 100);
+    this.centerOnPlayerSoon(INITIAL_CAMERA_CENTER_DELAY_MS);
     this.lastPlayerHp = this.game.getState().player.hp;
     this.autoSave();
   }
@@ -1548,12 +1413,7 @@ class DarkWar {
     if (await this.loadGame()) {
       this.game.addLog("Game loaded.");
 
-      // Reinitialize physics for loaded level
-      const state = this.game.getState();
-      this.physics.initializeMap(state.map);
-      for (const entity of state.entities) {
-        this.physics.updateEntityBody(entity as any);
-      }
+      this.reinitializePhysicsForCurrentState();
 
       this.render(0);
       this.lastPlayerHp = this.game.getState().player.hp;
@@ -1635,13 +1495,44 @@ class DarkWar {
     this.renderer.render(state, this.isLocalPlayerDead(), 0);
     this.renderer.centerOnPlayer(state.player, false);
   }
+
+  public dispose(): void {
+    this.gameLoop.stop();
+    this.cancelAutoMove();
+    this.inputHandler.dispose();
+    this.mouseTracker.destroy();
+    this.multiplayerClient?.disconnect();
+
+    if (this.gameCanvas) {
+      this.gameCanvas.removeEventListener("click", this.onCanvasClick);
+      this.gameCanvas.removeEventListener(
+        "contextmenu",
+        this.onCanvasContextMenu,
+      );
+      this.gameCanvas.removeEventListener("wheel", this.onCanvasWheel);
+      this.gameCanvas = null;
+    }
+
+    if (this.newGameButton) {
+      this.newGameButton.removeEventListener(
+        "click",
+        this.onNewGameButtonClick,
+      );
+      this.newGameButton = null;
+    }
+  }
 }
 
 // Initialize game when DOM is ready
+const createDarkWarApp = (): void => {
+  window.darkWarApp?.dispose();
+  window.darkWarApp = new DarkWar();
+};
+
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
-    window.darkWarApp = new DarkWar();
+    createDarkWarApp();
   });
 } else {
-  window.darkWarApp = new DarkWar();
+  createDarkWarApp();
 }

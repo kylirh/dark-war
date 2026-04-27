@@ -28,6 +28,9 @@ export class InputHandler {
   private callbacks: InputCallbacks;
   private fireMode = false;
   private lastInteractDirection: Direction = [0, 0];
+  private readonly onKeyDown = (e: KeyboardEvent): void =>
+    this.handleKeyDown(e);
+  private readonly onKeyUp = (e: KeyboardEvent): void => this.handleKeyUp(e);
 
   // Track WASD key states for continuous movement
   private keysPressed = {
@@ -43,8 +46,8 @@ export class InputHandler {
   }
 
   private setupKeyboardListeners(): void {
-    window.addEventListener("keydown", (e) => this.handleKeyDown(e));
-    window.addEventListener("keyup", (e) => this.handleKeyUp(e));
+    window.addEventListener("keydown", this.onKeyDown);
+    window.addEventListener("keyup", this.onKeyUp);
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
@@ -247,5 +250,10 @@ export class InputHandler {
     this.keysPressed.s = false;
     this.keysPressed.d = false;
     this.updateVelocity();
+  }
+
+  public dispose(): void {
+    window.removeEventListener("keydown", this.onKeyDown);
+    window.removeEventListener("keyup", this.onKeyUp);
   }
 }
