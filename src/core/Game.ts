@@ -28,6 +28,7 @@ import { RNG } from "../utils/RNG";
 import { dist, passable, setPositionFromGrid, setTile } from "../utils/helpers";
 import { computeFOV } from "../systems/FOV";
 import { GameEntity } from "../entities/GameEntity";
+import { Sound, SoundEffect } from "../systems/Sound";
 
 interface LevelSnapshot {
   depth: number;
@@ -36,9 +37,11 @@ interface LevelSnapshot {
   wallSet: WallSet;
   wallDamage: number[];
   explored: Set<number>;
+  exploredByPlayer: Map<string, Set<number>>;
   entities: Entity[];
   stairsDown: [number, number];
   stairsUp: [number, number] | null;
+  enhancedVision: boolean;
 }
 
 /**
@@ -82,6 +85,8 @@ export class Game {
       mapDirty: false,
       visible: new Set(),
       explored,
+      accessible: new Set(),
+      enhancedVision: false,
       visibilityByPlayer,
       exploredByPlayer,
       entities: [],
@@ -145,6 +150,8 @@ export class Game {
       mapDirty: false,
       visible: new Set(),
       explored,
+      accessible: new Set(),
+      enhancedVision: false,
       visibilityByPlayer,
       exploredByPlayer,
       entities: [],
@@ -289,16 +296,31 @@ export class Game {
   public updateFOVForPlayer(playerId: string): void {
     const player = this.getPlayerById(playerId);
     if (!player) return;
+
     let explored = this.state.exploredByPlayer.get(playerId);
     if (!explored) {
       explored = new Set<number>();
       this.state.exploredByPlayer.set(playerId, explored);
     }
-    const visible = computeFOV(this.state.map, player, explored);
+
+    const accessible = this.computeAccessibleTiles(player.gridX, player.gridY);
+    let visible: Set<number>;
+
+    if (this.state.enhancedVision) {
+      visible = new Set(accessible);
+    } else {
+      visible = computeFOV(this.state.map, player, explored);
+      if (this.checkExplorationCompletion(accessible, explored)) {
+        visible = new Set(accessible);
+      }
+    }
+
     this.state.visibilityByPlayer.set(playerId, visible);
+
     if (playerId === this.state.multiplayer.localPlayerId) {
       this.state.visible = visible;
       this.state.explored = explored;
+      this.state.accessible = accessible;
     }
   }
 
@@ -392,6 +414,7 @@ export class Game {
    * Toggle FOV option
    */
   public toggleFOV(): void {
+    if (this.state.enhancedVision) return;
     this.state.options.fov = !this.state.options.fov;
     // When toggling, recompute FOV to update visibility
     this.updateFOV();
@@ -417,11 +440,15 @@ export class Game {
       wallSet: this.state.wallSet,
       wallDamage: this.state.wallDamage,
       explored: new Set(this.state.explored),
+      exploredByPlayer: this.cloneExploredByPlayerMap(
+        this.state.exploredByPlayer,
+      ),
       entities: this.state.entities.filter(
         (entity) => entity.kind !== EntityKind.PLAYER,
       ),
       stairsDown: this.state.stairsDown,
       stairsUp: this.state.stairsUp,
+      enhancedVision: this.state.enhancedVision,
     };
     this.levels.set(currentDepth, snapshot);
   }
@@ -435,12 +462,27 @@ export class Game {
     this.state.wallSet = snapshot.wallSet;
     this.state.wallDamage = snapshot.wallDamage;
     this.state.explored = new Set(snapshot.explored);
+    this.state.exploredByPlayer = this.cloneExploredByPlayerMap(
+      snapshot.exploredByPlayer,
+    );
+    for (const player of this.state.players) {
+      if (!this.state.exploredByPlayer.has(player.id)) {
+        this.state.exploredByPlayer.set(player.id, new Set(snapshot.explored));
+      }
+    }
+    this.state.visibilityByPlayer = new Map();
     this.state.visible.clear();
+    this.state.accessible.clear();
     this.state.stairsDown = snapshot.stairsDown;
     this.state.stairsUp = snapshot.stairsUp;
+    this.state.enhancedVision = snapshot.enhancedVision;
 
     for (const player of this.state.players) {
-      setPositionFromGrid(player as PlayerEntity, playerEntry[0], playerEntry[1]);
+      setPositionFromGrid(
+        player as PlayerEntity,
+        playerEntry[0],
+        playerEntry[1],
+      );
       player.nextActTick = this.state.sim.nowTick;
     }
 
@@ -472,9 +514,13 @@ export class Game {
       wallSet: dungeon.wallSet,
       wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
       explored: new Set(),
+      exploredByPlayer: new Map(
+        this.state.players.map((player) => [player.id, new Set<number>()]),
+      ),
       entities: this.spawnLevelEntities(dungeon.map, dungeon.start, depth),
       stairsDown: dungeon.stairsDown,
       stairsUp: stairsUpPosition,
+      enhancedVision: false,
     };
   }
 
@@ -680,9 +726,13 @@ export class Game {
       stairsDown: snapshot.stairsDown,
       stairsUp: snapshot.stairsUp,
       explored: Array.from(snapshot.explored),
+      exploredByPlayer: this.serializeExploredByPlayer(
+        snapshot.exploredByPlayer,
+      ),
       entities: snapshot.entities.map((entity) =>
         this.stripRuntimeEntityState(entity),
       ),
+      enhancedVision: snapshot.enhancedVision,
     }));
 
     const exploredByPlayer: Record<string, number[]> = {};
@@ -699,13 +749,14 @@ export class Game {
       stairsDown: this.state.stairsDown,
       stairsUp: this.state.stairsUp,
       player: this.stripRuntimeEntityState(this.state.player) as Player,
-      players: this.state.players.map((player) =>
-        this.stripRuntimeEntityState(player) as Player,
+      players: this.state.players.map(
+        (player) => this.stripRuntimeEntityState(player) as Player,
       ),
       entities: this.state.entities
         .filter((entity) => entity.kind !== EntityKind.PLAYER)
         .map((entity) => this.stripRuntimeEntityState(entity)),
       explored: Array.from(this.state.explored),
+      enhancedVision: this.state.enhancedVision,
       exploredByPlayer,
       log: this.state.log.slice(0, 50),
       levels,
@@ -740,8 +791,7 @@ export class Game {
       data.multiplayer?.localPlayerId ?? players[0]?.id ?? data.player.id;
     this.localPlayerId = localPlayerId;
     const player =
-      players.find((candidate) => candidate.id === localPlayerId) ??
-      players[0];
+      players.find((candidate) => candidate.id === localPlayerId) ?? players[0];
 
     const nonPlayerEntities = data.entities.filter(
       (entity) => entity.kind !== EntityKind.PLAYER,
@@ -751,14 +801,9 @@ export class Game {
       ...this.hydrateEntities(nonPlayerEntities, data.depth),
     ];
 
-    const exploredByPlayer = new Map<string, Set<number>>();
-    if (data.exploredByPlayer) {
-      for (const [playerId, explored] of Object.entries(
-        data.exploredByPlayer,
-      )) {
-        exploredByPlayer.set(playerId, new Set(explored));
-      }
-    }
+    const exploredByPlayer = this.deserializeExploredByPlayer(
+      data.exploredByPlayer,
+    );
     if (!exploredByPlayer.has(localPlayerId)) {
       exploredByPlayer.set(localPlayerId, new Set(data.explored));
     }
@@ -776,6 +821,8 @@ export class Game {
       stairsUp: data.stairsUp ?? null,
       visible: new Set(),
       explored: new Set(data.explored),
+      accessible: new Set(),
+      enhancedVision: data.enhancedVision ?? false,
       visibilityByPlayer,
       exploredByPlayer,
       entities,
@@ -818,7 +865,11 @@ export class Game {
         stairsDown: level.stairsDown,
         stairsUp: level.stairsUp ?? null,
         explored: new Set(level.explored),
+        exploredByPlayer: this.deserializeExploredByPlayer(
+          level.exploredByPlayer,
+        ),
         entities: this.hydrateEntities(level.entities, level.depth),
+        enhancedVision: level.enhancedVision ?? false,
       });
     }
 
@@ -955,6 +1006,104 @@ export class Game {
     return plain as unknown as Entity;
   }
 
+  private cloneExploredByPlayerMap(
+    source: Map<string, Set<number>>,
+  ): Map<string, Set<number>> {
+    const clone = new Map<string, Set<number>>();
+    for (const [playerId, explored] of source.entries()) {
+      clone.set(playerId, new Set(explored));
+    }
+    return clone;
+  }
+
+  private serializeExploredByPlayer(
+    source: Map<string, Set<number>>,
+  ): Record<string, number[]> {
+    const serialized: Record<string, number[]> = {};
+    for (const [playerId, explored] of source.entries()) {
+      serialized[playerId] = Array.from(explored);
+    }
+    return serialized;
+  }
+
+  private deserializeExploredByPlayer(
+    source?: Record<string, number[]>,
+  ): Map<string, Set<number>> {
+    const exploredByPlayer = new Map<string, Set<number>>();
+    if (!source) {
+      return exploredByPlayer;
+    }
+
+    for (const [playerId, explored] of Object.entries(source)) {
+      exploredByPlayer.set(
+        playerId,
+        new Set(Array.isArray(explored) ? explored : []),
+      );
+    }
+
+    return exploredByPlayer;
+  }
+
+  private computeAccessibleTiles(startX: number, startY: number): Set<number> {
+    const accessible = new Set<number>();
+    const queue: Array<[number, number]> = [[startX, startY]];
+    const visited = new Set<number>();
+
+    while (queue.length > 0) {
+      const [x, y] = queue.shift() as [number, number];
+
+      if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) {
+        continue;
+      }
+
+      const index = x + y * MAP_WIDTH;
+      if (visited.has(index)) {
+        continue;
+      }
+      visited.add(index);
+      accessible.add(index);
+
+      if (!passable(this.state.map, x, y)) {
+        continue;
+      }
+
+      queue.push([x + 1, y]);
+      queue.push([x - 1, y]);
+      queue.push([x, y + 1]);
+      queue.push([x, y - 1]);
+    }
+
+    return accessible;
+  }
+
+  private checkExplorationCompletion(
+    accessible: Set<number>,
+    explored: Set<number>,
+  ): boolean {
+    if (this.state.enhancedVision) {
+      return false;
+    }
+
+    const accessibleCount = accessible.size;
+    if (accessibleCount === 0) return false;
+
+    let exploredAccessibleCount = 0;
+    for (const index of accessible) {
+      if (explored.has(index)) {
+        exploredAccessibleCount += 1;
+      }
+    }
+
+    if (exploredAccessibleCount / accessibleCount < 0.9) {
+      return false;
+    }
+
+    this.state.enhancedVision = true;
+    this.addLog("Level successfully explored!");
+    Sound.play(SoundEffect.LEVEL_EXPLORED);
+    return true;
+  }
+
   private findSpawnTile(preferred: [number, number]): [number, number] {
     const visited = new Set<number>();
     const queue: [number, number][] = [];
@@ -993,10 +1142,12 @@ export class Game {
 
   private syncLocalExploredState(): void {
     const localPlayerId = this.state.multiplayer.localPlayerId;
-    const explored = this.state.exploredByPlayer.get(localPlayerId);
-    if (explored) {
-      this.state.explored = new Set(explored);
+    let explored = this.state.exploredByPlayer.get(localPlayerId);
+    if (!explored) {
+      explored = new Set<number>();
+      this.state.exploredByPlayer.set(localPlayerId, explored);
     }
+    this.state.explored = explored;
   }
 
   private getGridPositionFromSerialized(entity: {

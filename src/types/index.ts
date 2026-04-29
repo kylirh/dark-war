@@ -288,6 +288,8 @@ export interface GameState {
   mapDirty: boolean;
   visible: Set<number>;
   explored: Set<number>;
+  accessible: Set<number>;
+  enhancedVision: boolean;
   visibilityByPlayer: Map<string, Set<number>>;
   exploredByPlayer: Map<string, Set<number>>;
   entities: Entity[];
@@ -329,6 +331,7 @@ export interface SerializedState {
   players?: Player[];
   entities: Entity[];
   explored: number[];
+  enhancedVision?: boolean;
   exploredByPlayer?: Record<string, number[]>;
   log: string[];
   levels?: SerializedLevelState[];
@@ -356,7 +359,9 @@ export interface SerializedLevelState {
   stairsDown: [number, number];
   stairsUp: [number, number] | null;
   explored: number[];
+  exploredByPlayer?: Record<string, number[]>;
   entities: Entity[];
+  enhancedVision?: boolean;
 }
 
 // ========================================
