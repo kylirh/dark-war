@@ -41,6 +41,8 @@ const MONSTER_RADIUS = 7;
 const ITEM_RADIUS = 6;
 const BULLET_RADIUS = 4;
 const EXPLOSIVE_RADIUS = 6;
+const COLLISION_RESOLUTION_ITERATIONS = 3;
+const VELOCITY_EPSILON = 0.01;
 
 /**
  * Physics system manager
@@ -266,10 +268,14 @@ export class Physics {
     // Update spatial hash after moving all entities
     this.system.update();
 
-    // Check and resolve collisions
-    this.system.checkAll((response) => {
-      this.handleCollision(state, response);
-    });
+    // Check and resolve collisions. A few passes keep actor crowds from
+    // remaining partially interpenetrated after a single-frame shove.
+    for (let i = 0; i < COLLISION_RESOLUTION_ITERATIONS; i++) {
+      this.system.checkAll((response) => {
+        this.handleCollision(state, response);
+      });
+      this.system.update();
+    }
   }
 
   /**
@@ -363,7 +369,115 @@ export class Physics {
       if (entityA.physicsBody) {
         entityA.physicsBody.setPosition(entityA.worldX, entityA.worldY);
       }
+    } else if (
+      entityA &&
+      entityB &&
+      this.isSolidActor(entityA) &&
+      this.isSolidActor(entityB)
+    ) {
+      this.resolveActorCollision(entityA, entityB, response);
     }
+  }
+
+  /**
+   * Resolve physical body blocking between players and monsters.
+   */
+  private resolveActorCollision(
+    entityA: GameEntity,
+    entityB: GameEntity,
+    response: Response,
+  ): void {
+    const aIsMoving = this.isMoving(entityA);
+    const bIsMoving = this.isMoving(entityB);
+
+    let aSeparation = 0.5;
+    let bSeparation = 0.5;
+
+    if (aIsMoving && !bIsMoving) {
+      aSeparation = 1.01;
+      bSeparation = 0;
+    } else if (!aIsMoving && bIsMoving) {
+      aSeparation = 0;
+      bSeparation = 1.01;
+    } else if (!aIsMoving && !bIsMoving) {
+      aSeparation = 0.505;
+      bSeparation = 0.505;
+    }
+
+    entityA.worldX -= response.overlapV.x * aSeparation;
+    entityA.worldY -= response.overlapV.y * aSeparation;
+    entityB.worldX += response.overlapV.x * bSeparation;
+    entityB.worldY += response.overlapV.y * bSeparation;
+
+    this.cancelVelocityIntoActor(
+      entityA,
+      response.overlapV.x,
+      response.overlapV.y,
+    );
+    this.cancelVelocityIntoActor(
+      entityB,
+      -response.overlapV.x,
+      -response.overlapV.y,
+    );
+
+    if (entityA.physicsBody) {
+      entityA.physicsBody.setPosition(entityA.worldX, entityA.worldY);
+    }
+    if (entityB.physicsBody) {
+      entityB.physicsBody.setPosition(entityB.worldX, entityB.worldY);
+    }
+  }
+
+  /**
+   * Remove only the velocity component pushing an actor into another actor.
+   */
+  private cancelVelocityIntoActor(
+    entity: GameEntity,
+    normalX: number,
+    normalY: number,
+  ): void {
+    const length = Math.sqrt(normalX * normalX + normalY * normalY);
+    if (length <= VELOCITY_EPSILON) return;
+
+    const unitX = normalX / length;
+    const unitY = normalY / length;
+    const intoSpeed = entity.velocityX * unitX + entity.velocityY * unitY;
+    if (intoSpeed <= 0) return;
+
+    entity.velocityX -= intoSpeed * unitX;
+    entity.velocityY -= intoSpeed * unitY;
+
+    if (Math.abs(entity.velocityX) < VELOCITY_EPSILON) {
+      entity.velocityX = 0;
+    }
+    if (Math.abs(entity.velocityY) < VELOCITY_EPSILON) {
+      entity.velocityY = 0;
+    }
+  }
+
+  /**
+   * Actors occupy space. Projectiles, items, and explosives remain trigger-like.
+   */
+  private isSolidActor(entity: GameEntity): boolean {
+    if (
+      entity.kind !== EntityKind.PLAYER &&
+      entity.kind !== EntityKind.MONSTER
+    ) {
+      return false;
+    }
+
+    const hp = (entity as any).hp;
+    return typeof hp !== "number" || hp > 0;
+  }
+
+  /**
+   * Check whether an entity has meaningful velocity.
+   */
+  private isMoving(entity: GameEntity): boolean {
+    return (
+      Math.abs(entity.velocityX) > VELOCITY_EPSILON ||
+      Math.abs(entity.velocityY) > VELOCITY_EPSILON
+    );
   }
 
   /**
