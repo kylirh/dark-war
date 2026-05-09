@@ -307,7 +307,7 @@ class DarkWar {
   }
 
   /**
-   * Initialize and preload sound effects, then show title screen
+   * Initialize and preload sound effects
    */
   private async initializeSounds(): Promise<void> {
     try {
@@ -316,16 +316,6 @@ class DarkWar {
     } catch (error) {
       console.warn("Failed to preload sounds:", error);
     }
-
-    // Load background music (non-blocking)
-    Music.load("assets/sounds/theme.ogg").catch(() => {});
-
-    // Show title screen — body gets transparent bg so other apps show through
-    document.body.classList.add("title-screen-active");
-    new TitleScreen(() => {
-      // After title screen dismissed: start music
-      Music.play();
-    });
   }
 
   /**
@@ -1556,7 +1546,17 @@ class DarkWar {
 // Initialize game when DOM is ready
 const createDarkWarApp = (): void => {
   window.darkWarApp?.dispose();
-  window.darkWarApp = new DarkWar();
+
+  // Kick off asset loading in the background while title screen is showing
+  Sound.preload().catch(() => {});
+  Music.load("assets/sounds/theme.ogg").catch(() => {});
+
+  // Show the title screen first — nothing else initialises until dismissed
+  document.body.classList.add("title-screen-active");
+  new TitleScreen(() => {
+    Music.play();
+    window.darkWarApp = new DarkWar();
+  });
 };
 
 if (document.readyState === "loading") {

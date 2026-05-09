@@ -1,10 +1,14 @@
 /* ============================================================
    Title-screen transparent-window phase
-   During title screen, body background is transparent so the
-   Electron transparent window shows other apps underneath.
+   Hide all game chrome so only the floating title image is seen.
+   With transparent: true in Electron the desktop shows through.
    ============================================================ */
 body.title-screen-active {
   background: transparent !important;
+}
+
+body.title-screen-active .app-container {
+  display: none !important;
 }
 
 /* ============================================================
