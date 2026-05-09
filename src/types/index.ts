@@ -138,6 +138,10 @@ export interface Bullet extends BaseEntity {
   ownerId: string;
   maxDistance: number;
   traveledDistance: number;
+  fuseSeconds: number;
+  ricochetCount: number;
+  maxRicochets: number;
+  ownerGraceSeconds: number;
 }
 
 export interface Explosive extends BaseEntity {

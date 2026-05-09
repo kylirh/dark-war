@@ -43,6 +43,8 @@ const BULLET_RADIUS = 4;
 const EXPLOSIVE_RADIUS = 6;
 const COLLISION_RESOLUTION_ITERATIONS = 3;
 const VELOCITY_EPSILON = 0.01;
+const BULLET_RICOCHET_DOT_THRESHOLD = 0.38;
+const BULLET_RICOCHET_SPEED_RETAINED = 0.72;
 
 /**
  * Physics system manager
@@ -527,6 +529,11 @@ export class Physics {
     );
 
     for (const bullet of bullets) {
+      bullet.fuseSeconds -= dt;
+      if (bullet.ownerGraceSeconds > 0) {
+        bullet.ownerGraceSeconds = Math.max(0, bullet.ownerGraceSeconds - dt);
+      }
+
       // Track distance traveled
       const distanceThisFrame =
         Math.sqrt(
@@ -535,11 +542,12 @@ export class Physics {
         ) * dt;
       bullet.traveledDistance += distanceThisFrame;
 
-      // Remove if exceeded max distance
-      if (bullet.traveledDistance >= bullet.maxDistance) {
-        this.removeEntity(bullet);
-        const index = state.entities.indexOf(bullet);
-        if (index > -1) state.entities.splice(index, 1);
+      // Remove if exceeded max distance or timed out
+      if (
+        bullet.traveledDistance >= bullet.maxDistance ||
+        bullet.fuseSeconds <= 0
+      ) {
+        this.removeStateEntity(state, bullet);
         continue;
       }
 
@@ -556,13 +564,14 @@ export class Physics {
           // Hit wall
           if ((other as any).isWall) {
             const tileIndex = (other as any).tileIndex;
-            if (typeof tileIndex === "number") {
+            const ricocheted = this.tryRicochetBullet(bullet, response);
+            if (!ricocheted && typeof tileIndex === "number") {
               applyWallDamageAtIndex(state, tileIndex, bullet.damage);
             }
-            this.removeEntity(bullet);
-            const index = state.entities.indexOf(bullet);
-            if (index > -1) state.entities.splice(index, 1);
-            bulletRemoved = true;
+            if (!ricocheted) {
+              this.removeStateEntity(state, bullet);
+              bulletRemoved = true;
+            }
             return;
           }
 
@@ -573,8 +582,11 @@ export class Physics {
           );
           if (
             targetEntity &&
-            targetEntity.kind === EntityKind.MONSTER &&
-            targetEntity.id !== bullet.ownerId
+            (targetEntity.kind === EntityKind.MONSTER ||
+              targetEntity.kind === EntityKind.PLAYER) &&
+            (targetEntity.id !== bullet.ownerId ||
+              bullet.ownerGraceSeconds <= 0 ||
+              bullet.ricochetCount > 0)
           ) {
             // Apply damage via simulation event pipeline for drops
             pushEvent(state, {
@@ -589,14 +601,76 @@ export class Physics {
             });
 
             // Remove bullet
-            this.removeEntity(bullet);
-            const index = state.entities.indexOf(bullet);
-            if (index > -1) state.entities.splice(index, 1);
+            this.removeStateEntity(state, bullet);
             bulletRemoved = true;
           }
         });
       }
     }
+  }
+
+  /**
+   * Reflect a bullet off a wall for shallow impacts.
+   */
+  private tryRicochetBullet(bullet: BulletEntity, response: Response): boolean {
+    if (bullet.ricochetCount >= bullet.maxRicochets) return false;
+
+    const speed = Math.sqrt(
+      bullet.velocityX * bullet.velocityX + bullet.velocityY * bullet.velocityY,
+    );
+    if (speed <= VELOCITY_EPSILON) return false;
+
+    const normal = this.normalFromWallImpact(response);
+    if (!normal) return false;
+
+    const unitVelocityX = bullet.velocityX / speed;
+    const unitVelocityY = bullet.velocityY / speed;
+    const incomingDot = unitVelocityX * normal.x + unitVelocityY * normal.y;
+    if (
+      incomingDot >= 0 ||
+      Math.abs(incomingDot) > BULLET_RICOCHET_DOT_THRESHOLD
+    ) {
+      return false;
+    }
+
+    const reflectedX = unitVelocityX - 2 * incomingDot * normal.x;
+    const reflectedY = unitVelocityY - 2 * incomingDot * normal.y;
+    const nextSpeed = speed * BULLET_RICOCHET_SPEED_RETAINED;
+    bullet.velocityX = reflectedX * nextSpeed;
+    bullet.velocityY = reflectedY * nextSpeed;
+    bullet.facingAngle = Math.atan2(bullet.velocityY, bullet.velocityX);
+    bullet.ricochetCount++;
+    bullet.ownerGraceSeconds = 0;
+
+    bullet.worldX += normal.x * (BULLET_RADIUS + 1);
+    bullet.worldY += normal.y * (BULLET_RADIUS + 1);
+    if (bullet.physicsBody) {
+      bullet.physicsBody.setPosition(bullet.worldX, bullet.worldY);
+    }
+
+    return true;
+  }
+
+  /**
+   * Returns a unit normal pointing from the impacted wall toward the projectile.
+   */
+  private normalFromWallImpact(
+    response: Response,
+  ): { x: number; y: number } | null {
+    const normalX = -response.overlapV.x;
+    const normalY = -response.overlapV.y;
+    const length = Math.sqrt(normalX * normalX + normalY * normalY);
+    if (length <= VELOCITY_EPSILON) return null;
+    return { x: normalX / length, y: normalY / length };
+  }
+
+  /**
+   * Remove an entity from both state and the collision system.
+   */
+  private removeStateEntity(state: GameState, entity: GameEntity): void {
+    this.removeEntity(entity);
+    const index = state.entities.indexOf(entity as any);
+    if (index > -1) state.entities.splice(index, 1);
   }
 
   /**
