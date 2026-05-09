@@ -15,6 +15,7 @@
     "type-check": "npm run type-check:client && npm run type-check:server",
     "type-check:client": "tsc --noEmit",
     "type-check:server": "tsc --noEmit -p tsconfig.server.json",
+    "dev:web": "vite",
     "watch": "vite build --watch"
   },
   "devDependencies": {

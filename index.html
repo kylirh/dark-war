@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Dark War" />
+    <title>Dark War</title>
+    <!-- publicDir:"app" serves app/ at root, so these resolve to app/assets/... -->
+    <link rel="stylesheet" href="assets/css/system.css" />
+    <link rel="stylesheet" href="assets/css/styles.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <div class="game-area">
+        <div class="viewport">
+          <canvas
+            id="game"
+            width="2080"
+            height="1184"
+            aria-label="Game Canvas"
+            role="img"
+          ></canvas>
+          <div id="game-over-overlay" class="game-over-overlay">
+            <div class="game-over-content">
+              <h1 class="game-over-text">GAME OVER</h1>
+              <h2 class="game-over-score" id="game-over-score">Score: 0</h2>
+              <button
+                class="new-game-button"
+                id="new-game-button"
+                type="button"
+              >
+                New Game
+              </button>
+            </div>
+          </div>
+        </div>
+        <button
+          class="scale-toggle"
+          id="scaleToggle"
+          aria-label="Zoom"
+          title="Zoom"
+        >
+          2X
+        </button>
+      </div>
+
+      <aside class="sidebar" id="sidebar">
+        <section class="status panel">
+          <h2>Status</h2>
+          <div class="stats-grid">
+            <div class="stat-row">
+              <span class="stat-label">Region</span>
+              <span class="stat-value" id="floor">1</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Score</span>
+              <span class="stat-value" id="score">0</span>
+            </div>
+            <div class="hp stat-row">
+              <span class="stat-label">Hit Points</span>
+              <span class="stat-value" id="hp">—</span>
+            </div>
+            <div class="hp-bar" id="hpbar" style="--hp-width: 100%">
+              <span class="hp-bar-fill"></span>
+            </div>
+          </div>
+        </section>
+
+        <section class="inventory panel">
+          <h2>Inventory</h2>
+          <div id="inventory"></div>
+        </section>
+
+        <section class="message-log panel">
+          <h2>Message Log</h2>
+          <ul id="log"></ul>
+        </section>
+
+        <section class="controls panel">
+          Move: <kbd>WASD</kbd><br />
+          Pickup: <kbd>G</kbd><br />
+          Open Doors: <kbd>Left Click</kbd><br />
+          Stairs: <kbd>&lt;</kbd><br />
+          Use Weapon: <kbd>Right Click</kbd><br />
+          Switch Weapon: <kbd>Mouse Wheel</kbd> or <kbd>1</kbd>-<kbd>4</kbd
+          ><br />
+          Reload: <kbd>R</kbd><br />
+          Toggle FOV: <kbd>V</kbd><br />
+          <br />
+          <strong>Time Controls</strong><br />
+          Toggle Real-Time: <kbd>Enter</kbd><br />
+        </section>
+      </aside>
+      <button
+        class="sidebar-toggle"
+        id="sidebarToggle"
+        aria-label="Toggle sidebar"
+        title="Toggle sidebar"
+      >
+        ▶
+      </button>
+    </div>
+
+    <!-- Vite dev entry: compiled on-demand with HMR -->
+    <script type="module" src="/src/main.ts"></script>
+    <script>
+      const sidebar = document.getElementById("sidebar");
+      const sidebarToggle = document.getElementById("sidebarToggle");
+
+      sidebarToggle.addEventListener("click", () => {
+        const isCollapsed = sidebar.classList.toggle("collapsed");
+        sidebarToggle.textContent = isCollapsed ? "◀" : "▶";
+        sidebarToggle.setAttribute(
+          "aria-label",
+          isCollapsed ? "Show Sidebar" : "Hide Sidebar",
+        );
+      });
+
+      const scaleToggle = document.getElementById("scaleToggle");
+      const scales = [1, 2, 3];
+      let currentScaleIndex = 1;
+
+      scaleToggle.addEventListener("click", () => {
+        currentScaleIndex = (currentScaleIndex + 1) % scales.length;
+        const newScale = scales[currentScaleIndex];
+        scaleToggle.textContent = `${newScale}X`;
+        if (window.darkWarApp && window.darkWarApp.setScale) {
+          window.darkWarApp.setScale(newScale);
+        }
+      });
+    </script>
+  </body>
+</html>
