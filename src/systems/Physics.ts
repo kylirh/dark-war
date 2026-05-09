@@ -295,7 +295,11 @@ export class Physics {
     const entityB = this.getEntityFromBody(state, bodyB);
 
     // Wall collision - push entity out of wall with wall sliding
-    if ((bodyA as any).isWall && entityB && entityB.kind !== EntityKind.ITEM) {
+    if (
+      (bodyA as any).isWall &&
+      entityB &&
+      this.usesActorWallResolution(entityB)
+    ) {
       // Push entity out with small safety margin to prevent tunneling
       const separation = 1.01; // 1% extra separation
       entityB.worldX += response.overlapV.x * separation;
@@ -333,7 +337,7 @@ export class Physics {
     } else if (
       (bodyB as any).isWall &&
       entityA &&
-      entityA.kind !== EntityKind.ITEM
+      this.usesActorWallResolution(entityA)
     ) {
       // Push entity out with small safety margin to prevent tunneling
       const separation = 1.01; // 1% extra separation
@@ -468,6 +472,14 @@ export class Physics {
 
     const hp = (entity as any).hp;
     return typeof hp !== "number" || hp > 0;
+  }
+
+  /**
+   * Only actors use the general wall solver. Projectiles and explosives handle
+   * wall impacts in their own update passes so they can expire or ricochet.
+   */
+  private usesActorWallResolution(entity: GameEntity): boolean {
+    return entity.kind === EntityKind.PLAYER || entity.kind === EntityKind.MONSTER;
   }
 
   /**
