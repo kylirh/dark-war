@@ -1551,7 +1551,9 @@ const createDarkWarApp = (): void => {
   Sound.preload().catch(() => {});
   Music.load("assets/sounds/theme.ogg").catch(() => {});
 
-  // Show the title screen first — nothing else initialises until dismissed
+  // Show the title screen first — nothing else initialises until dismissed.
+  // Both html and body get the class so both transparent overrides fire.
+  document.documentElement.classList.add("title-screen-active");
   document.body.classList.add("title-screen-active");
   new TitleScreen(() => {
     Music.play();

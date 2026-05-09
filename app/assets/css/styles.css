@@ -2,7 +2,10 @@
    Title-screen transparent-window phase
    Hide all game chrome so only the floating title image is seen.
    With transparent: true in Electron the desktop shows through.
+   Both html AND body must be transparent — html paints first and
+   would otherwise leave the blue --bg box visible underneath.
    ============================================================ */
+html.title-screen-active,
 body.title-screen-active {
   background: transparent !important;
 }
@@ -38,6 +41,12 @@ body.title-screen-active .app-container {
   object-fit: contain;
   display: block;
   image-rendering: pixelated;
+  transition: opacity 0.2s ease;
+}
+
+/* Hidden while the canvas strips the black background — prevents flash */
+.title-image--loading {
+  opacity: 0;
 }
 
 .press-any-key {
