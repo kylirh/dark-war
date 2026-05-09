@@ -3,6 +3,7 @@ import { GameLoop } from "./core/GameLoop";
 import { GameEntity } from "./entities/GameEntity";
 import { InputCallbacks, InputHandler, MOVEMENT_SPEED } from "./systems/Input";
 import { MouseTracker } from "./systems/MouseTracker";
+import { Music } from "./systems/Music";
 import { Physics } from "./systems/Physics";
 import { Renderer } from "./systems/Renderer";
 import {
@@ -11,6 +12,8 @@ import {
   stepSimulationTick,
 } from "./systems/Simulation";
 import { Sound, SoundEffect } from "./systems/Sound";
+import { TitleScreen } from "./systems/TitleScreen";
+import { GameMenu } from "./systems/GameMenu";
 import { UI } from "./systems/UI";
 import {
   CELL_CONFIG,
@@ -235,6 +238,13 @@ class DarkWar {
     );
     if (DEBUG) console.timeEnd("Create GameLoop");
 
+    // In-game menu system
+    new GameMenu({
+      onNewGame: () => this.handleNewGame(),
+      onSave: () => this.handleSave(),
+      onLoad: () => this.handleLoad(),
+    });
+
     // Preload sounds asynchronously (don't block startup)
     this.initializeSounds();
 
@@ -297,7 +307,7 @@ class DarkWar {
   }
 
   /**
-   * Initialize and preload sound effects
+   * Initialize and preload sound effects, then show title screen
    */
   private async initializeSounds(): Promise<void> {
     try {
@@ -306,6 +316,16 @@ class DarkWar {
     } catch (error) {
       console.warn("Failed to preload sounds:", error);
     }
+
+    // Load background music (non-blocking)
+    Music.load("assets/sounds/theme.ogg").catch(() => {});
+
+    // Show title screen — body gets transparent bg so other apps show through
+    document.body.classList.add("title-screen-active");
+    new TitleScreen(() => {
+      // After title screen dismissed: start music
+      Music.play();
+    });
   }
 
   /**

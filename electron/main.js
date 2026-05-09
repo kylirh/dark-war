@@ -44,7 +44,7 @@ function createWindow() {
     width: 1440,
     height: 920,
     useContentSize: true,
-    backgroundColor: "#000000",
+    transparent: true, // Allows title screen to float over other apps
     webPreferences: {
       contextIsolation: true,
       sandbox: true,

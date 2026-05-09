@@ -146,6 +146,13 @@ class SoundManager {
   public isEnabled(): boolean {
     return this.enabled;
   }
+
+  /**
+   * Get current volume (0.0 to 1.0)
+   */
+  public getVolume(): number {
+    return this.volume;
+  }
 }
 
 // Export singleton instance
