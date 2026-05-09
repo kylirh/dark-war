@@ -600,6 +600,9 @@ export class Physics {
                 amount: bullet.damage,
                 sourceId: bullet.ownerId,
                 suppressHitSound: true,
+                knockbackX: bullet.velocityX,
+                knockbackY: bullet.velocityY,
+                knockbackDistance: 6,
               },
             });
 

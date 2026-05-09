@@ -258,6 +258,9 @@ export type EventData =
       sourceId?: string;
       fromExplosion?: boolean;
       suppressHitSound?: boolean;
+      knockbackX?: number;
+      knockbackY?: number;
+      knockbackDistance?: number;
     }
   | {
       type: "DEATH";

@@ -45,6 +45,9 @@ const EXPLOSIVE_OWNER_GRACE_TICKS = 6;
 const MELEE_ARC = Math.PI / 3;
 const LANDED_GRENADE_BOUNCE_SPEED = 80;
 const LANDED_GRENADE_MAX_OFFSET = CELL_CONFIG.w * 0.35;
+const MELEE_KNOCKBACK_DISTANCE = 7;
+const EXPLOSION_KNOCKBACK_MAX_DISTANCE = 34;
+const EXPLOSION_KNOCKBACK_MIN_DISTANCE = 14;
 
 const EXPLOSIVE_CONFIG: Record<
   ItemType.GRENADE | ItemType.LAND_MINE,
@@ -626,6 +629,9 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
           targetId: blocker.id,
           amount: 1,
           sourceId: actor.id,
+          knockbackX: (blocker as any).worldX - (actor as any).worldX,
+          knockbackY: (blocker as any).worldY - (actor as any).worldY,
+          knockbackDistance: MELEE_KNOCKBACK_DISTANCE,
         },
       });
       return true;
@@ -805,6 +811,9 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
       targetId: target.id,
       amount: damage,
       sourceId: attacker.id,
+      knockbackX: (target as any).worldX - (attacker as any).worldX,
+      knockbackY: (target as any).worldY - (attacker as any).worldY,
+      knockbackDistance: MELEE_KNOCKBACK_DISTANCE,
     },
   });
 }
@@ -881,6 +890,9 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             targetId: target.id,
             amount: 2,
             sourceId: player.id,
+            knockbackX: (target as any).worldX - (player as any).worldX,
+            knockbackY: (target as any).worldY - (player as any).worldY,
+            knockbackDistance: MELEE_KNOCKBACK_DISTANCE,
           },
         });
         return;
@@ -1432,6 +1444,9 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     sourceId?: string;
     fromExplosion?: boolean;
     suppressHitSound?: boolean;
+    knockbackX?: number;
+    knockbackY?: number;
+    knockbackDistance?: number;
   };
   const target = state.entities.find((e) => e.id === data.targetId);
   if (!target) return;
@@ -1446,6 +1461,10 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
 
     // Don't let HP go below 0
     if (player.hp < 0) player.hp = 0;
+
+    if (player.hp > 0) {
+      applyDamageKnockback(state, player, data);
+    }
 
     // Queue random player hit sound (using Math.random to avoid desyncing RNG)
     const hitSounds: SoundEffect[] = [
@@ -1478,6 +1497,10 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     const monster = target as Monster;
     monster.hp -= data.amount;
 
+    if (monster.hp > 0) {
+      applyDamageKnockback(state, monster, data);
+    }
+
     if (!data.suppressHitSound) {
       // Play monster hit sound
       state.pendingSounds.push(SoundEffect.HIT_MONSTER);
@@ -1495,6 +1518,49 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
         cause: event.id,
       });
     }
+  }
+}
+
+function applyDamageKnockback(
+  state: GameState,
+  target: Player | Monster,
+  data: {
+    fromExplosion?: boolean;
+    knockbackX?: number;
+    knockbackY?: number;
+    knockbackDistance?: number;
+  },
+): void {
+  if (
+    typeof data.knockbackX !== "number" ||
+    typeof data.knockbackY !== "number" ||
+    typeof data.knockbackDistance !== "number" ||
+    data.knockbackDistance <= 0
+  ) {
+    return;
+  }
+
+  if (
+    data.fromExplosion &&
+    state.holeCreatedTiles?.has(idx(target.gridX, target.gridY))
+  ) {
+    return;
+  }
+
+  const length = Math.sqrt(
+    data.knockbackX * data.knockbackX +
+      data.knockbackY * data.knockbackY,
+  );
+  if (length <= 0.001) return;
+
+  const unitX = data.knockbackX / length;
+  const unitY = data.knockbackY / length;
+  target.prevWorldX = target.worldX;
+  target.prevWorldY = target.worldY;
+  target.worldX += unitX * data.knockbackDistance;
+  target.worldY += unitY * data.knockbackDistance;
+  if (target.physicsBody) {
+    target.physicsBody.setPosition(target.worldX, target.worldY);
   }
 }
 
@@ -1534,6 +1600,11 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
       entity.kind === EntityKind.MONSTER ||
       entity.kind === EntityKind.PLAYER
     ) {
+      const falloff = Math.max(0, 1 - distance / Math.max(radiusPx, 1));
+      const knockbackDistance =
+        EXPLOSION_KNOCKBACK_MIN_DISTANCE +
+        (EXPLOSION_KNOCKBACK_MAX_DISTANCE - EXPLOSION_KNOCKBACK_MIN_DISTANCE) *
+          falloff;
       pushEvent(state, {
         type: EventType.DAMAGE,
         data: {
@@ -1541,6 +1612,9 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
           targetId: entity.id,
           amount: data.damage,
           fromExplosion: true,
+          knockbackX: dx,
+          knockbackY: dy,
+          knockbackDistance,
         },
         cause: event.id,
       });
