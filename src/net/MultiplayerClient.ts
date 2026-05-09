@@ -1,7 +1,14 @@
 import { SerializedState } from "../types";
 
 export type NetworkAction =
-  | { type: "FIRE"; dx: number; dy: number; facingAngle?: number }
+  | {
+      type: "FIRE";
+      dx: number;
+      dy: number;
+      facingAngle?: number;
+      targetWorldX?: number;
+      targetWorldY?: number;
+    }
   | { type: "INTERACT"; dx: number; dy: number }
   | { type: "PICKUP" }
   | { type: "RELOAD" }

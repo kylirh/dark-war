@@ -18,6 +18,7 @@ import {
   GameState,
   EntityKind,
   TileType,
+  ItemType,
   EventType,
   CELL_CONFIG,
   MAP_WIDTH,
@@ -45,6 +46,8 @@ const COLLISION_RESOLUTION_ITERATIONS = 3;
 const VELOCITY_EPSILON = 0.01;
 const BULLET_RICOCHET_DOT_THRESHOLD = 0.38;
 const BULLET_RICOCHET_SPEED_RETAINED = 0.72;
+const GRENADE_RICOCHET_SPEED_RETAINED = 0.58;
+const LANDED_GRENADE_DAMPING = 0.82;
 
 /**
  * Physics system manager
@@ -689,8 +692,16 @@ export class Physics {
       ) {
         explosive.ignoreOwnerTicks -= 1;
       }
-      // Only check collisions for moving explosives (grenades in flight)
-      if (explosive.velocityX === 0 && explosive.velocityY === 0) {
+      if (explosive.type === ItemType.GRENADE && explosive.hasLanded) {
+        explosive.velocityX *= LANDED_GRENADE_DAMPING;
+        explosive.velocityY *= LANDED_GRENADE_DAMPING;
+        if (Math.abs(explosive.velocityX) < 4) explosive.velocityX = 0;
+        if (Math.abs(explosive.velocityY) < 4) explosive.velocityY = 0;
+      }
+
+      const explosiveIsMoving =
+        explosive.velocityX !== 0 || explosive.velocityY !== 0;
+      if (explosive.type !== ItemType.GRENADE && !explosiveIsMoving) {
         continue;
       }
 
@@ -704,13 +715,12 @@ export class Physics {
 
           const other = response.b;
 
-          // Hit wall - explode
-          if ((other as any).isWall) {
-            shouldExplode = true;
+          // Hit wall - ricochet
+          if ((other as any).isWall && explosive.type === ItemType.GRENADE) {
+            this.ricochetExplosive(explosive, response);
             return;
           }
 
-          // Hit monster - explode
           const targetEntity = this.getEntityFromBody(
             state,
             other as Circle | Box,
@@ -729,6 +739,7 @@ export class Physics {
             targetEntity.kind === EntityKind.PLAYER
           ) {
             shouldExplode = true;
+            return;
           }
         });
 
@@ -741,6 +752,95 @@ export class Physics {
           explosive.fuseTicks = 0;
         }
       }
+
+      this.updateGrenadeLanding(explosive);
+    }
+  }
+
+  /**
+   * Reflect a grenade off a wall and keep it live until actor contact or fuse.
+   */
+  private ricochetExplosive(
+    explosive: ExplosiveEntity,
+    response: Response,
+  ): void {
+    const speed = Math.sqrt(
+      explosive.velocityX * explosive.velocityX +
+        explosive.velocityY * explosive.velocityY,
+    );
+    if (speed <= VELOCITY_EPSILON) return;
+
+    const normal = this.normalFromWallImpact(response);
+    if (!normal) return;
+
+    const unitVelocityX = explosive.velocityX / speed;
+    const unitVelocityY = explosive.velocityY / speed;
+    const incomingDot = unitVelocityX * normal.x + unitVelocityY * normal.y;
+    if (incomingDot >= 0) return;
+
+    const reflectedX = unitVelocityX - 2 * incomingDot * normal.x;
+    const reflectedY = unitVelocityY - 2 * incomingDot * normal.y;
+    const nextSpeed = speed * GRENADE_RICOCHET_SPEED_RETAINED;
+    explosive.velocityX = reflectedX * nextSpeed;
+    explosive.velocityY = reflectedY * nextSpeed;
+    explosive.facingAngle = Math.atan2(
+      explosive.velocityY,
+      explosive.velocityX,
+    );
+    explosive.ricochetCount++;
+
+    explosive.worldX += normal.x * (EXPLOSIVE_RADIUS + 1);
+    explosive.worldY += normal.y * (EXPLOSIVE_RADIUS + 1);
+    if (explosive.physicsBody) {
+      explosive.physicsBody.setPosition(explosive.worldX, explosive.worldY);
+    }
+  }
+
+  /**
+   * Snap player-thrown grenades to their clicked tile once their flight reaches it.
+   */
+  private updateGrenadeLanding(explosive: ExplosiveEntity): void {
+    if (
+      explosive.type !== ItemType.GRENADE ||
+      explosive.targetWorldX === undefined
+    ) {
+      return;
+    }
+    if (
+      explosive.hasLanded ||
+      typeof explosive.targetWorldX !== "number" ||
+      typeof explosive.targetWorldY !== "number"
+    ) {
+      return;
+    }
+
+    const prevDx = explosive.targetWorldX - explosive.prevWorldX;
+    const prevDy = explosive.targetWorldY - explosive.prevWorldY;
+    const currentDx = explosive.targetWorldX - explosive.worldX;
+    const currentDy = explosive.targetWorldY - explosive.worldY;
+    const speed = Math.sqrt(
+      explosive.velocityX * explosive.velocityX +
+        explosive.velocityY * explosive.velocityY,
+    );
+    const arrived =
+      Math.sqrt(currentDx * currentDx + currentDy * currentDy) <=
+        Math.max(EXPLOSIVE_RADIUS, speed / 20) ||
+      prevDx * currentDx + prevDy * currentDy <= 0;
+
+    if (!arrived) return;
+
+    explosive.worldX = explosive.targetWorldX;
+    explosive.worldY = explosive.targetWorldY;
+    explosive.prevWorldX = explosive.worldX;
+    explosive.prevWorldY = explosive.worldY;
+    explosive.velocityX = 0;
+    explosive.velocityY = 0;
+    explosive.hasLanded = true;
+    explosive.landingWorldX = explosive.worldX;
+    explosive.landingWorldY = explosive.worldY;
+    explosive.landingBounceCooldownTicks = 0;
+    if (explosive.physicsBody) {
+      explosive.physicsBody.setPosition(explosive.worldX, explosive.worldY);
     }
   }
 

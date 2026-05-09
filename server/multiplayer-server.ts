@@ -7,7 +7,14 @@ import { Sound } from "../src/systems/Sound";
 import { CommandType, EntityKind, MAP_WIDTH, SLOWMO_SCALE, TIME_SCALE_TRANSITION_SPEED, WeaponType } from "../src/types";
 
 type IncomingAction =
-  | { type: "FIRE"; dx: number; dy: number; facingAngle?: number }
+  | {
+      type: "FIRE";
+      dx: number;
+      dy: number;
+      facingAngle?: number;
+      targetWorldX?: number;
+      targetWorldY?: number;
+    }
   | { type: "INTERACT"; dx: number; dy: number }
   | { type: "PICKUP" }
   | { type: "RELOAD" }
@@ -177,11 +184,19 @@ class RoomSession {
       if (facingAngle !== null) {
         player.facingAngle = facingAngle;
       }
+      const targetWorldX = toFiniteNumber(action.targetWorldX);
+      const targetWorldY = toFiniteNumber(action.targetWorldY);
       enqueueCommand(state, {
         tick,
         actorId: playerId,
         type: CommandType.FIRE,
-        data: { type: "FIRE", dx, dy },
+        data: {
+          type: "FIRE",
+          dx,
+          dy,
+          targetWorldX: targetWorldX ?? undefined,
+          targetWorldY: targetWorldY ?? undefined,
+        },
         priority: 0,
         source: "PLAYER",
       });

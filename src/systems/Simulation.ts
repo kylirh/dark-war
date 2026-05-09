@@ -43,6 +43,8 @@ export const MAX_COMMANDS_PER_TICK = 1000;
 const GRENADE_FUSE_TICKS = 14; // ~0.7s at 20 ticks/sec
 const EXPLOSIVE_OWNER_GRACE_TICKS = 6;
 const MELEE_ARC = Math.PI / 3;
+const LANDED_GRENADE_BOUNCE_SPEED = 80;
+const LANDED_GRENADE_MAX_OFFSET = CELL_CONFIG.w * 0.35;
 
 const EXPLOSIVE_CONFIG: Record<
   ItemType.GRENADE | ItemType.LAND_MINE,
@@ -820,6 +822,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
     dx: number;
     dy: number;
     weapon?: WeaponType;
+    targetWorldX?: number;
+    targetWorldY?: number;
   };
   const weaponOverride = data.weapon;
 
@@ -933,6 +937,29 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         );
         grenade.velocityX = Math.cos(angle) * THROW_SPEED;
         grenade.velocityY = Math.sin(angle) * THROW_SPEED;
+        if (
+          typeof data.targetWorldX === "number" &&
+          typeof data.targetWorldY === "number"
+        ) {
+          const targetGridX = Math.max(
+            0,
+            Math.min(
+              MAP_WIDTH - 1,
+              Math.floor(data.targetWorldX / CELL_CONFIG.w),
+            ),
+          );
+          const targetGridY = Math.max(
+            0,
+            Math.min(
+              MAP_HEIGHT - 1,
+              Math.floor(data.targetWorldY / CELL_CONFIG.h),
+            ),
+          );
+          grenade.targetWorldX =
+            targetGridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+          grenade.targetWorldY =
+            targetGridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+        }
         grenade.worldX += grenade.velocityX * (SIM_DT_MS / 1000);
         grenade.worldY += grenade.velocityY * (SIM_DT_MS / 1000);
         state.entities.push(grenade);
@@ -1271,6 +1298,10 @@ function updateExplosives(state: GameState): void {
         state.entities = state.entities.filter((e) => e.id !== explosive.id);
         continue;
       }
+
+      if (explosive.hasLanded) {
+        updateLandedGrenadeBounce(explosive);
+      }
     }
 
     if (explosive.type === ItemType.LAND_MINE) {
@@ -1300,6 +1331,44 @@ function updateExplosives(state: GameState): void {
       }
     }
   }
+}
+
+function updateLandedGrenadeBounce(explosive: ExplosiveEntity): void {
+  if (
+    typeof explosive.landingWorldX !== "number" ||
+    typeof explosive.landingWorldY !== "number"
+  ) {
+    return;
+  }
+
+  const speed = Math.sqrt(
+    explosive.velocityX * explosive.velocityX +
+      explosive.velocityY * explosive.velocityY,
+  );
+  if (speed > 10) return;
+
+  if (explosive.landingBounceCooldownTicks > 0) {
+    explosive.landingBounceCooldownTicks--;
+    return;
+  }
+
+  const dx = explosive.worldX - explosive.landingWorldX;
+  const dy = explosive.worldY - explosive.landingWorldY;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  let angle: number;
+
+  if (distance > LANDED_GRENADE_MAX_OFFSET) {
+    angle = Math.atan2(-dy, -dx);
+  } else {
+    angle = (RNG.int(360) / 180) * Math.PI;
+  }
+
+  const speedScale = 0.55 + RNG.int(46) / 100;
+  explosive.velocityX =
+    Math.cos(angle) * LANDED_GRENADE_BOUNCE_SPEED * speedScale;
+  explosive.velocityY =
+    Math.sin(angle) * LANDED_GRENADE_BOUNCE_SPEED * speedScale;
+  explosive.landingBounceCooldownTicks = 1 + RNG.int(3);
 }
 
 function updateEffects(state: GameState): void {

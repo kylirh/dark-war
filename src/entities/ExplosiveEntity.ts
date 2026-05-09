@@ -23,6 +23,23 @@ export class ExplosiveEntity extends GameEntity {
   /** Number of ticks to ignore collisions with the owner */
   public ignoreOwnerTicks?: number;
 
+  /** World position where a thrown grenade should settle */
+  public targetWorldX?: number;
+  public targetWorldY?: number;
+
+  /** Tile center where the grenade landed */
+  public landingWorldX?: number;
+  public landingWorldY?: number;
+
+  /** Whether a thrown grenade has reached its intended landing tile */
+  public hasLanded: boolean = false;
+
+  /** Ticks until the next small post-landing bounce */
+  public landingBounceCooldownTicks: number = 0;
+
+  /** Number of wall ricochets used while in flight */
+  public ricochetCount: number = 0;
+
   constructor(
     worldX: number,
     worldY: number,

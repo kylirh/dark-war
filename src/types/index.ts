@@ -151,6 +151,13 @@ export interface Explosive extends BaseEntity {
   fuseTicks?: number;
   ownerId?: string;
   ignoreOwnerTicks?: number;
+  targetWorldX?: number;
+  targetWorldY?: number;
+  landingWorldX?: number;
+  landingWorldY?: number;
+  hasLanded: boolean;
+  landingBounceCooldownTicks: number;
+  ricochetCount: number;
 }
 
 export interface Effect {
@@ -208,7 +215,14 @@ export interface Command {
 export type CommandData =
   | { type: "MOVE"; dx: number; dy: number }
   | { type: "MELEE"; targetId: string }
-  | { type: "FIRE"; dx: number; dy: number; weapon?: WeaponType }
+  | {
+      type: "FIRE";
+      dx: number;
+      dy: number;
+      weapon?: WeaponType;
+      targetWorldX?: number;
+      targetWorldY?: number;
+    }
   | { type: "WAIT" }
   | { type: "PICKUP" }
   | { type: "INTERACT"; x: number; y: number }

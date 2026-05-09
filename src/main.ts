@@ -1050,7 +1050,15 @@ class DarkWar {
         player.worldX,
         player.worldY,
       );
-      this.dispatchOnlineAction({ type: "FIRE", dx, dy, facingAngle });
+      const target = this.mouseTracker.getWorldPosition();
+      this.dispatchOnlineAction({
+        type: "FIRE",
+        dx,
+        dy,
+        facingAngle,
+        targetWorldX: target.x,
+        targetWorldY: target.y,
+      });
       return;
     }
 
@@ -1062,6 +1070,8 @@ class DarkWar {
       type: "FIRE",
       dx,
       dy,
+      targetWorldX: this.mouseTracker.getWorldPosition().x,
+      targetWorldY: this.mouseTracker.getWorldPosition().y,
     });
   }
 
