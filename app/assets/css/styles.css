@@ -44,10 +44,6 @@ body.title-screen-active .app-container {
   transition: opacity 0.2s ease;
 }
 
-/* Hidden while the canvas strips the black background — prevents flash */
-.title-image--loading {
-  opacity: 0;
-}
 
 .press-any-key {
   position: absolute;
