@@ -623,8 +623,8 @@ export class Renderer {
         );
         if (sprite) {
           sprite.anchor.set(0.5, 0.5);
-          sprite.scale.set(0.2);
-          sprite.tint = 0xffdd44;
+          sprite.scale.set(0.5);
+          sprite.tint = 0xffffff;
           sprite.alpha = 1 - effect.ageTicks / effect.durationTicks;
           this.entityContainer.addChild(sprite);
         }
