@@ -358,21 +358,27 @@ function processMonsterItemPickups(state: GameState): void {
   if (items.length === 0) return;
 
   const PICKUP_RADIUS = 24;
+  const MEDKIT_PICKUP_RADIUS = 48; // Desperate monsters grab medkits from further away
   const pickedItemIds = new Set<string>();
 
   for (const monster of monsters) {
     if (!monster.carriedItems) {
       monster.carriedItems = [];
     }
+    const hpMax = (monster as any).hpMax ?? monster.hp;
+    const isFleeing = monster.hp <= hpMax * FLEE_HP_RATIO;
+
     for (const item of items) {
       if (pickedItemIds.has(item.id)) continue;
 
       let isOverlapping = false;
+      const radius =
+        item.type === ItemType.MEDKIT ? MEDKIT_PICKUP_RADIUS : PICKUP_RADIUS;
 
       if ("worldX" in monster && "worldX" in item) {
         const dx = (item as any).worldX - (monster as any).worldX;
         const dy = (item as any).worldY - (monster as any).worldY;
-        isOverlapping = Math.sqrt(dx * dx + dy * dy) <= PICKUP_RADIUS;
+        isOverlapping = Math.sqrt(dx * dx + dy * dy) <= radius;
       } else {
         isOverlapping =
           item.gridX === monster.gridX && item.gridY === monster.gridY;
@@ -384,7 +390,9 @@ function processMonsterItemPickups(state: GameState): void {
 
       switch (item.type) {
         case ItemType.MEDKIT:
-          continue;
+          if (!isFleeing) continue;
+          monster.hp = Math.min(hpMax, monster.hp + (item.heal ?? 20));
+          break;
         case ItemType.GRENADE:
           monster.grenades += item.amount || 1;
           break;
@@ -2012,8 +2020,8 @@ function decideMonsterCommand(
     inMeleeRange = distance === 1;
   }
 
-  // Skulkers and fleeing monsters skip melee (steering handles retreat)
-  if (inMeleeRange && !isSkulker && !isFleeing) {
+  // Skulkers skip melee; fleeing monsters still fight back when cornered
+  if (inMeleeRange && !isSkulker) {
     return {
       id: crypto.randomUUID(),
       tick,
@@ -2115,8 +2123,9 @@ function decideMonsterCommand(
     return waitCmd();
   }
 
-  // Skulkers and fleeing monsters: steering handles velocity, command just waits
-  if (isSkulker || isFleeing) {
+  // Skulkers: steering handles velocity, command just waits
+  // Fleeing monsters still pursue attack commands (grenade, etc.) — only movement is suppressed
+  if (isSkulker) {
     return waitCmd();
   }
 
