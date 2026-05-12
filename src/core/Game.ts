@@ -200,12 +200,16 @@ export class Game {
       const [x, y] = freeTiles[tileIndex];
 
       if (dist([x, y], dungeon.start) > 8) {
-        const spawnRat = RNG.chance(0.5);
-        if (spawnRat) {
+        const roll = RNG.int(10);
+        if (roll < 3) {
           this.state.entities.push(
             new MonsterEntity(x, y, MonsterType.RAT, depth),
           );
           ratCount++;
+        } else if (roll < 5) {
+          this.state.entities.push(
+            new MonsterEntity(x, y, MonsterType.SKULKER, depth),
+          );
         } else {
           this.state.entities.push(
             new MonsterEntity(x, y, MonsterType.MUTANT, depth),
@@ -541,10 +545,12 @@ export class Game {
       const [x, y] = freeTiles[tileIndex];
 
       if (dist([x, y], start) > 8) {
-        const spawnRat = RNG.chance(0.5);
-        if (spawnRat) {
+        const roll = RNG.int(10);
+        if (roll < 3) {
           entities.push(new MonsterEntity(x, y, MonsterType.RAT, depth));
           ratCount++;
+        } else if (roll < 5) {
+          entities.push(new MonsterEntity(x, y, MonsterType.SKULKER, depth));
         } else {
           entities.push(new MonsterEntity(x, y, MonsterType.MUTANT, depth));
           mutantCount++;
@@ -898,14 +904,14 @@ export class Game {
         !(entity instanceof MonsterEntity)
       ) {
         const [gridX, gridY] = this.getGridPositionFromSerialized(entity);
-        const monster = new MonsterEntity(
-          gridX,
-          gridY,
-          (entity as Monster).type === MonsterType.RAT
+        const savedType = (entity as Monster).type;
+        const monsterType =
+          savedType === MonsterType.RAT
             ? MonsterType.RAT
-            : MonsterType.MUTANT,
-          depth,
-        );
+            : savedType === MonsterType.SKULKER
+              ? MonsterType.SKULKER
+              : MonsterType.MUTANT;
+        const monster = new MonsterEntity(gridX, gridY, monsterType, depth);
         Object.assign(monster, entity);
         if (typeof monster.hpMax !== "number") {
           monster.hpMax = Math.max(monster.hp, 1);

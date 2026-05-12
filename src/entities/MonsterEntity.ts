@@ -30,15 +30,31 @@ export class MonsterEntity extends GameEntity {
   /** Monster type (mutant, rat, etc.) */
   public type: MonsterType;
 
+  /** Alert level 0–100; decays when player is out of sight */
+  public alertLevel: number = 0;
+
+  /** Last known player world position for investigation */
+  public lastKnownPlayerX: number = 0;
+  public lastKnownPlayerY: number = 0;
+
   constructor(gridX: number, gridY: number, type: MonsterType, depth: number) {
     super(gridX, gridY);
 
     this.type = type;
-    this.hpMax = 6 + depth;
+
+    if (type === MonsterType.SKULKER) {
+      this.hpMax = 3 + Math.floor(depth / 2);
+      this.dmg = 1;
+      this.grenades = RNG.chance(0.45) ? 1 : 0;
+      this.landMines = 0;
+    } else {
+      this.hpMax = 6 + depth;
+      this.dmg = 2 + Math.floor(depth / 2);
+      this.grenades = RNG.chance(0.12) ? 1 : 0;
+      this.landMines = this.grenades === 0 && RNG.chance(0.08) ? 1 : 0;
+    }
+
     this.hp = this.hpMax;
-    this.dmg = 2 + Math.floor(depth / 2);
-    this.grenades = RNG.chance(0.12) ? 1 : 0;
-    this.landMines = this.grenades === 0 && RNG.chance(0.08) ? 1 : 0;
     this.carriedItems = [];
     this.nextActTick = 0;
   }

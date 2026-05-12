@@ -572,6 +572,22 @@ export class Physics {
               applyWallDamageAtIndex(state, tileIndex, bullet.damage);
             }
             if (!ricocheted) {
+              // Spawn impact sparks
+              const baseAngle = Math.atan2(bullet.velocityY, bullet.velocityX) + Math.PI;
+              for (let s = 0; s < 4; s++) {
+                const angle = baseAngle + (Math.random() - 0.5) * 1.6;
+                const speed = 35 + Math.random() * 65;
+                state.effects.push({
+                  id: crypto.randomUUID(),
+                  type: "spark",
+                  worldX: bullet.worldX,
+                  worldY: bullet.worldY,
+                  ageTicks: 0,
+                  durationTicks: 5,
+                  velocityX: Math.cos(angle) * speed,
+                  velocityY: Math.sin(angle) * speed,
+                });
+              }
               this.removeStateEntity(state, bullet);
               bulletRemoved = true;
             }

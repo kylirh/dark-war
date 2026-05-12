@@ -36,6 +36,7 @@ export enum EntityKind {
 export enum MonsterType {
   MUTANT = "mutant",
   RAT = "rat",
+  SKULKER = "skulker",
 }
 
 export enum ItemType {
@@ -116,6 +117,9 @@ export interface Monster extends BaseEntity {
   grenades: number;
   landMines: number;
   carriedItems: CarriedItem[];
+  alertLevel?: number;
+  lastKnownPlayerX?: number;
+  lastKnownPlayerY?: number;
 }
 
 export interface CarriedItem {
@@ -162,11 +166,14 @@ export interface Explosive extends BaseEntity {
 
 export interface Effect {
   id: string;
-  type: "explosion";
+  type: "explosion" | "spark" | "hit_flash";
   worldX: number;
   worldY: number;
   ageTicks: number;
   durationTicks: number;
+  velocityX?: number;
+  velocityY?: number;
+  entityId?: string;
 }
 
 export type Entity = Player | Monster | Item | Bullet | Explosive;

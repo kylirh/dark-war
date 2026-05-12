@@ -6,6 +6,7 @@ import {
   EventType,
   EntityKind,
   Monster,
+  MonsterType,
   Player,
   Entity,
   TileType,
@@ -46,6 +47,10 @@ const MELEE_ARC = Math.PI / 3;
 const LANDED_GRENADE_BOUNCE_SPEED = 80;
 const LANDED_GRENADE_MAX_OFFSET = CELL_CONFIG.w * 0.35;
 const MELEE_KNOCKBACK_DISTANCE = 7;
+const MONSTER_ALERT_DECAY = 5; // Alert decreases per steering update (every 5 ticks)
+const FLEE_HP_RATIO = 0.25; // Flee when HP drops below 25% of max
+const SKULKER_MIN_RANGE_PX = CELL_CONFIG.w * 2.5; // 80px: retreat if player closer
+const SKULKER_MAX_RANGE_PX = CELL_CONFIG.w * 5.5; // 176px: advance if player farther
 const EXPLOSION_KNOCKBACK_MAX_DISTANCE = 34;
 const EXPLOSION_KNOCKBACK_MIN_DISTANCE = 14;
 
@@ -99,7 +104,6 @@ export function updateMonsterSteering(state: GameState): void {
   );
 
   for (const monster of monsters) {
-    // Skip if monster doesn't have continuous coordinates
     if (!("worldX" in monster) || !("worldY" in monster)) continue;
 
     const player = getClosestPlayer(state, monster);
@@ -109,51 +113,79 @@ export function updateMonsterSteering(state: GameState): void {
       continue;
     }
 
-    const monsterEntity = monster as any;
-    const playerEntity = player as any;
+    const m = monster as any;
+    const p = player as any;
 
-    // Calculate distance to player
-    const dx = playerEntity.worldX - monsterEntity.worldX;
-    const dy = playerEntity.worldY - monsterEntity.worldY;
+    const dx = p.worldX - m.worldX;
+    const dy = p.worldY - m.worldY;
     const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+    const dirX = pixelDistance > 0 ? dx / pixelDistance : 0;
+    const dirY = pixelDistance > 0 ? dy / pixelDistance : 0;
 
-    // Check if player is visible
-    const monsterVision = computeFOVFrom(
-      state.map,
-      monster.gridX,
-      monster.gridY,
-      15,
-    );
-    const playerIndex = idx(player.gridX, player.gridY);
-    const canSeePlayer = monsterVision.has(playerIndex);
+    const monsterVision = computeFOVFrom(state.map, monster.gridX, monster.gridY, 15);
+    const canSeePlayer = monsterVision.has(idx(player.gridX, player.gridY));
 
     if (!canSeePlayer) {
-      // Can't see player - stop or wander
-      if (RNG.chance(0.1)) {
-        // 10% chance to wander in random direction
-        const angle = RNG.int(8) * (Math.PI / 4); // 8 directions
-        monsterEntity.velocityX = Math.cos(angle) * MONSTER_SPEED * 0.5;
-        monsterEntity.velocityY = Math.sin(angle) * MONSTER_SPEED * 0.5;
+      m.alertLevel = Math.max(0, (m.alertLevel ?? 0) - MONSTER_ALERT_DECAY);
+
+      if (m.alertLevel > 0) {
+        // Investigate last known position
+        const kx = (m.lastKnownPlayerX ?? m.worldX) - m.worldX;
+        const ky = (m.lastKnownPlayerY ?? m.worldY) - m.worldY;
+        const kd = Math.sqrt(kx * kx + ky * ky);
+        if (kd > CELL_CONFIG.w * 1.5) {
+          m.velocityX = (kx / kd) * MONSTER_SPEED * 0.75;
+          m.velocityY = (ky / kd) * MONSTER_SPEED * 0.75;
+        } else {
+          m.alertLevel = 0;
+          m.velocityX = 0;
+          m.velocityY = 0;
+        }
+      } else if (RNG.chance(0.1)) {
+        const angle = RNG.int(8) * (Math.PI / 4);
+        m.velocityX = Math.cos(angle) * MONSTER_SPEED * 0.5;
+        m.velocityY = Math.sin(angle) * MONSTER_SPEED * 0.5;
       } else {
-        // Stop moving
-        monsterEntity.velocityX = 0;
-        monsterEntity.velocityY = 0;
+        m.velocityX = 0;
+        m.velocityY = 0;
       }
       continue;
     }
 
-    // Player is visible
+    // Player is visible — update alert memory
+    m.alertLevel = 100;
+    m.lastKnownPlayerX = p.worldX;
+    m.lastKnownPlayerY = p.worldY;
+
+    const isFleeing = m.hp <= (m.hpMax ?? m.hp) * FLEE_HP_RATIO;
+
+    if (isFleeing) {
+      m.velocityX = -dirX * MONSTER_SPEED;
+      m.velocityY = -dirY * MONSTER_SPEED;
+      continue;
+    }
+
+    if (monster.type === MonsterType.SKULKER) {
+      if (pixelDistance < SKULKER_MIN_RANGE_PX) {
+        m.velocityX = -dirX * MONSTER_SPEED;
+        m.velocityY = -dirY * MONSTER_SPEED;
+      } else if (pixelDistance > SKULKER_MAX_RANGE_PX) {
+        m.velocityX = dirX * MONSTER_SPEED * 0.6;
+        m.velocityY = dirY * MONSTER_SPEED * 0.6;
+      } else {
+        // Strafe perpendicular to player
+        m.velocityX = -dirY * MONSTER_SPEED * 0.35;
+        m.velocityY = dirX * MONSTER_SPEED * 0.35;
+      }
+      continue;
+    }
+
     if (pixelDistance <= MONSTER_ARRIVAL_RADIUS) {
-      // Within attack range - stop and attack
-      monsterEntity.velocityX = 0;
-      monsterEntity.velocityY = 0;
-      // Note: Actual attack will be handled by command system
+      m.velocityX = 0;
+      m.velocityY = 0;
     } else {
-      // Chase player - move toward them
-      const dirX = dx / pixelDistance; // Normalize
-      const dirY = dy / pixelDistance;
-      monsterEntity.velocityX = dirX * MONSTER_SPEED;
-      monsterEntity.velocityY = dirY * MONSTER_SPEED;
+      m.velocityX = dirX * MONSTER_SPEED;
+      m.velocityY = dirY * MONSTER_SPEED;
     }
   }
 }
@@ -1385,7 +1417,14 @@ function updateLandedGrenadeBounce(explosive: ExplosiveEntity): void {
 
 function updateEffects(state: GameState): void {
   state.effects = state.effects
-    .map((effect) => ({ ...effect, ageTicks: effect.ageTicks + 1 }))
+    .map((effect) => {
+      const aged = { ...effect, ageTicks: effect.ageTicks + 1 };
+      if (effect.type === "spark") {
+        aged.worldX += (effect.velocityX ?? 0) * (SIM_DT_MS / 1000);
+        aged.worldY += (effect.velocityY ?? 0) * (SIM_DT_MS / 1000);
+      }
+      return aged;
+    })
     .filter((effect) => effect.ageTicks < effect.durationTicks);
 }
 
@@ -1450,6 +1489,19 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
   };
   const target = state.entities.find((e) => e.id === data.targetId);
   if (!target) return;
+
+  // Hit flash for visual feedback (monster and player)
+  if (target.kind === EntityKind.MONSTER || target.kind === EntityKind.PLAYER) {
+    state.effects.push({
+      id: crypto.randomUUID(),
+      type: "hit_flash",
+      worldX: (target as any).worldX ?? target.gridX * CELL_CONFIG.w,
+      worldY: (target as any).worldY ?? target.gridY * CELL_CONFIG.h,
+      ageTicks: 0,
+      durationTicks: 3,
+      entityId: target.id,
+    });
+  }
 
   if (target.kind === EntityKind.PLAYER) {
     const player = target as Player;
@@ -1928,6 +1980,20 @@ function decideMonsterCommand(
     };
   }
 
+  const isSkulker = monster.type === MonsterType.SKULKER;
+  const hpMax = (monster as any).hpMax ?? monster.hp;
+  const isFleeing = monster.hp <= hpMax * FLEE_HP_RATIO;
+
+  const waitCmd = (): Command => ({
+    id: crypto.randomUUID(),
+    tick,
+    actorId: monster.id,
+    type: CommandType.WAIT,
+    data: { type: "WAIT" },
+    priority: 0,
+    source: "AI",
+  });
+
   // Calculate distance - prefer continuous if available
   let distance: number;
   let inMeleeRange = false;
@@ -1936,8 +2002,8 @@ function decideMonsterCommand(
     const dx = (player as any).worldX - (monster as any).worldX;
     const dy = (player as any).worldY - (monster as any).worldY;
     const pixelDistance = Math.sqrt(dx * dx + dy * dy);
-    distance = pixelDistance / CELL_CONFIG.w; // Convert to tile units for FOV check
-    const MELEE_RANGE = CELL_CONFIG.w * 1.5; // 1.5 tiles for melee
+    distance = pixelDistance / CELL_CONFIG.w;
+    const MELEE_RANGE = CELL_CONFIG.w * 1.5;
     inMeleeRange = pixelDistance <= MELEE_RANGE;
   } else {
     const dx = player.gridX - monster.gridX;
@@ -1946,8 +2012,8 @@ function decideMonsterCommand(
     inMeleeRange = distance === 1;
   }
 
-  // Adjacent: melee attack
-  if (inMeleeRange) {
+  // Skulkers and fleeing monsters skip melee (steering handles retreat)
+  if (inMeleeRange && !isSkulker && !isFleeing) {
     return {
       id: crypto.randomUUID(),
       tick,
@@ -1959,7 +2025,7 @@ function decideMonsterCommand(
     };
   }
 
-  // Throw grenade if available, clear line-of-sight, and enough space
+  // Throw grenade — skulkers are more aggressive throwers
   const monsterWorldX = (monster as any).worldX;
   const monsterWorldY = (monster as any).worldY;
   const playerWorldX = (player as any).worldX;
@@ -1972,12 +2038,13 @@ function decideMonsterCommand(
     playerWorldY,
   );
 
+  const grenadeChance = isSkulker ? 0.55 : 0.35;
   if (
     monster.grenades > 0 &&
     distance <= 8 &&
     distance >= 2 &&
     hasGrenadeLOS &&
-    RNG.chance(0.35)
+    RNG.chance(grenadeChance)
   ) {
     return {
       id: crypto.randomUUID(),
@@ -1990,8 +2057,8 @@ function decideMonsterCommand(
     };
   }
 
-  // Lay land mine if available and close to player
-  if (monster.landMines > 0 && distance <= 3 && RNG.chance(0.25)) {
+  // Lay land mine — skulkers skip this (they prefer distance)
+  if (!isSkulker && monster.landMines > 0 && distance <= 3 && RNG.chance(0.25)) {
     return {
       id: crypto.randomUUID(),
       tick,
@@ -2003,30 +2070,21 @@ function decideMonsterCommand(
     };
   }
 
-  // Check field of view and distance (only chase if player is visible and within 15 tiles)
-  // Use same FOV algorithm as player for consistent vision
-  // Slightly longer range than player (9 tiles) to make them more threatening
-  const monsterVision = computeFOVFrom(
-    state.map,
-    monster.gridX,
-    monster.gridY,
-    15,
-  );
+  const monsterVision = computeFOVFrom(state.map, monster.gridX, monster.gridY, 15);
   const playerIndex = idx(player.gridX, player.gridY);
   const canSeePlayer = monsterVision.has(playerIndex);
 
   if (!canSeePlayer) {
+    // Alert: steering already moves toward last known pos; command system just waits/wanders
+    if ((monster as any).alertLevel > 0) {
+      return waitCmd();
+    }
+
     // Idle wander or wait
     if (RNG.chance(0.2)) {
       const dirs: [number, number][] = [
-        [1, 0],
-        [-1, 0],
-        [0, 1],
-        [0, -1],
-        [1, 1],
-        [1, -1],
-        [-1, 1],
-        [-1, -1],
+        [1, 0], [-1, 0], [0, 1], [0, -1],
+        [1, 1], [1, -1], [-1, 1], [-1, -1],
       ];
       const [moveX, moveY] = RNG.choose(dirs);
       const nx = monster.gridX + moveX;
@@ -2054,16 +2112,12 @@ function decideMonsterCommand(
       }
     }
 
-    // Wait if can't wander
-    return {
-      id: crypto.randomUUID(),
-      tick,
-      actorId: monster.id,
-      type: CommandType.WAIT,
-      data: { type: "WAIT" },
-      priority: 0,
-      source: "AI",
-    };
+    return waitCmd();
+  }
+
+  // Skulkers and fleeing monsters: steering handles velocity, command just waits
+  if (isSkulker || isFleeing) {
+    return waitCmd();
   }
 
   // Chase player (greedy step with fallback directions)

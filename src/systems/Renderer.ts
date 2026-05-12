@@ -47,6 +47,7 @@ export class Renderer {
   private cameraWorldX: number = 0; // Camera position for smooth following
   private cameraWorldY: number = 0;
   private playerFacing: FacingDirection = "down";
+  private shakeIntensity: number = 0;
 
   constructor(canvasId: string) {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -314,6 +315,24 @@ export class Renderer {
     const nowMs = this.getNowMs();
     const usingShadowFov = options.fov && !enhancedVision;
 
+    // Screen shake — triggered by new explosion effects (ageTicks=0 = fresh this sim tick)
+    const hasNewExplosion = effects.some(
+      (e) => e.type === "explosion" && e.ageTicks === 0,
+    );
+    if (hasNewExplosion) {
+      this.shakeIntensity = Math.max(this.shakeIntensity, 6);
+    }
+    this.shakeIntensity *= 0.86;
+    if (this.shakeIntensity < 0.3) this.shakeIntensity = 0;
+    this.app.stage.x =
+      this.shakeIntensity > 0
+        ? (Math.random() - 0.5) * this.shakeIntensity * this.scale
+        : 0;
+    this.app.stage.y =
+      this.shakeIntensity > 0
+        ? (Math.random() - 0.5) * this.shakeIntensity * this.scale
+        : 0;
+
     // Update camera position for smooth following (real-time mode only)
     if (state.sim.mode === "REALTIME" && "worldX" in player) {
       const targetX = (player as any).worldX;
@@ -556,27 +575,59 @@ export class Renderer {
             if (!isDead && (facing === "right" || facing === "left")) {
               sprite.scale.x = facing === "right" ? -1 : 1;
             }
+          } else if (
+            entity.kind === EntityKind.MONSTER &&
+            (entity as any).type === MonsterType.SKULKER
+          ) {
+            sprite.tint = 0x88ff88;
           }
+
+          // Hit flash overrides any existing tint
+          const hasHitFlash = effects.some(
+            (e) => e.type === "hit_flash" && e.entityId === entity.id,
+          );
+          if (hasHitFlash) {
+            sprite.tint = 0xff3333;
+          }
+
           this.entityContainer.addChild(sprite);
         }
       }
     }
 
-    // Render effects (explosions) above entities
+    // Render effects: explosions and sparks
     for (const effect of effects) {
-      const frameIndex = Math.min(
-        EXPLOSION_FRAMES.length - 1,
-        Math.floor(
-          (effect.ageTicks / effect.durationTicks) * EXPLOSION_FRAMES.length,
-        ),
-      );
-      const frame = EXPLOSION_FRAMES[frameIndex];
-      const screenX = offsetX + effect.worldX;
-      const screenY = offsetY + effect.worldY;
-      const sprite = this.createSprite(frame.x, frame.y, screenX, screenY);
-      if (sprite) {
-        sprite.anchor.set(0.5, 0.5);
-        this.entityContainer.addChild(sprite);
+      if (effect.type === "explosion") {
+        const frameIndex = Math.min(
+          EXPLOSION_FRAMES.length - 1,
+          Math.floor(
+            (effect.ageTicks / effect.durationTicks) * EXPLOSION_FRAMES.length,
+          ),
+        );
+        const frame = EXPLOSION_FRAMES[frameIndex];
+        const screenX = offsetX + effect.worldX;
+        const screenY = offsetY + effect.worldY;
+        const sprite = this.createSprite(frame.x, frame.y, screenX, screenY);
+        if (sprite) {
+          sprite.anchor.set(0.5, 0.5);
+          this.entityContainer.addChild(sprite);
+        }
+      } else if (effect.type === "spark") {
+        const screenX = offsetX + effect.worldX;
+        const screenY = offsetY + effect.worldY;
+        const sprite = this.createSprite(
+          SPRITE_COORDS.bullet.x,
+          SPRITE_COORDS.bullet.y,
+          screenX,
+          screenY,
+        );
+        if (sprite) {
+          sprite.anchor.set(0.5, 0.5);
+          sprite.scale.set(0.2);
+          sprite.tint = 0xffdd44;
+          sprite.alpha = 1 - effect.ageTicks / effect.durationTicks;
+          this.entityContainer.addChild(sprite);
+        }
       }
     }
 
@@ -617,13 +668,19 @@ export class Renderer {
       );
 
       if (sprite) {
-        // Center the sprite on player position
         sprite.anchor.set(0.5, 0.5);
 
-        // Player sprite stays upright (no rotation)
         if (!isDead && (playerFacing === "right" || playerFacing === "left")) {
           sprite.scale.x = playerFacing === "right" ? -1 : 1;
         }
+
+        const playerHitFlash = effects.some(
+          (e) => e.type === "hit_flash" && e.entityId === player.id,
+        );
+        if (playerHitFlash) {
+          sprite.tint = 0xff3333;
+        }
+
         this.entityContainer.addChild(sprite);
       }
     }
