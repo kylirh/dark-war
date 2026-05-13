@@ -53,6 +53,17 @@ const SKULKER_MIN_RANGE_PX = CELL_CONFIG.w * 2.5; // 80px: retreat if player clo
 const SKULKER_MAX_RANGE_PX = CELL_CONFIG.w * 5.5; // 176px: advance if player farther
 const EXPLOSION_KNOCKBACK_MAX_DISTANCE = 34;
 const EXPLOSION_KNOCKBACK_MIN_DISTANCE = 14;
+const IDLE_WANDER_SPEED = MONSTER_SPEED * 0.5;
+const IDLE_WANDER_DIRECTIONS: [number, number][] = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
+];
 
 const EXPLOSIVE_CONFIG: Record<
   ItemType.GRENADE | ItemType.LAND_MINE,
@@ -90,6 +101,77 @@ function getClosestPlayer(
   return closest;
 }
 
+function isMonsterMoveCandidateClear(
+  state: GameState,
+  monster: Monster,
+  dx: number,
+  dy: number,
+): boolean {
+  const nx = monster.gridX + dx;
+  const ny = monster.gridY + dy;
+
+  if (!passable(state.map, nx, ny)) return false;
+
+  return !state.entities.some(
+    (e) =>
+      e.id !== monster.id &&
+      e.gridX === nx &&
+      e.gridY === ny &&
+      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
+  );
+}
+
+function chooseIdleWanderDirection(
+  state: GameState,
+  monster: Monster,
+): [number, number] | null {
+  const directions = [...IDLE_WANDER_DIRECTIONS];
+
+  while (directions.length > 0) {
+    const index = RNG.int(directions.length);
+    const [dx, dy] = directions[index];
+    directions.splice(index, 1);
+
+    if (isMonsterMoveCandidateClear(state, monster, dx, dy)) {
+      return [dx, dy];
+    }
+  }
+
+  return null;
+}
+
+function makeWaitCommand(monster: Monster, tick: number): Command {
+  return {
+    id: crypto.randomUUID(),
+    tick,
+    actorId: monster.id,
+    type: CommandType.WAIT,
+    data: { type: "WAIT" },
+    priority: 0,
+    source: "AI",
+  };
+}
+
+function makeIdleWanderCommand(
+  state: GameState,
+  monster: Monster,
+  tick: number,
+): Command {
+  const direction = chooseIdleWanderDirection(state, monster);
+  if (!direction) return makeWaitCommand(monster, tick);
+
+  const [dx, dy] = direction;
+  return {
+    id: crypto.randomUUID(),
+    tick,
+    actorId: monster.id,
+    type: CommandType.MOVE,
+    data: { type: "MOVE", dx, dy },
+    priority: 0,
+    source: "AI",
+  };
+}
+
 // ========================================
 // Steering Behaviors (Continuous Movement AI)
 // ========================================
@@ -108,8 +190,16 @@ export function updateMonsterSteering(state: GameState): void {
 
     const player = getClosestPlayer(state, monster);
     if (!player) {
-      (monster as any).velocityX = 0;
-      (monster as any).velocityY = 0;
+      const direction = chooseIdleWanderDirection(state, monster);
+      if (direction) {
+        const [dx, dy] = direction;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        (monster as any).velocityX = (dx / length) * IDLE_WANDER_SPEED;
+        (monster as any).velocityY = (dy / length) * IDLE_WANDER_SPEED;
+      } else {
+        (monster as any).velocityX = 0;
+        (monster as any).velocityY = 0;
+      }
       continue;
     }
 
@@ -2020,30 +2110,14 @@ function decideMonsterCommand(
 ): Command | null {
   const player = getClosestPlayer(state, monster);
   if (!player) {
-    return {
-      id: crypto.randomUUID(),
-      tick,
-      actorId: monster.id,
-      type: CommandType.WAIT,
-      data: { type: "WAIT" },
-      priority: 0,
-      source: "AI",
-    };
+    return makeIdleWanderCommand(state, monster, tick);
   }
 
   const isSkulker = monster.type === MonsterType.SKULKER;
   const hpMax = (monster as any).hpMax ?? monster.hp;
   const isFleeing = monster.hp <= hpMax * FLEE_HP_RATIO;
 
-  const waitCmd = (): Command => ({
-    id: crypto.randomUUID(),
-    tick,
-    actorId: monster.id,
-    type: CommandType.WAIT,
-    data: { type: "WAIT" },
-    priority: 0,
-    source: "AI",
-  });
+  const waitCmd = (): Command => makeWaitCommand(monster, tick);
 
   // Calculate distance - prefer continuous if available
   let distance: number;
@@ -2133,34 +2207,7 @@ function decideMonsterCommand(
 
     // Idle wander or wait
     if (RNG.chance(0.2)) {
-      const dirs: [number, number][] = [
-        [1, 0], [-1, 0], [0, 1], [0, -1],
-        [1, 1], [1, -1], [-1, 1], [-1, -1],
-      ];
-      const [moveX, moveY] = RNG.choose(dirs);
-      const nx = monster.gridX + moveX;
-      const ny = monster.gridY + moveY;
-
-      if (passable(state.map, nx, ny)) {
-        const blocker = state.entities.find(
-          (e) =>
-            e.gridX === nx &&
-            e.gridY === ny &&
-            (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
-        );
-
-        if (!blocker) {
-          return {
-            id: crypto.randomUUID(),
-            tick,
-            actorId: monster.id,
-            type: CommandType.MOVE,
-            data: { type: "MOVE", dx: moveX, dy: moveY },
-            priority: 0,
-            source: "AI",
-          };
-        }
-      }
+      return makeIdleWanderCommand(state, monster, tick);
     }
 
     return waitCmd();

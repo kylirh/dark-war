@@ -318,7 +318,7 @@ class RoomSession {
         (Math.abs(p.velocityX) > 0.1 || Math.abs(p.velocityY) > 0.1),
     ) || this.playerActedThisTick;
 
-    // Check if all players are dead - run at full speed
+    // Check if all players are dead - keep the board running in real time
     const allDead = state.players.every((p) => p.hp <= 0);
 
     if (allDead) {

@@ -731,7 +731,7 @@ export class Game {
         (player as any).velocityY = 0;
       }
 
-      // Speed up time to normal (remove time dilation)
+      // Keep the post-death board simulation running in real time.
       this.state.sim.targetTimeScale = 1.0;
 
       return true; // Signal that death just occurred
