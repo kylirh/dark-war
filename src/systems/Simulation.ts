@@ -415,6 +415,15 @@ function processMonsterItemPickups(state: GameState): void {
             type: ItemType.PISTOL,
           });
           break;
+        case ItemType.CTDM:
+          monster.carriedItems.push({ type: ItemType.CTDM });
+          break;
+        case ItemType.POWERCELL:
+          monster.carriedItems.push({
+            type: ItemType.POWERCELL,
+            amount: item.amount,
+          });
+          break;
       }
 
       pickedItemIds.add(item.id);

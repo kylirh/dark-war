@@ -73,6 +73,9 @@ const SCROLL_WHEEL_DELTA_THRESHOLD = 50; // Minimum accumulated deltaY to trigge
 /** The delay between allowed scroll wheel changes. Tunes the scroll wheel's sensitivity. */
 const SCROLL_WHEEL_THROTTLE_MS = 200; //
 
+// Time scale constants
+const REAL_TIME_SCALE = 0.85; // Slightly slowed "real-time" — full speed before/without CTDM
+
 // CTDM time dilation constants
 const CTDM_IDLE_SCALE = 0.35; // Timescale when CTDM is active but no threat detected
 const CTDM_DRAIN_MAX = 8.0; // Max charge/sec drained at threat=1.0
@@ -115,7 +118,6 @@ class DarkWar {
     gridY: number;
     direction: "up" | "down";
   } | null = null;
-  private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
   private currentThreatLevel: number = 0; // Last computed CTDM threat (0–1), shared between update/render
   private wasPlayerMoving: boolean = false;
   private lastPlayerWorldX?: number;
@@ -264,7 +266,6 @@ class DarkWar {
       onWait: () => this.handleWait(),
       onReload: () => this.handleReload(),
       onToggleFOV: () => this.handleToggleFOV(),
-      onToggleRealTime: () => this.handleToggleRealTime(),
       onToggleCTDM: () => this.handleToggleCTDM(),
       onResumePause: (reason) => this.game.resumeFromPause(reason),
       onNewGame: () => this.handleNewGame(),
@@ -455,7 +456,7 @@ class DarkWar {
     const state = this.game.getState();
 
     if (options.resumeTime ?? true) {
-      state.sim.targetTimeScale = 1.0;
+      state.sim.targetTimeScale = REAL_TIME_SCALE;
     }
 
     enqueueCommand(state, {
@@ -689,7 +690,7 @@ class DarkWar {
           : null;
       this.autoMoveHoleTarget = isHole ? { gridX: tileX, gridY: tileY } : null;
       // Speed up to real-time during click-to-move
-      state.sim.targetTimeScale = 1.0;
+      state.sim.targetTimeScale = REAL_TIME_SCALE;
     } else {
       this.autoMoveStairsTarget = null;
     }
@@ -830,10 +831,10 @@ class DarkWar {
 
     // Update target time scale based on CTDM status and threat
     if (isDead) {
-      state.sim.targetTimeScale = 1.0;
-    } else if (playerMoving || this.playerActedThisTick || this.realTimeToggled) {
-      // Moving or acted: always real-time; recharge CTDM
-      state.sim.targetTimeScale = 1.0;
+      state.sim.targetTimeScale = REAL_TIME_SCALE;
+    } else if (playerMoving || this.playerActedThisTick) {
+      // Moving or acted: real-time; recharge CTDM
+      state.sim.targetTimeScale = REAL_TIME_SCALE;
       if (player.hasCTDM) {
         const prevCharge = player.ctdmCharge;
         player.ctdmCharge = Math.min(
@@ -874,7 +875,7 @@ class DarkWar {
       }
     } else if (player.hasCTDM && !player.ctdmEnabled) {
       // CTDM disabled (depleted or manually off): real-time, recharge
-      state.sim.targetTimeScale = 1.0;
+      state.sim.targetTimeScale = REAL_TIME_SCALE;
       const prevCharge = player.ctdmCharge;
       player.ctdmCharge = Math.min(
         player.ctdmChargeMax,
@@ -888,8 +889,8 @@ class DarkWar {
         state.log.unshift("CTDM recharged.");
       }
     } else {
-      // No CTDM: classic stationary = slow-mo (preserves early game feel)
-      state.sim.targetTimeScale = SLOWMO_SCALE;
+      // No CTDM: real-time until the device is found
+      state.sim.targetTimeScale = REAL_TIME_SCALE;
     }
 
     // Reset flag at end of update
@@ -978,7 +979,7 @@ class DarkWar {
 
     // If player is moving, resume time
     if (vx !== 0 || vy !== 0) {
-      state.sim.targetTimeScale = 1.0;
+      state.sim.targetTimeScale = REAL_TIME_SCALE;
       this.playerActedThisTick = true;
       this.cancelAutoMove();
     }
@@ -1092,7 +1093,7 @@ class DarkWar {
         }
 
         if (queuedHoleJump) {
-          state.sim.targetTimeScale = 1.0;
+          state.sim.targetTimeScale = REAL_TIME_SCALE;
         }
       }
       return;
@@ -1239,7 +1240,7 @@ class DarkWar {
     this.queueHoleJump(tileX, tileY);
 
     // Resume time when player acts
-    state.sim.targetTimeScale = 1.0;
+    state.sim.targetTimeScale = REAL_TIME_SCALE;
     this.playerActedThisTick = true;
 
     // Execute immediately
@@ -1412,21 +1413,6 @@ class DarkWar {
    */
   private handleToggleFOV(): void {
     this.game.toggleFOV();
-  }
-
-  /**
-   * Toggle real-time mode on/off
-   */
-  private handleToggleRealTime(): void {
-    if (this.isOnlineMode()) {
-      return;
-    }
-    this.realTimeToggled = !this.realTimeToggled;
-    if (this.realTimeToggled) {
-      const state = this.game.getState();
-      state.sim.targetTimeScale = 1.0;
-    }
-    // When disabling: the next update() call sets the correct CTDM-aware target
   }
 
   /**

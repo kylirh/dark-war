@@ -104,8 +104,8 @@ export class Game {
       sim: {
         nowTick: 0,
         mode: "REALTIME",
-        timeScale: 0.01, // Start in slow motion
-        targetTimeScale: 0.01,
+        timeScale: 0.85,
+        targetTimeScale: 0.85,
         accumulatorMs: 0,
         lastFrameMs: performance.now(),
         pauseReasons: new Set(),
@@ -170,8 +170,8 @@ export class Game {
       sim: {
         nowTick: 0,
         mode: "REALTIME",
-        timeScale: 0.01, // Start in slow motion
-        targetTimeScale: 0.01,
+        timeScale: 0.85,
+        targetTimeScale: 0.85,
         accumulatorMs: 0,
         lastFrameMs: performance.now(),
         pauseReasons: new Set(),

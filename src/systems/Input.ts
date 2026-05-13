@@ -16,7 +16,6 @@ export interface InputCallbacks {
   onWait: () => void;
   onReload: () => void;
   onToggleFOV: () => void;
-  onToggleRealTime: () => void;
   onToggleCTDM: () => void;
   onResumePause: (reason: string) => void;
   onNewGame: () => void;
@@ -149,13 +148,6 @@ export class InputHandler {
     if (key === "v") {
       e.preventDefault();
       this.callbacks.onToggleFOV();
-      return;
-    }
-
-    // Toggle real-time mode (Enter)
-    if (key === "enter") {
-      e.preventDefault();
-      this.callbacks.onToggleRealTime();
       return;
     }
 
