@@ -21,7 +21,7 @@ export const SPRITES_PER_ROW = 16;
 
 /**
  * Sprite sheet coordinate map
- * Layout: 512×128 (16×4 tiles at 32×32)
+ * Layout: 512×160 (16×5 tiles at 32×32)
  * Row 0: Tiles
  * Row 1: Player
  * Row 2: Monsters/Entities
@@ -46,6 +46,16 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   wall_wood_damaged_2: { x: 12, y: 0 },
   floor_damaged: { x: 13, y: 0 },
   hole: { x: 14, y: 0 },
+  [TileType.ASPHALT]: { x: 0, y: 4 },
+  [TileType.SIDEWALK]: { x: 1, y: 4 },
+  [TileType.GRASS]: { x: 2, y: 4 },
+  [TileType.WEEDS]: { x: 3, y: 4 },
+  [TileType.PARK_PATH]: { x: 4, y: 4 },
+  [TileType.TREE]: { x: 5, y: 4 },
+  [TileType.BUILDING]: { x: 6, y: 4 },
+  [TileType.FENCE]: { x: 7, y: 4 },
+  [TileType.RUBBLE]: { x: 8, y: 4 },
+  megacorp_entrance: { x: 9, y: 4 },
 
   // ========================================
   // Row 1 - Player

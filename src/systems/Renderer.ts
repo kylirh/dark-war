@@ -18,7 +18,6 @@ import {
   FLOOR_DAMAGE_THRESHOLDS,
   WALL_DAMAGE_THRESHOLDS,
 } from "../types";
-import { idx } from "../utils/helpers";
 import {
   SPRITE_SIZE,
   SPRITE_COORDS,
@@ -43,11 +42,13 @@ export class Renderer {
   private ready: boolean = false;
   private pendingRender?: { state: GameState; isDead: boolean };
   private viewportElement?: HTMLElement;
-  private scale: number = 2.0; // Configurable scale factor
+  private scale: number = 1.0; // Configurable scale factor
   private cameraWorldX: number = 0; // Camera position for smooth following
   private cameraWorldY: number = 0;
   private playerFacing: FacingDirection = "down";
   private shakeIntensity: number = 0;
+  private canvasMapWidth: number = MAP_WIDTH;
+  private canvasMapHeight: number = MAP_HEIGHT;
 
   constructor(canvasId: string) {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -75,9 +76,11 @@ export class Renderer {
   private async initAsync(canvas: HTMLCanvasElement): Promise<void> {
     // Render at configured scale for fixed size display
     const canvasWidth =
-      (MAP_WIDTH * CELL_CONFIG.w + CELL_CONFIG.padX * 2) * this.scale;
+      (this.canvasMapWidth * CELL_CONFIG.w + CELL_CONFIG.padX * 2) *
+      this.scale;
     const canvasHeight =
-      (MAP_HEIGHT * CELL_CONFIG.h + CELL_CONFIG.padY * 2) * this.scale;
+      (this.canvasMapHeight * CELL_CONFIG.h + CELL_CONFIG.padY * 2) *
+      this.scale;
 
     // Initialize Pixi application
     await this.app.init({
@@ -92,38 +95,27 @@ export class Renderer {
     // Scale the stage to render at configured scale
     this.app.stage.scale.set(this.scale);
 
-    // Load sprite sheet with direct image loading (faster than Assets.load)
-    const img = new Image();
-    img.src = "./assets/img/sprites.png";
-
-    img.onload = () => {
-      try {
-        this.spriteSheet = Texture.from(img);
-        // Set texture to use nearest neighbor (no smoothing)
-        if (this.spriteSheet?.source) {
-          this.spriteSheet.source.scaleMode = "nearest";
-        }
-        this.ready = true;
-
-        // Render any pending state
-        if (this.pendingRender) {
-          this.render(this.pendingRender.state, this.pendingRender.isDead);
-          this.pendingRender = undefined;
-        }
-      } catch (error) {
-        console.error("Failed to create texture from sprite sheet:", error);
-        this.ready = true; // Continue anyway
-      }
-    };
-
-    img.onerror = (error) => {
-      console.error("Failed to load sprite sheet:", error);
-      this.ready = true; // Continue anyway
-    };
-
     // Add containers to stage
     this.app.stage.addChild(this.mapContainer);
     this.app.stage.addChild(this.entityContainer);
+
+    try {
+      this.spriteSheet = await Assets.load<Texture>(
+        "./assets/img/sprites.png?v=outside-level-0",
+      );
+      if (this.spriteSheet?.source) {
+        this.spriteSheet.source.scaleMode = "nearest";
+      }
+    } catch (error) {
+      console.error("Failed to load sprite sheet:", error);
+    } finally {
+      this.ready = true;
+
+      if (this.pendingRender) {
+        this.render(this.pendingRender.state, this.pendingRender.isDead);
+        this.pendingRender = undefined;
+      }
+    }
   }
 
   /**
@@ -134,12 +126,27 @@ export class Renderer {
 
     // Update canvas size
     const canvasWidth =
-      (MAP_WIDTH * CELL_CONFIG.w + CELL_CONFIG.padX * 2) * this.scale;
+      (this.canvasMapWidth * CELL_CONFIG.w + CELL_CONFIG.padX * 2) *
+      this.scale;
     const canvasHeight =
-      (MAP_HEIGHT * CELL_CONFIG.h + CELL_CONFIG.padY * 2) * this.scale;
+      (this.canvasMapHeight * CELL_CONFIG.h + CELL_CONFIG.padY * 2) *
+      this.scale;
 
     this.app.renderer.resize(canvasWidth, canvasHeight);
     this.app.stage.scale.set(this.scale);
+  }
+
+  private syncCanvasSize(state: GameState): void {
+    if (
+      state.mapWidth === this.canvasMapWidth &&
+      state.mapHeight === this.canvasMapHeight
+    ) {
+      return;
+    }
+
+    this.canvasMapWidth = state.mapWidth;
+    this.canvasMapHeight = state.mapHeight;
+    this.setScale(this.scale);
   }
 
   /**
@@ -301,6 +308,8 @@ export class Renderer {
       return;
     }
 
+    this.syncCanvasSize(state);
+
     const {
       map,
       visible,
@@ -354,9 +363,9 @@ export class Renderer {
     const offsetY = CELL_CONFIG.padY;
 
     // Render tiles
-    for (let y = 0; y < MAP_HEIGHT; y++) {
-      for (let x = 0; x < MAP_WIDTH; x++) {
-        const tileIndex = idx(x, y);
+    for (let y = 0; y < state.mapHeight; y++) {
+      for (let x = 0; x < state.mapWidth; x++) {
+        const tileIndex = x + y * state.mapWidth;
         const isRevealed = usingShadowFov ? explored.has(tileIndex) : true;
         const isVisible = usingShadowFov
           ? enhancedVision
@@ -415,7 +424,10 @@ export class Renderer {
             }
           }
           // Set tile coordinate for doors and stairs
-          tileCoord = SPRITE_COORDS[tileType];
+          tileCoord =
+            state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
+              ? SPRITE_COORDS.megacorp_entrance
+              : SPRITE_COORDS[tileType];
         } else if (tileType === TileType.WALL) {
           // Wall rendering with damage states
           const isWood = state.wallSet === "wood";
@@ -476,7 +488,7 @@ export class Renderer {
       // Type guard to ensure we have required properties
       if (!("gridX" in entity) || !("gridY" in entity)) continue;
 
-      const tileIndex = idx(entity.gridX, entity.gridY);
+      const tileIndex = entity.gridX + entity.gridY * state.mapWidth;
       const shouldRenderEntity = usingShadowFov
         ? enhancedVision
           ? explored.has(tileIndex)

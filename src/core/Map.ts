@@ -83,7 +83,16 @@ export function generateDungeon(): DungeonData {
 
   setTile(map, stairsDown[0], stairsDown[1], TileType.STAIRS_DOWN);
 
-  return { map, floorVariant, wallSet, start, stairsDown, rooms };
+  return {
+    map,
+    width: MAP_WIDTH,
+    height: MAP_HEIGHT,
+    floorVariant,
+    wallSet,
+    start,
+    stairsDown,
+    rooms,
+  };
 }
 
 /**

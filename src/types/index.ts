@@ -11,6 +11,15 @@ export enum TileType {
   STAIRS_DOWN = 5,
   STAIRS_UP = 6,
   HOLE = 7,
+  ASPHALT = 8,
+  SIDEWALK = 9,
+  GRASS = 10,
+  WEEDS = 11,
+  PARK_PATH = 12,
+  TREE = 13,
+  BUILDING = 14,
+  FENCE = 15,
+  RUBBLE = 16,
 }
 
 export interface TileDefinition {
@@ -58,6 +67,7 @@ export enum WeaponType {
 }
 
 export type MultiplayerMode = "offline" | "online";
+export type LevelKind = "outside" | "dungeon";
 
 export interface MultiplayerState {
   mode: MultiplayerMode;
@@ -302,6 +312,8 @@ export interface Room {
 
 export interface DungeonData {
   map: TileType[];
+  width: number;
+  height: number;
   floorVariant: number;
   wallSet: WallSet;
   start: [number, number];
@@ -315,7 +327,10 @@ export interface DungeonData {
 
 export interface GameState {
   depth: number;
+  levelKind: LevelKind;
   map: TileType[];
+  mapWidth: number;
+  mapHeight: number;
   floorVariant: number;
   wallSet: WallSet;
   wallDamage: number[];
@@ -356,7 +371,10 @@ export interface GameState {
 
 export interface SerializedState {
   depth: number;
+  levelKind?: LevelKind;
   map: TileType[];
+  mapWidth?: number;
+  mapHeight?: number;
   floorVariant?: number;
   wallSet?: WallSet;
   wallDamage?: number[];
@@ -388,7 +406,10 @@ export interface SerializedState {
 
 export interface SerializedLevelState {
   depth: number;
+  levelKind?: LevelKind;
   map: TileType[];
+  mapWidth?: number;
+  mapHeight?: number;
   floorVariant: number;
   wallSet?: WallSet;
   wallDamage: number[];
@@ -406,6 +427,8 @@ export interface SerializedLevelState {
 
 export const MAP_WIDTH = 64;
 export const MAP_HEIGHT = 36;
+export const OUTSIDE_MAP_WIDTH = 128;
+export const OUTSIDE_MAP_HEIGHT = 72;
 
 export type WallSet = "concrete" | "wood";
 
@@ -486,6 +509,69 @@ export const TILE_DEFINITIONS: Record<TileType, TileDefinition> = {
     color: "#14171d",
     bg: "#0b0e12",
     block: false,
+    opaque: false,
+  },
+  [TileType.ASPHALT]: {
+    ch: ".",
+    color: "#3b3f46",
+    bg: "#16191e",
+    block: false,
+    opaque: false,
+  },
+  [TileType.SIDEWALK]: {
+    ch: ".",
+    color: "#8a8d83",
+    bg: "#2c302d",
+    block: false,
+    opaque: false,
+  },
+  [TileType.GRASS]: {
+    ch: ",",
+    color: "#4f7b43",
+    bg: "#1d2b1d",
+    block: false,
+    opaque: false,
+  },
+  [TileType.WEEDS]: {
+    ch: "\"",
+    color: "#6f9b4f",
+    bg: "#21321f",
+    block: false,
+    opaque: false,
+  },
+  [TileType.PARK_PATH]: {
+    ch: ".",
+    color: "#736d59",
+    bg: "#2d2a22",
+    block: false,
+    opaque: false,
+  },
+  [TileType.TREE]: {
+    ch: "T",
+    color: "#496f34",
+    bg: "#182316",
+    block: true,
+    opaque: true,
+  },
+  [TileType.BUILDING]: {
+    ch: "#",
+    color: "#586070",
+    bg: "#171a20",
+    block: true,
+    opaque: true,
+  },
+  [TileType.FENCE]: {
+    ch: "|",
+    color: "#737b7f",
+    bg: "#171a20",
+    block: true,
+    opaque: false,
+  },
+  [TileType.RUBBLE]: {
+    ch: "%",
+    color: "#6b6259",
+    bg: "#211f1c",
+    block: true,
     opaque: false,
   },
 };

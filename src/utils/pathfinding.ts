@@ -1,6 +1,13 @@
 import { Path } from "rot-js";
-import { TileType, Entity, EntityKind, MAP_WIDTH } from "../types";
-import { inBounds, passable, idx } from "./helpers";
+import {
+  TileType,
+  Entity,
+  EntityKind,
+  MAP_HEIGHT,
+  MAP_WIDTH,
+  TILE_DEFINITIONS,
+} from "../types";
+import { inBoundsFor, passableFor, idxFor } from "./helpers";
 
 /**
  * Find a path from start to end using A* pathfinding
@@ -14,27 +21,25 @@ export function findPath(
   map: TileType[],
   explored: Set<number>,
   entities: Entity[],
+  width: number = MAP_WIDTH,
+  height: number = MAP_HEIGHT,
 ): [number, number][] | null {
   // Check if target is in bounds, passable, and explored
-  if (!inBounds(endX, endY)) return null;
-  if (!passable(map, endX, endY)) return null;
+  if (!inBoundsFor(endX, endY, width, height)) return null;
+  if (!passableFor(map, endX, endY, width, height)) return null;
 
   // Check if destination is explored
-  const destIdx = idx(endX, endY);
+  const destIdx = idxFor(endX, endY, width);
   if (!explored.has(destIdx)) return null;
 
   // Passable callback for rot.js pathfinding
   const passableCallback = (x: number, y: number): boolean => {
-    if (!inBounds(x, y)) return false;
+    if (!inBoundsFor(x, y, width, height)) return false;
 
     // Check tile type - allow open doors, block closed/locked doors
-    const tileIdx = idx(x, y);
+    const tileIdx = idxFor(x, y, width);
     const tile = map[tileIdx];
-    if (
-      tile === TileType.WALL ||
-      tile === TileType.DOOR_CLOSED ||
-      tile === TileType.DOOR_LOCKED
-    ) {
+    if (TILE_DEFINITIONS[tile]?.block) {
       return false;
     }
 
@@ -84,28 +89,26 @@ export function findPathToClosestReachable(
   map: TileType[],
   explored: Set<number>,
   entities: Entity[],
+  width: number = MAP_WIDTH,
+  height: number = MAP_HEIGHT,
 ): [number, number][] | null {
-  if (!inBounds(endX, endY)) return null;
+  if (!inBoundsFor(endX, endY, width, height)) return null;
 
   const cameFrom = new Array<number>(map.length).fill(-1);
   const distance = new Array<number>(map.length).fill(-1);
   const visitedOrder: number[] = [];
 
-  const startIdx = idx(startX, startY);
+  const startIdx = idxFor(startX, startY, width);
   const queue: number[] = [startIdx];
   distance[startIdx] = 0;
   visitedOrder.push(startIdx);
 
   const isPassable = (x: number, y: number): boolean => {
-    if (!inBounds(x, y)) return false;
-    const tileIdx = idx(x, y);
+    if (!inBoundsFor(x, y, width, height)) return false;
+    const tileIdx = idxFor(x, y, width);
 
     const tile = map[tileIdx];
-    if (
-      tile === TileType.WALL ||
-      tile === TileType.DOOR_CLOSED ||
-      tile === TileType.DOOR_LOCKED
-    ) {
+    if (TILE_DEFINITIONS[tile]?.block) {
       return false;
     }
 
@@ -132,15 +135,15 @@ export function findPathToClosestReachable(
 
   while (queue.length > 0) {
     const current = queue.shift()!;
-    const currentX = current % MAP_WIDTH;
-    const currentY = Math.floor(current / MAP_WIDTH);
+    const currentX = current % width;
+    const currentY = Math.floor(current / width);
 
     for (const [dx, dy] of directions) {
       const nx = currentX + dx;
       const ny = currentY + dy;
-      if (!inBounds(nx, ny)) continue;
+      if (!inBoundsFor(nx, ny, width, height)) continue;
 
-      const nIdx = idx(nx, ny);
+      const nIdx = idxFor(nx, ny, width);
       if (distance[nIdx] !== -1) continue;
 
       if (!isPassable(nx, ny)) continue;
@@ -156,16 +159,19 @@ export function findPathToClosestReachable(
     }
   }
 
-  const targetIdx = idx(endX, endY);
+  const targetIdx = idxFor(endX, endY, width);
   let destinationIdx = targetIdx;
-  if (distance[targetIdx] === -1 || !passable(map, endX, endY)) {
+  if (
+    distance[targetIdx] === -1 ||
+    !passableFor(map, endX, endY, width, height)
+  ) {
     let bestIdx = -1;
     let bestDist = Number.POSITIVE_INFINITY;
     let bestSteps = Number.POSITIVE_INFINITY;
 
     for (const tileIdx of visitedOrder) {
-      const x = tileIdx % MAP_WIDTH;
-      const y = Math.floor(tileIdx / MAP_WIDTH);
+      const x = tileIdx % width;
+      const y = Math.floor(tileIdx / width);
       const dx = x - endX;
       const dy = y - endY;
       const distSq = dx * dx + dy * dy;
@@ -188,8 +194,8 @@ export function findPathToClosestReachable(
   const path: [number, number][] = [];
   let currentIdx = destinationIdx;
   while (currentIdx !== -1) {
-    const x = currentIdx % MAP_WIDTH;
-    const y = Math.floor(currentIdx / MAP_WIDTH);
+    const x = currentIdx % width;
+    const y = Math.floor(currentIdx / width);
     path.push([x, y]);
     if (currentIdx === startIdx) break;
     currentIdx = cameFrom[currentIdx];

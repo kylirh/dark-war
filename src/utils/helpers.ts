@@ -14,10 +14,29 @@ export function idx(x: number, y: number): number {
 }
 
 /**
+ * Convert 2D coordinates to a 1D map array index for a specific map width.
+ */
+export function idxFor(x: number, y: number, width: number): number {
+  return x + y * width;
+}
+
+/**
  * Check if coordinates are within map bounds
  */
 export function inBounds(x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT;
+}
+
+/**
+ * Check if coordinates are within specific map dimensions.
+ */
+export function inBoundsFor(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): boolean {
+  return x >= 0 && y >= 0 && x < width && y < height;
 }
 
 /**
@@ -26,6 +45,20 @@ export function inBounds(x: number, y: number): boolean {
 export function tileAt(map: TileType[], x: number, y: number): TileType {
   if (!inBounds(x, y)) return TileType.WALL;
   return map[idx(x, y)];
+}
+
+/**
+ * Get tile type at coordinates for a specific map size.
+ */
+export function tileAtFor(
+  map: TileType[],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): TileType {
+  if (!inBoundsFor(x, y, width, height)) return TileType.WALL;
+  return map[idxFor(x, y, width)];
 }
 
 /**
@@ -41,11 +74,39 @@ export function setTile(
 }
 
 /**
+ * Set tile type for a specific map width.
+ */
+export function setTileFor(
+  map: TileType[],
+  x: number,
+  y: number,
+  width: number,
+  tile: TileType,
+): void {
+  map[idxFor(x, y, width)] = tile;
+}
+
+/**
  * Check if tile is passable (not blocked)
  */
 export function passable(map: TileType[], x: number, y: number): boolean {
   if (!inBounds(x, y)) return false;
   const tile = TILE_DEFINITIONS[tileAt(map, x, y)];
+  return tile && !tile.block;
+}
+
+/**
+ * Check if a tile is passable for a specific map size.
+ */
+export function passableFor(
+  map: TileType[],
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): boolean {
+  if (!inBoundsFor(x, y, width, height)) return false;
+  const tile = TILE_DEFINITIONS[tileAtFor(map, x, y, width, height)];
   return tile && !tile.block;
 }
 

@@ -1,12 +1,10 @@
 import {
   FLOOR_MAX_DAMAGE,
   GameState,
-  MAP_HEIGHT,
-  MAP_WIDTH,
   TileType,
   WALL_MAX_DAMAGE,
 } from "../types";
-import { idx, inBounds } from "./helpers";
+import { idxFor, inBoundsFor } from "./helpers";
 
 export function applyWallDamageAtIndex(
   state: GameState,
@@ -14,8 +12,8 @@ export function applyWallDamageAtIndex(
   amount: number,
 ): boolean {
   if (tileIndex < 0 || tileIndex >= state.map.length) return false;
-  const width = MAP_WIDTH;
-  const height = MAP_HEIGHT;
+  const width = state.mapWidth;
+  const height = state.mapHeight;
   const x = tileIndex % width;
   const y = Math.floor(tileIndex / width);
   if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
@@ -68,6 +66,6 @@ export function applyWallDamageAt(
   y: number,
   amount: number,
 ): boolean {
-  if (!inBounds(x, y)) return false;
-  return applyWallDamageAtIndex(state, idx(x, y), amount);
+  if (!inBoundsFor(x, y, state.mapWidth, state.mapHeight)) return false;
+  return applyWallDamageAtIndex(state, idxFor(x, y, state.mapWidth), amount);
 }

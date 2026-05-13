@@ -40,7 +40,7 @@
           aria-label="Zoom"
           title="Zoom"
         >
-          2X
+          1X
         </button>
       </div>
 
@@ -132,7 +132,7 @@
 
       const scaleToggle = document.getElementById("scaleToggle");
       const scales = [1, 2, 3];
-      let currentScaleIndex = 1;
+      let currentScaleIndex = 0;
 
       scaleToggle.addEventListener("click", () => {
         currentScaleIndex = (currentScaleIndex + 1) % scales.length;

@@ -4,7 +4,7 @@ import { Game } from "../src/core/Game";
 import { Physics } from "../src/systems/Physics";
 import { enqueueCommand, SIM_DT_MS, stepSimulationTick } from "../src/systems/Simulation";
 import { Sound } from "../src/systems/Sound";
-import { CommandType, EntityKind, MAP_WIDTH, SLOWMO_SCALE, TIME_SCALE_TRANSITION_SPEED, WeaponType } from "../src/types";
+import { CommandType, EntityKind, SLOWMO_SCALE, TIME_SCALE_TRANSITION_SPEED, WeaponType } from "../src/types";
 
 type IncomingAction =
   | {
@@ -64,7 +64,7 @@ class RoomSession {
     this.id = id;
     this.closeRoom = closeRoom;
     this.game = new Game({ mode: "online" });
-    this.game.reset(1);
+    this.game.reset(0);
     this.placeholderPlayerId = this.game.getState().player.id;
     this.physics = new Physics();
     this.rebuildPhysics();
@@ -282,7 +282,7 @@ class RoomSession {
     const clientIds = Array.from(this.clients.values()).map(
       (client) => client.playerId,
     );
-    this.game.reset(1);
+    this.game.reset(0);
     this.placeholderPlayerId = this.game.getState().player.id;
 
     for (const playerId of clientIds) {
@@ -307,7 +307,7 @@ class RoomSession {
         (entity as any).physicsBody = undefined;
       }
     }
-    this.physics.initializeMap(state.map);
+    this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
     for (const entity of state.entities) {
       this.physics.updateEntityBody(entity as any);
     }
@@ -365,7 +365,7 @@ class RoomSession {
 
     if (state.mapDirty) {
       state.mapDirty = false;
-      this.physics.initializeMap(state.map);
+      this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
     }
 
     // Advance simulation ticks with time scaling (accumulator pattern)
@@ -376,9 +376,9 @@ class RoomSession {
 
       if (state.changedTiles && state.changedTiles.size > 0) {
         for (const tileIndex of state.changedTiles) {
-          const x = tileIndex % MAP_WIDTH;
-          const y = Math.floor(tileIndex / MAP_WIDTH);
-          this.physics.updateTile(x, y, state.map[tileIndex]);
+          const x = tileIndex % state.mapWidth;
+          const y = Math.floor(tileIndex / state.mapWidth);
+          this.physics.updateTile(x, y, state.map[tileIndex], state.mapWidth);
         }
         state.changedTiles.clear();
       }

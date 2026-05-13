@@ -23,6 +23,7 @@ import {
   CELL_CONFIG,
   MAP_WIDTH,
   MAP_HEIGHT,
+  TILE_DEFINITIONS,
 } from "../types";
 import { GameEntity } from "../entities/GameEntity";
 import { PlayerEntity } from "../entities/PlayerEntity";
@@ -30,7 +31,7 @@ import { MonsterEntity } from "../entities/MonsterEntity";
 import { ItemEntity } from "../entities/ItemEntity";
 import { BulletEntity } from "../entities/BulletEntity";
 import { ExplosiveEntity } from "../entities/ExplosiveEntity";
-import { idx, tileAt } from "../utils/helpers";
+import { idxFor, tileAtFor } from "../utils/helpers";
 import { applyWallDamageAtIndex } from "../utils/walls";
 
 import { pushEvent } from "./Simulation";
@@ -63,7 +64,11 @@ export class Physics {
   /**
    * Initialize physics bodies for the current map
    */
-  public initializeMap(map: TileType[]): void {
+  public initializeMap(
+    map: TileType[],
+    width: number = MAP_WIDTH,
+    height: number = MAP_HEIGHT,
+  ): void {
     // Clear existing wall bodies
     for (const body of this.wallBodies.values()) {
       this.system.remove(body);
@@ -71,16 +76,12 @@ export class Physics {
     this.wallBodies.clear();
 
     // Create box colliders for walls and closed doors
-    for (let y = 0; y < MAP_HEIGHT; y++) {
-      for (let x = 0; x < MAP_WIDTH; x++) {
-        const tileIndex = idx(x, y);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const tileIndex = idxFor(x, y, width);
         const tile = map[tileIndex];
 
-        if (
-          tile === TileType.WALL ||
-          tile === TileType.DOOR_CLOSED ||
-          tile === TileType.DOOR_LOCKED
-        ) {
+        if (TILE_DEFINITIONS[tile]?.block) {
           // Position box at tile corner (not center) for proper alignment
           const worldX = x * CELL_CONFIG.w;
           const worldY = y * CELL_CONFIG.h;
@@ -105,8 +106,13 @@ export class Physics {
   /**
    * Update physics body for a single tile (e.g., when door opens/closes)
    */
-  public updateTile(x: number, y: number, tile: TileType): void {
-    const tileIndex = idx(x, y);
+  public updateTile(
+    x: number,
+    y: number,
+    tile: TileType,
+    width: number = MAP_WIDTH,
+  ): void {
+    const tileIndex = idxFor(x, y, width);
 
     // Remove existing wall body if present
     const existingBody = this.wallBodies.get(tileIndex);
@@ -116,11 +122,7 @@ export class Physics {
     }
 
     // Create new wall body if tile should block
-    if (
-      tile === TileType.WALL ||
-      tile === TileType.DOOR_CLOSED ||
-      tile === TileType.DOOR_LOCKED
-    ) {
+    if (TILE_DEFINITIONS[tile]?.block) {
       const worldX = x * CELL_CONFIG.w;
       const worldY = y * CELL_CONFIG.h;
 
@@ -246,8 +248,8 @@ export class Physics {
         : entity.kind === EntityKind.EXPLOSIVE ? EXPLOSIVE_RADIUS
         : 8;
       const minBound = CELL_CONFIG.w + entityRadius;
-      const maxBoundX = (MAP_WIDTH - 1) * CELL_CONFIG.w - entityRadius;
-      const maxBoundY = (MAP_HEIGHT - 1) * CELL_CONFIG.h - entityRadius;
+      const maxBoundX = (state.mapWidth - 1) * CELL_CONFIG.w - entityRadius;
+      const maxBoundY = (state.mapHeight - 1) * CELL_CONFIG.h - entityRadius;
 
       if (entity.worldX < minBound) {
         entity.worldX = minBound;
@@ -872,6 +874,8 @@ export class Physics {
     y1: number,
     x2: number,
     y2: number,
+    width: number = MAP_WIDTH,
+    height: number = MAP_HEIGHT,
   ): boolean {
     // Use grid-based Bresenham for performance (as suggested in plan)
     const gridX1 = Math.floor(x1 / CELL_CONFIG.w);
@@ -891,12 +895,8 @@ export class Physics {
 
     while (true) {
       // Check if current tile blocks sight
-      const tile = tileAt(map, x, y);
-      if (
-        tile === TileType.WALL ||
-        tile === TileType.DOOR_CLOSED ||
-        tile === TileType.DOOR_LOCKED
-      ) {
+      const tile = tileAtFor(map, x, y, width, height);
+      if (TILE_DEFINITIONS[tile]?.opaque) {
         // Don't count start/end tiles as blocking
         if ((x !== gridX1 || y !== gridY1) && (x !== gridX2 || y !== gridY2)) {
           return false;

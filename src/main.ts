@@ -20,7 +20,6 @@ import {
   CommandData,
   CommandType,
   EntityKind,
-  MAP_WIDTH,
   MultiplayerMode,
   REAL_TIME_SPEED,
   SLOWMO_SCALE,
@@ -28,7 +27,7 @@ import {
   TIME_SCALE_TRANSITION_SPEED,
   WeaponType,
 } from "./types";
-import { idx, inBounds } from "./utils/helpers";
+import { idxFor, inBoundsFor } from "./utils/helpers";
 import {
   MultiplayerConfig,
   getMultiplayerConfigFromUrl,
@@ -59,7 +58,7 @@ const DEBUG = false;
 const DOUBLE_CLICK_DELAY_MS = 320;
 
 /** Delay before the initial or reset camera recenter runs. */
-const INITIAL_CAMERA_CENTER_DELAY_MS = 100;
+const INITIAL_CAMERA_CENTER_DELAY_MS = 700;
 
 /** Delay before recentering after a level transition. */
 const LEVEL_TRANSITION_CAMERA_DELAY_MS = 50;
@@ -156,7 +155,8 @@ class DarkWar {
     const tileX = Math.floor((gameX - CELL_CONFIG.padX) / CELL_CONFIG.w);
     const tileY = Math.floor((gameY - CELL_CONFIG.padY) / CELL_CONFIG.h);
 
-    if (!inBounds(tileX, tileY)) {
+    const state = this.game.getState();
+    if (!inBoundsFor(tileX, tileY, state.mapWidth, state.mapHeight)) {
       return;
     }
 
@@ -299,7 +299,7 @@ class DarkWar {
       if (DEBUG) console.time("Load or start game");
       // Skip localStorage on initial load (slow in Electron)
       // User can explicitly load via menu if save exists
-      this.game.reset(1);
+      this.game.reset(0);
       if (DEBUG) console.timeEnd("Load or start game");
     }
 
@@ -485,7 +485,7 @@ class DarkWar {
 
   private reinitializePhysicsForCurrentState(): void {
     const state = this.game.getState();
-    this.physics.initializeMap(state.map);
+    this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
 
     for (const entity of state.entities) {
       if (entity instanceof GameEntity) {
@@ -617,7 +617,7 @@ class DarkWar {
       );
     const shouldPickupOnArrive = wantsPickup && hasItemOnTile;
 
-    const tileIdx = idx(tileX, tileY);
+    const tileIdx = idxFor(tileX, tileY, state.mapWidth);
     const tileType = state.map[tileIdx];
 
     const isHole = tileType === TileType.HOLE;
@@ -679,6 +679,8 @@ class DarkWar {
       state.map,
       state.explored,
       state.entities,
+      state.mapWidth,
+      state.mapHeight,
     );
 
     if (path && path.length > 1) {
@@ -766,7 +768,7 @@ class DarkWar {
     // destroy walls during real-time physics updates
     if (state.mapDirty) {
       state.mapDirty = false;
-      this.physics.initializeMap(state.map);
+      this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
     }
 
     // Advance simulation ticks with time scaling
@@ -780,10 +782,10 @@ class DarkWar {
       // Update physics for any tiles that changed (e.g., doors opening/closing)
       if (state.changedTiles && state.changedTiles.size > 0) {
         for (const tileIndex of state.changedTiles) {
-          const x = tileIndex % MAP_WIDTH;
-          const y = Math.floor(tileIndex / MAP_WIDTH);
+          const x = tileIndex % state.mapWidth;
+          const y = Math.floor(tileIndex / state.mapWidth);
           const tile = state.map[tileIndex];
-          this.physics.updateTile(x, y, tile);
+          this.physics.updateTile(x, y, tile, state.mapWidth);
         }
         state.changedTiles.clear();
       }
@@ -1073,7 +1075,7 @@ class DarkWar {
           holeTarget.gridY === player.gridY
         ) {
           const holeTile =
-            state.map[idx(holeTarget.gridX, holeTarget.gridY)] ===
+            state.map[idxFor(holeTarget.gridX, holeTarget.gridY, state.mapWidth)] ===
             TileType.HOLE;
           if (holeTile) {
             this.queueHoleJump(holeTarget.gridX, holeTarget.gridY);
@@ -1224,7 +1226,7 @@ class DarkWar {
     if (!state.holeCreatedTiles) {
       state.holeCreatedTiles = new Set();
     }
-    state.holeCreatedTiles.add(idx(tileX, tileY));
+    state.holeCreatedTiles.add(idxFor(tileX, tileY, state.mapWidth));
   }
 
   private executeHoleJump(tileX: number, tileY: number): void {
@@ -1456,7 +1458,9 @@ class DarkWar {
     for (const entity of state.entities) {
       if (entity.kind === EntityKind.MONSTER) {
         if (entity.hp <= 0) continue;
-        if (!state.visible.has(idx(entity.gridX, entity.gridY))) continue;
+        if (!state.visible.has(idxFor(entity.gridX, entity.gridY, state.mapWidth))) {
+          continue;
+        }
 
         const dx = entity.worldX - player.worldX;
         const dy = entity.worldY - player.worldY;
@@ -1492,7 +1496,7 @@ class DarkWar {
     }
 
     this.cancelAutoMove();
-    this.game.reset(1);
+    this.game.reset(0);
 
     this.syncGameOverOverlay(false);
     this.reinitializePhysicsForCurrentState();

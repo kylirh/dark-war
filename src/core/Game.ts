@@ -17,15 +17,22 @@ import {
   CELL_CONFIG,
   MultiplayerMode,
   WallSet,
+  LevelKind,
 } from "../types";
 import { generateDungeon } from "./Map";
+import { createOutsideLevel } from "./OutsideLevel";
 import { PlayerEntity } from "../entities/PlayerEntity";
 import { MonsterEntity } from "../entities/MonsterEntity";
 import { ItemEntity } from "../entities/ItemEntity";
 import { ExplosiveEntity } from "../entities/ExplosiveEntity";
 import { BulletEntity } from "../entities/BulletEntity";
 import { RNG } from "../utils/RNG";
-import { dist, passable, setPositionFromGrid, setTile } from "../utils/helpers";
+import {
+  dist,
+  passableFor,
+  setPositionFromGrid,
+  setTile,
+} from "../utils/helpers";
 import { computeFOV, computeFOVFrom } from "../systems/FOV";
 import { GameEntity } from "../entities/GameEntity";
 import { Sound, SoundEffect } from "../systems/Sound";
@@ -35,7 +42,10 @@ const MIN_COMPLETION_REACHABLE_TILES = 50;
 
 interface LevelSnapshot {
   depth: number;
+  levelKind: LevelKind;
   map: TileType[];
+  mapWidth: number;
+  mapHeight: number;
   floorVariant: number;
   wallSet: WallSet;
   wallDamage: number[];
@@ -80,8 +90,11 @@ export class Game {
     ]);
 
     return {
-      depth: 1,
+      depth: 0,
+      levelKind: "outside",
       map: new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL),
+      mapWidth: MAP_WIDTH,
+      mapHeight: MAP_HEIGHT,
       floorVariant: 0,
       wallSet: "concrete",
       wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
@@ -127,11 +140,12 @@ export class Game {
   /**
    * Initialize a new game or level
    */
-  public reset(depth: number = 1): void {
+  public reset(depth: number = 0): void {
     if (DEBUG) console.time("reset: total");
     this.isDead = false;
     this.levels = new Map();
-    const dungeon = generateDungeon();
+    const outside = depth === 0 ? createOutsideLevel() : null;
+    const dungeon = outside ?? generateDungeon();
 
     const player = new PlayerEntity(dungeon.start[0], dungeon.start[1]);
     const localPlayerId = player.id;
@@ -146,10 +160,14 @@ export class Game {
 
     this.state = {
       depth,
+      levelKind: depth === 0 ? "outside" : "dungeon",
       map: dungeon.map,
+      mapWidth: dungeon.width,
+      mapHeight: dungeon.height,
       floorVariant: dungeon.floorVariant,
       wallSet: dungeon.wallSet,
-      wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
+      wallDamage:
+        outside?.wallDamage ?? new Array(dungeon.width * dungeon.height).fill(0),
       mapDirty: false,
       visible: new Set(),
       explored,
@@ -192,8 +210,20 @@ export class Game {
     // Add player to entities
     this.state.entities.push(this.state.player);
 
+    if (outside) {
+      this.state.entities.push(...outside.entities);
+      this.addLog("The city is quiet. Megacorp waits to the northeast.");
+      this.updateFOV();
+      if (DEBUG) console.timeEnd("reset: total");
+      return;
+    }
+
     // Get free tiles once, upfront (optimized for performance)
-    const freeTiles = this.getFreeTilesOptimized(dungeon.map);
+    const freeTiles = this.getFreeTilesOptimized(
+      dungeon.map,
+      dungeon.width,
+      dungeon.height,
+    );
 
     // Spawn monsters
     let ratCount = 0;
@@ -202,7 +232,7 @@ export class Game {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
 
-      if (dist([x, y], dungeon.start) > 8) {
+        if (dist([x, y], dungeon.start) > 8) {
         const roll = RNG.int(10);
         if (roll < 3) {
           this.state.entities.push(
@@ -270,12 +300,7 @@ export class Game {
       }
     };
 
-    if (depth === 1) {
-      spawnItems(1, ItemType.CTDM);
-      spawnItems(3, ItemType.POWERCELL);
-    } else {
-      spawnItems(2 + Math.floor(depth / 4), ItemType.POWERCELL);
-    }
+    spawnItems(2 + Math.floor(depth / 4), ItemType.POWERCELL);
 
     this.addLog(`You descend into level ${depth}.`);
 
@@ -286,11 +311,15 @@ export class Game {
   /**
    * Get all walkable tiles (optimized - doesn't check entities)
    */
-  private getFreeTilesOptimized(map: TileType[]): [number, number][] {
+  private getFreeTilesOptimized(
+    map: TileType[],
+    width: number = this.state.mapWidth,
+    height: number = this.state.mapHeight,
+  ): [number, number][] {
     const tiles: [number, number][] = [];
-    for (let y = 1; y < MAP_HEIGHT - 1; y++) {
-      for (let x = 1; x < MAP_WIDTH - 1; x++) {
-        if (passable(map, x, y)) {
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        if (passableFor(map, x, y, width, height)) {
           tiles.push([x, y]);
         }
       }
@@ -327,11 +356,23 @@ export class Game {
     }
 
     const accessible = this.computeAccessibleTiles(player.gridX, player.gridY);
-    let visible = computeFOV(this.state.map, player, explored);
+    let visible = computeFOV(
+      this.state.map,
+      player,
+      explored,
+      this.state.mapWidth,
+      this.state.mapHeight,
+    );
 
     if (this.checkExplorationCompletion(player, explored)) {
       explored = this.completeLevelExploration(player);
-      visible = computeFOV(this.state.map, player, explored);
+      visible = computeFOV(
+        this.state.map,
+        player,
+        explored,
+        this.state.mapWidth,
+        this.state.mapHeight,
+      );
     }
 
     this.state.visibilityByPlayer.set(playerId, visible);
@@ -465,7 +506,10 @@ export class Game {
     const currentDepth = this.state.depth;
     const snapshot: LevelSnapshot = {
       depth: currentDepth,
+      levelKind: this.state.levelKind,
       map: this.state.map,
+      mapWidth: this.state.mapWidth,
+      mapHeight: this.state.mapHeight,
       floorVariant: this.state.floorVariant,
       wallSet: this.state.wallSet,
       wallDamage: this.state.wallDamage,
@@ -488,6 +532,9 @@ export class Game {
     playerEntry: [number, number],
   ): void {
     this.state.map = snapshot.map;
+    this.state.levelKind = snapshot.levelKind;
+    this.state.mapWidth = snapshot.mapWidth;
+    this.state.mapHeight = snapshot.mapHeight;
     this.state.floorVariant = snapshot.floorVariant;
     this.state.wallSet = snapshot.wallSet;
     this.state.wallDamage = snapshot.wallDamage;
@@ -540,15 +587,24 @@ export class Game {
 
     return {
       depth,
+      levelKind: "dungeon",
       map: dungeon.map,
+      mapWidth: dungeon.width,
+      mapHeight: dungeon.height,
       floorVariant: dungeon.floorVariant,
       wallSet: dungeon.wallSet,
-      wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
+      wallDamage: new Array(dungeon.width * dungeon.height).fill(0),
       explored: new Set(),
       exploredByPlayer: new Map(
         this.state.players.map((player) => [player.id, new Set<number>()]),
       ),
-      entities: this.spawnLevelEntities(dungeon.map, dungeon.start, depth),
+      entities: this.spawnLevelEntities(
+        dungeon.map,
+        dungeon.start,
+        depth,
+        dungeon.width,
+        dungeon.height,
+      ),
       stairsDown: dungeon.stairsDown,
       stairsUp: stairsUpPosition,
       enhancedVision: false,
@@ -559,9 +615,11 @@ export class Game {
     map: TileType[],
     start: [number, number],
     depth: number,
+    width: number = MAP_WIDTH,
+    height: number = MAP_HEIGHT,
   ): Entity[] {
     const entities: Entity[] = [];
-    const freeTiles = this.getFreeTilesOptimized(map);
+    const freeTiles = this.getFreeTilesOptimized(map, width, height);
 
     // Spawn monsters
     const monsterCount = depth === 1 ? 30 : 8 + depth;
@@ -608,12 +666,16 @@ export class Game {
     spawnItems(3, ItemType.KEYCARD);
     spawnItems(4, ItemType.GRENADE);
     spawnItems(3, ItemType.LAND_MINE);
-    if (depth === 1) {
-      spawnItems(1, ItemType.CTDM);
-    }
     spawnItems(2 + Math.floor(depth / 4), ItemType.POWERCELL);
 
-    return entities;
+    return entities.filter(
+      (entity) =>
+        !(
+          depth > 0 &&
+          entity.kind === EntityKind.ITEM &&
+          (entity as Item).type === ItemType.CTDM
+        ),
+    );
   }
 
   /**
@@ -643,14 +705,18 @@ export class Game {
 
     this.applyLevelSnapshot(snapshot, landingPosition);
     this.updateFOV();
-    this.addLog(`You descend into level ${this.state.depth}.`);
+    this.addLog(
+      nextDepth === 1
+        ? "You enter the Megacorp research facility."
+        : `You descend into level ${this.state.depth}.`,
+    );
   }
 
   /**
    * Ascend to previous level (called after tick completes with ascend flag)
    */
   public ascend(): void {
-    if (this.state.depth <= 1) {
+    if (this.state.depth <= 0) {
       return;
     }
 
@@ -666,7 +732,11 @@ export class Game {
 
     this.applyLevelSnapshot(snapshot, snapshot.stairsDown);
     this.updateFOV();
-    this.addLog(`You ascend to level ${this.state.depth}.`);
+    this.addLog(
+      previousDepth === 0
+        ? "You step back out into the abandoned city."
+        : `You ascend to level ${this.state.depth}.`,
+    );
   }
 
   private findNearestPassableTile(
@@ -677,18 +747,20 @@ export class Game {
     if (
       startX >= 0 &&
       startY >= 0 &&
-      startX < MAP_WIDTH &&
-      startY < MAP_HEIGHT &&
-      passable(map, startX, startY)
+      startX < this.state.mapWidth &&
+      startY < this.state.mapHeight &&
+      passableFor(map, startX, startY, this.state.mapWidth, this.state.mapHeight)
     ) {
       return [startX, startY];
     }
 
-    const visited = new Array(MAP_WIDTH * MAP_HEIGHT).fill(false);
+    const width = this.state.mapWidth;
+    const height = this.state.mapHeight;
+    const visited = new Array(width * height).fill(false);
     const queue: [number, number][] = [];
     const enqueue = (x: number, y: number) => {
-      if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return;
-      const index = x + y * MAP_WIDTH;
+      if (x < 0 || y < 0 || x >= width || y >= height) return;
+      const index = x + y * width;
       if (visited[index]) return;
       visited[index] = true;
       queue.push([x, y]);
@@ -698,8 +770,8 @@ export class Game {
 
     while (queue.length > 0) {
       const [x, y] = queue.shift() as [number, number];
-      if (x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT) {
-        if (passable(map, x, y)) {
+      if (x >= 0 && y >= 0 && x < width && y < height) {
+        if (passableFor(map, x, y, width, height)) {
           return [x, y];
         }
       }
@@ -760,7 +832,10 @@ export class Game {
   public serialize(): SerializedState {
     const levels = Array.from(this.levels.values()).map((snapshot) => ({
       depth: snapshot.depth,
+      levelKind: snapshot.levelKind,
       map: snapshot.map,
+      mapWidth: snapshot.mapWidth,
+      mapHeight: snapshot.mapHeight,
       floorVariant: snapshot.floorVariant,
       wallSet: snapshot.wallSet,
       wallDamage: snapshot.wallDamage,
@@ -783,7 +858,10 @@ export class Game {
 
     return {
       depth: this.state.depth,
+      levelKind: this.state.levelKind,
       map: this.state.map,
+      mapWidth: this.state.mapWidth,
+      mapHeight: this.state.mapHeight,
       floorVariant: this.state.floorVariant,
       wallSet: this.state.wallSet,
       wallDamage: this.state.wallDamage,
@@ -821,6 +899,8 @@ export class Game {
     const floorVariant =
       typeof data.floorVariant === "number" ? data.floorVariant : RNG.int(3);
     const wallSet = data.wallSet === "wood" ? "wood" : "concrete";
+    const mapWidth = data.mapWidth ?? (data.depth === 0 ? 128 : MAP_WIDTH);
+    const mapHeight = data.mapHeight ?? (data.depth === 0 ? 72 : MAP_HEIGHT);
     const wallDamage =
       data.wallDamage && data.wallDamage.length === data.map.length
         ? data.wallDamage.slice()
@@ -853,7 +933,10 @@ export class Game {
 
     this.state = {
       depth: data.depth,
+      levelKind: data.levelKind ?? (data.depth === 0 ? "outside" : "dungeon"),
       map: data.map,
+      mapWidth,
+      mapHeight,
       floorVariant,
       wallSet,
       wallDamage,
@@ -900,7 +983,11 @@ export class Game {
     for (const level of data.levels ?? []) {
       this.levels.set(level.depth, {
         depth: level.depth,
+        levelKind:
+          level.levelKind ?? (level.depth === 0 ? "outside" : "dungeon"),
         map: level.map,
+        mapWidth: level.mapWidth ?? (level.depth === 0 ? 128 : MAP_WIDTH),
+        mapHeight: level.mapHeight ?? (level.depth === 0 ? 72 : MAP_HEIGHT),
         floorVariant: level.floorVariant,
         wallSet: level.wallSet === "wood" ? "wood" : "concrete",
         wallDamage: level.wallDamage,
@@ -1095,18 +1182,26 @@ export class Game {
     while (queue.length > 0) {
       const [x, y] = queue.shift() as [number, number];
 
-      if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) {
+      if (x < 0 || y < 0 || x >= this.state.mapWidth || y >= this.state.mapHeight) {
         continue;
       }
 
-      const index = x + y * MAP_WIDTH;
+      const index = x + y * this.state.mapWidth;
       if (visited.has(index)) {
         continue;
       }
       visited.add(index);
       accessible.add(index);
 
-      if (!passable(this.state.map, x, y)) {
+      if (
+        !passableFor(
+          this.state.map,
+          x,
+          y,
+          this.state.mapWidth,
+          this.state.mapHeight,
+        )
+      ) {
         continue;
       }
 
@@ -1162,7 +1257,15 @@ export class Game {
       this.state.exploredByPlayer.get(this.state.multiplayer.localPlayerId) ??
       this.state.explored;
 
-    if (!passable(this.state.map, player.gridX, player.gridY)) {
+    if (
+      !passableFor(
+        this.state.map,
+        player.gridX,
+        player.gridY,
+        this.state.mapWidth,
+        this.state.mapHeight,
+      )
+    ) {
       return;
     }
 
@@ -1196,13 +1299,15 @@ export class Game {
     const completed = new Set<number>();
 
     for (const index of reachable) {
-      const x = index % MAP_WIDTH;
-      const y = Math.floor(index / MAP_WIDTH);
+      const x = index % this.state.mapWidth;
+      const y = Math.floor(index / this.state.mapWidth);
       const visibleFromTile = computeFOVFrom(
         this.state.map,
         x,
         y,
         player.sight,
+        this.state.mapWidth,
+        this.state.mapHeight,
       );
       for (const visibleIndex of visibleFromTile) {
         completed.add(visibleIndex);
@@ -1243,7 +1348,15 @@ export class Game {
     startY: number,
   ): Set<number> {
     const reachable = new Set<number>();
-    if (!passable(this.state.map, startX, startY)) {
+    if (
+      !passableFor(
+        this.state.map,
+        startX,
+        startY,
+        this.state.mapWidth,
+        this.state.mapHeight,
+      )
+    ) {
       return reachable;
     }
 
@@ -1251,11 +1364,21 @@ export class Game {
 
     while (queue.length > 0) {
       const [x, y] = queue.shift() as [number, number];
-      if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) continue;
+      if (x < 0 || y < 0 || x >= this.state.mapWidth || y >= this.state.mapHeight) continue;
 
-      const index = x + y * MAP_WIDTH;
+      const index = x + y * this.state.mapWidth;
       if (reachable.has(index)) continue;
-      if (!passable(this.state.map, x, y)) continue;
+      if (
+        !passableFor(
+          this.state.map,
+          x,
+          y,
+          this.state.mapWidth,
+          this.state.mapHeight,
+        )
+      ) {
+        continue;
+      }
 
       reachable.add(index);
       queue.push([x + 1, y]);
@@ -1271,8 +1394,8 @@ export class Game {
     const visited = new Set<number>();
     const queue: [number, number][] = [];
     const enqueue = (x: number, y: number) => {
-      if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return;
-      const index = x + y * MAP_WIDTH;
+      if (x < 0 || y < 0 || x >= this.state.mapWidth || y >= this.state.mapHeight) return;
+      const index = x + y * this.state.mapWidth;
       if (visited.has(index)) return;
       visited.add(index);
       queue.push([x, y]);
@@ -1281,7 +1404,16 @@ export class Game {
     enqueue(preferred[0], preferred[1]);
     while (queue.length > 0) {
       const [x, y] = queue.shift() as [number, number];
-      if (passable(this.state.map, x, y) && !this.isActorOccupied(x, y)) {
+      if (
+        passableFor(
+          this.state.map,
+          x,
+          y,
+          this.state.mapWidth,
+          this.state.mapHeight,
+        ) &&
+        !this.isActorOccupied(x, y)
+      ) {
         return [x, y];
       }
       enqueue(x + 1, y);

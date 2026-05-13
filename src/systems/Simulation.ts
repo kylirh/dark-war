@@ -16,11 +16,9 @@ import {
   Explosive,
   TILE_DEFINITIONS,
   CELL_CONFIG,
-  MAP_HEIGHT,
-  MAP_WIDTH,
   HOLE_FALL_DAMAGE,
 } from "../types";
-import { idx, tileAt, passable } from "../utils/helpers";
+import { idxFor, tileAtFor, passableFor } from "../utils/helpers";
 import { applyWallDamageAt } from "../utils/walls";
 import { SoundEffect } from "./Sound";
 import { RNG } from "../utils/RNG";
@@ -110,7 +108,9 @@ function isMonsterMoveCandidateClear(
   const nx = monster.gridX + dx;
   const ny = monster.gridY + dy;
 
-  if (!passable(state.map, nx, ny)) return false;
+  if (!passableFor(state.map, nx, ny, state.mapWidth, state.mapHeight)) {
+    return false;
+  }
 
   return !state.entities.some(
     (e) =>
@@ -212,8 +212,17 @@ export function updateMonsterSteering(state: GameState): void {
     const dirX = pixelDistance > 0 ? dx / pixelDistance : 0;
     const dirY = pixelDistance > 0 ? dy / pixelDistance : 0;
 
-    const monsterVision = computeFOVFrom(state.map, monster.gridX, monster.gridY, 15);
-    const canSeePlayer = monsterVision.has(idx(player.gridX, player.gridY));
+    const monsterVision = computeFOVFrom(
+      state.map,
+      monster.gridX,
+      monster.gridY,
+      15,
+      state.mapWidth,
+      state.mapHeight,
+    );
+    const canSeePlayer = monsterVision.has(
+      idxFor(player.gridX, player.gridY, state.mapWidth),
+    );
 
     if (!canSeePlayer) {
       m.alertLevel = Math.max(0, (m.alertLevel ?? 0) - MONSTER_ALERT_DECAY);
@@ -543,7 +552,7 @@ function processHoleFalls(state: GameState): void {
   const players = getAlivePlayers(state);
   if (holeCreated) {
     for (const player of players) {
-      const playerTileIndex = idx(player.gridX, player.gridY);
+      const playerTileIndex = idxFor(player.gridX, player.gridY, state.mapWidth);
       if (holeCreatedTiles?.has(playerTileIndex)) {
         triggerPlayerFall(state, player);
         break;
@@ -556,14 +565,14 @@ function processHoleFalls(state: GameState): void {
   );
 
   for (const monster of monsters) {
-    const monsterTileIndex = idx(monster.gridX, monster.gridY);
+    const monsterTileIndex = idxFor(monster.gridX, monster.gridY, state.mapWidth);
 
     if (holeCreated && holeCreatedTiles?.has(monsterTileIndex)) {
       triggerMonsterFall(state, monster);
       continue;
     }
 
-    const tile = tileAt(state.map, monster.gridX, monster.gridY);
+    const tile = tileAtFor(state.map, monster.gridX, monster.gridY, state.mapWidth, state.mapHeight);
     if (tile !== TileType.HOLE) continue;
 
     const movedOntoHole =
@@ -721,10 +730,14 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
   const ny = actor.gridY + data.dy;
 
   // Check bounds
-  if (nx < 0 || nx >= MAP_WIDTH || ny < 0 || ny >= MAP_HEIGHT) return false;
+  if (nx < 0 || nx >= state.mapWidth || ny < 0 || ny >= state.mapHeight) {
+    return false;
+  }
 
   // Check passability
-  if (!passable(state.map, nx, ny)) return false;
+  if (!passableFor(state.map, nx, ny, state.mapWidth, state.mapHeight)) {
+    return false;
+  }
 
   // Check entity blocking - first try grid-based, then distance-based for continuous movement
   let blocker = state.entities.find(
@@ -833,6 +846,8 @@ function normalizeAngle(angle: number): number {
 
 function hasClearLineOfSight(
   map: TileType[],
+  width: number,
+  height: number,
   startWorldX: number,
   startWorldY: number,
   endWorldX: number,
@@ -853,12 +868,8 @@ function hasClearLineOfSight(
   let y = gridY1;
 
   while (true) {
-    const tile = tileAt(map, x, y);
-    if (
-      tile === TileType.WALL ||
-      tile === TileType.DOOR_CLOSED ||
-      tile === TileType.DOOR_LOCKED
-    ) {
+    const tile = tileAtFor(map, x, y, width, height);
+    if (TILE_DEFINITIONS[tile]?.opaque) {
       if ((x !== gridX1 || y !== gridY1) && (x !== gridX2 || y !== gridY2)) {
         return false;
       }
@@ -991,13 +1002,13 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           const targetX = player.gridX + dx;
           const targetY = player.gridY + dy;
           const hitWall = applyWallDamageAt(state, targetX, targetY, 2);
-          const targetTile = tileAt(state.map, targetX, targetY);
+          const targetTile = tileAtFor(state.map, targetX, targetY, state.mapWidth, state.mapHeight);
           const isPerimeterWall =
             targetTile === TileType.WALL &&
             (targetX <= 0 ||
               targetY <= 0 ||
-              targetX >= MAP_WIDTH - 1 ||
-              targetY >= MAP_HEIGHT - 1);
+              targetX >= state.mapWidth - 1 ||
+              targetY >= state.mapHeight - 1);
           if (hitWall) {
             pushEvent(state, {
               type: EventType.MESSAGE,
@@ -1095,14 +1106,14 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           const targetGridX = Math.max(
             0,
             Math.min(
-              MAP_WIDTH - 1,
+              state.mapWidth - 1,
               Math.floor(data.targetWorldX / CELL_CONFIG.w),
             ),
           );
           const targetGridY = Math.max(
             0,
             Math.min(
-              MAP_HEIGHT - 1,
+              state.mapHeight - 1,
               Math.floor(data.targetWorldY / CELL_CONFIG.h),
             ),
           );
@@ -1132,7 +1143,13 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         const [dx, dy] = directionFromAngle(angle);
         const targetX = player.gridX + dx;
         const targetY = player.gridY + dy;
-        const canPlace = passable(state.map, targetX, targetY);
+        const canPlace = passableFor(
+          state.map,
+          targetX,
+          targetY,
+          state.mapWidth,
+          state.mapHeight,
+        );
         const placeX = canPlace ? targetX : player.gridX;
         const placeY = canPlace ? targetY : player.gridY;
 
@@ -1305,7 +1322,7 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
   if (!actor) return;
 
   const data = cmd.data as { type: "INTERACT"; x: number; y: number };
-  const tile = tileAt(state.map, data.x, data.y);
+  const tile = tileAtFor(state.map, data.x, data.y, state.mapWidth, state.mapHeight);
 
   if (tile === TileType.DOOR_CLOSED || tile === TileType.DOOR_OPEN) {
     // Toggle door open/closed
@@ -1705,7 +1722,7 @@ function applyDamageKnockback(
 
   if (
     data.fromExplosion &&
-    state.holeCreatedTiles?.has(idx(target.gridX, target.gridY))
+    state.holeCreatedTiles?.has(idxFor(target.gridX, target.gridY, state.mapWidth))
   ) {
     return;
   }
@@ -1794,9 +1811,15 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
   }
 
   const minX = Math.max(0, Math.floor(data.x - data.radius) - 1);
-  const maxX = Math.min(MAP_WIDTH - 1, Math.ceil(data.x + data.radius) + 1);
+  const maxX = Math.min(
+    state.mapWidth - 1,
+    Math.ceil(data.x + data.radius) + 1,
+  );
   const minY = Math.max(0, Math.floor(data.y - data.radius) - 1);
-  const maxY = Math.min(MAP_HEIGHT - 1, Math.ceil(data.y + data.radius) + 1);
+  const maxY = Math.min(
+    state.mapHeight - 1,
+    Math.ceil(data.y + data.radius) + 1,
+  );
 
   for (let y = minY; y <= maxY; y++) {
     for (let x = minX; x <= maxX; x++) {
@@ -1923,7 +1946,7 @@ function processMessageEvent(state: GameState, event: GameEvent): void {
 
 function processDoorOpenEvent(state: GameState, event: GameEvent): void {
   const data = event.data as { type: "DOOR_OPEN"; x: number; y: number };
-  const i = idx(data.x, data.y);
+  const i = idxFor(data.x, data.y, state.mapWidth);
   const tile = state.map[i];
 
   if (tile === TileType.DOOR_CLOSED || tile === TileType.DOOR_LOCKED) {
@@ -2161,6 +2184,8 @@ function decideMonsterCommand(
   const playerWorldY = (player as any).worldY;
   const hasGrenadeLOS = hasClearLineOfSight(
     state.map,
+    state.mapWidth,
+    state.mapHeight,
     monsterWorldX,
     monsterWorldY,
     playerWorldX,
@@ -2199,8 +2224,15 @@ function decideMonsterCommand(
     };
   }
 
-  const monsterVision = computeFOVFrom(state.map, monster.gridX, monster.gridY, 15);
-  const playerIndex = idx(player.gridX, player.gridY);
+  const monsterVision = computeFOVFrom(
+    state.map,
+    monster.gridX,
+    monster.gridY,
+    15,
+    state.mapWidth,
+    state.mapHeight,
+  );
+  const playerIndex = idxFor(player.gridX, player.gridY, state.mapWidth);
   const canSeePlayer = monsterVision.has(playerIndex);
 
   if (!canSeePlayer) {
@@ -2235,7 +2267,9 @@ function decideMonsterCommand(
     const nx = monster.gridX + testX;
     const ny = monster.gridY + testY;
 
-    if (!passable(state.map, nx, ny)) return false;
+    if (!passableFor(state.map, nx, ny, state.mapWidth, state.mapHeight)) {
+      return false;
+    }
 
     const blocker = state.entities.find(
       (e) =>

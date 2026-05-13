@@ -6,7 +6,7 @@ import {
   MAP_WIDTH,
   MAP_HEIGHT,
 } from "../types";
-import { tileAt, idx } from "../utils/helpers";
+import { idxFor, tileAtFor } from "../utils/helpers";
 
 /**
  * Compute field of view from any position using rot.js shadowcasting
@@ -17,20 +17,23 @@ export function computeFOVFrom(
   x: number,
   y: number,
   radius: number,
+  width: number = MAP_WIDTH,
+  height: number = MAP_HEIGHT,
 ): Set<number> {
   const visible = new Set<number>();
 
   // Create rot.js FOV instance with shadowcasting
   const fov = new FOV.PreciseShadowcasting((x, y) => {
     // Return true if tile is transparent (light passes through)
-    if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) return false;
-    const tile = TILE_DEFINITIONS[tileAt(map, x, y)];
+    if (x < 0 || y < 0 || x >= width || y >= height) return false;
+    const tile = TILE_DEFINITIONS[tileAtFor(map, x, y, width, height)];
     return tile && !tile.opaque;
   });
 
   // Compute FOV from position
   fov.compute(x, y, radius, (x, y, r, visibility) => {
-    const index = idx(x, y);
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+    const index = idxFor(x, y, width);
     visible.add(index);
   });
 
@@ -46,8 +49,17 @@ export function computeFOV(
   map: TileType[],
   player: Player,
   explored: Set<number>,
+  width: number = MAP_WIDTH,
+  height: number = MAP_HEIGHT,
 ): Set<number> {
-  const visible = computeFOVFrom(map, player.gridX, player.gridY, player.sight);
+  const visible = computeFOVFrom(
+    map,
+    player.gridX,
+    player.gridY,
+    player.sight,
+    width,
+    height,
+  );
 
   // Add all visible tiles to explored
   visible.forEach((index) => explored.add(index));
