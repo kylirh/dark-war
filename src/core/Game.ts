@@ -26,9 +26,12 @@ import { ExplosiveEntity } from "../entities/ExplosiveEntity";
 import { BulletEntity } from "../entities/BulletEntity";
 import { RNG } from "../utils/RNG";
 import { dist, passable, setPositionFromGrid, setTile } from "../utils/helpers";
-import { computeFOV } from "../systems/FOV";
+import { computeFOV, computeFOVFrom } from "../systems/FOV";
 import { GameEntity } from "../entities/GameEntity";
 import { Sound, SoundEffect } from "../systems/Sound";
+
+const EXPLORATION_COMPLETION_THRESHOLD = 0.9;
+const MIN_COMPLETION_REACHABLE_TILES = 50;
 
 interface LevelSnapshot {
   depth: number;
@@ -95,7 +98,7 @@ export class Game {
       stairsDown: [0, 0],
       stairsUp: null,
       log: [],
-      options: { fov: true },
+      options: { fov: true, godMode: false },
       effects: [],
       multiplayer: {
         mode: this.multiplayerMode,
@@ -160,7 +163,7 @@ export class Game {
       stairsDown: dungeon.stairsDown,
       stairsUp: null,
       log: [],
-      options: { fov: true },
+      options: { fov: true, godMode: false },
       effects: [],
       multiplayer: {
         mode: this.multiplayerMode,
@@ -324,15 +327,11 @@ export class Game {
     }
 
     const accessible = this.computeAccessibleTiles(player.gridX, player.gridY);
-    let visible: Set<number>;
+    let visible = computeFOV(this.state.map, player, explored);
 
-    if (this.state.enhancedVision) {
-      visible = new Set(accessible);
-    } else {
+    if (this.checkExplorationCompletion(player, explored)) {
+      explored = this.completeLevelExploration(player);
       visible = computeFOV(this.state.map, player, explored);
-      if (this.checkExplorationCompletion(accessible, explored)) {
-        visible = new Set(accessible);
-      }
     }
 
     this.state.visibilityByPlayer.set(playerId, visible);
@@ -434,10 +433,21 @@ export class Game {
    * Toggle FOV option
    */
   public toggleFOV(): void {
-    if (this.state.enhancedVision) return;
     this.state.options.fov = !this.state.options.fov;
     // When toggling, recompute FOV to update visibility
     this.updateFOV();
+  }
+
+  /**
+   * Toggle God Mode for debugging.
+   */
+  public toggleGodMode(): void {
+    this.state.options.godMode = !this.state.options.godMode;
+    this.addLog(
+      this.state.options.godMode
+        ? "God Mode enabled."
+        : "God Mode disabled.",
+    );
   }
 
   /**
@@ -511,6 +521,7 @@ export class Game {
       ...snapshot.entities.map((entity) => entity),
     ];
     this.syncLocalExploredState();
+    this.normalizeCurrentCompletedExploration();
   }
 
   private buildNewLevel(depth: number): LevelSnapshot {
@@ -721,6 +732,10 @@ export class Game {
    * Returns true if player just died this check (for UI layer to handle)
    */
   public updateDeathStatus(): boolean {
+    if (this.state.options.godMode) {
+      return false;
+    }
+
     if (this.state.player.hp <= 0 && !this.isDead) {
       this.isDead = true;
 
@@ -783,6 +798,7 @@ export class Game {
         .map((entity) => this.stripRuntimeEntityState(entity)),
       explored: Array.from(this.state.explored),
       enhancedVision: this.state.enhancedVision,
+      godMode: this.state.options.godMode,
       exploredByPlayer,
       log: this.state.log.slice(0, 50),
       levels,
@@ -855,7 +871,7 @@ export class Game {
       players,
       player,
       log: data.log || [],
-      options: { fov: true },
+      options: { fov: true, godMode: data.godMode ?? false },
       effects: data.effects || [],
       multiplayer: {
         mode: data.multiplayer?.mode ?? this.multiplayerMode,
@@ -900,6 +916,7 @@ export class Game {
     }
 
     this.isDead = false;
+    this.normalizeCurrentCompletedExploration();
     this.updateFOV();
   }
 
@@ -1103,24 +1120,31 @@ export class Game {
   }
 
   private checkExplorationCompletion(
-    accessible: Set<number>,
+    player: Player,
     explored: Set<number>,
   ): boolean {
     if (this.state.enhancedVision) {
       return false;
     }
 
-    const accessibleCount = accessible.size;
-    if (accessibleCount === 0) return false;
+    const reachable = this.computeReachablePassableTiles(
+      player.gridX,
+      player.gridY,
+    );
+    const reachableCount = reachable.size;
+    if (reachableCount < MIN_COMPLETION_REACHABLE_TILES) return false;
 
     let exploredAccessibleCount = 0;
-    for (const index of accessible) {
+    for (const index of reachable) {
       if (explored.has(index)) {
         exploredAccessibleCount += 1;
       }
     }
 
-    if (exploredAccessibleCount / accessibleCount < 0.9) {
+    if (
+      exploredAccessibleCount / reachableCount <
+      EXPLORATION_COMPLETION_THRESHOLD
+    ) {
       return false;
     }
 
@@ -1128,6 +1152,119 @@ export class Game {
     this.addLog("Level successfully explored!");
     Sound.play(SoundEffect.LEVEL_EXPLORED);
     return true;
+  }
+
+  private normalizeCurrentCompletedExploration(): void {
+    if (!this.state.enhancedVision) return;
+
+    const player = this.state.player;
+    const explored =
+      this.state.exploredByPlayer.get(this.state.multiplayer.localPlayerId) ??
+      this.state.explored;
+
+    if (!passable(this.state.map, player.gridX, player.gridY)) {
+      return;
+    }
+
+    const reachable = this.computeReachablePassableTiles(
+      player.gridX,
+      player.gridY,
+    );
+    if (reachable.size === 0) return;
+
+    const completed = this.computeCompletedExploration(player, reachable);
+    if (this.includesAllExploredTiles(explored, completed)) {
+      return;
+    }
+
+    this.applyCompletedExploration(completed);
+  }
+
+  private completeLevelExploration(player: Player): Set<number> {
+    const reachable = this.computeReachablePassableTiles(
+      player.gridX,
+      player.gridY,
+    );
+    const completed = this.computeCompletedExploration(player, reachable);
+    return this.applyCompletedExploration(completed);
+  }
+
+  private computeCompletedExploration(
+    player: Player,
+    reachable: Set<number>,
+  ): Set<number> {
+    const completed = new Set<number>();
+
+    for (const index of reachable) {
+      const x = index % MAP_WIDTH;
+      const y = Math.floor(index / MAP_WIDTH);
+      const visibleFromTile = computeFOVFrom(
+        this.state.map,
+        x,
+        y,
+        player.sight,
+      );
+      for (const visibleIndex of visibleFromTile) {
+        completed.add(visibleIndex);
+      }
+    }
+
+    return completed;
+  }
+
+  private applyCompletedExploration(completed: Set<number>): Set<number> {
+    for (const player of this.state.players) {
+      this.state.exploredByPlayer.set(player.id, new Set(completed));
+    }
+
+    const localPlayerId = this.state.multiplayer.localPlayerId;
+    let localExplored = this.state.exploredByPlayer.get(localPlayerId);
+    if (!localExplored) {
+      localExplored = new Set(completed);
+      this.state.exploredByPlayer.set(localPlayerId, localExplored);
+    }
+    this.state.explored = localExplored;
+
+    return localExplored;
+  }
+
+  private includesAllExploredTiles(
+    explored: Set<number>,
+    completed: Set<number>,
+  ): boolean {
+    for (const index of completed) {
+      if (!explored.has(index)) return false;
+    }
+    return true;
+  }
+
+  private computeReachablePassableTiles(
+    startX: number,
+    startY: number,
+  ): Set<number> {
+    const reachable = new Set<number>();
+    if (!passable(this.state.map, startX, startY)) {
+      return reachable;
+    }
+
+    const queue: Array<[number, number]> = [[startX, startY]];
+
+    while (queue.length > 0) {
+      const [x, y] = queue.shift() as [number, number];
+      if (x < 0 || y < 0 || x >= MAP_WIDTH || y >= MAP_HEIGHT) continue;
+
+      const index = x + y * MAP_WIDTH;
+      if (reachable.has(index)) continue;
+      if (!passable(this.state.map, x, y)) continue;
+
+      reachable.add(index);
+      queue.push([x + 1, y]);
+      queue.push([x - 1, y]);
+      queue.push([x, y + 1]);
+      queue.push([x, y - 1]);
+    }
+
+    return reachable;
   }
 
   private findSpawnTile(preferred: [number, number]): [number, number] {

@@ -267,6 +267,7 @@ class DarkWar {
       onReload: () => this.handleReload(),
       onToggleFOV: () => this.handleToggleFOV(),
       onToggleCTDM: () => this.handleToggleCTDM(),
+      onToggleGodMode: () => this.handleToggleGodMode(),
       onResumePause: (reason) => this.game.resumeFromPause(reason),
       onNewGame: () => this.handleNewGame(),
       onSave: () => this.handleSave(),
@@ -914,6 +915,7 @@ class DarkWar {
       state.log,
       state.sim,
       this.currentThreatLevel,
+      state.options.godMode,
     );
 
     const hasVelocity =
@@ -1413,6 +1415,18 @@ class DarkWar {
    */
   private handleToggleFOV(): void {
     this.game.toggleFOV();
+  }
+
+  /**
+   * Handle God Mode toggle
+   */
+  private handleToggleGodMode(): void {
+    if (this.isOnlineMode()) {
+      this.dispatchOnlineAction({ type: "TOGGLE_GOD_MODE" });
+      return;
+    }
+
+    this.game.toggleGodMode();
   }
 
   /**

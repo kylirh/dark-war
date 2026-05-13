@@ -14,7 +14,8 @@ export type NetworkAction =
   | { type: "RELOAD" }
   | { type: "WAIT" }
   | { type: "DESCEND" }
-  | { type: "ASCEND" };
+  | { type: "ASCEND" }
+  | { type: "TOGGLE_GOD_MODE" };
 
 type ServerMessage =
   | { type: "welcome"; playerId: string; roomId: string }

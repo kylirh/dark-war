@@ -334,6 +334,7 @@ export interface GameState {
   log: string[];
   options: {
     fov: boolean;
+    godMode: boolean;
   };
   effects: Effect[];
   multiplayer: MultiplayerState;
@@ -366,6 +367,7 @@ export interface SerializedState {
   entities: Entity[];
   explored: number[];
   enhancedVision?: boolean;
+  godMode?: boolean;
   exploredByPlayer?: Record<string, number[]>;
   log: string[];
   levels?: SerializedLevelState[];

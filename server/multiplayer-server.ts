@@ -20,7 +20,8 @@ type IncomingAction =
   | { type: "RELOAD" }
   | { type: "WAIT" }
   | { type: "DESCEND" }
-  | { type: "ASCEND" };
+  | { type: "ASCEND" }
+  | { type: "TOGGLE_GOD_MODE" };
 
 type IncomingMessage =
   | { type: "velocity"; vx: number; vy: number }
@@ -224,8 +225,16 @@ class RoomSession {
       return;
     }
 
+    if (action.type === "TOGGLE_GOD_MODE") {
+      this.game.toggleGodMode();
+      return;
+    }
+
     const commandTypeByAction: Record<
-      Exclude<IncomingAction["type"], "FIRE" | "INTERACT">,
+      Exclude<
+        IncomingAction["type"],
+        "FIRE" | "INTERACT" | "TOGGLE_GOD_MODE"
+      >,
       CommandType
     > = {
       WAIT: CommandType.WAIT,

@@ -17,6 +17,7 @@ export interface InputCallbacks {
   onReload: () => void;
   onToggleFOV: () => void;
   onToggleCTDM: () => void;
+  onToggleGodMode: () => void;
   onResumePause: (reason: string) => void;
   onNewGame: () => void;
   onSave: () => void;
@@ -134,6 +135,13 @@ export class InputHandler {
     if (key === "g") {
       e.preventDefault();
       this.callbacks.onPickup();
+      return;
+    }
+
+    // Toggle God Mode
+    if (key === "m") {
+      e.preventDefault();
+      this.callbacks.onToggleGodMode();
       return;
     }
 

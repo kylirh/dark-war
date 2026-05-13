@@ -1597,6 +1597,10 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
   const target = state.entities.find((e) => e.id === data.targetId);
   if (!target) return;
 
+  if (target.kind === EntityKind.PLAYER && state.options.godMode) {
+    return;
+  }
+
   // Hit flash for visual feedback (monster and player)
   if (target.kind === EntityKind.MONSTER || target.kind === EntityKind.PLAYER) {
     state.effects.push({

@@ -78,8 +78,12 @@ export class UI {
   /**
    * Update inventory display
    */
-  public updateInventory(player: Player): void {
+  public updateInventory(player: Player, godMode: boolean): void {
     const items: string[] = [];
+
+    if (godMode) {
+      items.push("God Mode");
+    }
 
     switch (player.weapon) {
       case WeaponType.MELEE:
@@ -140,9 +144,10 @@ export class UI {
     log: string[],
     sim: SimulationState,
     threatLevel: number,
+    godMode: boolean,
   ): void {
     this.updateStats(player, depth);
-    this.updateInventory(player);
+    this.updateInventory(player, godMode);
     this.updateLog(log);
     this.updateCTDM(player, threatLevel);
   }

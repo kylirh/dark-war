@@ -305,7 +305,6 @@ export class Renderer {
       map,
       visible,
       explored,
-      accessible,
       enhancedVision,
       entities,
       player,
@@ -313,7 +312,7 @@ export class Renderer {
       effects,
     } = state;
     const nowMs = this.getNowMs();
-    const usingShadowFov = options.fov && !enhancedVision;
+    const usingShadowFov = options.fov;
 
     // Screen shake — triggered by new explosion effects (ageTicks=0 = fresh this sim tick)
     const hasNewExplosion = effects.some(
@@ -358,16 +357,12 @@ export class Renderer {
     for (let y = 0; y < MAP_HEIGHT; y++) {
       for (let x = 0; x < MAP_WIDTH; x++) {
         const tileIndex = idx(x, y);
-        const isRevealed = usingShadowFov
-          ? explored.has(tileIndex)
-          : enhancedVision
-            ? accessible.has(tileIndex)
-            : true;
+        const isRevealed = usingShadowFov ? explored.has(tileIndex) : true;
         const isVisible = usingShadowFov
-          ? visible.has(tileIndex)
-          : enhancedVision
-            ? accessible.has(tileIndex)
-            : true;
+          ? enhancedVision
+            ? explored.has(tileIndex)
+            : visible.has(tileIndex)
+          : true;
         const tileType = map[tileIndex];
 
         if (!isRevealed) continue;
@@ -483,10 +478,10 @@ export class Renderer {
 
       const tileIndex = idx(entity.gridX, entity.gridY);
       const shouldRenderEntity = usingShadowFov
-        ? visible.has(tileIndex)
-        : enhancedVision
-          ? explored.has(tileIndex) || accessible.has(tileIndex)
-          : true;
+        ? enhancedVision
+          ? explored.has(tileIndex)
+          : visible.has(tileIndex)
+        : true;
       if (!shouldRenderEntity) continue;
 
       // Use current world position (no interpolation for instant movement)
