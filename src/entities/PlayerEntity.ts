@@ -29,6 +29,18 @@ export class PlayerEntity extends GameEntity {
   /** Number of land mines carried */
   public landMines: number;
 
+  /** Whether the player has found and installed the CTDM device */
+  public hasCTDM: boolean;
+
+  /** Whether CTDM is currently active (can be toggled by player) */
+  public ctdmEnabled: boolean;
+
+  /** Current CTDM charge (0–ctdmChargeMax) */
+  public ctdmCharge: number;
+
+  /** Maximum CTDM charge */
+  public ctdmChargeMax: number;
+
   /** Player score (accumulated through gameplay) */
   public score: number;
 
@@ -48,6 +60,10 @@ export class PlayerEntity extends GameEntity {
     this.hpMax = 20;
     this.keys = 0;
     this.landMines = 1;
+    this.hasCTDM = false;
+    this.ctdmEnabled = false;
+    this.ctdmCharge = 0;
+    this.ctdmChargeMax = 100;
     this.nextActTick = 0;
     this.score = 0;
     this.sight = 9;

@@ -17,6 +17,7 @@ export interface InputCallbacks {
   onReload: () => void;
   onToggleFOV: () => void;
   onToggleRealTime: () => void;
+  onToggleCTDM: () => void;
   onResumePause: (reason: string) => void;
   onNewGame: () => void;
   onSave: () => void;
@@ -155,6 +156,13 @@ export class InputHandler {
     if (key === "enter") {
       e.preventDefault();
       this.callbacks.onToggleRealTime();
+      return;
+    }
+
+    // Toggle CTDM on/off (C)
+    if (key === "c") {
+      e.preventDefault();
+      this.callbacks.onToggleCTDM();
       return;
     }
   }

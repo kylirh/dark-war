@@ -258,6 +258,22 @@ export class Game {
       freeTiles.splice(tileIndex, 1);
     }
 
+    const spawnItems = (count: number, type: ItemType): void => {
+      for (let i = 0; i < count && freeTiles.length > 0; i++) {
+        const tileIndex = RNG.int(freeTiles.length);
+        const [x, y] = freeTiles[tileIndex];
+        this.state.entities.push(new ItemEntity(x, y, type));
+        freeTiles.splice(tileIndex, 1);
+      }
+    };
+
+    if (depth === 1) {
+      spawnItems(1, ItemType.CTDM);
+      spawnItems(3, ItemType.POWERCELL);
+    } else {
+      spawnItems(2 + Math.floor(depth / 4), ItemType.POWERCELL);
+    }
+
     this.addLog(`You descend into level ${depth}.`);
 
     this.updateFOV();
@@ -581,6 +597,10 @@ export class Game {
     spawnItems(3, ItemType.KEYCARD);
     spawnItems(4, ItemType.GRENADE);
     spawnItems(3, ItemType.LAND_MINE);
+    if (depth === 1) {
+      spawnItems(1, ItemType.CTDM);
+    }
+    spawnItems(2 + Math.floor(depth / 4), ItemType.POWERCELL);
 
     return entities;
   }

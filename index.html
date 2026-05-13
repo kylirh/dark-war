@@ -63,6 +63,19 @@
             <div class="hp-bar" id="hpbar" style="--hp-width: 100%">
               <span class="hp-bar-fill"></span>
             </div>
+            <div id="ctdm-section" style="display: none">
+              <div class="stat-row ctdm-stat">
+                <span class="stat-label">CTDM</span>
+                <span class="stat-value" id="ctdm-status">ON</span>
+              </div>
+              <div
+                class="ctdm-bar"
+                id="ctdmbar"
+                style="--ctdm-width: 100%; --ctdm-threat: 0"
+              >
+                <span class="ctdm-bar-fill"></span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -89,6 +102,7 @@
           <br />
           <strong>Time Controls</strong><br />
           Toggle Real-Time: <kbd>Enter</kbd><br />
+          Toggle CTDM: <kbd>C</kbd><br />
         </section>
       </aside>
       <button

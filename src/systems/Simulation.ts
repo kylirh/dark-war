@@ -1907,6 +1907,40 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
         cause: event.id,
       });
       break;
+    case ItemType.CTDM:
+      player.hasCTDM = true;
+      player.ctdmEnabled = true;
+      if (player.ctdmCharge <= 0) {
+        player.ctdmCharge = Math.floor(player.ctdmChargeMax * 0.5);
+      }
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: {
+          type: "MESSAGE",
+          message: "CTDM installed. Danger now triggers time dilation.",
+        },
+        cause: event.id,
+      });
+      break;
+    case ItemType.POWERCELL: {
+      const recharge = item.amount ?? 25;
+      player.ctdmCharge = Math.min(
+        player.ctdmChargeMax,
+        player.ctdmCharge + recharge,
+      );
+      if (!player.ctdmEnabled && player.ctdmCharge > 0 && player.hasCTDM) {
+        player.ctdmEnabled = true;
+      }
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: {
+          type: "MESSAGE",
+          message: `Powercell absorbed. CTDM +${recharge} charge.`,
+        },
+        cause: event.id,
+      });
+      break;
+    }
   }
 
   // Remove item

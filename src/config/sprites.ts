@@ -83,6 +83,8 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [ItemType.KEYCARD]: { x: 3, y: 3 },
   [ItemType.GRENADE]: { x: 4, y: 3 },
   [ItemType.LAND_MINE]: { x: 5, y: 3 },
+  [ItemType.CTDM]: { x: 7, y: 3 },
+  [ItemType.POWERCELL]: { x: 8, y: 3 },
   land_mine_active: { x: 6, y: 3 },
 };
 

@@ -73,6 +73,12 @@ const SCROLL_WHEEL_DELTA_THRESHOLD = 50; // Minimum accumulated deltaY to trigge
 /** The delay between allowed scroll wheel changes. Tunes the scroll wheel's sensitivity. */
 const SCROLL_WHEEL_THROTTLE_MS = 200; //
 
+// CTDM time dilation constants
+const CTDM_IDLE_SCALE = 0.35; // Timescale when CTDM is active but no threat detected
+const CTDM_DRAIN_MAX = 8.0; // Max charge/sec drained at threat=1.0
+const CTDM_RECHARGE_RATE = 3.0; // Charge/sec when moving or stationary with no threat
+const CTDM_REENABLE_THRESHOLD = 20; // Auto-re-enable CTDM when charge crosses this from zero
+
 // Global reference to save system
 declare global {
   interface Window {
@@ -110,6 +116,7 @@ class DarkWar {
     direction: "up" | "down";
   } | null = null;
   private realTimeToggled: boolean = false; // Track if Enter key toggled real-time mode
+  private currentThreatLevel: number = 0; // Last computed CTDM threat (0–1), shared between update/render
   private wasPlayerMoving: boolean = false;
   private lastPlayerWorldX?: number;
   private lastPlayerWorldY?: number;
@@ -258,6 +265,7 @@ class DarkWar {
       onReload: () => this.handleReload(),
       onToggleFOV: () => this.handleToggleFOV(),
       onToggleRealTime: () => this.handleToggleRealTime(),
+      onToggleCTDM: () => this.handleToggleCTDM(),
       onResumePause: (reason) => this.game.resumeFromPause(reason),
       onNewGame: () => this.handleNewGame(),
       onSave: () => this.handleSave(),
@@ -814,18 +822,73 @@ class DarkWar {
     const playerMoving =
       Math.abs(player.velocityX) > 0.1 || Math.abs(player.velocityY) > 0.1;
 
-    // Update target time scale based on player movement
+    // Compute CTDM threat level when the device is active
+    this.currentThreatLevel =
+      player.hasCTDM && player.ctdmEnabled
+        ? this.computeThreatLevel(state)
+        : 0;
+
+    // Update target time scale based on CTDM status and threat
     if (isDead) {
       state.sim.targetTimeScale = 1.0;
-    }
+    } else if (playerMoving || this.playerActedThisTick || this.realTimeToggled) {
+      // Moving or acted: always real-time; recharge CTDM
+      state.sim.targetTimeScale = 1.0;
+      if (player.hasCTDM) {
+        const prevCharge = player.ctdmCharge;
+        player.ctdmCharge = Math.min(
+          player.ctdmChargeMax,
+          player.ctdmCharge + CTDM_RECHARGE_RATE * dt,
+        );
+        if (
+          !player.ctdmEnabled &&
+          prevCharge < CTDM_REENABLE_THRESHOLD &&
+          player.ctdmCharge >= CTDM_REENABLE_THRESHOLD
+        ) {
+          player.ctdmEnabled = true;
+          state.log.unshift("CTDM recharged.");
+        }
+      }
+    } else if (player.hasCTDM && player.ctdmEnabled && player.ctdmCharge > 0) {
+      // CTDM active and stationary: threat-based time dilation
+      const threat = this.currentThreatLevel;
+      state.sim.targetTimeScale =
+        SLOWMO_SCALE + (1 - threat) * (CTDM_IDLE_SCALE - SLOWMO_SCALE);
 
-    // Only enter slow-mo if player is not auto-moving
-    if (
-      !playerMoving &&
-      !this.playerActedThisTick &&
-      !isDead &&
-      !this.autoMovePath
-    ) {
+      if (threat > 0.05) {
+        // Drain proportional to threat level
+        player.ctdmCharge = Math.max(
+          0,
+          player.ctdmCharge - threat * CTDM_DRAIN_MAX * dt,
+        );
+        if (player.ctdmCharge <= 0) {
+          player.ctdmEnabled = false;
+          state.log.unshift("CTDM battery depleted.");
+        }
+      } else {
+        // No threat: slow recharge while stationary
+        player.ctdmCharge = Math.min(
+          player.ctdmChargeMax,
+          player.ctdmCharge + CTDM_RECHARGE_RATE * 0.5 * dt,
+        );
+      }
+    } else if (player.hasCTDM && !player.ctdmEnabled) {
+      // CTDM disabled (depleted or manually off): real-time, recharge
+      state.sim.targetTimeScale = 1.0;
+      const prevCharge = player.ctdmCharge;
+      player.ctdmCharge = Math.min(
+        player.ctdmChargeMax,
+        player.ctdmCharge + CTDM_RECHARGE_RATE * dt,
+      );
+      if (
+        prevCharge < CTDM_REENABLE_THRESHOLD &&
+        player.ctdmCharge >= CTDM_REENABLE_THRESHOLD
+      ) {
+        player.ctdmEnabled = true;
+        state.log.unshift("CTDM recharged.");
+      }
+    } else {
+      // No CTDM: classic stationary = slow-mo (preserves early game feel)
       state.sim.targetTimeScale = SLOWMO_SCALE;
     }
 
@@ -844,7 +907,13 @@ class DarkWar {
     const player = state.player;
 
     this.renderer.render(state, isDead, alpha);
-    this.ui.updateAll(state.player, state.depth, state.log, state.sim);
+    this.ui.updateAll(
+      state.player,
+      state.depth,
+      state.log,
+      state.sim,
+      this.currentThreatLevel,
+    );
 
     const hasVelocity =
       Math.abs(player.velocityX) > 0.05 || Math.abs(player.velocityY) > 0.05;
@@ -940,8 +1009,6 @@ class DarkWar {
     const player = state.player;
     player.velocityX = 0;
     player.velocityY = 0;
-    // Return to slow-mo when auto-move is interrupted
-    state.sim.targetTimeScale = SLOWMO_SCALE;
   }
 
   private updateAutoMove(state: ReturnType<Game["getState"]>): void {
@@ -1024,8 +1091,9 @@ class DarkWar {
           }
         }
 
-        // Return to slow-mo when auto-move completes
-        state.sim.targetTimeScale = queuedHoleJump ? 1.0 : SLOWMO_SCALE;
+        if (queuedHoleJump) {
+          state.sim.targetTimeScale = 1.0;
+        }
       }
       return;
     }
@@ -1354,8 +1422,62 @@ class DarkWar {
       return;
     }
     this.realTimeToggled = !this.realTimeToggled;
+    if (this.realTimeToggled) {
+      const state = this.game.getState();
+      state.sim.targetTimeScale = 1.0;
+    }
+    // When disabling: the next update() call sets the correct CTDM-aware target
+  }
+
+  /**
+   * Toggle the CTDM device on/off (C key)
+   */
+  private handleToggleCTDM(): void {
+    if (this.isOnlineMode()) return;
     const state = this.game.getState();
-    state.sim.targetTimeScale = this.realTimeToggled ? 1.0 : SLOWMO_SCALE;
+    const player = state.player;
+    if (!player.hasCTDM) return;
+    player.ctdmEnabled = !player.ctdmEnabled;
+    const statusMsg = player.ctdmEnabled ? "CTDM enabled." : "CTDM disabled.";
+    state.log.unshift(statusMsg);
+  }
+
+  /**
+   * Compute a 0–1 threat level from visible monsters and incoming bullets.
+   * Higher values produce stronger time dilation when the player is stationary.
+   */
+  private computeThreatLevel(state: ReturnType<Game["getState"]>): number {
+    const player = state.player;
+    const sightPx = player.sight * CELL_CONFIG.w;
+    const sightPxSq = sightPx * sightPx;
+    const bulletDangerSq = (CELL_CONFIG.w * 5) * (CELL_CONFIG.w * 5);
+    let maxThreat = 0;
+
+    for (const entity of state.entities) {
+      if (entity.kind === EntityKind.MONSTER) {
+        if (entity.hp <= 0) continue;
+        if (!state.visible.has(idx(entity.gridX, entity.gridY))) continue;
+
+        const dx = entity.worldX - player.worldX;
+        const dy = entity.worldY - player.worldY;
+        const distSq = dx * dx + dy * dy;
+        if (distSq > sightPxSq) continue;
+
+        const proximity = 1 - Math.sqrt(distSq) / sightPx;
+        const alerted = (entity.alertLevel ?? 0) > 10;
+        const threat = proximity * (alerted ? 1.0 : 0.5);
+        if (threat > maxThreat) maxThreat = threat;
+      } else if (entity.kind === EntityKind.BULLET) {
+        if (entity.ownerId === player.id) continue;
+        const dx = entity.worldX - player.worldX;
+        const dy = entity.worldY - player.worldY;
+        if (dx * dx + dy * dy < bulletDangerSq) {
+          maxThreat = Math.max(maxThreat, 0.95);
+        }
+      }
+    }
+
+    return Math.min(1, maxThreat);
   }
 
   /**

@@ -11,6 +11,9 @@ export class UI {
   private scoreElement: HTMLElement;
   private gameOverScoreElement: HTMLElement;
   private inventoryElement: HTMLElement;
+  private ctdmSectionElement: HTMLElement;
+  private ctdmStatusElement: HTMLElement;
+  private ctdmBarElement: HTMLElement;
 
   constructor() {
     this.logElement = this.getElement("log");
@@ -20,6 +23,9 @@ export class UI {
     this.scoreElement = this.getElement("score");
     this.gameOverScoreElement = this.getElement("game-over-score");
     this.inventoryElement = this.getElement("inventory");
+    this.ctdmSectionElement = this.getElement("ctdm-section");
+    this.ctdmStatusElement = this.getElement("ctdm-status");
+    this.ctdmBarElement = this.getElement("ctdmbar");
   }
 
   private getElement(id: string): HTMLElement {
@@ -39,9 +45,34 @@ export class UI {
     this.scoreElement.textContent = String(player.score);
     this.gameOverScoreElement.textContent = `Score: ${player.score}`;
 
-    // Update HP bar
     const hpPercent = Math.max(0, Math.min(1, player.hp / player.hpMax));
     this.hpBarElement.style.setProperty("--hp-width", `${hpPercent * 100}%`);
+  }
+
+  /**
+   * Update CTDM power meter display
+   */
+  public updateCTDM(player: Player, threatLevel: number): void {
+    if (!player.hasCTDM) {
+      this.ctdmSectionElement.style.display = "none";
+      return;
+    }
+
+    this.ctdmSectionElement.style.display = "";
+    this.ctdmStatusElement.textContent = player.ctdmEnabled ? "ON" : "OFF";
+
+    const chargePercent = Math.max(
+      0,
+      Math.min(1, player.ctdmCharge / player.ctdmChargeMax),
+    );
+    this.ctdmBarElement.style.setProperty(
+      "--ctdm-width",
+      `${chargePercent * 100}%`,
+    );
+    this.ctdmBarElement.style.setProperty(
+      "--ctdm-threat",
+      String(threatLevel.toFixed(2)),
+    );
   }
 
   /**
@@ -108,9 +139,11 @@ export class UI {
     depth: number,
     log: string[],
     sim: SimulationState,
+    threatLevel: number,
   ): void {
     this.updateStats(player, depth);
     this.updateInventory(player);
     this.updateLog(log);
+    this.updateCTDM(player, threatLevel);
   }
 }

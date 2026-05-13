@@ -24,6 +24,12 @@ const ITEM_META = {
   [ItemType.LAND_MINE]: {
     name: "Land Mine",
   },
+  [ItemType.CTDM]: {
+    name: "CTDM Module",
+  },
+  [ItemType.POWERCELL]: {
+    name: "Powercell",
+  },
 };
 
 /**
@@ -56,6 +62,8 @@ export class ItemEntity extends GameEntity {
       this.amount = amount || 8 + RNG.int(10);
     } else if (type === ItemType.MEDKIT) {
       this.heal = 6 + RNG.int(8);
+    } else if (type === ItemType.POWERCELL) {
+      this.amount = amount || 20 + RNG.int(21);
     }
 
     // Items are static. This ensures zero velocity.

@@ -46,6 +46,8 @@ export enum ItemType {
   KEYCARD = "keycard",
   GRENADE = "grenade",
   LAND_MINE = "land-mine",
+  CTDM = "ctdm",
+  POWERCELL = "powercell",
 }
 
 export enum WeaponType {
@@ -106,6 +108,10 @@ export interface Player extends BaseEntity {
   score: number;
   grenades: number;
   landMines: number;
+  hasCTDM: boolean;
+  ctdmEnabled: boolean;
+  ctdmCharge: number;
+  ctdmChargeMax: number;
 }
 
 export interface Monster extends BaseEntity {
