@@ -13,4 +13,24 @@ contextBridge.exposeInMainWorld("native", {
   onLoadGame: (callback) => {
     ipcRenderer.on("game:load", callback);
   },
+  onSoundSettings: (callback) => {
+    ipcRenderer.on("sound:settings", callback);
+  },
+  onAbout: (callback) => {
+    ipcRenderer.on("help:about", callback);
+  },
+
+  closeWindow: () => ipcRenderer.send("window:close"),
+  minimizeWindow: () => ipcRenderer.send("window:minimize"),
+  toggleMaximize: () => ipcRenderer.send("window:toggle-maximize"),
+  toggleFullscreen: () => ipcRenderer.send("window:toggle-fullscreen"),
+  getWindowBounds: () => ipcRenderer.invoke("window:get-bounds"),
+  setWindowBounds: (bounds) => ipcRenderer.send("window:set-bounds", bounds),
+  setGameWindowOpaque: () => ipcRenderer.invoke("window:game-ready"),
+  onEnterFullscreen: (callback) => {
+    ipcRenderer.on("window:fullscreen-entered", callback);
+  },
+  onLeaveFullscreen: (callback) => {
+    ipcRenderer.on("window:fullscreen-left", callback);
+  },
 });

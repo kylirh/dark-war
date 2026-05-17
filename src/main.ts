@@ -14,6 +14,7 @@ import {
 import { Sound, SoundEffect } from "./systems/Sound";
 import { TitleScreen } from "./systems/TitleScreen";
 import { GameMenu } from "./systems/GameMenu";
+import { RetroWindowChrome } from "./systems/RetroWindowChrome";
 import { UI } from "./systems/UI";
 import {
   CELL_CONFIG,
@@ -90,6 +91,27 @@ declare global {
       onNewGame: (callback: () => void) => void;
       onSaveGame: (callback: () => void) => void;
       onLoadGame: (callback: () => void) => void;
+      onSoundSettings: (callback: () => void) => void;
+      onAbout: (callback: () => void) => void;
+      closeWindow: () => void;
+      minimizeWindow: () => void;
+      toggleMaximize: () => void;
+      toggleFullscreen: () => void;
+      getWindowBounds: () => Promise<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      } | null>;
+      setWindowBounds: (bounds: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }) => void;
+      setGameWindowOpaque: () => Promise<boolean>;
+      onEnterFullscreen: (callback: () => void) => void;
+      onLeaveFullscreen: (callback: () => void) => void;
     };
     darkWarApp?: DarkWar;
   }
@@ -247,12 +269,7 @@ class DarkWar {
     );
     if (DEBUG) console.timeEnd("Create GameLoop");
 
-    // In-game menu system
-    new GameMenu({
-      onNewGame: () => this.handleNewGame(),
-      onSave: () => this.handleSave(),
-      onLoad: () => this.handleLoad(),
-    });
+    new GameMenu();
 
     // Preload sounds asynchronously (don't block startup)
     this.initializeSounds();
@@ -1676,14 +1693,34 @@ const createDarkWarApp = (): void => {
   // Kick off asset loading in the background while title screen is showing
   Sound.preload().catch(() => {});
   Music.load("assets/sounds/theme.ogg").catch(() => {});
+  const retroWindowChrome = new RetroWindowChrome();
 
   // Show the title screen first — nothing else initialises until dismissed.
   // Both html and body get the class so both transparent overrides fire.
+  const shouldSkipTitle = new URLSearchParams(window.location.search).has(
+    "skipTitle",
+  );
+
+  const startGame = (): void => {
+    Music.play();
+    window.darkWarApp = new DarkWar();
+  };
+
+  if (shouldSkipTitle) {
+    document.documentElement.classList.remove("title-screen-active");
+    document.body.classList.remove("title-screen-active");
+    retroWindowChrome.showGameChrome();
+    startGame();
+    return;
+  }
+
   document.documentElement.classList.add("title-screen-active");
   document.body.classList.add("title-screen-active");
   new TitleScreen(() => {
-    Music.play();
-    window.darkWarApp = new DarkWar();
+    retroWindowChrome.transitionFromIntro().then((didCreateGameWindow) => {
+      if (didCreateGameWindow) return;
+      startGame();
+    });
   });
 };
 

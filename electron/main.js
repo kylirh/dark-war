@@ -39,12 +39,62 @@ function parseGameQueryFromArgs(argv) {
   return query;
 }
 
-function createWindow() {
+const MIN_WINDOW_WIDTH = 960;
+const MIN_WINDOW_HEIGHT = 640;
+const GAME_WINDOW_BACKGROUND = "#0f1013";
+
+let mainWindow = null;
+let initialGameQuery = {};
+
+function getEventWindow(event) {
+  return BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
+}
+
+function sendToCommandWindow(channel) {
+  const win = BrowserWindow.getFocusedWindow() ?? mainWindow;
+  win?.webContents.send(channel);
+}
+
+function sendFullscreenState(win, isFullscreen) {
+  win.webContents.send(
+    isFullscreen ? "window:fullscreen-entered" : "window:fullscreen-left",
+  );
+}
+
+function isWindowFullscreen(win) {
+  return win.isFullScreen();
+}
+
+function toggleWindowFullscreen(win) {
+  win.setFullScreen(!isWindowFullscreen(win));
+}
+
+function toggleWindowMaximize(win) {
+  if (isWindowFullscreen(win)) return;
+  if (win.isMaximized()) {
+    win.unmaximize();
+    return;
+  }
+  win.maximize();
+}
+
+function createWindow(options = {}) {
+  const transparentIntro = options.transparentIntro ?? true;
+  const query = options.query ?? initialGameQuery;
   const win = new BrowserWindow({
-    width: 1440,
-    height: 920,
+    width: options.width ?? 1440,
+    height: options.height ?? 920,
+    x: options.x,
+    y: options.y,
     useContentSize: true,
-    transparent: true, // Allows title screen to float over other apps
+    transparent: transparentIntro,
+    frame: false, // Custom window chrome handled in renderer
+    roundedCorners: false, // Sharp square corners to match retro aesthetic
+    resizable: true,
+    fullscreenable: true,
+    minWidth: MIN_WINDOW_WIDTH,
+    minHeight: MIN_WINDOW_HEIGHT,
+    backgroundColor: transparentIntro ? "#00000000" : GAME_WINDOW_BACKGROUND,
     webPreferences: {
       contextIsolation: true,
       sandbox: true,
@@ -52,7 +102,15 @@ function createWindow() {
     },
   });
 
-  const query = parseGameQueryFromArgs(process.argv.slice(1));
+  mainWindow = win;
+  win.setFullScreenable?.(true);
+
+  win.on("enter-full-screen", () => sendFullscreenState(win, true));
+  win.on("leave-full-screen", () => sendFullscreenState(win, false));
+  win.on("closed", () => {
+    if (mainWindow === win) mainWindow = null;
+  });
+
   win.loadFile(path.join(__dirname, "..", "app", "index.html"), { query });
   return win;
 }
@@ -60,17 +118,16 @@ function createWindow() {
 function createMenu() {
   const isMac = process.platform === "darwin";
 
-  // Get the focused window for IPC communication
-  const getWindow = () => BrowserWindow.getFocusedWindow();
-
   const template = [
-    // macOS app menu (first menu shows app name)
     ...(isMac
       ? [
           {
             label: "Dark War",
             submenu: [
-              { role: "about" },
+              {
+                label: "About Dark War",
+                click: () => sendToCommandWindow("help:about"),
+              },
               { type: "separator" },
               { role: "services" },
               { type: "separator" },
@@ -89,37 +146,42 @@ function createMenu() {
         {
           label: "New Game",
           accelerator: "CmdOrCtrl+N",
-          click: () => {
-            const win = getWindow();
-            if (win) win.webContents.send("game:new");
-          },
+          click: () => sendToCommandWindow("game:new"),
         },
         {
           label: "Save",
           accelerator: "CmdOrCtrl+S",
-          click: () => {
-            const win = getWindow();
-            if (win) win.webContents.send("game:save");
-          },
+          click: () => sendToCommandWindow("game:save"),
         },
         {
           label: "Load",
           accelerator: "CmdOrCtrl+O",
-          click: () => {
-            const win = getWindow();
-            if (win) win.webContents.send("game:load");
-          },
+          click: () => sendToCommandWindow("game:load"),
         },
-        ...(!isMac
-          ? [
-              { type: "separator" },
-              {
-                label: "Quit",
-                accelerator: "CmdOrCtrl+Q",
-                role: "quit",
-              },
-            ]
-          : []),
+        { type: "separator" },
+        {
+          label: "Quit",
+          accelerator: "CmdOrCtrl+Q",
+          role: "quit",
+        },
+      ],
+    },
+    {
+      label: "Sound",
+      submenu: [
+        {
+          label: "Sound Settings...",
+          click: () => sendToCommandWindow("sound:settings"),
+        },
+      ],
+    },
+    {
+      label: "Help",
+      submenu: [
+        {
+          label: "About Dark War...",
+          click: () => sendToCommandWindow("help:about"),
+        },
       ],
     },
     {
@@ -133,18 +195,88 @@ function createMenu() {
         { role: "zoomIn" },
         { role: "zoomOut" },
         { type: "separator" },
-        { role: "togglefullscreen" },
+        {
+          label: "Toggle Full Screen",
+          accelerator: "Ctrl+Command+F",
+          click: () => {
+            const win = BrowserWindow.getFocusedWindow() ?? mainWindow;
+            if (win) toggleWindowFullscreen(win);
+          },
+        },
       ],
     },
   ];
 
-  const menu = Menu.buildFromTemplate(template);
-  Menu.setApplicationMenu(menu);
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+ipcMain.on("window:close", () => app.quit());
+ipcMain.on("window:minimize", (event) => getEventWindow(event)?.minimize());
+ipcMain.on("window:toggle-maximize", (event) => {
+  const win = getEventWindow(event);
+  if (!win) return;
+  toggleWindowMaximize(win);
+});
+ipcMain.on("window:toggle-fullscreen", (event) => {
+  const win = getEventWindow(event);
+  if (!win) return;
+  toggleWindowFullscreen(win);
+});
+ipcMain.handle("window:get-bounds", (event) => {
+  const win = getEventWindow(event);
+  return win?.getBounds() ?? null;
+});
+ipcMain.on("window:set-bounds", (event, nextBounds) => {
+  const win = getEventWindow(event);
+  if (!win || isWindowFullscreen(win)) return;
+  if (
+    !nextBounds ||
+    !Number.isFinite(nextBounds.width) ||
+    !Number.isFinite(nextBounds.height)
+  ) {
+    return;
+  }
+
+  const currentBounds = win.getBounds();
+  const width = Math.max(MIN_WINDOW_WIDTH, Math.round(nextBounds.width));
+  const height = Math.max(MIN_WINDOW_HEIGHT, Math.round(nextBounds.height));
+  const x = Number.isFinite(nextBounds.x)
+    ? Math.round(nextBounds.x)
+    : currentBounds.x;
+  const y = Number.isFinite(nextBounds.y)
+    ? Math.round(nextBounds.y)
+    : currentBounds.y;
+
+  win.setBounds({
+    x,
+    y,
+    width,
+    height,
+  });
+});
+ipcMain.handle("window:game-ready", async (event) => {
+  const win = getEventWindow(event);
+  if (!win) return false;
+
+  const bounds = win.getBounds();
+  const nextQuery = { ...initialGameQuery, skipTitle: "1" };
+  const gameWindow = createWindow({
+    ...bounds,
+    query: nextQuery,
+    transparentIntro: false,
+  });
+
+  gameWindow.webContents.once("did-finish-load", () => {
+    if (!win.isDestroyed()) win.destroy();
+  });
+
+  return true;
+});
+
 app.whenReady().then(() => {
+  initialGameQuery = parseGameQueryFromArgs(process.argv.slice(1));
   createMenu();
-  createWindow();
+  createWindow({ query: initialGameQuery, transparentIntro: true });
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

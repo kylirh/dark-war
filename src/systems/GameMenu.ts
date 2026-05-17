@@ -1,55 +1,16 @@
 import { Sound } from "./Sound";
 import { Music } from "./Music";
 
-type MenuCallbacks = {
-  onNewGame: () => void;
-  onSave: () => void;
-  onLoad: () => void;
-};
-
 export class GameMenu {
-  private callbacks: MenuCallbacks;
   private soundDialog: HTMLElement | null = null;
   private aboutDialog: HTMLElement | null = null;
-  private activeMenu: HTMLElement | null = null;
 
-  constructor(callbacks: MenuCallbacks) {
-    this.callbacks = callbacks;
+  constructor() {
     this.injectHTML();
     this.attachListeners();
   }
 
   private injectHTML(): void {
-    // Menu bar
-    const bar = document.createElement("div");
-    bar.id = "ingame-menubar";
-    bar.className = "ingame-menubar";
-    bar.innerHTML = `
-      <div class="imb-item imb-brand">&#9670; DARK WAR</div>
-      <div class="imb-item imb-menu-root" data-menu="game">
-        <span>Game</span>
-        <div class="imb-dropdown" id="imb-menu-game">
-          <button class="imb-action" data-action="new-game">New Game<span class="imb-shortcut">⌘N</span></button>
-          <div class="imb-separator"></div>
-          <button class="imb-action" data-action="save">Save<span class="imb-shortcut">⌘S</span></button>
-          <button class="imb-action" data-action="load">Load<span class="imb-shortcut">⌘O</span></button>
-        </div>
-      </div>
-      <div class="imb-item imb-menu-root" data-menu="sound">
-        <span>Sound</span>
-        <div class="imb-dropdown" id="imb-menu-sound">
-          <button class="imb-action" data-action="sound-settings">Sound Settings...</button>
-        </div>
-      </div>
-      <div class="imb-item imb-menu-root" data-menu="help">
-        <span>Help</span>
-        <div class="imb-dropdown" id="imb-menu-help">
-          <button class="imb-action" data-action="about">About Dark War...</button>
-        </div>
-      </div>
-    `;
-    document.body.prepend(bar);
-
     // Sound dialog
     const soundDlg = document.createElement("div");
     soundDlg.id = "sound-dialog";
@@ -113,34 +74,8 @@ export class GameMenu {
   }
 
   private attachListeners(): void {
-    // Menu root click — toggle dropdown
-    document.querySelectorAll(".imb-menu-root").forEach((root) => {
-      root.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const el = root as HTMLElement;
-        const dropdown = el.querySelector(".imb-dropdown") as HTMLElement;
-        const isOpen = el.classList.contains("open");
-        this.closeAllMenus();
-        if (!isOpen) {
-          el.classList.add("open");
-          dropdown.classList.add("open");
-          this.activeMenu = el;
-        }
-      });
-    });
-
-    // Close menus on outside click
-    document.addEventListener("click", () => this.closeAllMenus());
-
-    // Action buttons in dropdowns
-    document.querySelectorAll(".imb-action").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        const action = (btn as HTMLElement).dataset.action;
-        this.closeAllMenus();
-        this.handleAction(action ?? "");
-      });
-    });
+    window.native?.onSoundSettings?.(() => this.openSoundDialog());
+    window.native?.onAbout?.(() => this.openAboutDialog());
 
     // Close buttons on dialogs
     document.querySelectorAll("[data-close]").forEach((btn) => {
@@ -151,10 +86,12 @@ export class GameMenu {
     });
 
     // Sliders
-    const sfxSlider = document.getElementById("sfx-volume") as HTMLInputElement;
+    const sfxSlider = document.getElementById(
+      "sfx-volume",
+    ) as HTMLInputElement | null;
     const musicSlider = document.getElementById(
       "music-volume",
-    ) as HTMLInputElement;
+    ) as HTMLInputElement | null;
 
     if (sfxSlider) {
       sfxSlider.addEventListener("input", () => {
@@ -175,38 +112,9 @@ export class GameMenu {
     }
   }
 
-  private closeAllMenus(): void {
-    document.querySelectorAll(".imb-menu-root").forEach((r) => {
-      r.classList.remove("open");
-      r.querySelector(".imb-dropdown")?.classList.remove("open");
-    });
-    this.activeMenu = null;
-  }
-
-  private handleAction(action: string): void {
-    switch (action) {
-      case "new-game":
-        this.callbacks.onNewGame();
-        break;
-      case "save":
-        this.callbacks.onSave();
-        break;
-      case "load":
-        this.callbacks.onLoad();
-        break;
-      case "sound-settings":
-        this.openSoundDialog();
-        break;
-      case "about":
-        this.aboutDialog?.classList.remove("hidden");
-        break;
-    }
-  }
-
-  private openSoundDialog(): void {
+  openSoundDialog(): void {
     if (!this.soundDialog) return;
 
-    // Sync sliders to current values
     const sfxSlider = document.getElementById(
       "sfx-volume",
     ) as HTMLInputElement | null;
@@ -228,5 +136,9 @@ export class GameMenu {
     }
 
     this.soundDialog.classList.remove("hidden");
+  }
+
+  openAboutDialog(): void {
+    this.aboutDialog?.classList.remove("hidden");
   }
 }

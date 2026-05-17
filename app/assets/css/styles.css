@@ -14,6 +14,11 @@ body.title-screen-active .app-container {
   display: none !important;
 }
 
+body.title-screen-active #retro-window-chrome,
+body.title-screen-active .resize-handle {
+  display: none !important;
+}
+
 /* ============================================================
    Title Screen Overlay
    ============================================================ */
@@ -69,111 +74,271 @@ body.title-screen-active .app-container {
 }
 
 /* ============================================================
-   In-Game Inverted System 7 Menu Bar
+   Retro Mac OS 7 Window Chrome
    ============================================================ */
-.ingame-menubar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 24px;
-  z-index: 1000;
-  display: flex;
-  align-items: stretch;
-  background: #000;
-  border-bottom: 1px solid #444;
-  font-family: "Chicago_12", sans-serif;
-  font-size: 13px;
-  color: #fff;
-  user-select: none;
-  -webkit-app-region: drag; /* allow dragging window from menubar */
-}
-
-.imb-brand {
-  padding: 0 12px;
-  display: flex;
-  align-items: center;
-  font-weight: bold;
-  letter-spacing: 1px;
-  color: #00ccff;
-  cursor: default;
-  -webkit-app-region: no-drag;
-}
-
-.imb-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  -webkit-app-region: no-drag;
-}
-
-.imb-menu-root {
-  padding: 0 10px;
-  cursor: default;
-  color: #fff;
-  transition: background 0.05s;
-}
-
-.imb-menu-root:hover,
-.imb-menu-root.open {
-  background: #fff;
-  color: #000;
-}
-
-.imb-menu-root > span {
-  pointer-events: none;
-}
-
-/* Dropdown */
-.imb-dropdown {
+#retro-window-chrome,
+.resize-handle {
   display: none;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  min-width: 180px;
-  background: #000;
-  border: 1px solid #555;
-  border-top: none;
-  box-shadow: 2px 2px 0 #333;
-  z-index: 2000;
-  padding: 2px 0;
 }
 
-.imb-dropdown.open {
+body.game-window-active #retro-window-chrome,
+body.game-window-active .resize-handle {
   display: block;
 }
 
-.imb-action {
+.retro-window-chrome {
+  position: fixed;
+  inset: 0;
+  z-index: 9997;
+  pointer-events: none;
+}
+
+.retro-window-chrome::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid #1f1f1f;
+  box-shadow:
+    inset 2px 2px 0 #707070,
+    inset 4px 4px 0 #3b3b3b,
+    inset -2px -2px 0 #070707,
+    inset -4px -4px 0 #2d2d2d,
+    2px 2px 0 #050505;
+}
+
+.retro-titlebar {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  right: 10px;
+  height: 42px;
+  display: grid;
+  grid-template-columns: auto minmax(32px, 1fr) auto minmax(32px, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 0 7px;
+  background: #1e1e1e;
+  border: 2px solid #060606;
+  box-shadow:
+    inset 2px 2px 0 #5c5c5c,
+    inset -2px -2px 0 #0a0a0a;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.retro-traffic-lights {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 4px 16px;
-  background: transparent;
-  border: none;
-  color: #fff;
+  gap: 6px;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.retro-window-button {
+  position: relative;
+  width: 27px;
+  height: 27px;
+  padding: 0;
+  border: 0;
+  background: #222;
+  color: transparent;
+  cursor: pointer;
+  image-rendering: pixelated;
+  box-shadow:
+    0 0 0 2px #050505,
+    inset 2px 2px 0 rgba(255, 255, 255, 0.35),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.65);
+  -webkit-app-region: no-drag;
+}
+
+.retro-window-button *,
+.retro-window-button::before {
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+}
+
+.retro-window-button::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  box-shadow:
+    inset 2px 2px 0 rgba(255, 255, 255, 0.28),
+    inset -2px -2px 0 rgba(0, 0, 0, 0.48);
+}
+
+.retro-window-button span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #100f0f;
   font-family: "Chicago_12", sans-serif;
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.retro-window-button-close::before {
+  background: #f04f3c;
+}
+
+.retro-window-button-minimize::before {
+  background: #f4b53d;
+}
+
+.retro-window-button-fullscreen::before {
+  background: #4abf3c;
+}
+
+.retro-window-button:active {
+  box-shadow:
+    0 0 0 2px #050505,
+    inset 2px 2px 0 rgba(0, 0, 0, 0.65),
+    inset -2px -2px 0 rgba(255, 255, 255, 0.25);
+}
+
+.retro-window-button:hover {
+  filter: brightness(1.18) saturate(1.12);
+}
+
+.retro-window-button:hover span {
+  color: #050505;
+}
+
+.retro-window-button:active::before {
+  transform: translate(1px, 1px);
+  box-shadow:
+    inset 2px 2px 0 rgba(0, 0, 0, 0.48),
+    inset -2px -2px 0 rgba(255, 255, 255, 0.2);
+}
+
+.retro-window-button:active span {
+  transform: translate(1px, 1px);
+}
+
+.retro-title-stripes {
+  height: 28px;
+  -webkit-app-region: drag;
+  background: repeating-linear-gradient(
+    to bottom,
+    #747474 0,
+    #747474 2px,
+    #151515 2px,
+    #151515 5px
+  );
+  box-shadow:
+    inset 0 2px 0 #0c0c0c,
+    inset 0 -2px 0 #0c0c0c;
+}
+
+.retro-window-title {
+  padding: 0 10px;
+  background: #1e1e1e;
+  color: #d9d9d9;
+  font-family: "Chicago_12", sans-serif;
+  font-size: 18px;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  text-shadow: 1px 1px 0 #050505;
   cursor: default;
-  text-align: left;
-  box-sizing: border-box;
+  -webkit-app-region: no-drag;
 }
 
-.imb-action:hover {
-  background: #fff;
-  color: #000;
+.retro-content-frame {
+  position: absolute;
+  top: 56px;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  border: 3px solid #050505;
+  box-shadow:
+    inset 2px 2px 0 #737373,
+    inset 4px 4px 0 #b0b0b0,
+    inset -2px -2px 0 #1a1a1a,
+    0 2px 0 #050505;
 }
 
-.imb-shortcut {
-  font-size: 11px;
-  opacity: 0.6;
-  margin-left: 24px;
+.resize-handle {
+  position: fixed;
+  z-index: 9998;
+  background: transparent;
+  -webkit-app-region: no-drag;
 }
 
-.imb-separator {
-  height: 1px;
-  background: #444;
-  margin: 3px 0;
+.resize-handle[data-edge="top"] {
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 14px;
+  cursor: n-resize;
+}
+
+.resize-handle[data-edge="bottom"] {
+  bottom: 0;
+  left: 16px;
+  right: 16px;
+  height: 18px;
+  cursor: s-resize;
+}
+
+.resize-handle[data-edge="left"] {
+  left: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 18px;
+  cursor: w-resize;
+}
+
+.resize-handle[data-edge="right"] {
+  right: 0;
+  top: 16px;
+  bottom: 16px;
+  width: 18px;
+  cursor: e-resize;
+}
+
+.resize-handle[data-edge="top-left"],
+.resize-handle[data-edge="top-right"],
+.resize-handle[data-edge="bottom-left"],
+.resize-handle[data-edge="bottom-right"] {
+  width: 28px;
+  height: 28px;
+}
+
+.resize-handle[data-edge="top-left"] {
+  top: 0;
+  left: 0;
+  cursor: nw-resize;
+}
+
+.resize-handle[data-edge="top-right"] {
+  top: 0;
+  right: 0;
+  cursor: ne-resize;
+}
+
+.resize-handle[data-edge="bottom-left"] {
+  bottom: 0;
+  left: 0;
+  cursor: sw-resize;
+}
+
+.resize-handle[data-edge="bottom-right"] {
+  bottom: 0;
+  right: 0;
+  cursor: se-resize;
+}
+
+body.is-fullscreen #retro-window-chrome,
+body.is-fullscreen .resize-handle {
+  display: none;
+}
+
+body.is-fullscreen .app-container {
+  padding: 0;
 }
 
 /* ============================================================
@@ -368,13 +533,13 @@ body.title-screen-active .app-container {
   background: #888;
 }
 
-/* Push game content down so menu bar doesn't overlap */
+/* Keep game content inside the custom retro frame. */
 .app-container {
-  padding-top: 24px;
+  padding: 64px 18px 20px;
 }
 
 :root {
-  --bg: #4954aa;
+  --bg: #0f1013;
   --panel: #141922;
   --ink: #e6edf3;
   --ink-dim: #a9b1bb;
