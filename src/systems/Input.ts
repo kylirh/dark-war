@@ -52,6 +52,13 @@ export class InputHandler {
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
+    if (
+      e.defaultPrevented ||
+      document.body.classList.contains("imb-modal-open")
+    ) {
+      return;
+    }
+
     const key = e.key.toLowerCase();
     const code = e.code;
 
@@ -168,6 +175,13 @@ export class InputHandler {
   }
 
   private handleKeyUp(e: KeyboardEvent): void {
+    if (
+      e.defaultPrevented ||
+      document.body.classList.contains("imb-modal-open")
+    ) {
+      return;
+    }
+
     const code = e.code;
 
     // Track WASD key releases

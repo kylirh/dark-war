@@ -272,7 +272,11 @@ class DarkWar {
     if (DEBUG) console.timeEnd("Create GameLoop");
 
     // Dialog and menu bridge
-    this.gameMenu = new GameMenu();
+    this.gameMenu = new GameMenu({
+      pausesGame: !this.isOnlineMode(),
+      onModalStateChange: (hasOpenModal) =>
+        this.handleModalStateChange(hasOpenModal),
+    });
 
     // Preload sounds asynchronously (don't block startup)
     this.initializeSounds();
@@ -374,6 +378,22 @@ class DarkWar {
 
   private isOnlineMode(): boolean {
     return this.multiplayerMode === "online";
+  }
+
+  private handleModalStateChange(hasOpenModal: boolean): void {
+    if (this.isOnlineMode()) {
+      return;
+    }
+
+    if (hasOpenModal) {
+      this.cancelAutoMove();
+      this.inputHandler?.resetKeys();
+      this.gameLoop.pause();
+      return;
+    }
+
+    this.inputHandler?.resetKeys();
+    this.gameLoop.resume();
   }
 
   private isLocalPlayerDead(): boolean {
@@ -1685,6 +1705,7 @@ class DarkWar {
   public dispose(): void {
     this.gameLoop.stop();
     this.cancelAutoMove();
+    this.gameMenu.dispose();
     this.inputHandler.dispose();
     this.mouseTracker.destroy();
     this.multiplayerClient?.disconnect();
