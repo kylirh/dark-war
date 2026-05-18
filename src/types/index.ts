@@ -46,6 +46,7 @@ export enum MonsterType {
   MUTANT = "mutant",
   RAT = "rat",
   SKULKER = "skulker",
+  UTILITY_BOT = "utility-bot",
 }
 
 export enum ItemType {
@@ -223,6 +224,7 @@ export enum CommandType {
   RELOAD = "RELOAD",
   DESCEND = "DESCEND",
   ASCEND = "ASCEND",
+  REPAIR = "REPAIR",
 }
 
 export interface Command {
@@ -251,7 +253,8 @@ export type CommandData =
   | { type: "INTERACT"; x: number; y: number }
   | { type: "RELOAD" }
   | { type: "DESCEND" }
-  | { type: "ASCEND" };
+  | { type: "ASCEND" }
+  | { type: "REPAIR"; x: number; y: number };
 
 export enum EventType {
   DAMAGE = "DAMAGE",
@@ -362,7 +365,7 @@ export interface GameState {
   descendTarget?: [number, number];
   changedTiles?: Set<number>; // Track tiles that changed for physics updates
   holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
-  pendingSounds: string[]; // Sound effects queued during simulation for playback
+  pendingSounds: Array<{ effect: string; worldX?: number; worldY?: number }>; // Sound effects queued during simulation for playback
 }
 
 // ========================================

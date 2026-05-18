@@ -75,6 +75,9 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [MonsterType.MUTANT]: { x: 0, y: 2 },
   [MonsterType.RAT]: { x: 1, y: 2 },
   [MonsterType.SKULKER]: { x: 1, y: 2 }, // Rat sprite, tinted green in renderer
+  [MonsterType.UTILITY_BOT]: { x: 10, y: 2 },
+  utility_bot_walk_1: { x: 11, y: 2 },
+  utility_bot_walk_2: { x: 12, y: 2 },
   bullet: { x: 2, y: 2 },
   explosion_1: { x: 3, y: 2 },
   explosion_2: { x: 4, y: 2 },
@@ -131,10 +134,15 @@ export const MONSTER_WALK_FRAMES: Record<MonsterType, SpriteCoordinate[]> = {
   ],
   [MonsterType.RAT]: [SPRITE_COORDS.rat_walk_1, SPRITE_COORDS.rat_walk_2],
   [MonsterType.SKULKER]: [SPRITE_COORDS.rat_walk_1, SPRITE_COORDS.rat_walk_2],
+  [MonsterType.UTILITY_BOT]: [
+    SPRITE_COORDS.utility_bot_walk_1,
+    SPRITE_COORDS.utility_bot_walk_2,
+  ],
 };
 
 export const MONSTER_IDLE_FRAMES: Record<MonsterType, SpriteCoordinate> = {
   [MonsterType.MUTANT]: SPRITE_COORDS[MonsterType.MUTANT],
   [MonsterType.RAT]: SPRITE_COORDS[MonsterType.RAT],
   [MonsterType.SKULKER]: SPRITE_COORDS[MonsterType.RAT],
+  [MonsterType.UTILITY_BOT]: SPRITE_COORDS[MonsterType.UTILITY_BOT],
 };

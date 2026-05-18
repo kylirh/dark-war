@@ -18,8 +18,13 @@ import {
   CELL_CONFIG,
   HOLE_FALL_DAMAGE,
 } from "../types";
-import { idxFor, tileAtFor, passableFor } from "../utils/helpers";
+import { idxFor, tileAtFor, passableFor, inBoundsFor } from "../utils/helpers";
 import { applyWallDamageAt } from "../utils/walls";
+import {
+  applyRepairAt,
+  findNearestRepairTarget,
+  hasAnyRepairTarget,
+} from "../utils/repair";
 import { SoundEffect } from "./Sound";
 import { RNG } from "../utils/RNG";
 import { computeFOVFrom } from "./FOV";
@@ -52,6 +57,10 @@ const SKULKER_MAX_RANGE_PX = CELL_CONFIG.w * 5.5; // 176px: advance if player fa
 const EXPLOSION_KNOCKBACK_MAX_DISTANCE = 34;
 const EXPLOSION_KNOCKBACK_MIN_DISTANCE = 14;
 const IDLE_WANDER_SPEED = MONSTER_SPEED * 0.5;
+const UTILITY_BOT_SPEED = MONSTER_SPEED * 0.6;
+const UTILITY_BOT_FOLLOW_DIST_PX = CELL_CONFIG.w * 2.5; // ~80px follow offset from player
+const UTILITY_BOT_REPAIR_SEARCH_RADIUS = 20; // grid tiles
+const UTILITY_BOT_REPAIR_COOLDOWN = 8; // extra ticks between repairs
 const IDLE_WANDER_DIRECTIONS: [number, number][] = [
   [1, 0],
   [-1, 0],
@@ -173,6 +182,304 @@ function makeIdleWanderCommand(
 }
 
 // ========================================
+// Utility Bot Helpers
+// ========================================
+
+/**
+ * BFS to find the next grid step the utility bot should take toward (toX, toY).
+ * Ignores FOV — the bot is omniscient.
+ * If (toX, toY) is impassable, navigates to the nearest adjacent passable tile.
+ * Returns null when already adjacent or no path exists.
+ */
+function botNextStep(
+  state: GameState,
+  fromX: number,
+  fromY: number,
+  toX: number,
+  toY: number,
+): [number, number] | null {
+  const { map, mapWidth: w, mapHeight: h } = state;
+
+  // If target is impassable (or a hole), find the closest adjacent passable tile
+  let goalX = toX,
+    goalY = toY;
+  if (!passableFor(map, toX, toY, w, h) || map[idxFor(toX, toY, w)] === TileType.HOLE) {
+    let bestDsq = Infinity;
+    for (const [dx, dy] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ] as [number, number][]) {
+      const nx = toX + dx,
+        ny = toY + dy;
+      if (inBoundsFor(nx, ny, w, h) && passableFor(map, nx, ny, w, h)) {
+        const dsq = (nx - fromX) ** 2 + (ny - fromY) ** 2;
+        if (dsq < bestDsq) {
+          bestDsq = dsq;
+          goalX = nx;
+          goalY = ny;
+        }
+      }
+    }
+    if (bestDsq === Infinity) return null;
+  }
+
+  if (fromX === goalX && fromY === goalY) return null;
+
+  const startIdx = idxFor(fromX, fromY, w);
+  const goalIdx = idxFor(goalX, goalY, w);
+  const parent = new Map<number, number>();
+  parent.set(startIdx, -1);
+  const queue: number[] = [startIdx];
+
+  let found = false;
+  outer: while (queue.length > 0) {
+    const cur = queue.shift()!;
+    const cx = cur % w,
+      cy = Math.floor(cur / w);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ] as [number, number][]) {
+      const nx = cx + dx,
+        ny = cy + dy;
+      if (!inBoundsFor(nx, ny, w, h)) continue;
+      const nIdx = idxFor(nx, ny, w);
+      if (parent.has(nIdx)) continue;
+      if (!passableFor(map, nx, ny, w, h)) continue;
+      if (map[nIdx] === TileType.HOLE) continue;
+      parent.set(nIdx, cur);
+      if (nIdx === goalIdx) {
+        found = true;
+        break outer;
+      }
+      queue.push(nIdx);
+    }
+  }
+
+  if (!found) return null;
+
+  // Trace back to the first step after start
+  let cur = goalIdx;
+  while (parent.get(cur) !== startIdx) {
+    const p = parent.get(cur);
+    if (p === undefined || p === -1) return null;
+    cur = p;
+  }
+  return [cur % w, Math.floor(cur / w)];
+}
+
+/** Steer the bot toward a world-space grid cell using BFS next-step. */
+function botSteerToward(
+  m: any,
+  state: GameState,
+  monster: Monster,
+  toGridX: number,
+  toGridY: number,
+): void {
+  const step = botNextStep(state, monster.gridX, monster.gridY, toGridX, toGridY);
+  if (!step) {
+    m.velocityX = 0;
+    m.velocityY = 0;
+    return;
+  }
+  const [sx, sy] = step;
+  const swx = sx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+  const swy = sy * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+  const dx = swx - m.worldX;
+  const dy = swy - m.worldY;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  if (d < 2) {
+    m.velocityX = 0;
+    m.velocityY = 0;
+  } else {
+    m.velocityX = (dx / d) * UTILITY_BOT_SPEED;
+    m.velocityY = (dy / d) * UTILITY_BOT_SPEED;
+  }
+}
+
+/**
+ * BFS from the bot's position through passable non-hole tiles.
+ * Returns the coordinates of the nearest repair target that is actually
+ * reachable (has a traversable path to its neighbor). Omniscient — no FOV check.
+ */
+function findNearestReachableRepairTarget(
+  state: GameState,
+  fromX: number,
+  fromY: number,
+): [number, number] | null {
+  const { map, mapWidth: w, mapHeight: h, wallDamage } = state;
+
+  const isRepairable = (idx: number): boolean => {
+    const tile = map[idx];
+    const damage = wallDamage[idx] ?? 0;
+    return (
+      tile === TileType.HOLE ||
+      ((tile === TileType.FLOOR ||
+        tile === TileType.WALL ||
+        tile === TileType.DOOR_CLOSED ||
+        tile === TileType.DOOR_OPEN ||
+        tile === TileType.DOOR_LOCKED) &&
+        damage > 0)
+    );
+  };
+
+  const visited = new Set<number>();
+  const queue: number[] = [];
+  const startIdx = idxFor(fromX, fromY, w);
+  queue.push(startIdx);
+  visited.add(startIdx);
+
+  while (queue.length > 0) {
+    const cur = queue.shift()!;
+    const cx = cur % w,
+      cy = Math.floor(cur / w);
+    for (const [dx, dy] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ] as [number, number][]) {
+      const nx = cx + dx,
+        ny = cy + dy;
+      if (!inBoundsFor(nx, ny, w, h)) continue;
+      const nIdx = idxFor(nx, ny, w);
+      if (visited.has(nIdx)) continue;
+      visited.add(nIdx);
+
+      if (isRepairable(nIdx)) return [nx, ny];
+
+      // Traverse through passable, non-hole floor tiles only
+      if (
+        passableFor(map, nx, ny, w, h) &&
+        map[nIdx] !== TileType.HOLE
+      ) {
+        queue.push(nIdx);
+      }
+    }
+  }
+
+  return null;
+}
+
+function steerUtilityBot(state: GameState, monster: Monster): void {
+  const m = monster as any;
+
+  // Provoked: chase attacker
+  if (m.alertLevel > 0) {
+    m.alertLevel = Math.max(0, m.alertLevel - MONSTER_ALERT_DECAY);
+
+    // Refresh last known position if attacker still exists
+    const attacker = state.entities.find((e) => e.id === m.lastAttackerId) as any;
+    if (attacker) {
+      m.lastKnownPlayerX = attacker.worldX;
+      m.lastKnownPlayerY = attacker.worldY;
+    }
+
+    const kx = m.lastKnownPlayerX - m.worldX;
+    const ky = m.lastKnownPlayerY - m.worldY;
+    const kd = Math.sqrt(kx * kx + ky * ky);
+    if (kd > CELL_CONFIG.w * 0.8) {
+      botSteerToward(
+        m,
+        state,
+        monster,
+        Math.floor(m.lastKnownPlayerX / CELL_CONFIG.w),
+        Math.floor(m.lastKnownPlayerY / CELL_CONFIG.h),
+      );
+    } else {
+      m.velocityX = 0;
+      m.velocityY = 0;
+    }
+    return;
+  }
+
+  // Omniscient repair search — use sticky target to avoid oscillating between equidistant tiles
+  {
+    // Validate current sticky target
+    if (m.currentRepairTarget) {
+      const [cx, cy] = m.currentRepairTarget as [number, number];
+      if (inBoundsFor(cx, cy, state.mapWidth, state.mapHeight)) {
+        const cidx = idxFor(cx, cy, state.mapWidth);
+        const ctile = state.map[cidx];
+        const cdmg = state.wallDamage[cidx] ?? 0;
+        const stillRepairable =
+          ctile === TileType.HOLE ||
+          ((ctile === TileType.FLOOR ||
+            ctile === TileType.WALL ||
+            ctile === TileType.DOOR_CLOSED ||
+            ctile === TileType.DOOR_OPEN ||
+            ctile === TileType.DOOR_LOCKED) &&
+            cdmg > 0);
+        if (!stillRepairable) m.currentRepairTarget = null;
+      } else {
+        m.currentRepairTarget = null;
+      }
+    }
+
+    // Find a new target only if we don't have one
+    if (!m.currentRepairTarget) {
+      m.currentRepairTarget = findNearestReachableRepairTarget(state, monster.gridX, monster.gridY);
+    }
+
+    const target = m.currentRepairTarget as [number, number] | null;
+    if (target) {
+      const [tx, ty] = target;
+      const adx = Math.abs(tx - monster.gridX);
+      const ady = Math.abs(ty - monster.gridY);
+      if (adx + ady <= 1) {
+        // Already adjacent — stand still so the command system can repair
+        m.velocityX = 0;
+        m.velocityY = 0;
+      } else {
+        botSteerToward(m, state, monster, tx, ty);
+      }
+      return;
+    }
+  }
+
+  // No repairs — follow the player at a comfortable distance
+  const player = getClosestPlayer(state, monster);
+  if (player) {
+    const px = (player as any).worldX;
+    const py = (player as any).worldY;
+    const dx = px - m.worldX;
+    const dy = py - m.worldY;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    const BOT_BACK_OFF_DIST = CELL_CONFIG.w * 1.5; // ~48px — back away if player too close
+    if (d < BOT_BACK_OFF_DIST) {
+      // Move away from player
+      const len = d > 0.1 ? d : 1;
+      const speed = IDLE_WANDER_SPEED;
+      m.velocityX = (-dx / len) * speed;
+      m.velocityY = (-dy / len) * speed;
+    } else if (d > UTILITY_BOT_FOLLOW_DIST_PX) {
+      botSteerToward(
+        m,
+        state,
+        monster,
+        Math.floor(px / CELL_CONFIG.w),
+        Math.floor(py / CELL_CONFIG.h),
+      );
+    } else {
+      m.velocityX = 0;
+      m.velocityY = 0;
+    }
+    return;
+  }
+
+  m.velocityX = 0;
+  m.velocityY = 0;
+}
+
+// ========================================
 // Steering Behaviors (Continuous Movement AI)
 // ========================================
 
@@ -187,6 +494,11 @@ export function updateMonsterSteering(state: GameState): void {
 
   for (const monster of monsters) {
     if (!("worldX" in monster) || !("worldY" in monster)) continue;
+
+    if (monster.type === MonsterType.UTILITY_BOT) {
+      steerUtilityBot(state, monster);
+      continue;
+    }
 
     const player = getClosestPlayer(state, monster);
     if (!player) {
@@ -689,6 +1001,9 @@ function resolveCommand(state: GameState, cmd: Command): void {
     case CommandType.ASCEND:
       resolveAscendCommand(state, cmd);
       break;
+    case CommandType.REPAIR:
+      resolveRepairCommand(state, cmd);
+      break;
     case CommandType.WAIT:
       break;
   }
@@ -710,6 +1025,13 @@ function getActionCost(state: GameState, cmd: Command, actor: Entity): number {
 
   // In real-time mode, monsters act slower to give player reaction time at high tick rates
   if (actor.kind === EntityKind.MONSTER) {
+    // Utility bot pauses a bit longer after each repair
+    if (
+      (actor as Monster).type === MonsterType.UTILITY_BOT &&
+      cmd.type === CommandType.REPAIR
+    ) {
+      return MONSTER_ACTION_DELAY + UTILITY_BOT_REPAIR_COOLDOWN;
+    }
     return MONSTER_ACTION_DELAY;
   }
 
@@ -1057,7 +1379,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         }
 
         player.ammo--;
-        state.pendingSounds.push(SoundEffect.SHOOT);
+        state.pendingSounds.push({ effect: SoundEffect.SHOOT });
 
         const BULLET_SPEED = 600; // pixels per second
         const bullet = new BulletEntity(
@@ -1264,7 +1586,7 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
   player.ammoReserve -= take;
 
   // Play reload sound
-  state.pendingSounds.push(SoundEffect.RELOAD);
+  state.pendingSounds.push({ effect: SoundEffect.RELOAD });
 
   pushEvent(state, {
     type: EventType.MESSAGE,
@@ -1348,6 +1670,38 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
       });
     }
   }
+}
+
+// ========================================
+// Repair Command (Utility Bot)
+// ========================================
+
+function resolveRepairCommand(state: GameState, cmd: Command): void {
+  const data = cmd.data as { type: "REPAIR"; x: number; y: number };
+  const result = applyRepairAt(state, data.x, data.y);
+  if (!result) return;
+
+  // 1 in 5 chance to play repair sound (avoid spamming)
+  if (RNG.chance(0.2)) {
+    const worldX = data.x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const worldY = data.y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    state.pendingSounds.push({
+      effect: result === "hole" ? SoundEffect.REPAIR_HOLE : SoundEffect.REPAIR,
+      worldX,
+      worldY,
+    });
+  }
+
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: {
+      type: "MESSAGE",
+      message:
+        result === "hole"
+          ? "Utility bot patches the hole."
+          : "Utility bot repairs the damage.",
+    },
+  });
 }
 
 // ========================================
@@ -1654,7 +2008,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       SoundEffect.PLAYER_HIT_4,
       SoundEffect.PLAYER_HIT_5,
     ];
-    state.pendingSounds.push(hitSounds[Math.floor(Math.random() * hitSounds.length)]);
+    state.pendingSounds.push({ effect: hitSounds[Math.floor(Math.random() * hitSounds.length)] });
 
     pushEvent(state, {
       type: EventType.MESSAGE,
@@ -1682,8 +2036,72 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     }
 
     if (!data.suppressHitSound) {
-      // Play monster hit sound
-      state.pendingSounds.push(SoundEffect.HIT_MONSTER);
+      const mwx = (monster as any).worldX ?? monster.gridX * CELL_CONFIG.w;
+      const mwy = (monster as any).worldY ?? monster.gridY * CELL_CONFIG.h;
+      const sourceEntity = data.sourceId ? state.entities.find((e) => e.id === data.sourceId) : null;
+      const monsterTileIdx = idxFor(monster.gridX, monster.gridY, state.mapWidth);
+      const sourceTileIdx = sourceEntity
+        ? idxFor(sourceEntity.gridX, sourceEntity.gridY, state.mapWidth)
+        : monsterTileIdx;
+      const eitherVisible =
+        state.visible.has(monsterTileIdx) || state.visible.has(sourceTileIdx);
+
+      if (eitherVisible) {
+        if (monster.type === MonsterType.UTILITY_BOT) {
+          // Metal clang when bot is visible
+          const metalSounds = [SoundEffect.HIT_METAL_1, SoundEffect.HIT_METAL_2, SoundEffect.HIT_METAL_3];
+          state.pendingSounds.push({
+            effect: metalSounds[Math.floor(Math.random() * metalSounds.length)],
+            worldX: mwx,
+            worldY: mwy,
+          });
+        } else {
+          // Random thunk when any visible entity is in the fight
+          const thunkSounds = [
+            SoundEffect.HIT_MONSTER_1,
+            SoundEffect.HIT_MONSTER_2,
+            SoundEffect.HIT_MONSTER_3,
+            SoundEffect.HIT_MONSTER_4,
+            SoundEffect.HIT_MONSTER_5,
+          ];
+          state.pendingSounds.push({
+            effect: thunkSounds[Math.floor(Math.random() * thunkSounds.length)],
+            worldX: mwx,
+            worldY: mwy,
+          });
+        }
+      } else {
+        // Neither combatant is visible — silent, occasional distant fighting sound
+        if (RNG.chance(0.2)) {
+          state.pendingSounds.push({ effect: SoundEffect.FIGHTING, worldX: mwx, worldY: mwy });
+        }
+      }
+    }
+
+    // Utility bot fights back when attacked
+    if (monster.type === MonsterType.UTILITY_BOT && data.sourceId && monster.hp > 0) {
+      const attacker = state.entities.find((e) => e.id === data.sourceId) as any;
+      if (attacker) {
+        (monster as any).alertLevel = 100;
+        (monster as any).lastAttackerId = data.sourceId;
+        (monster as any).lastKnownPlayerX = attacker.worldX ?? attacker.gridX * CELL_CONFIG.w;
+        (monster as any).lastKnownPlayerY = attacker.worldY ?? attacker.gridY * CELL_CONFIG.h;
+      }
+    }
+
+    // Regular monster fights back when hit by another monster
+    if (
+      monster.type !== MonsterType.UTILITY_BOT &&
+      data.sourceId &&
+      monster.hp > 0
+    ) {
+      const attacker = state.entities.find((e) => e.id === data.sourceId);
+      if (attacker?.kind === EntityKind.MONSTER) {
+        (monster as any).alertLevel = Math.max((monster as any).alertLevel ?? 0, 60);
+        (monster as any).lastAttackerId = data.sourceId;
+        (monster as any).lastKnownPlayerX = (attacker as any).worldX ?? attacker.gridX * CELL_CONFIG.w;
+        (monster as any).lastKnownPlayerY = (attacker as any).worldY ?? attacker.gridY * CELL_CONFIG.h;
+      }
     }
 
     if (monster.hp <= 0) {
@@ -1757,7 +2175,7 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
   const worldY = data.y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
   const radiusPx = data.radius * CELL_CONFIG.w;
 
-  state.pendingSounds.push(SoundEffect.EXPLOSION);
+  state.pendingSounds.push({ effect: SoundEffect.EXPLOSION, worldX, worldY });
   state.effects.push({
     id: crypto.randomUUID(),
     type: "explosion",
@@ -1872,8 +2290,22 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
       monster.carriedItems = [];
     }
 
-    // Play death sound
-    state.pendingSounds.push(SoundEffect.MONSTER_DEATH);
+    // Play death sound (skip for utility bot)
+    if (monster.type !== MonsterType.UTILITY_BOT) {
+      const deathSounds = [
+        SoundEffect.MONSTER_DEATH_1,
+        SoundEffect.MONSTER_DEATH_2,
+        SoundEffect.MONSTER_DEATH_3,
+        SoundEffect.MONSTER_DEATH_4,
+      ];
+      const mwx = (monster as any).worldX ?? monster.gridX * CELL_CONFIG.w;
+      const mwy = (monster as any).worldY ?? monster.gridY * CELL_CONFIG.h;
+      state.pendingSounds.push({
+        effect: deathSounds[Math.floor(Math.random() * deathSounds.length)],
+        worldX: mwx,
+        worldY: mwy,
+      });
+    }
 
     pushEvent(state, {
       type: EventType.MESSAGE,
@@ -1952,14 +2384,14 @@ function processDoorOpenEvent(state: GameState, event: GameEvent): void {
   if (tile === TileType.DOOR_CLOSED || tile === TileType.DOOR_LOCKED) {
     // Open the door
     state.map[i] = TileType.DOOR_OPEN;
-    state.pendingSounds.push(SoundEffect.DOOR_OPEN);
+    state.pendingSounds.push({ effect: SoundEffect.DOOR_OPEN, worldX: data.x * CELL_CONFIG.w, worldY: data.y * CELL_CONFIG.h });
     // Track tile change for physics update
     if (!state.changedTiles) state.changedTiles = new Set();
     state.changedTiles.add(i);
   } else if (tile === TileType.DOOR_OPEN) {
     // Close the door
     state.map[i] = TileType.DOOR_CLOSED;
-    state.pendingSounds.push(SoundEffect.DOOR_CLOSE);
+    state.pendingSounds.push({ effect: SoundEffect.DOOR_CLOSE, worldX: data.x * CELL_CONFIG.w, worldY: data.y * CELL_CONFIG.h });
     // Track tile change for physics update
     if (!state.changedTiles) state.changedTiles = new Set();
     state.changedTiles.add(i);
@@ -2130,11 +2562,132 @@ function generateAICommands(state: GameState, tick: number): Command[] {
   return commands;
 }
 
+function decideUtilityBotCommand(
+  state: GameState,
+  monster: Monster,
+  tick: number,
+): Command {
+  const m = monster as any;
+  const waitCmd = (): Command => makeWaitCommand(monster, tick);
+
+  // Provoked: fight back if attacker is in melee range
+  if (m.alertLevel > 0) {
+    const attacker = state.entities.find(
+      (e) => e.id === m.lastAttackerId,
+    ) as any;
+    if (attacker) {
+      const dx = attacker.worldX - m.worldX;
+      const dy = attacker.worldY - m.worldY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= CELL_CONFIG.w * 1.5) {
+        return {
+          id: crypto.randomUUID(),
+          tick,
+          actorId: monster.id,
+          type: CommandType.MELEE,
+          data: { type: "MELEE", targetId: attacker.id },
+          priority: 0,
+          source: "AI",
+        };
+      }
+    }
+    return waitCmd();
+  }
+
+  // Check if there is an adjacent repairable tile — prefer the sticky target
+  const adjacent: [number, number][] = [
+    [monster.gridX, monster.gridY - 1],
+    [monster.gridX, monster.gridY + 1],
+    [monster.gridX - 1, monster.gridY],
+    [monster.gridX + 1, monster.gridY],
+  ];
+
+  // Sort adjacent list so the sticky target comes first
+  const sticky = m.currentRepairTarget as [number, number] | null;
+  if (sticky) {
+    adjacent.sort((a, b) => {
+      const aIsSticky = a[0] === sticky[0] && a[1] === sticky[1] ? -1 : 0;
+      const bIsSticky = b[0] === sticky[0] && b[1] === sticky[1] ? -1 : 0;
+      return aIsSticky - bIsSticky;
+    });
+  }
+
+  for (const [tx, ty] of adjacent) {
+    if (!inBoundsFor(tx, ty, state.mapWidth, state.mapHeight)) continue;
+    const idx = idxFor(tx, ty, state.mapWidth);
+    const tile = state.map[idx];
+    const damage = state.wallDamage[idx] ?? 0;
+    const repairable =
+      tile === TileType.HOLE ||
+      ((tile === TileType.FLOOR ||
+        tile === TileType.WALL ||
+        tile === TileType.DOOR_CLOSED ||
+        tile === TileType.DOOR_OPEN ||
+        tile === TileType.DOOR_LOCKED) &&
+        damage > 0);
+
+    if (repairable) {
+      // Update sticky target to the one we're actually repairing
+      m.currentRepairTarget = [tx, ty];
+      return {
+        id: crypto.randomUUID(),
+        tick,
+        actorId: monster.id,
+        type: CommandType.REPAIR,
+        data: { type: "REPAIR", x: tx, y: ty },
+        priority: 0,
+        source: "AI",
+      };
+    }
+  }
+
+  // Nothing to repair — maybe nuzzle the player
+  const player = getClosestPlayer(state, monster);
+  if (player && m.alertLevel === 0) {
+    const dx = (player as any).worldX - m.worldX;
+    const dy = (player as any).worldY - m.worldY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const hpMax = m.hpMax ?? monster.hp;
+    const isHealthy = monster.hp > hpMax * 0.5;
+    const NUZZLE_COOLDOWN = 120; // ticks (~6 seconds)
+    const lastNuzzle = m.lastNuzzleTick ?? -999;
+    if (
+      dist < CELL_CONFIG.w * 3 &&
+      isHealthy &&
+      tick - lastNuzzle > NUZZLE_COOLDOWN &&
+      RNG.chance(0.15)
+    ) {
+      m.lastNuzzleTick = tick;
+      const bwx = m.worldX ?? monster.gridX * CELL_CONFIG.w;
+      const bwy = m.worldY ?? monster.gridY * CELL_CONFIG.h;
+      state.pendingSounds.push({ effect: SoundEffect.BEEP, worldX: bwx, worldY: bwy });
+      const nuzzleMessages = [
+        "The utility bot nuzzles up to you.",
+        "The utility bot purrs and nuzzles into you.",
+        "The utility bot makes happy, content noises.",
+      ];
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: {
+          type: "MESSAGE",
+          message: nuzzleMessages[Math.floor(Math.random() * nuzzleMessages.length)],
+        },
+      });
+    }
+  }
+
+  return waitCmd();
+}
+
 function decideMonsterCommand(
   state: GameState,
   monster: Monster,
   tick: number,
 ): Command | null {
+  if (monster.type === MonsterType.UTILITY_BOT) {
+    return decideUtilityBotCommand(state, monster, tick);
+  }
+
   const player = getClosestPlayer(state, monster);
   if (!player) {
     return makeIdleWanderCommand(state, monster, tick);
@@ -2175,6 +2728,48 @@ function decideMonsterCommand(
       priority: 0,
       source: "AI",
     };
+  }
+
+  // Attack utility bot if it's in the way
+  const nearbyBot = state.entities.find((e) => {
+    if (e.kind !== EntityKind.MONSTER) return false;
+    if ((e as any).type !== MonsterType.UTILITY_BOT) return false;
+    const dx = (e as any).worldX - (monster as any).worldX;
+    const dy = (e as any).worldY - (monster as any).worldY;
+    return Math.sqrt(dx * dx + dy * dy) <= CELL_CONFIG.w * 1.5;
+  });
+  if (nearbyBot) {
+    return {
+      id: crypto.randomUUID(),
+      tick,
+      actorId: monster.id,
+      type: CommandType.MELEE,
+      data: { type: "MELEE", targetId: nearbyBot.id },
+      priority: 0,
+      source: "AI",
+    };
+  }
+
+  // Monsters scrap with each other when crowded and alert
+  if (!inMeleeRange && (monster as any).alertLevel > 0 && RNG.chance(0.4)) {
+    const blockingMonster = state.entities.find((e) => {
+      if (e.kind !== EntityKind.MONSTER || e.id === monster.id) return false;
+      if ((e as any).type === MonsterType.UTILITY_BOT) return false;
+      const dx = (e as any).worldX - (monster as any).worldX;
+      const dy = (e as any).worldY - (monster as any).worldY;
+      return Math.sqrt(dx * dx + dy * dy) <= CELL_CONFIG.w * 1.5;
+    });
+    if (blockingMonster) {
+      return {
+        id: crypto.randomUUID(),
+        tick,
+        actorId: monster.id,
+        type: CommandType.MELEE,
+        data: { type: "MELEE", targetId: blockingMonster.id },
+        priority: 0,
+        source: "AI",
+      };
+    }
   }
 
   // Throw grenade — skulkers are more aggressive throwers

@@ -42,7 +42,12 @@ export class MonsterEntity extends GameEntity {
 
     this.type = type;
 
-    if (type === MonsterType.SKULKER) {
+    if (type === MonsterType.UTILITY_BOT) {
+      this.hpMax = 20 + depth * 2;
+      this.dmg = 4;
+      this.grenades = 0;
+      this.landMines = 0;
+    } else if (type === MonsterType.SKULKER) {
       this.hpMax = 3 + Math.floor(depth / 2);
       this.dmg = 1;
       this.grenades = RNG.chance(0.45) ? 1 : 0;

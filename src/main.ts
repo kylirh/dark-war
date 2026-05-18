@@ -454,8 +454,19 @@ class DarkWar {
   }
 
   private playPendingSounds(state: ReturnType<Game["getState"]>): void {
-    for (const sound of state.pendingSounds) {
-      Sound.play(sound as SoundEffect);
+    const player = state.player;
+    const MAX_SOUND_DIST = 32 * 18; // 18 tiles = full falloff range
+    for (const pending of state.pendingSounds) {
+      let volume = Sound.getVolume();
+      if (pending.worldX !== undefined && pending.worldY !== undefined) {
+        const dx = pending.worldX - player.worldX;
+        const dy = pending.worldY - player.worldY;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        volume = Sound.getVolume() * Math.max(0, 1 - d / MAX_SOUND_DIST);
+      }
+      if (volume > 0.01) {
+        Sound.play(pending.effect as SoundEffect, volume);
+      }
     }
     state.pendingSounds.length = 0;
   }

@@ -255,6 +255,7 @@ export class Game {
     }
     if (DEBUG) console.log(`Spawned ${ratCount} rats, ${mutantCount} mutants`);
 
+
     // Spawn items
     for (let i = 0; i < 10 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
@@ -668,6 +669,19 @@ export class Game {
     spawnItems(3, ItemType.LAND_MINE);
     spawnItems(2 + Math.floor(depth / 4), ItemType.POWERCELL);
 
+    // Spawn utility bot: 0 or 1 per floor (50% chance), far from start
+    if (RNG.chance(0.5)) {
+      for (let attempt = 0; attempt < 20 && freeTiles.length > 0; attempt++) {
+        const tileIndex = RNG.int(freeTiles.length);
+        const [x, y] = freeTiles[tileIndex];
+        if (dist([x, y], start) > 10) {
+          entities.push(new MonsterEntity(x, y, MonsterType.UTILITY_BOT, depth));
+          freeTiles.splice(tileIndex, 1);
+          break;
+        }
+      }
+    }
+
     return entities.filter(
       (entity) =>
         !(
@@ -678,12 +692,34 @@ export class Game {
     );
   }
 
+  private pluckNearbyUtilityBots(): MonsterEntity[] {
+    const player = this.state.player;
+    const bots = this.state.entities.filter((e) => {
+      if (e.kind !== EntityKind.MONSTER) return false;
+      const m = e as MonsterEntity;
+      if (m.type !== MonsterType.UTILITY_BOT) return false;
+      const dx = m.gridX - player.gridX;
+      const dy = m.gridY - player.gridY;
+      return Math.abs(dx) + Math.abs(dy) <= 4;
+    }) as MonsterEntity[];
+
+    if (bots.length > 0) {
+      this.state.entities = this.state.entities.filter(
+        (e) => !bots.includes(e as MonsterEntity),
+      );
+    }
+    return bots;
+  }
+
   /**
    * Descend to next level (called after tick completes with descend flag)
    */
   public descend(): void {
     const nextDepth = this.state.depth + 1;
     const fallPosition = this.state.descendTarget;
+
+    const followingBots = this.pluckNearbyUtilityBots();
+
     this.saveCurrentLevelSnapshot();
     this.state.depth = nextDepth;
 
@@ -704,6 +740,12 @@ export class Game {
     }
 
     this.applyLevelSnapshot(snapshot, landingPosition);
+
+    for (const bot of followingBots) {
+      setPositionFromGrid(bot, landingPosition[0], landingPosition[1]);
+      this.state.entities.push(bot);
+    }
+
     this.updateFOV();
     this.addLog(
       nextDepth === 1
@@ -722,6 +764,8 @@ export class Game {
 
     const previousDepth = this.state.depth - 1;
 
+    const followingBots = this.pluckNearbyUtilityBots();
+
     this.saveCurrentLevelSnapshot();
     this.state.depth = previousDepth;
 
@@ -731,6 +775,14 @@ export class Game {
     }
 
     this.applyLevelSnapshot(snapshot, snapshot.stairsDown);
+
+    const landingPos = snapshot.stairsDown ?? snapshot.stairsUp;
+    if (landingPos) {
+      for (const bot of followingBots) {
+        setPositionFromGrid(bot, landingPos[0], landingPos[1]);
+        this.state.entities.push(bot);
+      }
+    }
     this.updateFOV();
     this.addLog(
       previousDepth === 0
@@ -887,7 +939,7 @@ export class Game {
         timeScale: this.state.sim.timeScale,
         targetTimeScale: this.state.sim.targetTimeScale,
       },
-      sounds: this.state.pendingSounds.splice(0),
+      sounds: this.state.pendingSounds.splice(0).map((s) => s.effect),
       effects: this.state.effects,
     };
   }
@@ -1034,7 +1086,9 @@ export class Game {
             ? MonsterType.RAT
             : savedType === MonsterType.SKULKER
               ? MonsterType.SKULKER
-              : MonsterType.MUTANT;
+              : savedType === MonsterType.UTILITY_BOT
+                ? MonsterType.UTILITY_BOT
+                : MonsterType.MUTANT;
         const monster = new MonsterEntity(gridX, gridY, monsterType, depth);
         Object.assign(monster, entity);
         if (typeof monster.hpMax !== "number") {
