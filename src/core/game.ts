@@ -19,23 +19,23 @@ import {
   WallSet,
   LevelKind,
 } from "../types";
-import { generateDungeon } from "./Map";
-import { createOutsideLevel } from "./OutsideLevel";
-import { PlayerEntity } from "../entities/PlayerEntity";
-import { MonsterEntity } from "../entities/MonsterEntity";
-import { ItemEntity } from "../entities/ItemEntity";
-import { ExplosiveEntity } from "../entities/ExplosiveEntity";
-import { BulletEntity } from "../entities/BulletEntity";
-import { RNG } from "../utils/RNG";
+import { generateDungeon } from "./map";
+import { createOutsideLevel } from "./outside-level";
+import { PlayerEntity } from "../entities/player-entity";
+import { MonsterEntity } from "../entities/monster-entity";
+import { ItemEntity } from "../entities/item-entity";
+import { ExplosiveEntity } from "../entities/explosive-entity";
+import { BulletEntity } from "../entities/bullet-entity";
+import { RNG } from "../utils/rng";
 import {
   dist,
   passableFor,
   setPositionFromGrid,
   setTile,
 } from "../utils/helpers";
-import { computeFOV, computeFOVFrom } from "../systems/FOV";
-import { GameEntity } from "../entities/GameEntity";
-import { Sound, SoundEffect } from "../systems/Sound";
+import { computeFOV, computeFOVFrom } from "../systems/fov";
+import { GameEntity } from "../entities/game-entity";
+import { Sound, SoundEffect } from "../systems/sound";
 
 const EXPLORATION_COMPLETION_THRESHOLD = 0.9;
 const MIN_COMPLETION_REACHABLE_TILES = 50;
@@ -564,10 +564,7 @@ export class Game {
       player.nextActTick = this.state.sim.nowTick;
     }
 
-    this.state.entities = [
-      ...this.state.players,
-      ...snapshot.entities.map((entity) => entity),
-    ];
+    this.state.entities = [...this.state.players, ...snapshot.entities];
     this.syncLocalExploredState();
     this.normalizeCurrentCompletedExploration();
   }
@@ -733,6 +730,8 @@ export class Game {
       const nearestTile = this.findNearestPassableTile(
         snapshot.map,
         fallPosition,
+        snapshot.mapWidth,
+        snapshot.mapHeight,
       );
       landingPosition = nearestTile ?? snapshot.stairsUp ?? snapshot.stairsDown;
     } else {
@@ -794,20 +793,20 @@ export class Game {
   private findNearestPassableTile(
     map: TileType[],
     target: [number, number],
+    width: number,
+    height: number,
   ): [number, number] | null {
     const [startX, startY] = target;
     if (
       startX >= 0 &&
       startY >= 0 &&
-      startX < this.state.mapWidth &&
-      startY < this.state.mapHeight &&
-      passableFor(map, startX, startY, this.state.mapWidth, this.state.mapHeight)
+      startX < width &&
+      startY < height &&
+      passableFor(map, startX, startY, width, height)
     ) {
       return [startX, startY];
     }
 
-    const width = this.state.mapWidth;
-    const height = this.state.mapHeight;
     const visited = new Array(width * height).fill(false);
     const queue: [number, number][] = [];
     const enqueue = (x: number, y: number) => {
@@ -818,10 +817,14 @@ export class Game {
       queue.push([x, y]);
     };
 
-    enqueue(startX, startY);
+    enqueue(
+      Math.min(Math.max(startX, 0), width - 1),
+      Math.min(Math.max(startY, 0), height - 1),
+    );
 
-    while (queue.length > 0) {
-      const [x, y] = queue.shift() as [number, number];
+    let head = 0;
+    while (head < queue.length) {
+      const [x, y] = queue[head++];
       if (x >= 0 && y >= 0 && x < width && y < height) {
         if (passableFor(map, x, y, width, height)) {
           return [x, y];
@@ -939,7 +942,7 @@ export class Game {
         timeScale: this.state.sim.timeScale,
         targetTimeScale: this.state.sim.targetTimeScale,
       },
-      sounds: this.state.pendingSounds.splice(0).map((s) => s.effect),
+      sounds: this.state.pendingSounds.map((s) => s.effect),
       effects: this.state.effects,
     };
   }
@@ -948,6 +951,26 @@ export class Game {
    * Load game state from serialized data
    */
   public deserialize(data: SerializedState): void {
+    const partial = data as Partial<SerializedState>;
+    if (!Array.isArray(partial.map)) {
+      throw new Error("Invalid save: missing map data");
+    }
+    const serializedPlayers =
+      Array.isArray(partial.players) && partial.players.length > 0
+        ? partial.players
+        : partial.player
+          ? [partial.player]
+          : [];
+    if (serializedPlayers.length === 0) {
+      throw new Error("Invalid save: missing player data");
+    }
+    const serializedEntities = Array.isArray(partial.entities)
+      ? partial.entities
+      : [];
+    const exploredTiles = Array.isArray(partial.explored)
+      ? partial.explored
+      : [];
+    const sim = partial.sim ?? { nowTick: 0, mode: "REALTIME" as const };
     const floorVariant =
       typeof data.floorVariant === "number" ? data.floorVariant : RNG.int(3);
     const wallSet = data.wallSet === "wood" ? "wood" : "concrete";
@@ -957,17 +980,14 @@ export class Game {
       data.wallDamage && data.wallDamage.length === data.map.length
         ? data.wallDamage.slice()
         : new Array(data.map.length).fill(0);
-    const players = this.hydratePlayers(
-      data.players ?? [data.player],
-      data.depth,
-    );
+    const players = this.hydratePlayers(serializedPlayers, data.depth);
     const localPlayerId =
-      data.multiplayer?.localPlayerId ?? players[0]?.id ?? data.player.id;
+      data.multiplayer?.localPlayerId ?? players[0].id;
     this.localPlayerId = localPlayerId;
     const player =
       players.find((candidate) => candidate.id === localPlayerId) ?? players[0];
 
-    const nonPlayerEntities = data.entities.filter(
+    const nonPlayerEntities = serializedEntities.filter(
       (entity) => entity.kind !== EntityKind.PLAYER,
     );
     const entities: Entity[] = [
@@ -979,7 +999,7 @@ export class Game {
       data.exploredByPlayer,
     );
     if (!exploredByPlayer.has(localPlayerId)) {
-      exploredByPlayer.set(localPlayerId, new Set(data.explored));
+      exploredByPlayer.set(localPlayerId, new Set(exploredTiles));
     }
     const visibilityByPlayer = new Map<string, Set<number>>();
 
@@ -997,7 +1017,7 @@ export class Game {
         (data as { stairs?: [number, number] }).stairs ?? [0, 0],
       stairsUp: data.stairsUp ?? null,
       visible: new Set(),
-      explored: new Set(data.explored),
+      explored: new Set(exploredTiles),
       accessible: new Set(),
       enhancedVision: data.enhancedVision ?? false,
       visibilityByPlayer,
@@ -1013,10 +1033,10 @@ export class Game {
         localPlayerId,
       },
       sim: {
-        nowTick: data.sim.nowTick,
-        mode: data.sim.mode,
-        timeScale: data.sim.timeScale ?? 1.0,
-        targetTimeScale: data.sim.targetTimeScale ?? 1.0,
+        nowTick: sim.nowTick,
+        mode: sim.mode,
+        timeScale: sim.timeScale ?? 1.0,
+        targetTimeScale: sim.targetTimeScale ?? 1.0,
         accumulatorMs: 0,
         lastFrameMs: performance.now(),
         pauseReasons: new Set(),
@@ -1233,8 +1253,9 @@ export class Game {
     const queue: Array<[number, number]> = [[startX, startY]];
     const visited = new Set<number>();
 
-    while (queue.length > 0) {
-      const [x, y] = queue.shift() as [number, number];
+    let head = 0;
+    while (head < queue.length) {
+      const [x, y] = queue[head++];
 
       if (x < 0 || y < 0 || x >= this.state.mapWidth || y >= this.state.mapHeight) {
         continue;
@@ -1416,8 +1437,9 @@ export class Game {
 
     const queue: Array<[number, number]> = [[startX, startY]];
 
-    while (queue.length > 0) {
-      const [x, y] = queue.shift() as [number, number];
+    let head = 0;
+    while (head < queue.length) {
+      const [x, y] = queue[head++];
       if (x < 0 || y < 0 || x >= this.state.mapWidth || y >= this.state.mapHeight) continue;
 
       const index = x + y * this.state.mapWidth;
@@ -1456,8 +1478,9 @@ export class Game {
     };
 
     enqueue(preferred[0], preferred[1]);
-    while (queue.length > 0) {
-      const [x, y] = queue.shift() as [number, number];
+    let head = 0;
+    while (head < queue.length) {
+      const [x, y] = queue[head++];
       if (
         passableFor(
           this.state.map,

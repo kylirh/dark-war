@@ -62,7 +62,9 @@ export function computeFOV(
   );
 
   // Add all visible tiles to explored
-  visible.forEach((index) => explored.add(index));
+  for (const index of visible) {
+    explored.add(index);
+  }
 
   return visible;
 }

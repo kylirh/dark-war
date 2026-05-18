@@ -117,10 +117,14 @@ export function findPathToClosestReachable(
     return true;
   };
 
+  const monsterTiles = new Set<number>();
+  for (const e of entities) {
+    if (e.kind === EntityKind.MONSTER) {
+      monsterTiles.add(idxFor(e.gridX, e.gridY, width));
+    }
+  }
   const hasMonster = (x: number, y: number): boolean =>
-    entities.some(
-      (e) => e.gridX === x && e.gridY === y && e.kind === EntityKind.MONSTER,
-    );
+    monsterTiles.has(idxFor(x, y, width));
 
   const directions: [number, number][] = [
     [1, 0],
@@ -133,8 +137,9 @@ export function findPathToClosestReachable(
     [-1, -1],
   ];
 
-  while (queue.length > 0) {
-    const current = queue.shift()!;
+  let head = 0;
+  while (head < queue.length) {
+    const current = queue[head++];
     const currentX = current % width;
     const currentY = Math.floor(current / width);
 

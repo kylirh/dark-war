@@ -1,6 +1,6 @@
 import { EntityKind, ItemType } from "../types";
-import { GameEntity } from "./GameEntity";
-import { RNG } from "../utils/RNG";
+import { GameEntity } from "./game-entity";
+import { RNG } from "../utils/rng";
 
 /**
  * Item metadata definitions
@@ -59,11 +59,11 @@ export class ItemEntity extends GameEntity {
 
     // Add type-specific properties
     if (type === ItemType.AMMO) {
-      this.amount = amount || 8 + RNG.int(10);
+      this.amount = amount ?? 8 + RNG.int(10);
     } else if (type === ItemType.MEDKIT) {
       this.heal = 6 + RNG.int(8);
     } else if (type === ItemType.POWERCELL) {
-      this.amount = amount || 20 + RNG.int(21);
+      this.amount = amount ?? 20 + RNG.int(21);
     }
 
     // Items are static. This ensures zero velocity.

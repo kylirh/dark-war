@@ -3,6 +3,8 @@ export class TitleScreen {
   private onDismiss: () => void;
   private introAudio: HTMLAudioElement | null = null;
   private dismissed = false;
+  private completed = false;
+  private dismissHandler?: () => void;
 
   constructor(onDismiss: () => void) {
     this.onDismiss = onDismiss;
@@ -34,30 +36,37 @@ export class TitleScreen {
   }
 
   private setupDismiss(): void {
-    const dismiss = () => this.dismiss();
-    document.addEventListener("keydown", dismiss, { once: true });
-    document.addEventListener("click", dismiss, { once: true });
+    this.dismissHandler = () => this.dismiss();
+    document.addEventListener("keydown", this.dismissHandler, { once: true });
+    document.addEventListener("click", this.dismissHandler, { once: true });
   }
 
   public dismiss(): void {
     if (this.dismissed) return;
     this.dismissed = true;
+    if (this.dismissHandler) {
+      document.removeEventListener("keydown", this.dismissHandler);
+      document.removeEventListener("click", this.dismissHandler);
+      this.dismissHandler = undefined;
+    }
 
     if (this.introAudio) {
       this.introAudio.pause();
+      this.introAudio.src = "";
       this.introAudio = null;
     }
 
+    const finish = (): void => {
+      if (this.completed) return;
+      this.completed = true;
+      this.overlay.remove();
+      document.documentElement.classList.remove("title-screen-active");
+      document.body.classList.remove("title-screen-active");
+      this.onDismiss();
+    };
+
     this.overlay.classList.add("fade-out");
-    this.overlay.addEventListener(
-      "transitionend",
-      () => {
-        this.overlay.remove();
-        document.documentElement.classList.remove("title-screen-active");
-        document.body.classList.remove("title-screen-active");
-        this.onDismiss();
-      },
-      { once: true },
-    );
+    this.overlay.addEventListener("transitionend", finish, { once: true });
+    window.setTimeout(finish, 1000);
   }
 }

@@ -40,7 +40,7 @@ class RandomNumberGenerator {
    * Reseed the random number generator
    */
   reseed(newSeed: number): void {
-    this.seed = newSeed >>> 0 || this.seed;
+    this.seed = newSeed >>> 0;
     this.rand = this.sfc32();
   }
 
@@ -48,6 +48,9 @@ class RandomNumberGenerator {
    * Generate random integer from 0 to n-1
    */
   int(n: number): number {
+    if (!Number.isInteger(n) || n <= 0) {
+      throw new Error(`RNG.int requires a positive integer, received ${n}`);
+    }
     return (this.rand() * n) | 0;
   }
 
@@ -62,6 +65,9 @@ class RandomNumberGenerator {
    * Choose random element from array
    */
   choose<T>(arr: T[]): T {
+    if (arr.length === 0) {
+      throw new Error("RNG.choose requires a non-empty array");
+    }
     return arr[(this.rand() * arr.length) | 0];
   }
 

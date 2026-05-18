@@ -1,6 +1,6 @@
 import { EntityKind, ItemType, MonsterType } from "../types";
-import { GameEntity } from "./GameEntity";
-import { RNG } from "../utils/RNG";
+import { GameEntity } from "./game-entity";
+import { RNG } from "../utils/rng";
 
 /**
  * Represents monsters

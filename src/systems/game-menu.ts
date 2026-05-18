@@ -1,16 +1,16 @@
 /**
  * Reusable retro system modal components for game menu dialogs.
  */
-import { Music } from "./Music";
+import { Music } from "./music";
 import {
   DEFAULT_KEY_BINDINGS,
   KEY_BINDING_DEFINITIONS,
   KeyBindingAction,
   UserPreferences,
   keyCodeToLabel,
-} from "./Preferences";
-import { Sound } from "./Sound";
-import { LobbyPlayer } from "../net/MultiplayerClient";
+} from "./preferences";
+import { Sound } from "./sound";
+import { LobbyPlayer } from "../net/multiplayer-client";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -233,6 +233,8 @@ export class GameMenu {
   private mpDiscoveredServers: DiscoveredServer[] = [];
   private mpRefreshTimer: number | null = null;
   private mpStatusMessage = "";
+  private mpLastRenderedServerKey = "";
+  private mpCachedLocalIps: string[] | null = null;
 
   private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
 
@@ -649,6 +651,7 @@ export class GameMenu {
   // ── Multiplayer action handlers ─────────────────────────────────────────────────
 
   private openBrowseView(): void {
+    this.mpLastRenderedServerKey = "";
     this.options.onMultiplayerStartDiscovery?.();
     this.setPauseMenuView("browse-games");
     this.refreshServerList();
@@ -671,6 +674,10 @@ export class GameMenu {
   }
 
   private renderServerList(container: HTMLElement, servers: DiscoveredServer[]): void {
+    const key = servers.map((s) => `${s.ip}:${s.port}:${s.players}:${s.phase}`).join("|");
+    if (key === this.mpLastRenderedServerKey) return;
+    this.mpLastRenderedServerKey = key;
+
     if (servers.length === 0) {
       container.innerHTML = '<div class="imb-server-searching">No games found — make sure your host is running.</div>';
       return;
@@ -746,6 +753,7 @@ export class GameMenu {
     this.options.onMultiplayerLeaveLobby?.();
     this.mpConnectionState = "disconnected";
     this.mpLobbyPlayers = [];
+    this.mpCachedLocalIps = null;
     this.setPauseMenuView("multiplayer");
   }
 
@@ -856,13 +864,20 @@ export class GameMenu {
 
     if (lobbyHint) {
       if (this.mpIsHost) {
-        const localIpsPromise = (window as Window & { native?: { serverGetLocalIps?: () => Promise<string[]> } }).native?.serverGetLocalIps?.();
-        if (localIpsPromise) {
-          localIpsPromise.then((ips) => {
-            if (lobbyHint && ips && ips.length > 0) {
-              lobbyHint.textContent = `Others can find your game on the LAN, or join at: ${ips[0]}:7777`;
-            }
-          }).catch(() => {});
+        if (this.mpCachedLocalIps !== null) {
+          lobbyHint.textContent = this.mpCachedLocalIps.length > 0
+            ? `Others can find your game on the LAN, or join at: ${this.mpCachedLocalIps[0]}:7777`
+            : "";
+        } else {
+          const native = (window as Window & { native?: { serverGetLocalIps?: () => Promise<string[]> } }).native;
+          native?.serverGetLocalIps?.()
+            .then((ips) => {
+              this.mpCachedLocalIps = ips ?? [];
+              if (lobbyHint && this.mpCachedLocalIps.length > 0) {
+                lobbyHint.textContent = `Others can find your game on the LAN, or join at: ${this.mpCachedLocalIps[0]}:7777`;
+              }
+            })
+            .catch(() => { this.mpCachedLocalIps = []; });
         }
       } else {
         lobbyHint.textContent = "";
@@ -1043,8 +1058,12 @@ export class GameMenu {
       message.classList.toggle("hidden", !this.pauseMenuMessage);
     }
 
-    this.syncSettingsControls();
-    this.syncKeybindingControls();
+    if (this.pauseMenuView === "settings" || this.pauseMenuView === "keybindings") {
+      this.syncSettingsControls();
+    }
+    if (this.pauseMenuView === "keybindings") {
+      this.syncKeybindingControls();
+    }
     if (this.pauseMenuView === "lobby") this.syncLobbyView();
     if (this.pauseMenuView === "browse-games") {
       // Populate name input from stored player name
@@ -1157,6 +1176,13 @@ export class GameMenu {
   // ── View switching ─────────────────────────────────────────────────────────────
 
   private setPauseMenuView(view: PauseMenuView): void {
+    if (this.pauseMenuView === "browse-games" && view !== "browse-games") {
+      if (this.mpRefreshTimer !== null) {
+        window.clearInterval(this.mpRefreshTimer);
+        this.mpRefreshTimer = null;
+      }
+      this.options.onMultiplayerStopDiscovery?.();
+    }
     this.pauseMenuView = view;
     this.pauseMenuMessage = null;
     this.listeningForKey = null;
@@ -1274,6 +1300,7 @@ export class GameMenu {
       window.clearInterval(this.mpRefreshTimer);
       this.mpRefreshTimer = null;
     }
+    this.options.onMultiplayerStopDiscovery?.();
     window.removeEventListener("keydown", this.onKeyDown);
     for (const modal of this.modals.values()) modal.dispose();
     this.modals.clear();

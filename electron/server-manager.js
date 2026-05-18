@@ -113,7 +113,12 @@ class ServerManager {
 
       // Give it 5 seconds to start
       setTimeout(() => {
-        if (!started) reject(new Error("Server start timeout"));
+        if (!started) {
+          this._child = null;
+          this._port = null;
+          try { child.kill("SIGKILL"); } catch {}
+          reject(new Error("Server start timeout"));
+        }
       }, 5000);
     });
   }
@@ -180,7 +185,7 @@ class DiscoveryManager {
     this._broadcastInfo = null;
 
     this._listenSocket = null;
-    this._discoveredServers = new Map(); // ip -> DiscoveredServer
+    this._discoveredServers = new Map(); // "ip:port" -> DiscoveredServer
     this._pruneTimer = null;
   }
 
@@ -246,7 +251,8 @@ class DiscoveryManager {
         const msg = JSON.parse(buf.toString("utf8"));
         if (msg.app !== APP_ID) return;
         const ip = rinfo.address;
-        this._discoveredServers.set(ip, {
+        const key = `${ip}:${msg.wsPort}`;
+        this._discoveredServers.set(key, {
           ip,
           port: msg.wsPort,
           name: msg.name,
@@ -308,8 +314,8 @@ class DiscoveryManager {
 
   _pruneStale() {
     const cutoff = Date.now() - DISCOVERY_TTL_MS;
-    for (const [ip, server] of this._discoveredServers) {
-      if (server.lastSeen < cutoff) this._discoveredServers.delete(ip);
+    for (const [key, server] of this._discoveredServers) {
+      if (server.lastSeen < cutoff) this._discoveredServers.delete(key);
     }
   }
 }

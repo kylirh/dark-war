@@ -106,17 +106,13 @@ class SoundManager {
     const clone = audio.cloneNode() as HTMLAudioElement;
     clone.volume = volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.volume;
 
-    // Clean up clone after it finishes playing to prevent memory leak
-    clone.addEventListener(
-      "ended",
-      () => {
-        clone.remove();
-      },
-      { once: true }
-    );
+    // Clean up clone after it finishes or errors to prevent memory leak
+    const cleanup = (): void => { clone.src = ""; };
+    clone.addEventListener("ended", cleanup, { once: true });
+    clone.addEventListener("error", cleanup, { once: true });
 
-    clone.play().catch((error) => {
-      console.warn(`Failed to play sound effect: ${effect}`, error);
+    clone.play().catch(() => {
+      cleanup();
     });
   }
 

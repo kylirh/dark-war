@@ -1,9 +1,11 @@
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { RawData, WebSocket, WebSocketServer } from "ws";
-import { Game } from "../src/core/Game";
-import { Physics } from "../src/systems/Physics";
-import { enqueueCommand, SIM_DT_MS, stepSimulationTick } from "../src/systems/Simulation";
-import { Sound } from "../src/systems/Sound";
+import { Game } from "../src/core/game";
+import { Physics } from "../src/systems/physics";
+import { stepSimulationTick } from "../src/systems/simulation/tick";
+import { enqueueCommand } from "../src/systems/simulation/commands";
+import { SIM_DT_MS } from "../src/systems/simulation/constants";
+import { Sound } from "../src/systems/sound";
 import { CommandType, EntityKind, SLOWMO_SCALE, TIME_SCALE_TRANSITION_SPEED, WeaponType } from "../src/types";
 
 // ─── Protocol types ────────────────────────────────────────────────────────────
@@ -53,6 +55,36 @@ function toCardinalStep(value: unknown): number | null {
   const rounded = Math.round(n);
   if (rounded < -1 || rounded > 1) return null;
   return rounded;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isIncomingAction(value: unknown): value is IncomingAction {
+  if (!isRecord(value) || typeof value.type !== "string") return false;
+  return (
+    value.type === "FIRE" ||
+    value.type === "INTERACT" ||
+    value.type === "PICKUP" ||
+    value.type === "RELOAD" ||
+    value.type === "WAIT" ||
+    value.type === "DESCEND" ||
+    value.type === "ASCEND" ||
+    value.type === "TOGGLE_GOD_MODE"
+  );
+}
+
+function isIncomingMessage(value: unknown): value is IncomingMessage2 {
+  if (!isRecord(value) || typeof value.type !== "string") return false;
+  return (
+    value.type === "velocity" ||
+    value.type === "action" ||
+    value.type === "select_weapon" ||
+    value.type === "new_game" ||
+    value.type === "start_game" ||
+    value.type === "set_name"
+  );
 }
 
 // ─── Room session ──────────────────────────────────────────────────────────────
@@ -158,13 +190,18 @@ class RoomSession {
     if (!client) return;
 
     const text = rawMessageToString(rawMessage);
-    let message: IncomingMessage2;
+    let parsed: unknown;
     try {
-      message = JSON.parse(text) as IncomingMessage2;
+      parsed = JSON.parse(text);
     } catch {
       this.send(socket, { type: "error", message: "Invalid payload." });
       return;
     }
+    if (!isIncomingMessage(parsed)) {
+      this.send(socket, { type: "error", message: "Invalid payload." });
+      return;
+    }
+    const message = parsed;
 
     if (message.type === "set_name") {
       const cleaned = sanitizePlayerName(message.name);
@@ -187,6 +224,10 @@ class RoomSession {
       return;
     }
     if (message.type === "action") {
+      if (!isIncomingAction(message.action)) {
+        this.send(socket, { type: "error", message: "Invalid action." });
+        return;
+      }
       this.applyAction(client.playerId, message.action);
       return;
     }
@@ -195,6 +236,10 @@ class RoomSession {
       return;
     }
     if (message.type === "new_game") {
+      if (client.playerId !== this.hostPlayerId) {
+        this.send(socket, { type: "error", message: "Only the host can start a new game." });
+        return;
+      }
       this.resetRoomState();
     }
   }
@@ -225,10 +270,18 @@ class RoomSession {
     if (!player || player.hp <= 0) return;
 
     const speedLimit = 260;
-    player.velocityX = Number.isFinite(vx) ? Math.max(-speedLimit, Math.min(speedLimit, vx)) : 0;
-    player.velocityY = Number.isFinite(vy) ? Math.max(-speedLimit, Math.min(speedLimit, vy)) : 0;
+    let nextVx = Number.isFinite(vx) ? vx : 0;
+    let nextVy = Number.isFinite(vy) ? vy : 0;
+    const speed = Math.sqrt(nextVx * nextVx + nextVy * nextVy);
+    if (speed > speedLimit) {
+      nextVx = (nextVx / speed) * speedLimit;
+      nextVy = (nextVy / speed) * speedLimit;
+    }
 
-    if (vx !== 0 || vy !== 0) this.playerActedThisTick = true;
+    player.velocityX = nextVx;
+    player.velocityY = nextVy;
+
+    if (nextVx !== 0 || nextVy !== 0) this.playerActedThisTick = true;
   }
 
   private applyAction(playerId: string, action: IncomingAction): void {
@@ -362,7 +415,7 @@ class RoomSession {
         for (const tileIndex of state.changedTiles) {
           const x = tileIndex % state.mapWidth;
           const y = Math.floor(tileIndex / state.mapWidth);
-          this.physics.updateTile(x, y, state.map[tileIndex], state.mapWidth);
+          this.physics.updateTile(x, y, state.map[tileIndex], state.mapWidth, state.mapHeight);
         }
         state.changedTiles.clear();
       }
@@ -423,6 +476,7 @@ class RoomSession {
       const payload = this.game.serializeForPlayer(client.playerId);
       this.send(client.socket, { type: "state", state: payload });
     }
+    this.game.getState().pendingSounds.length = 0;
   }
 
   private rebuildPhysics(): void {
@@ -431,6 +485,7 @@ class RoomSession {
       if ("physicsBody" in entity) (entity as unknown as Record<string, unknown>).physicsBody = undefined;
     }
     this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
+    this.physics.clearEntityBodies();
     for (const entity of state.entities) {
       this.physics.updateEntityBody(entity as Parameters<Physics["updateEntityBody"]>[0]);
     }

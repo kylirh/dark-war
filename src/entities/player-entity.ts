@@ -1,5 +1,5 @@
 import { EntityKind, WeaponType } from "../types";
-import { GameEntity } from "./GameEntity";
+import { GameEntity } from "./game-entity";
 
 /**
  * Represents the player

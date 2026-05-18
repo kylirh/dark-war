@@ -196,6 +196,7 @@ export class MultiplayerClient {
     }
 
     if (message.type === "welcome") {
+      if (typeof message.playerId !== "string" || typeof message.roomId !== "string") return;
       this.localPlayerId = message.playerId;
       this.isHost = message.isHost;
       this.onConnectedCallback?.(message.playerId, message.roomId, message.isHost);
@@ -203,6 +204,7 @@ export class MultiplayerClient {
     }
 
     if (message.type === "lobby_update") {
+      if (!Array.isArray(message.players) || typeof message.roomId !== "string") return;
       this.onLobbyUpdateCallback?.({
         players: message.players,
         roomId: message.roomId,
@@ -212,11 +214,13 @@ export class MultiplayerClient {
     }
 
     if (message.type === "state") {
+      if (message.state == null || typeof message.state !== "object") return;
       this.onStateCallback?.(message.state);
       return;
     }
 
     if (message.type === "error") {
+      if (typeof message.message !== "string") return;
       this.onErrorCallback?.(message.message);
     }
   }

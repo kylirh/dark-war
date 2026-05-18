@@ -25,16 +25,13 @@ import {
   MAP_HEIGHT,
   TILE_DEFINITIONS,
 } from "../types";
-import { GameEntity } from "../entities/GameEntity";
-import { PlayerEntity } from "../entities/PlayerEntity";
-import { MonsterEntity } from "../entities/MonsterEntity";
-import { ItemEntity } from "../entities/ItemEntity";
-import { BulletEntity } from "../entities/BulletEntity";
-import { ExplosiveEntity } from "../entities/ExplosiveEntity";
+import { GameEntity } from "../entities/game-entity";
+import { BulletEntity } from "../entities/bullet-entity";
+import { ExplosiveEntity } from "../entities/explosive-entity";
 import { idxFor, tileAtFor } from "../utils/helpers";
 import { applyWallDamageAtIndex } from "../utils/walls";
 
-import { pushEvent } from "./Simulation";
+import { pushEvent } from "./simulation/sim-helpers";
 
 // Collision radii - sized to allow smooth corridor navigation
 // With 32px tiles, an 8px radius (16px diameter) leaves 16px clearance in corridors
@@ -111,7 +108,10 @@ export class Physics {
     y: number,
     tile: TileType,
     width: number = MAP_WIDTH,
+    height: number = MAP_HEIGHT,
   ): void {
+    if (x < 0 || y < 0 || x >= width || y >= height) return;
+
     const tileIndex = idxFor(x, y, width);
 
     // Remove existing wall body if present
@@ -199,22 +199,41 @@ export class Physics {
   }
 
   /**
+   * Remove all non-wall bodies before a full entity rebuild.
+   */
+  public clearEntityBodies(): void {
+    for (const body of this.system.all()) {
+      if (!(body as any).isWall) {
+        this.system.remove(body);
+      }
+    }
+  }
+
+  /**
    * Update physics for all entities
    * @param state Game state
    * @param dt Delta time in seconds (already scaled by timeScale * REAL_TIME_SPEED)
    */
   public updatePhysics(state: GameState, dt: number): void {
-    const entityIds = new Set(state.entities.map((entity) => entity.id));
+    // Build entity Map once for O(1) lookup in collision handlers
+    const entityMap = new Map<string, GameEntity>();
+    for (const entity of state.entities) {
+      if (entity instanceof GameEntity) {
+        entityMap.set(entity.id, entity);
+      }
+    }
+
+    // Remove physics bodies for entities no longer in state
     for (const body of this.system.all()) {
       const entityId = (body as any).entityId;
-      if (entityId !== undefined && !entityIds.has(entityId)) {
+      if (entityId !== undefined && !entityMap.has(entityId)) {
         this.system.remove(body);
       }
     }
 
     // Ensure all entities have physics bodies
-    for (const entity of state.entities) {
-      if (entity instanceof GameEntity && !entity.physicsBody) {
+    for (const entity of entityMap.values()) {
+      if (!entity.physicsBody) {
         this.updateEntityBody(entity);
       }
     }
@@ -279,7 +298,7 @@ export class Physics {
     // remaining partially interpenetrated after a single-frame shove.
     for (let i = 0; i < COLLISION_RESOLUTION_ITERATIONS; i++) {
       this.system.checkAll((response) => {
-        this.handleCollision(state, response);
+        this.handleCollision(entityMap, response);
       });
       this.system.update();
     }
@@ -293,13 +312,16 @@ export class Physics {
    *
    * Wall sliding: Only cancel velocity component moving INTO the wall, preserve parallel movement.
    */
-  private handleCollision(state: GameState, response: Response): void {
+  private handleCollision(
+    entityMap: Map<string, GameEntity>,
+    response: Response,
+  ): void {
     const bodyA = response.a;
     const bodyB = response.b;
 
     // Get entity references
-    const entityA = this.getEntityFromBody(state, bodyA);
-    const entityB = this.getEntityFromBody(state, bodyB);
+    const entityA = this.getEntityFromBody(entityMap, bodyA);
+    const entityB = this.getEntityFromBody(entityMap, bodyB);
 
     // Wall collision - push entity out of wall with wall sliding
     if (
@@ -500,38 +522,27 @@ export class Physics {
   }
 
   /**
-   * Get entity from physics body
+   * Get entity from physics body using the pre-built entity Map for O(1) lookup.
    */
   private getEntityFromBody(
-    state: GameState,
+    entityMap: Map<string, GameEntity>,
     body: Circle | Box,
   ): GameEntity | undefined {
     const entityId = (body as any).entityId;
     if (entityId === undefined) return undefined;
-
-    const entity = state.entities.find((e) => e.id === entityId);
-    if (
-      entity &&
-      (entity instanceof GameEntity ||
-        entity instanceof PlayerEntity ||
-        entity instanceof MonsterEntity ||
-        entity instanceof ItemEntity ||
-        entity instanceof BulletEntity ||
-        entity instanceof ExplosiveEntity)
-    ) {
-      return entity as GameEntity;
-    }
-    return undefined;
+    return entityMap.get(entityId);
   }
 
   /**
    * Update bullets - move, check collisions, apply damage
    */
   public updateBullets(state: GameState, dt: number): void {
-    const bullets = state.entities.filter(
-      (e): e is BulletEntity =>
-        e.kind === EntityKind.BULLET && e instanceof BulletEntity,
-    );
+    const entityMap = new Map<string, GameEntity>();
+    const bullets: BulletEntity[] = [];
+    for (const e of state.entities) {
+      if (e instanceof GameEntity) entityMap.set(e.id, e);
+      if (e.kind === EntityKind.BULLET && e instanceof BulletEntity) bullets.push(e);
+    }
 
     for (const bullet of bullets) {
       bullet.fuseSeconds -= dt;
@@ -598,7 +609,7 @@ export class Physics {
 
           // Hit monster
           const targetEntity = this.getEntityFromBody(
-            state,
+            entityMap,
             other as Circle | Box,
           );
           if (
@@ -701,10 +712,12 @@ export class Physics {
    * Update explosives - move, check collisions with monsters and walls
    */
   public updateExplosives(state: GameState, dt: number): void {
-    const explosives = state.entities.filter(
-      (e): e is ExplosiveEntity =>
-        e.kind === EntityKind.EXPLOSIVE && e instanceof ExplosiveEntity,
-    );
+    const entityMap = new Map<string, GameEntity>();
+    const explosives: ExplosiveEntity[] = [];
+    for (const e of state.entities) {
+      if (e instanceof GameEntity) entityMap.set(e.id, e);
+      if (e.kind === EntityKind.EXPLOSIVE && e instanceof ExplosiveEntity) explosives.push(e);
+    }
 
     for (const explosive of explosives) {
       if (
@@ -743,7 +756,7 @@ export class Physics {
           }
 
           const targetEntity = this.getEntityFromBody(
-            state,
+            entityMap,
             other as Circle | Box,
           );
           if (!targetEntity) return;

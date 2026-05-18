@@ -2,7 +2,7 @@
  * Input handling and keyboard controls
  * Tracks key states for continuous remappable movement with normalized diagonals.
  */
-import { KeyBindingAction, UserPreferences } from "./Preferences";
+import { KeyBindingAction, UserPreferences } from "./preferences";
 
 export type Direction = [number, number];
 

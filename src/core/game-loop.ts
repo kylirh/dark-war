@@ -34,6 +34,9 @@ export class GameLoop {
    * Start the game loop
    */
   public start(): void {
+    if (this.rafId !== undefined) {
+      return;
+    }
     this.lastTime = performance.now();
     this.loop(this.lastTime);
   }

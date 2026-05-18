@@ -6,7 +6,7 @@ import {
   TileType,
   WallSet,
 } from "../types";
-import { ItemEntity } from "../entities/ItemEntity";
+import { ItemEntity } from "../entities/item-entity";
 import { setTileFor } from "../utils/helpers";
 
 export interface OutsideLevelData extends DungeonData {

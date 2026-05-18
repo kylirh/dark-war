@@ -1,27 +1,25 @@
-import { Game } from "./core/Game";
-import { GameLoop } from "./core/GameLoop";
-import { GameEntity } from "./entities/GameEntity";
-import { InputCallbacks, InputHandler, MOVEMENT_SPEED } from "./systems/Input";
-import { MouseTracker } from "./systems/MouseTracker";
-import { Music } from "./systems/Music";
-import { Physics } from "./systems/Physics";
+import { Game } from "./core/game";
+import { GameLoop } from "./core/game-loop";
+import { GameEntity } from "./entities/game-entity";
+import { InputCallbacks, InputHandler, MOVEMENT_SPEED } from "./systems/input";
+import { MouseTracker } from "./systems/mouse-tracker";
+import { Music } from "./systems/music";
+import { Physics } from "./systems/physics";
 import {
   UserPreferences,
   loadPreferences,
   savePreferences,
-} from "./systems/Preferences";
-import { Renderer } from "./systems/Renderer";
-import {
-  enqueueCommand,
-  SIM_DT_MS,
-  stepSimulationTick,
-} from "./systems/Simulation";
-import { Sound, SoundEffect } from "./systems/Sound";
-import { TitleScreen } from "./systems/TitleScreen";
-import { IntroStory } from "./systems/IntroStory";
-import { GameMenu } from "./systems/GameMenu";
-import { RetroWindowChrome } from "./systems/RetroWindowChrome";
-import { UI } from "./systems/UI";
+} from "./systems/preferences";
+import { Renderer } from "./systems/renderer";
+import { stepSimulationTick } from "./systems/simulation/tick";
+import { enqueueCommand } from "./systems/simulation/commands";
+import { SIM_DT_MS } from "./systems/simulation/constants";
+import { Sound, SoundEffect } from "./systems/sound";
+import { TitleScreen } from "./systems/title-screen";
+import { IntroStory } from "./systems/intro-story";
+import { GameMenu } from "./systems/game-menu";
+import { RetroWindowChrome } from "./systems/retro-window-chrome";
+import { UI } from "./systems/ui";
 import {
   CELL_CONFIG,
   CommandData,
@@ -40,7 +38,7 @@ import {
   getMultiplayerConfigFromUrl,
 } from "./utils/multiplayer";
 import { findPathToClosestReachable } from "./utils/pathfinding";
-import { MultiplayerClient, NetworkAction } from "./net/MultiplayerClient";
+import { MultiplayerClient, NetworkAction } from "./net/multiplayer-client";
 
 /**
  * Dark War - Main Entry Point
@@ -185,6 +183,7 @@ class DarkWar {
   private inputHandler: InputHandler;
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
+  private autoMovePathIndex: number = 0;
   private autoMoveDoorTarget: { gridX: number; gridY: number } | null = null;
   private autoMovePickupTarget: { gridX: number; gridY: number } | null = null;
   private autoMoveHoleTarget: { gridX: number; gridY: number } | null = null;
@@ -615,12 +614,15 @@ class DarkWar {
   private playPendingSounds(state: ReturnType<Game["getState"]>): void {
     const player = state.player;
     const MAX_SOUND_DIST = 32 * 18; // 18 tiles = full falloff range
+    const MAX_SOUND_DIST_SQ = MAX_SOUND_DIST * MAX_SOUND_DIST;
     for (const pending of state.pendingSounds) {
       let volume = Sound.getVolume();
       if (pending.worldX !== undefined && pending.worldY !== undefined) {
         const dx = pending.worldX - player.worldX;
         const dy = pending.worldY - player.worldY;
-        const d = Math.sqrt(dx * dx + dy * dy);
+        const distSq = dx * dx + dy * dy;
+        if (distSq >= MAX_SOUND_DIST_SQ) continue;
+        const d = Math.sqrt(distSq);
         volume = Sound.getVolume() * Math.max(0, 1 - d / MAX_SOUND_DIST);
       }
       if (volume > 0.01) {
@@ -685,9 +687,11 @@ class DarkWar {
   private reinitializePhysicsForCurrentState(): void {
     const state = this.game.getState();
     this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
+    this.physics.clearEntityBodies();
 
     for (const entity of state.entities) {
       if (entity instanceof GameEntity) {
+        entity.physicsBody = undefined;
         this.physics.updateEntityBody(entity);
       }
     }
@@ -883,8 +887,9 @@ class DarkWar {
     );
 
     if (path && path.length > 1) {
-      // Store path for auto-movement (skip first element which is current position)
-      this.autoMovePath = path.slice(1);
+      // Store path for auto-movement; index starts at 1 to skip current position
+      this.autoMovePath = path;
+      this.autoMovePathIndex = 1;
       this.autoMoveDoorTarget = isDoor ? { gridX: tileX, gridY: tileY } : null;
       this.autoMovePickupTarget =
         !this.autoMoveStairsTarget && shouldPickupOnArrive
@@ -984,7 +989,7 @@ class DarkWar {
           const x = tileIndex % state.mapWidth;
           const y = Math.floor(tileIndex / state.mapWidth);
           const tile = state.map[tileIndex];
-          this.physics.updateTile(x, y, tile, state.mapWidth);
+          this.physics.updateTile(x, y, tile, state.mapWidth, state.mapHeight);
         }
         state.changedTiles.clear();
       }
@@ -1193,6 +1198,7 @@ class DarkWar {
    */
   private cancelAutoMove(): void {
     this.autoMovePath = null;
+    this.autoMovePathIndex = 0;
     this.clearAutoMoveTargets();
     if (this.pendingRightClickTimer !== null) {
       window.clearTimeout(this.pendingRightClickTimer);
@@ -1227,7 +1233,7 @@ class DarkWar {
 
     const player = state.player;
 
-    const [targetX, targetY] = this.autoMovePath[0];
+    const [targetX, targetY] = this.autoMovePath[this.autoMovePathIndex];
     const targetWorldX = targetX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     const targetWorldY = targetY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
 
@@ -1241,9 +1247,9 @@ class DarkWar {
       player.worldY = targetWorldY;
       player.velocityX = 0;
       player.velocityY = 0;
-      this.autoMovePath.shift();
+      this.autoMovePathIndex++;
 
-      if (!this.autoMovePath || this.autoMovePath.length === 0) {
+      if (!this.autoMovePath || this.autoMovePathIndex >= this.autoMovePath.length) {
         const doorTarget = this.autoMoveDoorTarget;
         const pickupTarget = this.autoMovePickupTarget;
         const holeTarget = this.autoMoveHoleTarget;

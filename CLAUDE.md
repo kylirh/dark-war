@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What is Dark War?
 
-A roguelike remake of Mission Thunderbolt (1992) built with TypeScript, Pixi.js, and Electron. Features continuous fluid movement (not grid-locked), Superhot-style time mechanics (time slows when player stops), mouse-aiming combat, destructible walls, and an authoritative multiplayer server. See `.github/copilot-instructions.md` for the full long-term vision.
+A roguelike remake of Mission Thunderbolt (1992) built with TypeScript, Pixi.js, and Electron. Features continuous fluid movement (not grid-locked), a Cognitive Time Dilation Module (CTDM) combat system, mouse-aiming combat, destructible walls, and LAN multiplayer. See `.github/copilot-instructions.md` for the full long-term vision.
 
 ## Commands
 
@@ -27,13 +27,13 @@ There are no tests or linting configured in this project.
 
 ### Build Pipeline
 
-Vite bundles `src/main.ts` into `app/game.js` (IIFE format). Electron loads `app/index.html` which references this bundle. The server (`server/multiplayer-server.ts`) runs directly via `tsx` and is not bundled.
+Vite bundles `src/main.ts` into `app/game.js` (IIFE format). Electron loads `app/index.html` which references this bundle. The server (`server/multiplayer-server.ts`) is bundled separately into `app/server-bundle.js` and can run as a child process within the Electron app. The server also runs directly via `tsx` for development.
 
 ### Core Loop
 
 `DarkWar` class in `src/main.ts` orchestrates everything:
 - **GameLoop** (`src/core/GameLoop.ts`): Fixed 60Hz timestep with accumulator pattern. Calls `update(dt)` at fixed rate and `render(alpha)` at variable framerate with interpolation.
-- **Simulation** (`src/systems/Simulation.ts`): Tick-based command/event system running at 20 ticks/sec (`SIM_DT_MS = 50`). Player actions become Commands, resolved into Events (damage, death, pickup, etc.). AI commands generated after player commands each tick.
+- **Simulation** (`src/systems/simulation/`): Tick-based command/event system running at 20 ticks/sec (`SIM_DT_MS = 50`). Split into domain modules: `constants`, `helpers`, `ai`, `commands`, `explosives`, `events`, `index`. Player actions become Commands, resolved into Events (damage, death, pickup, etc.). AI commands generated after player commands each tick.
 - **Physics** (`src/systems/Physics.ts`): Uses `detect-collisions` library for continuous collision detection. Wall sliding, bullet movement, explosive physics.
 - **Game** (`src/core/Game.ts`): Central state manager. Holds all `GameState`, handles level transitions (descend/ascend), serialization, FOV updates, and multiplayer player management.
 
@@ -49,22 +49,30 @@ Vite bundles `src/main.ts` into `app/game.js` (IIFE format). Electron loads `app
 
 All entities extend `GameEntity` (`src/entities/GameEntity.ts`) which provides `worldX`/`worldY`, velocity, facing angle, and physics body. Entity types: `PlayerEntity`, `MonsterEntity`, `ItemEntity`, `BulletEntity`, `ExplosiveEntity`. Discriminated by `EntityKind` enum.
 
-### Time Dilation
+### CTDM (Cognitive Time Dilation Module)
 
-Time scale smoothly interpolates between `SLOWMO_SCALE` (0.05) and real-time (1.0). When the player stops moving, time slows down. Actions resume time. The `sim.timeScale` and `sim.targetTimeScale` fields on `GameState` control this.
+The CTDM is an in-game item the player can find and equip. When active, it slows time based on threat level (nearby alert enemies). Time scale smoothly interpolates between `SLOWMO_SCALE` (0.05) and real-time. The `sim.timeScale` and `sim.targetTimeScale` fields on `GameState` control this. CTDM has a charge meter that drains under threat and recharges when safe. Toggle with `C`.
 
 ### Multiplayer
 
 Two modes: `offline` (default) and `online`. In online mode, an authoritative WebSocket server (`server/multiplayer-server.ts`) runs the Game and Physics simulation, broadcasting state to clients. Clients send velocity updates and actions. The server uses per-player FOV and explored state.
 
+**LAN multiplayer**: The Electron app can host an embedded server (child process via `electron/server-manager.js`) and advertises it over UDP LAN discovery. Other players on the same network see available games via `DiscoveryManager`. All managed through the in-game GameMenu — no separate terminal needed.
+
 ### Map Generation
 
-`src/core/Map.ts` generates dungeons using BSP (Binary Space Partitioning). Maps are flat `TileType[]` arrays of size `MAP_WIDTH × MAP_HEIGHT` (64×36). Index with `idx(x, y)` from `src/utils/helpers.ts`.
+- **Dungeon** (`src/core/Map.ts`): BSP dungeon generation. Maps are flat `TileType[]` arrays of size `MAP_WIDTH × MAP_HEIGHT` (64×36).
+- **Outside** (`src/core/OutsideLevel.ts`): Procedural exterior level with streets, sidewalks, grass, trees, buildings. Size `OUTSIDE_MAP_WIDTH × OUTSIDE_MAP_HEIGHT` (128×72).
+
+Index tiles with `idx(x, y)` (uses global constants) or `idxFor(x, y, width)` (explicit width, required for non-standard map sizes).
 
 ### Key Utilities
 
-- `src/utils/helpers.ts`: `idx()`, `inBounds()`, `passable()`, `tileAt()`, `dist()`, `setPositionFromGrid()`
+- `src/utils/helpers.ts`: `idx()`, `idxFor()`, `inBounds()`, `inBoundsFor()`, `passable()`, `passableFor()`, `tileAt()`, `tileAtFor()`, `dist()`, `setPositionFromGrid()`
+  - Functions ending in `For` take explicit `width`/`height` — use these for outside levels or any non-standard map size
+  - Functions without suffix use global `MAP_WIDTH`/`MAP_HEIGHT` constants
 - `src/utils/walls.ts`: `applyWallDamageAt()` for destructible walls
+- `src/utils/repair.ts`: `applyRepairAt()`, `findNearestRepairTarget()`, `hasAnyRepairTarget()` — used by utility bot
 - `src/utils/RNG.ts`: Deterministic RNG — `RNG.int(n)`, `RNG.choose(arr)`, `RNG.chance(p)`
 - `src/utils/pathfinding.ts`: A* pathfinding for click-to-move
 

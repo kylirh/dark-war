@@ -1,5 +1,5 @@
 import { EntityKind, ItemType } from "../types";
-import { GameEntity } from "./GameEntity";
+import { GameEntity } from "./game-entity";
 
 /**
  * Represents grenades and land mines

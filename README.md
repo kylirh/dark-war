@@ -37,40 +37,39 @@ To build and launch the game in Electron:
 npm run dev
 ```
 
-This will:
+This will compile TypeScript, bundle assets, and launch the Electron application. The game opens to a main menu where you can start a new game or join/host multiplayer.
 
-1. Generate sprite assets
-2. Compile TypeScript to JavaScript
-3. Launch the Electron application
+### LAN Multiplayer (built-in)
 
-### Multiplayer (Authoritative Server)
+The easiest way to play multiplayer — no separate terminal needed:
 
-1. Start the multiplayer server:
+1. One player clicks **Multiplayer → Host Game** in the main menu
+2. Other players on the same network click **Multiplayer → Browse Games** and see the hosted game appear automatically
+3. Join and play
 
-```bash
-npm run multiplayer:server
-```
+### Online Multiplayer (manual server)
 
-2. Start each game client in online mode:
+For playing across the internet or testing locally:
 
-```bash
-npm run dev:online
-```
+1. Start the server:
 
-By default this connects to `ws://localhost:7777` in room `default`.
+   ```bash
+   npm run multiplayer:server
+   ```
 
-For additional clients (without rebuilding each time), run:
+2. Launch the game in online mode:
 
-```bash
-npm run online:client -- --name=Alice --room=default
-npm run online:client -- --name=Bob --room=default
-```
+   ```bash
+   npm run dev:online
+   ```
 
-You can also pass custom launch args directly:
+   This connects to `ws://localhost:7777`.
 
-```bash
-electron . --mode=online --server=ws://localhost:7777 --room=my-room --name=Alice
-```
+3. For additional clients (without rebuilding):
+
+   ```bash
+   npm run online:client
+   ```
 
 ### Watch Mode
 
@@ -102,7 +101,7 @@ To create standalone executables for macOS, Windows, and Linux:
 npm run build
 ```
 
-This will create distributable packages in the `dist/` directory:
+This creates distributable packages in the `dist/` directory:
 
 - **macOS**: `.dmg` and `.zip`
 - **Windows**: `.exe` installer and `.zip`
@@ -112,39 +111,51 @@ This will create distributable packages in the `dist/` directory:
 
 ```
 dark-war/
-├── app/                 # Build output (HTML, bundled JS, assets)
-├── electron/            # Electron main process and preload scripts
-├── src/                 # TypeScript source code
-│   ├── core/           # Game engine (Game, Map)
-│   ├── entities/       # Entity factories (Player, Monster, Item)
-│   ├── systems/        # Game systems (AI, Combat, FOV, Renderer, UI)
-│   ├── types/          # TypeScript type definitions
-│   └── utils/          # Helper functions and RNG
-├── scripts/            # Build scripts (sprite generation)
-└── reference/          # Original game assets and documentation
+├── app/                      # Build output (HTML, bundled JS, assets)
+├── electron/                 # Electron main process, preload, server manager
+├── server/                   # Authoritative multiplayer server
+├── src/                      # TypeScript source code
+│   ├── config/               # Sprite configuration
+│   ├── core/                 # Game engine (Game, GameLoop, Map, OutsideLevel)
+│   ├── entities/             # Entity classes (Player, Monster, Item, Bullet, Explosive)
+│   ├── net/                  # Multiplayer networking (MultiplayerClient)
+│   ├── systems/              # Game systems (Physics, Renderer, FOV, Input, UI, menus)
+│   │   └── simulation/       # Simulation subsystem (commands, events, AI, explosives)
+│   ├── types/                # TypeScript type definitions
+│   └── utils/                # Helper functions, RNG, pathfinding, walls, repair
+└── reference/                # Original game assets and documentation
 ```
 
 ## Controls
 
-- **WASD** - Move continuously in 8 directions
-- **Mouse** - Aim weapon
-- **Left Click** - Use current weapon (melee/shot/throw/place)
-- **Right Click** - Click-to-move (offline only)
-- **Mouse Wheel** or **1-4** - Cycle weapons (1 melee, 2 pistol, 3 grenade, 4 land mine)
-- **G** - Pick up items
-- **R** - Reload pistol
-- **O** - Open/close door in your current movement direction
-- **V** - Toggle field of view visualization
-- **<** - Descend stairs to next level
+All movement and action keys are configurable in **Settings** from the pause menu.
 
-## Future Development
+| Key | Action |
+|-----|--------|
+| **WASD** | Move in 8 directions |
+| **Mouse** | Aim weapon |
+| **Left Click** | Use current weapon (melee / shoot / throw / place) |
+| **Right Click** | Click-to-move (walk to tile; click stairs to use them) |
+| **Mouse Wheel** or **1–4** | Cycle weapons |
+| **G** | Pick up nearby items |
+| **R** | Reload pistol |
+| **O** | Open / close door in movement direction |
+| **C** | Toggle CTDM (time dilation device) |
+| **Escape** | Pause menu / cancel auto-move |
 
-See [copilot-instructions.md](.github/copilot-instructions.md) for the full vision and technical details.
+**Stairs**: Right-click a staircase to auto-navigate to it and descend or ascend. You can also walk directly onto a staircase tile.
+
+**Dev tools** (enable in Settings): `V` toggles FOV visualization, `M` toggles god mode.
 
 ## Technologies
 
-- **Electron** - Cross-platform desktop application
-- **Pixi.js** - Hardware-accelerated 2D rendering with texture caching
-- **rot.js** - Roguelike toolkit (shadowcasting FOV)
-- **TypeScript** - Type-safe game logic
-- **Vite** - Fast build tooling
+- **Electron** — Cross-platform desktop application
+- **Pixi.js** — Hardware-accelerated 2D rendering with interpolation
+- **rot.js** — Roguelike toolkit (PreciseShadowcasting FOV)
+- **detect-collisions** — Continuous collision detection
+- **TypeScript** — Type-safe game logic
+- **Vite** — Fast build tooling
+
+## Further Reading
+
+See [.github/copilot-instructions.md](.github/copilot-instructions.md) for the full development vision, architecture details, and roadmap.

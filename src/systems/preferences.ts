@@ -134,8 +134,12 @@ export function loadPreferences(): UserPreferences {
 }
 
 export function savePreferences(preferences: UserPreferences): void {
-  localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
-  localStorage.setItem(LEGACY_THEME_KEY, preferences.theme);
+  try {
+    localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
+    localStorage.setItem(LEGACY_THEME_KEY, preferences.theme);
+  } catch {
+    // Preference persistence is best-effort; the active in-memory settings still apply.
+  }
 }
 
 export function keyCodeToLabel(code: string): string {

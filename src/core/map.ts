@@ -6,7 +6,7 @@ import {
   MAP_HEIGHT,
   WallSet,
 } from "../types";
-import { RNG } from "../utils/RNG";
+import { RNG } from "../utils/rng";
 import { setTile } from "../utils/helpers";
 
 /**
@@ -41,8 +41,22 @@ export function generateDungeon(): DungeonData {
     }
   }
 
+  if (rooms.length === 0) {
+    const fallbackRoom: Room = { x: 24, y: 12, w: 16, h: 10 };
+    rooms.push(fallbackRoom);
+    for (let y = fallbackRoom.y; y < fallbackRoom.y + fallbackRoom.h; y++) {
+      for (let x = fallbackRoom.x; x < fallbackRoom.x + fallbackRoom.w; x++) {
+        setTile(map, x, y, TileType.FLOOR);
+      }
+    }
+  }
+
   // Connect rooms with corridors
-  rooms.sort((a, b) => a.x + b.y - (b.x + a.y));
+  rooms.sort(
+    (a, b) =>
+      a.x + a.w / 2 + (a.y + a.h / 2) -
+      (b.x + b.w / 2 + (b.y + b.h / 2)),
+  );
   for (let i = 1; i < rooms.length; i++) {
     const roomA = rooms[i - 1];
     const roomB = rooms[i];
