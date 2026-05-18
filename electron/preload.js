@@ -5,13 +5,16 @@ contextBridge.exposeInMainWorld("native", {
   saveRead: () => ipcRenderer.invoke("save:read"),
 
   onNewGame: (callback) => {
-    ipcRenderer.on("game:new", callback);
+    ipcRenderer.on("game:new", () => callback());
   },
   onSaveGame: (callback) => {
-    ipcRenderer.on("game:save", callback);
+    ipcRenderer.on("game:save", () => callback());
   },
   onLoadGame: (callback) => {
-    ipcRenderer.on("game:load", callback);
+    ipcRenderer.on("game:load", () => callback());
+  },
+  onAboutGame: (callback) => {
+    ipcRenderer.on("game:about", () => callback());
   },
   onSoundSettings: (callback) => {
     ipcRenderer.on("sound:settings", callback);

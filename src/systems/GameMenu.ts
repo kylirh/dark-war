@@ -50,7 +50,11 @@ export class GameMenu {
       </div>
       <div class="imb-dialog-body">
         <div class="imb-about-layout">
-          <img src="assets/img/avatar.svg" class="imb-avatar" alt="Profile" />
+          <img
+            src="assets/img/app-icon.png"
+            class="imb-about-icon"
+            alt="Dark War thunderbolt shield"
+          />
           <div class="imb-about-text">
             <h2 class="imb-about-title">DARK WAR</h2>
             <p class="imb-about-version">Version 0.1.0 &#x2014; 2026</p>
@@ -74,9 +78,6 @@ export class GameMenu {
   }
 
   private attachListeners(): void {
-    window.native?.onSoundSettings?.(() => this.openSoundDialog());
-    window.native?.onAbout?.(() => this.openAboutDialog());
-
     // Close buttons on dialogs
     document.querySelectorAll("[data-close]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -112,7 +113,10 @@ export class GameMenu {
     }
   }
 
-  openSoundDialog(): void {
+  /**
+   * Open the sound settings dialog.
+   */
+  public openSoundDialog(): void {
     if (!this.soundDialog) return;
 
     const sfxSlider = document.getElementById(
@@ -138,7 +142,10 @@ export class GameMenu {
     this.soundDialog.classList.remove("hidden");
   }
 
-  openAboutDialog(): void {
+  /**
+   * Open the About dialog.
+   */
+  public openAboutDialog(): void {
     this.aboutDialog?.classList.remove("hidden");
   }
 }

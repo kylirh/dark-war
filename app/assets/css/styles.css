@@ -349,7 +349,7 @@ body.is-fullscreen .app-container {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  z-index: 3000;
+  z-index: 10000;
   background: #000;
   border: 2px solid #fff;
   box-shadow: 4px 4px 0 #555;
@@ -468,6 +468,15 @@ body.is-fullscreen .app-container {
   height: 80px;
   border: 2px solid #fff;
   flex-shrink: 0;
+}
+
+.imb-about-icon {
+  width: 116px;
+  height: 116px;
+  flex: 0 0 116px;
+  object-fit: contain;
+  image-rendering: auto;
+  filter: drop-shadow(2px 2px 0 #000);
 }
 
 .imb-about-text {

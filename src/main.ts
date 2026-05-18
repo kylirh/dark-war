@@ -93,6 +93,7 @@ declare global {
       onLoadGame: (callback: () => void) => void;
       onSoundSettings: (callback: () => void) => void;
       onAbout: (callback: () => void) => void;
+      onAboutGame: (callback: () => void) => void;
       closeWindow: () => void;
       minimizeWindow: () => void;
       toggleMaximize: () => void;
@@ -127,6 +128,7 @@ class DarkWar {
   private mouseTracker: MouseTracker;
   private renderer: Renderer;
   private ui: UI;
+  private gameMenu: GameMenu;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private inputHandler: InputHandler;
   private playerActedThisTick: boolean = false;
@@ -269,7 +271,8 @@ class DarkWar {
     );
     if (DEBUG) console.timeEnd("Create GameLoop");
 
-    new GameMenu();
+    // Dialog and menu bridge
+    this.gameMenu = new GameMenu();
 
     // Preload sounds asynchronously (don't block startup)
     this.initializeSounds();
@@ -357,6 +360,15 @@ class DarkWar {
     }
     if (window.native?.onLoadGame) {
       window.native.onLoadGame(() => this.handleLoad());
+    }
+    if (window.native?.onSoundSettings) {
+      window.native.onSoundSettings(() => this.gameMenu.openSoundDialog());
+    }
+    if (window.native?.onAbout) {
+      window.native.onAbout(() => this.gameMenu.openAboutDialog());
+    }
+    if (window.native?.onAboutGame) {
+      window.native.onAboutGame(() => this.gameMenu.openAboutDialog());
     }
   }
 

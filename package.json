@@ -8,9 +8,9 @@
   "scripts": {
     "build": "npm run build:ts && electron-builder -mwl",
     "build:ts": "tsc && vite build",
-    "dev": "npm run build:ts && electron .",
-    "dev:online": "npm run build:ts && electron . --mode=online --server=ws://localhost:7777 --room=default",
-    "online:client": "electron . --mode=online --server=ws://localhost:7777 --room=default",
+    "dev": "npm run build:ts && node scripts/launch-electron.js",
+    "dev:online": "npm run build:ts && node scripts/launch-electron.js --mode=online --server=ws://localhost:7777 --room=default",
+    "online:client": "node scripts/launch-electron.js --mode=online --server=ws://localhost:7777 --room=default",
     "multiplayer:server": "tsx server/multiplayer-server.ts",
     "type-check": "npm run type-check:client && npm run type-check:server",
     "type-check:client": "tsc --noEmit",
@@ -30,6 +30,9 @@
   },
   "build": {
     "appId": "com.kylir.darkwar",
+    "directories": {
+      "buildResources": "build"
+    },
     "files": [
       "electron/**/*",
       "app/**/*",
@@ -37,18 +40,21 @@
     ],
     "mac": {
       "category": "public.app-category.games",
+      "icon": "build/icon.icns",
       "target": [
         "dmg",
         "zip"
       ]
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis",
         "zip"
       ]
     },
     "linux": {
+      "icon": "build/icon.png",
       "target": [
         "AppImage",
         "deb"

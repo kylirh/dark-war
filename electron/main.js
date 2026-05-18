@@ -1,6 +1,24 @@
-const { app, BrowserWindow, ipcMain, Menu } = require("electron");
+const { app, BrowserWindow, ipcMain, Menu, nativeImage } = require("electron");
 const path = require("path");
 const fs = require("fs");
+const packageJson = require("../package.json");
+
+const APP_NAME = packageJson.productName || "Dark War";
+const APP_ICON = path.join(
+  __dirname,
+  "..",
+  "app",
+  "assets",
+  "img",
+  "app-icon.png",
+);
+
+app.setName(APP_NAME);
+app.setAppUserModelId(packageJson.build?.appId || "com.kylir.darkwar");
+
+function getAppIcon() {
+  return nativeImage.createFromPath(APP_ICON);
+}
 
 function parseGameQueryFromArgs(argv) {
   const query = {};
@@ -86,6 +104,7 @@ function createWindow(options = {}) {
     height: options.height ?? 920,
     x: options.x,
     y: options.y,
+    icon: APP_ICON,
     useContentSize: true,
     transparent: transparentIntro,
     frame: false, // Custom window chrome handled in renderer
@@ -125,8 +144,8 @@ function createMenu() {
             label: "Dark War",
             submenu: [
               {
-                label: "About Dark War",
-                click: () => sendToCommandWindow("help:about"),
+                label: `About ${APP_NAME}`,
+                click: () => sendToCommandWindow("game:about"),
               },
               { type: "separator" },
               { role: "services" },
@@ -180,7 +199,7 @@ function createMenu() {
       submenu: [
         {
           label: "About Dark War...",
-          click: () => sendToCommandWindow("help:about"),
+          click: () => sendToCommandWindow("game:about"),
         },
       ],
     },
@@ -275,6 +294,19 @@ ipcMain.handle("window:game-ready", async (event) => {
 
 app.whenReady().then(() => {
   initialGameQuery = parseGameQueryFromArgs(process.argv.slice(1));
+
+  app.setAboutPanelOptions({
+    applicationName: APP_NAME,
+    applicationVersion: packageJson.version,
+    version: packageJson.version,
+    copyright: " ",
+    iconPath: APP_ICON,
+  });
+
+  if (process.platform === "darwin" && app.dock && fs.existsSync(APP_ICON)) {
+    app.dock.setIcon(getAppIcon());
+  }
+
   createMenu();
   createWindow({ query: initialGameQuery, transparentIntro: true });
   app.on("activate", () => {
