@@ -18,6 +18,7 @@ import {
 } from "./systems/Simulation";
 import { Sound, SoundEffect } from "./systems/Sound";
 import { TitleScreen } from "./systems/TitleScreen";
+import { IntroStory } from "./systems/IntroStory";
 import { GameMenu } from "./systems/GameMenu";
 import { RetroWindowChrome } from "./systems/RetroWindowChrome";
 import { UI } from "./systems/UI";
@@ -209,6 +210,7 @@ class DarkWar {
   private onlineConnected: boolean = false;
   private gameCanvas: HTMLCanvasElement | null = null;
   private newGameButton: HTMLElement | null = null;
+  private introStory: IntroStory | null = null;
   private lastOnlineUnavailableLogAt: number = 0;
   private hasStartedGameLoop: boolean = false;
   private readonly onCanvasClick = (): void => {
@@ -1699,7 +1701,22 @@ class DarkWar {
       return;
     }
 
+    this.showIntroBeforeNewGame();
+  }
+
+  private showIntroBeforeNewGame(): void {
+    if (this.introStory) return;
     this.cancelAutoMove();
+    this.inputHandler.resetKeys();
+    this.gameLoop.pause();
+    this.introStory = new IntroStory(() => {
+      this.introStory = null;
+      this.startNewSinglePlayerGame();
+      this.gameLoop.resume();
+    });
+  }
+
+  private startNewSinglePlayerGame(): void {
     this.game.reset(0);
 
     this.syncGameOverOverlay(false);
@@ -1871,12 +1888,16 @@ class DarkWar {
       );
       this.newGameButton = null;
     }
+
+    this.introStory?.dispose();
+    this.introStory = null;
   }
 }
 
 class MainMenuApp implements DarkWarApplication {
   private readonly gameMenu: GameMenu;
   private readonly backdrop: HTMLElement;
+  private introStory: IntroStory | null = null;
   private preferences: UserPreferences;
   private continueEnabled = false;
   private disposed = false;
@@ -1894,10 +1915,9 @@ class MainMenuApp implements DarkWarApplication {
     this.preferences = loadPreferences();
     this.applyPreferences();
 
-    const titleNum = Math.floor(Math.random() * 7) + 1;
     this.backdrop = document.createElement("div");
     this.backdrop.className = "main-menu-backdrop";
-    this.backdrop.style.setProperty("--main-menu-art", `url("../img/title-${titleNum}.png")`);
+    this.backdrop.style.setProperty("--main-menu-art", "url(\"../img/main-background.png\")");
     document.body.appendChild(this.backdrop);
     document.body.classList.add("main-menu-active");
 
@@ -2124,7 +2144,20 @@ class MainMenuApp implements DarkWarApplication {
   private launchGame(mode: InitialGameMode): void {
     if (this.disposed) return;
     if (mode === "load" && !this.continueEnabled) return;
+    if (mode === "new") {
+      this.showIntroBeforeLaunch();
+      return;
+    }
     this.startGame(mode);
+  }
+
+  private showIntroBeforeLaunch(): void {
+    if (this.introStory) return;
+    this.introStory = new IntroStory(() => {
+      this.introStory = null;
+      if (this.disposed) return;
+      this.startGame("new");
+    });
   }
 
   private handleQuit(): void {
@@ -2144,6 +2177,8 @@ class MainMenuApp implements DarkWarApplication {
       this.mpIsHosting = false;
     }
     window.native?.discoveryStopListen().catch(() => {});
+    this.introStory?.dispose();
+    this.introStory = null;
     this.gameMenu.dispose();
     this.backdrop.remove();
     document.body.classList.remove("main-menu-active");
