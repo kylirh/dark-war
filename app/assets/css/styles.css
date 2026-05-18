@@ -358,9 +358,12 @@ body.is-fullscreen .app-container {
   display: none;
 }
 
-body.imb-modal-open .app-container,
-body.imb-modal-open #retro-window-chrome {
+body.imb-modal-open .app-container {
   filter: blur(3px);
+}
+
+body.imb-modal-open #retro-window-chrome {
+  z-index: 10000;
 }
 
 .imb-dialog {
