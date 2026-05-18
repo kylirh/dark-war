@@ -2662,7 +2662,7 @@ function decideUtilityBotCommand(
       const bwy = m.worldY ?? monster.gridY * CELL_CONFIG.h;
       state.pendingSounds.push({ effect: SoundEffect.BEEP, worldX: bwx, worldY: bwy });
       const nuzzleMessages = [
-        "The utility bot nuzzles up to you.",
+        "The utility bot nuggles up to you.",
         "The utility bot purrs and nuzzles into you.",
         "The utility bot makes happy, content noises.",
       ];
