@@ -87,12 +87,26 @@ const CTDM_DRAIN_MAX = 8.0; // Max charge/sec drained at threat=1.0
 const CTDM_RECHARGE_RATE = 3.0; // Charge/sec when moving or stationary with no threat
 const CTDM_REENABLE_THRESHOLD = 20; // Auto-re-enable CTDM when charge crosses this from zero
 
+type InitialGameMode = "new" | "load";
+
+interface DarkWarApplication {
+  dispose(): void;
+}
+
+interface DarkWarOptions {
+  initialGame?: InitialGameMode;
+}
+
 // Global reference to save system
 declare global {
   interface Window {
     native?: {
       saveWrite: (data: string) => Promise<{ ok: boolean; error?: string }>;
-      saveRead: () => Promise<{ ok: boolean; data?: string; error?: string }>;
+      saveRead: () => Promise<{
+        ok: boolean;
+        data?: string | null;
+        error?: string;
+      }>;
       onNewGame: (callback: () => void) => void;
       onSaveGame: (callback: () => void) => void;
       onLoadGame: (callback: () => void) => void;
@@ -120,7 +134,7 @@ declare global {
       onEnterFullscreen: (callback: () => void) => void;
       onLeaveFullscreen: (callback: () => void) => void;
     };
-    darkWarApp?: DarkWar;
+    darkWarApp?: DarkWarApplication;
   }
 }
 
@@ -166,6 +180,7 @@ class DarkWar {
   private gameCanvas: HTMLCanvasElement | null = null;
   private newGameButton: HTMLElement | null = null;
   private lastOnlineUnavailableLogAt: number = 0;
+  private hasStartedGameLoop: boolean = false;
   private readonly onCanvasClick = (): void => {
     this.handleMouseFire();
   };
@@ -244,7 +259,7 @@ class DarkWar {
     this.handleNewGame();
   };
 
-  constructor() {
+  constructor(options: DarkWarOptions = {}) {
     if (DEBUG) console.time("Game initialization");
     this.preferences = loadPreferences();
     this.applyPreferences(false);
@@ -334,15 +349,36 @@ class DarkWar {
         `Connecting to ${this.multiplayerConfig.serverUrl} (${this.multiplayerConfig.roomId})...`,
       );
       this.connectToMultiplayer();
+      this.finishInitialGameStartup();
     } else {
-      // Try to load saved game, otherwise start new
-      if (DEBUG) console.time("Load or start game");
-      // Skip localStorage on initial load (slow in Electron)
-      // User can explicitly load via menu if save exists
-      this.game.reset(0);
-      if (DEBUG) console.timeEnd("Load or start game");
+      if (options.initialGame === "load") {
+        this.loadInitialSavedGame();
+      } else {
+        if (DEBUG) console.time("Start new game");
+        this.game.reset(0);
+        if (DEBUG) console.timeEnd("Start new game");
+        this.finishInitialGameStartup();
+      }
     }
+    if (DEBUG) console.timeEnd("Game initialization");
+  }
 
+  private async loadInitialSavedGame(): Promise<void> {
+    if (DEBUG) console.time("Load saved game");
+    const didLoad = await this.loadGame();
+    if (!didLoad) {
+      this.game.reset(0);
+      this.game.addLog("No save found. Starting a new game.");
+    }
+    if (DEBUG) console.timeEnd("Load saved game");
+    this.finishInitialGameStartup();
+  }
+
+  private finishInitialGameStartup(): void {
+    if (this.hasStartedGameLoop) {
+      return;
+    }
+    this.hasStartedGameLoop = true;
     if (DEBUG) console.time("First render");
     this.render(0);
     if (DEBUG) console.timeEnd("First render");
@@ -353,7 +389,6 @@ class DarkWar {
     this.centerOnPlayerSoon(INITIAL_CAMERA_CENTER_DELAY_MS);
 
     this.gameLoop.start();
-    if (DEBUG) console.timeEnd("Game initialization");
   }
 
   /**
@@ -1787,6 +1822,144 @@ class DarkWar {
   }
 }
 
+class MainMenuApp implements DarkWarApplication {
+  private readonly gameMenu: GameMenu;
+  private readonly backdrop: HTMLElement;
+  private preferences: UserPreferences;
+  private continueEnabled: boolean = false;
+  private disposed: boolean = false;
+
+  constructor(private readonly startGame: (mode: InitialGameMode) => void) {
+    this.preferences = loadPreferences();
+    this.applyPreferences();
+
+    const titleNum = Math.floor(Math.random() * 7) + 1;
+    this.backdrop = document.createElement("div");
+    this.backdrop.className = "main-menu-backdrop";
+    this.backdrop.style.setProperty(
+      "--main-menu-art",
+      `url("../img/title-${titleNum}.png")`,
+    );
+    document.body.appendChild(this.backdrop);
+    document.body.classList.add("main-menu-active");
+
+    this.gameMenu = new GameMenu({
+      pausesGame: false,
+      allowPauseMenuClose: false,
+      canContinue: false,
+      preferences: this.preferences,
+      onPreferencesChange: (preferences) =>
+        this.handlePreferencesChange(preferences),
+      onNewGame: () => this.launchGame("new"),
+      onContinue: () => this.launchGame("load"),
+      onQuit: () => this.handleQuit(),
+    });
+
+    this.setupNativeMenuHandlers();
+    Music.play();
+    this.gameMenu.openPauseMenu();
+    this.refreshContinueEnabled().catch(() => {});
+  }
+
+  private setupNativeMenuHandlers(): void {
+    window.native?.onNewGame?.(() => {
+      if (this.disposed) return;
+      this.launchGame("new");
+    });
+    window.native?.onLoadGame?.(() => {
+      if (this.disposed) return;
+      if (this.continueEnabled) {
+        this.launchGame("load");
+      }
+    });
+    window.native?.onSoundSettings?.(() => {
+      if (this.disposed) return;
+      this.gameMenu.openSoundDialog();
+    });
+    window.native?.onAbout?.(() => {
+      if (this.disposed) return;
+      this.gameMenu.openAboutDialog();
+    });
+    window.native?.onAboutGame?.(() => {
+      if (this.disposed) return;
+      this.gameMenu.openAboutDialog();
+    });
+  }
+
+  private handlePreferencesChange(preferences: UserPreferences): void {
+    this.preferences = {
+      ...preferences,
+      keyBindings: { ...preferences.keyBindings },
+    };
+    savePreferences(this.preferences);
+    this.applyPreferences();
+  }
+
+  private applyPreferences(): void {
+    Sound.setVolume(this.preferences.sfxVolume);
+    Music.setVolume(this.preferences.musicVolume);
+    document.documentElement.dataset.theme = this.preferences.theme;
+    window.native?.setDevToolsEnabled(this.preferences.devTools).catch(() => {});
+  }
+
+  private async refreshContinueEnabled(): Promise<void> {
+    const hasSave = await this.hasSavedGame();
+    if (this.disposed) {
+      return;
+    }
+
+    this.continueEnabled = hasSave;
+    this.gameMenu.setContinueEnabled(hasSave);
+  }
+
+  private async hasSavedGame(): Promise<boolean> {
+    if (window.native?.saveRead) {
+      try {
+        const result = await window.native.saveRead();
+        if (result.ok && typeof result.data === "string") {
+          return result.data.trim().length > 0;
+        }
+      } catch {
+        // Fall through to localStorage for browser/dev runs.
+      }
+    }
+
+    try {
+      return Boolean(localStorage.getItem("darkwar-save"));
+    } catch {
+      return false;
+    }
+  }
+
+  private launchGame(mode: InitialGameMode): void {
+    if (this.disposed) {
+      return;
+    }
+
+    if (mode === "load" && !this.continueEnabled) {
+      return;
+    }
+
+    this.startGame(mode);
+  }
+
+  private handleQuit(): void {
+    if (window.native?.closeWindow) {
+      window.native.closeWindow();
+      return;
+    }
+
+    window.close();
+  }
+
+  public dispose(): void {
+    this.disposed = true;
+    this.gameMenu.dispose();
+    this.backdrop.remove();
+    document.body.classList.remove("main-menu-active");
+  }
+}
+
 // Initialize game when DOM is ready
 const createDarkWarApp = (): void => {
   window.darkWarApp?.dispose();
@@ -1801,17 +1974,30 @@ const createDarkWarApp = (): void => {
   const shouldSkipTitle = new URLSearchParams(window.location.search).has(
     "skipTitle",
   );
+  const shouldShowMenu = new URLSearchParams(window.location.search).has(
+    "showMenu",
+  );
 
-  const startGame = (): void => {
+  const startGame = (mode: InitialGameMode = "new"): void => {
+    window.darkWarApp?.dispose();
     Music.play();
-    window.darkWarApp = new DarkWar();
+    window.darkWarApp = new DarkWar({ initialGame: mode });
+  };
+
+  const showMainMenu = (): void => {
+    window.darkWarApp?.dispose();
+    window.darkWarApp = new MainMenuApp(startGame);
   };
 
   if (shouldSkipTitle) {
     document.documentElement.classList.remove("title-screen-active");
     document.body.classList.remove("title-screen-active");
     retroWindowChrome.showGameChrome();
-    startGame();
+    if (shouldShowMenu) {
+      showMainMenu();
+    } else {
+      startGame("new");
+    }
     return;
   }
 
@@ -1820,7 +2006,7 @@ const createDarkWarApp = (): void => {
   new TitleScreen(() => {
     retroWindowChrome.transitionFromIntro().then((didCreateGameWindow) => {
       if (didCreateGameWindow) return;
-      startGame();
+      showMainMenu();
     });
   });
 };

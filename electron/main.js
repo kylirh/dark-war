@@ -290,7 +290,7 @@ ipcMain.handle("window:game-ready", async (event) => {
   if (!win) return false;
 
   const bounds = win.getBounds();
-  const nextQuery = { ...initialGameQuery, skipTitle: "1" };
+  const nextQuery = { ...initialGameQuery, skipTitle: "1", showMenu: "1" };
   const gameWindow = createWindow({
     ...bounds,
     query: nextQuery,

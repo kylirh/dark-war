@@ -19,8 +19,10 @@ export class TitleScreen {
     const el = document.createElement("div");
     el.className = "title-screen";
     el.innerHTML = `
-      <img src="assets/img/title-${num}.png" class="title-image" alt="Dark War" />
-      <div class="press-any-key">Press any key to start...</div>
+      <div class="title-image-frame">
+        <img src="assets/img/title-${num}.png" class="title-image" alt="Dark War" />
+        <div class="press-any-key">Press any key to begin</div>
+      </div>
     `;
     return el;
   }

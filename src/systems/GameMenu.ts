@@ -28,9 +28,12 @@ interface PauseMenuItem {
 interface GameMenuOptions {
   pausesGame: boolean;
   preferences: UserPreferences;
+  allowPauseMenuClose?: boolean;
+  canContinue?: boolean;
   onModalStateChange?: (hasOpenModal: boolean) => void;
   onPreferencesChange?: (preferences: UserPreferences) => void;
   onNewGame?: () => void;
+  onContinue?: () => void;
   onQuit?: () => void;
   onToggleFOV?: () => void;
   onToggleGodMode?: () => void;
@@ -223,11 +226,13 @@ export class GameMenu {
   private pauseMenuSelection: number = 1;
   private pauseMenuMessage: string | null = null;
   private listeningForKey: KeyBindingAction | null = null;
+  private canContinue: boolean;
   private readonly onKeyDown = (event: KeyboardEvent): void =>
     this.handleKeyDown(event);
 
   constructor(options: GameMenuOptions) {
     this.options = options;
+    this.canContinue = options.canContinue ?? true;
     this.preferences = {
       ...options.preferences,
       keyBindings: { ...options.preferences.keyBindings },
@@ -626,6 +631,9 @@ export class GameMenu {
         this.syncPauseMenu();
         return true;
       }
+      if (this.options.allowPauseMenuClose === false) {
+        return true;
+      }
       this.closePauseMenu();
       return true;
     }
@@ -635,21 +643,34 @@ export class GameMenu {
 
   private movePauseSelection(delta: number): void {
     this.pauseMenuMessage = null;
-    this.pauseMenuSelection =
-      (this.pauseMenuSelection + delta + this.pauseItems.length) %
-      this.pauseItems.length;
+    let nextSelection = this.pauseMenuSelection;
+    for (let i = 0; i < this.pauseItems.length; i += 1) {
+      nextSelection =
+        (nextSelection + delta + this.pauseItems.length) %
+        this.pauseItems.length;
+      if (this.isPauseItemEnabled(this.pauseItems[nextSelection])) {
+        this.pauseMenuSelection = nextSelection;
+        break;
+      }
+    }
     this.syncPauseMenu();
   }
 
   private activatePauseMenuSelection(): void {
     const selectedItem = this.pauseItems[this.pauseMenuSelection];
+    if (!this.isPauseItemEnabled(selectedItem)) {
+      this.showPauseMessage("No game in progress");
+      return;
+    }
+
     switch (selectedItem.action) {
       case "new-game":
-        this.closePauseMenu();
+        this.closePauseMenu(true);
         this.options.onNewGame?.();
         return;
       case "continue":
-        this.closePauseMenu();
+        this.closePauseMenu(true);
+        this.options.onContinue?.();
         return;
       case "multiplayer":
         this.showPauseMessage("Coming Soon");
@@ -679,9 +700,16 @@ export class GameMenu {
     const buttons = document.querySelectorAll<HTMLElement>("[data-pause-index]");
     buttons.forEach((button) => {
       const index = Number.parseInt(button.dataset.pauseIndex ?? "0", 10);
+      const item = this.pauseItems[index];
       const isSelected = index === this.pauseMenuSelection;
+      const isEnabled = item ? this.isPauseItemEnabled(item) : true;
       button.classList.toggle("selected", isSelected);
+      button.classList.toggle("disabled", !isEnabled);
       button.setAttribute("aria-selected", String(isSelected));
+      button.setAttribute("aria-disabled", String(!isEnabled));
+      if (button instanceof HTMLButtonElement) {
+        button.disabled = !isEnabled;
+      }
     });
 
     const message = document.getElementById("pause-menu-message");
@@ -698,6 +726,24 @@ export class GameMenu {
     action: string | undefined,
   ): action is PauseMenuAction {
     return this.pauseItems.some((item) => item.action === action);
+  }
+
+  private isPauseItemEnabled(item: PauseMenuItem): boolean {
+    return item.action !== "continue" || this.canContinue;
+  }
+
+  private getInitialPauseSelection(): number {
+    const continueIndex = this.pauseItems.findIndex(
+      (item) => item.action === "continue" && this.isPauseItemEnabled(item),
+    );
+    if (continueIndex >= 0) {
+      return continueIndex;
+    }
+
+    return Math.max(
+      0,
+      this.pauseItems.findIndex((item) => this.isPauseItemEnabled(item)),
+    );
   }
 
   private isPauseMenuOpen(): boolean {
@@ -893,14 +939,25 @@ export class GameMenu {
 
   public openPauseMenu(view: PauseMenuView = "main"): void {
     this.pauseMenuView = view;
-    this.pauseMenuSelection = 1;
+    this.pauseMenuSelection = this.getInitialPauseSelection();
     this.pauseMenuMessage = null;
     this.listeningForKey = null;
     this.showModal("pause-dialog");
   }
 
-  public closePauseMenu(): void {
+  public closePauseMenu(force: boolean = false): void {
+    if (!force && this.options.allowPauseMenuClose === false) {
+      return;
+    }
     this.modals.get("pause-dialog")?.hide();
+  }
+
+  public setContinueEnabled(enabled: boolean): void {
+    this.canContinue = enabled;
+    if (!this.isPauseItemEnabled(this.pauseItems[this.pauseMenuSelection])) {
+      this.pauseMenuSelection = this.getInitialPauseSelection();
+    }
+    this.syncPauseMenu();
   }
 
   public dispose(): void {

@@ -19,6 +19,49 @@ body.title-screen-active .resize-handle {
   display: none !important;
 }
 
+body.main-menu-active .app-container {
+  display: none;
+}
+
+.main-menu-backdrop {
+  position: fixed;
+  top: 59px;
+  right: 13px;
+  bottom: 13px;
+  left: 13px;
+  z-index: 100;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 22% 22%, rgba(85, 177, 255, 0.28), transparent 32%),
+    radial-gradient(circle at 76% 62%, rgba(255, 74, 42, 0.2), transparent 30%),
+    linear-gradient(180deg, #071d49 0%, #050916 58%, #020309 100%);
+}
+
+.main-menu-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: -8%;
+  background-image: var(--main-menu-art);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: min(86vw, 86vh);
+  filter: saturate(1.12) contrast(1.08);
+  image-rendering: pixelated;
+  opacity: 0.76;
+}
+
+.main-menu-backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px) 0 0 / 100% 4px,
+    radial-gradient(circle at 50% 50%, transparent 34%, rgba(0, 0, 0, 0.62) 100%),
+    linear-gradient(135deg, rgba(34, 151, 255, 0.18), rgba(255, 72, 34, 0.1));
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
 /* ============================================================
    Title Screen Overlay
    ============================================================ */
@@ -40,21 +83,30 @@ body.title-screen-active .resize-handle {
   pointer-events: none;
 }
 
+.title-image-frame {
+  position: relative;
+  width: min(90vw, 82vh);
+  aspect-ratio: 1;
+}
+
 .title-image {
-  max-width: 90vw;
-  max-height: 82vh;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   display: block;
   image-rendering: pixelated;
   transition: opacity 0.2s ease;
 }
 
-
 .press-any-key {
   position: absolute;
-  bottom: 60px;
+  left: 50%;
+  bottom: 27%;
+  transform: translateX(-50%);
   font-family: "Chicago_12", sans-serif;
-  font-size: 22px;
+  font-size: clamp(14px, 2.1vw, 22px);
+  line-height: 1;
+  white-space: nowrap;
   color: #e0e0e0;
   letter-spacing: 1px;
   text-shadow:
@@ -706,8 +758,25 @@ body.imb-modal-open #retro-window-chrome {
   color: var(--modal-bg);
 }
 
+.imb-pause-option:disabled,
+.imb-pause-option.disabled,
+.imb-pause-option:disabled:hover,
+.imb-pause-option.disabled:hover,
+.imb-pause-option:disabled.selected,
+.imb-pause-option.disabled.selected {
+  background: var(--modal-bg-soft);
+  color: var(--modal-muted);
+  cursor: default;
+  opacity: 0.58;
+}
+
 .imb-pause-option.selected::before {
   content: ">";
+}
+
+.imb-pause-option:disabled.selected::before,
+.imb-pause-option.disabled.selected::before {
+  content: "";
 }
 
 .imb-pause-option:active {
