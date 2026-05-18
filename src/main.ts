@@ -276,6 +276,8 @@ class DarkWar {
       pausesGame: !this.isOnlineMode(),
       onModalStateChange: (hasOpenModal) =>
         this.handleModalStateChange(hasOpenModal),
+      onNewGame: () => this.handleNewGame(),
+      onQuit: () => this.handleQuit(),
     });
 
     // Preload sounds asynchronously (don't block startup)
@@ -378,6 +380,15 @@ class DarkWar {
 
   private isOnlineMode(): boolean {
     return this.multiplayerMode === "online";
+  }
+
+  private handleQuit(): void {
+    if (window.native?.closeWindow) {
+      window.native.closeWindow();
+      return;
+    }
+
+    window.close();
   }
 
   private handleModalStateChange(hasOpenModal: boolean): void {

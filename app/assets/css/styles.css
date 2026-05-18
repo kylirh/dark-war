@@ -622,6 +622,90 @@ body.imb-modal-open #retro-window-chrome {
     inset -2px -2px 0 var(--chrome-highlight);
 }
 
+.imb-pause-dialog {
+  width: min(430px, calc(100vw - 32px));
+}
+
+.imb-pause-dialog .imb-dialog-body {
+  padding: 20px 24px 24px;
+}
+
+.imb-pause-menu {
+  display: grid;
+  gap: 16px;
+  justify-items: stretch;
+}
+
+.imb-pause-logo {
+  width: min(300px, 80%);
+  justify-self: center;
+  image-rendering: auto;
+  filter: drop-shadow(2px 2px 0 var(--chrome-shadow));
+}
+
+.imb-pause-message {
+  min-height: 30px;
+  padding: 6px 10px;
+  border: 2px solid var(--modal-border);
+  background: var(--modal-bg-soft);
+  color: var(--modal-accent);
+  font-size: 13px;
+  line-height: 1.25;
+  text-align: center;
+  box-shadow:
+    inset 1px 1px 0 var(--chrome-lowlight),
+    inset -1px -1px 0 var(--chrome-highlight);
+}
+
+.imb-pause-message.hidden {
+  display: none;
+}
+
+.imb-pause-options {
+  display: grid;
+  gap: 8px;
+}
+
+.imb-pause-option {
+  min-height: 34px;
+  padding: 6px 14px;
+  border: 2px solid var(--modal-border);
+  background: var(--modal-bg-soft);
+  color: var(--modal-text);
+  font-family: "Chicago_12", sans-serif;
+  font-size: 15px;
+  line-height: 1;
+  text-align: left;
+  cursor: pointer;
+  box-shadow:
+    inset 2px 2px 0 var(--chrome-highlight),
+    inset -2px -2px 0 var(--chrome-lowlight),
+    2px 2px 0 var(--chrome-shadow);
+}
+
+.imb-pause-option::before {
+  content: "";
+  display: inline-block;
+  width: 18px;
+}
+
+.imb-pause-option:hover,
+.imb-pause-option.selected {
+  background: var(--modal-text);
+  color: var(--modal-bg);
+}
+
+.imb-pause-option.selected::before {
+  content: ">";
+}
+
+.imb-pause-option:active {
+  transform: translate(1px, 1px);
+  box-shadow:
+    inset 2px 2px 0 var(--chrome-lowlight),
+    inset -2px -2px 0 var(--chrome-highlight);
+}
+
 @media (max-width: 560px) {
   .imb-dialog {
     left: 12px !important;
