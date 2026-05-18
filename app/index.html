@@ -79,14 +79,6 @@
             </div>
           </div>
         </div>
-        <button
-          class="scale-toggle"
-          id="scaleToggle"
-          aria-label="Zoom"
-          title="Zoom"
-        >
-          1X
-        </button>
       </div>
 
       <aside class="sidebar" id="sidebar">
@@ -134,21 +126,6 @@
           <ul id="log"></ul>
         </section>
 
-        <section class="controls panel">
-          Move: <kbd>WASD</kbd><br />
-          Pickup: <kbd>G</kbd><br />
-          Open Doors: <kbd>Left Click</kbd><br />
-          Stairs: <kbd>&lt;</kbd><br />
-          Use Weapon: <kbd>Right Click</kbd><br />
-          Switch Weapon: <kbd>Mouse Wheel</kbd> or <kbd>1</kbd>-<kbd>4</kbd
-          ><br />
-          Reload: <kbd>R</kbd><br />
-          God Mode: <kbd>M</kbd><br />
-          Toggle FOV: <kbd>V</kbd><br />
-          <br />
-          <strong>Time Controls</strong><br />
-          Toggle CTDM: <kbd>C</kbd><br />
-        </section>
       </aside>
       <button
         class="sidebar-toggle"
@@ -172,25 +149,6 @@
           "aria-label",
           isCollapsed ? "Show Sidebar" : "Hide Sidebar",
         );
-      });
-
-      // Zoom functionality
-      const scaleToggle = document.getElementById("scaleToggle");
-      const scales = [1, 2, 3];
-      let currentScaleIndex = 0; // Start at 1X
-
-      scaleToggle.addEventListener("click", () => {
-        // Cycle to next zoom level
-        currentScaleIndex = (currentScaleIndex + 1) % scales.length;
-        const newScale = scales[currentScaleIndex];
-
-        // Update button text
-        scaleToggle.textContent = `${newScale}X`;
-
-        // Update renderer scale if available
-        if (window.darkWarApp && window.darkWarApp.setScale) {
-          window.darkWarApp.setScale(newScale);
-        }
       });
     </script>
   </body>

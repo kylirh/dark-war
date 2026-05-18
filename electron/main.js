@@ -241,6 +241,18 @@ ipcMain.on("window:toggle-fullscreen", (event) => {
   if (!win) return;
   toggleWindowFullscreen(win);
 });
+ipcMain.handle("window:set-devtools-enabled", (event, enabled) => {
+  const win = getEventWindow(event);
+  if (!win) return false;
+  if (enabled) {
+    if (!win.webContents.isDevToolsOpened()) {
+      win.webContents.openDevTools({ mode: "detach" });
+    }
+  } else if (win.webContents.isDevToolsOpened()) {
+    win.webContents.closeDevTools();
+  }
+  return true;
+});
 ipcMain.handle("window:get-bounds", (event) => {
   const win = getEventWindow(event);
   return win?.getBounds() ?? null;

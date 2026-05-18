@@ -5,6 +5,11 @@ import { InputCallbacks, InputHandler, MOVEMENT_SPEED } from "./systems/Input";
 import { MouseTracker } from "./systems/MouseTracker";
 import { Music } from "./systems/Music";
 import { Physics } from "./systems/Physics";
+import {
+  UserPreferences,
+  loadPreferences,
+  savePreferences,
+} from "./systems/Preferences";
 import { Renderer } from "./systems/Renderer";
 import {
   enqueueCommand,
@@ -98,6 +103,7 @@ declare global {
       minimizeWindow: () => void;
       toggleMaximize: () => void;
       toggleFullscreen: () => void;
+      setDevToolsEnabled: (enabled: boolean) => Promise<boolean>;
       getWindowBounds: () => Promise<{
         x: number;
         y: number;
@@ -129,6 +135,7 @@ class DarkWar {
   private renderer: Renderer;
   private ui: UI;
   private gameMenu: GameMenu;
+  private preferences: UserPreferences;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private inputHandler: InputHandler;
   private playerActedThisTick: boolean = false;
@@ -239,6 +246,8 @@ class DarkWar {
 
   constructor() {
     if (DEBUG) console.time("Game initialization");
+    this.preferences = loadPreferences();
+    this.applyPreferences(false);
     if (DEBUG) console.time("Create Game instance");
     this.multiplayerConfig = getMultiplayerConfigFromUrl();
     this.multiplayerMode = this.multiplayerConfig.mode;
@@ -254,7 +263,7 @@ class DarkWar {
     if (DEBUG) console.timeEnd("Create MouseTracker");
 
     if (DEBUG) console.time("Create Renderer");
-    this.renderer = new Renderer("game");
+    this.renderer = new Renderer("game", this.preferences.zoom);
     if (DEBUG) console.timeEnd("Create Renderer");
 
     if (DEBUG) console.time("Create UI");
@@ -274,10 +283,15 @@ class DarkWar {
     // Dialog and menu bridge
     this.gameMenu = new GameMenu({
       pausesGame: !this.isOnlineMode(),
+      preferences: this.preferences,
       onModalStateChange: (hasOpenModal) =>
         this.handleModalStateChange(hasOpenModal),
+      onPreferencesChange: (preferences) =>
+        this.handlePreferencesChange(preferences),
       onNewGame: () => this.handleNewGame(),
       onQuit: () => this.handleQuit(),
+      onToggleFOV: () => this.handleToggleFOV(),
+      onToggleGodMode: () => this.handleToggleGodMode(),
     });
 
     // Preload sounds asynchronously (don't block startup)
@@ -301,7 +315,7 @@ class DarkWar {
       onSelectWeapon: (slot) => this.handleSelectWeapon(slot),
     };
 
-    this.inputHandler = new InputHandler(callbacks);
+    this.inputHandler = new InputHandler(callbacks, () => this.preferences);
 
     // Setup click-to-move
     this.setupClickToMove();
@@ -389,6 +403,31 @@ class DarkWar {
     }
 
     window.close();
+  }
+
+  private handlePreferencesChange(preferences: UserPreferences): void {
+    this.preferences = {
+      ...preferences,
+      keyBindings: { ...preferences.keyBindings },
+    };
+    savePreferences(this.preferences);
+    this.applyPreferences();
+
+    if (this.preferences.devTools) {
+      console.info("Dark War preferences updated.", this.preferences);
+    }
+  }
+
+  private applyPreferences(applyScale: boolean = true): void {
+    Sound.setVolume(this.preferences.sfxVolume);
+    Music.setVolume(this.preferences.musicVolume);
+    document.documentElement.dataset.theme = this.preferences.theme;
+
+    if (applyScale && this.renderer) {
+      this.setScale(this.preferences.zoom);
+    }
+
+    window.native?.setDevToolsEnabled(this.preferences.devTools).catch(() => {});
   }
 
   private handleModalStateChange(hasOpenModal: boolean): void {
@@ -1487,6 +1526,9 @@ class DarkWar {
    * Handle FOV toggle
    */
   private handleToggleFOV(): void {
+    if (!this.preferences.devTools) {
+      return;
+    }
     this.game.toggleFOV();
   }
 
@@ -1494,6 +1536,10 @@ class DarkWar {
    * Handle God Mode toggle
    */
   private handleToggleGodMode(): void {
+    if (!this.preferences.devTools) {
+      return;
+    }
+
     if (this.isOnlineMode()) {
       this.dispatchOnlineAction({ type: "TOGGLE_GOD_MODE" });
       return;

@@ -50,7 +50,8 @@ export class Renderer {
   private canvasMapWidth: number = MAP_WIDTH;
   private canvasMapHeight: number = MAP_HEIGHT;
 
-  constructor(canvasId: string) {
+  constructor(canvasId: string, initialScale: number = 1.0) {
+    this.scale = initialScale;
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     if (!canvas) {
       throw new Error(`Canvas element with id "${canvasId}" not found`);

@@ -1,7 +1,8 @@
 /**
  * Input handling and keyboard controls
- * Tracks key states for continuous WASD movement with normalized diagonals
+ * Tracks key states for continuous remappable movement with normalized diagonals.
  */
+import { KeyBindingAction, UserPreferences } from "./Preferences";
 
 export type Direction = [number, number];
 
@@ -27,22 +28,23 @@ export interface InputCallbacks {
 
 export class InputHandler {
   private callbacks: InputCallbacks;
+  private getPreferences: () => UserPreferences;
   private fireMode = false;
   private lastInteractDirection: Direction = [0, 0];
   private readonly onKeyDown = (e: KeyboardEvent): void =>
     this.handleKeyDown(e);
   private readonly onKeyUp = (e: KeyboardEvent): void => this.handleKeyUp(e);
 
-  // Track WASD key states for continuous movement
   private keysPressed = {
-    w: false,
-    a: false,
-    s: false,
-    d: false,
+    moveUp: false,
+    moveLeft: false,
+    moveDown: false,
+    moveRight: false,
   };
 
-  constructor(callbacks: InputCallbacks) {
+  constructor(callbacks: InputCallbacks, getPreferences: () => UserPreferences) {
     this.callbacks = callbacks;
+    this.getPreferences = getPreferences;
     this.setupKeyboardListeners();
   }
 
@@ -61,60 +63,60 @@ export class InputHandler {
 
     const key = e.key.toLowerCase();
     const code = e.code;
+    const preferences = this.getPreferences();
 
-    if (code === "Digit1") {
+    if (this.isActionCode("weapon1", code, preferences)) {
       e.preventDefault();
       this.callbacks.onSelectWeapon(1);
       return;
     }
-    if (code === "Digit2") {
+    if (this.isActionCode("weapon2", code, preferences)) {
       e.preventDefault();
       this.callbacks.onSelectWeapon(2);
       return;
     }
-    if (code === "Digit3") {
+    if (this.isActionCode("weapon3", code, preferences)) {
       e.preventDefault();
       this.callbacks.onSelectWeapon(3);
       return;
     }
-    if (code === "Digit4") {
+    if (this.isActionCode("weapon4", code, preferences)) {
       e.preventDefault();
       this.callbacks.onSelectWeapon(4);
       return;
     }
 
-    // Track WASD key states
-    if (code === "KeyW") {
+    if (this.isActionCode("moveUp", code, preferences)) {
       e.preventDefault();
-      if (!this.keysPressed.w) {
-        this.keysPressed.w = true;
+      if (!this.keysPressed.moveUp) {
+        this.keysPressed.moveUp = true;
         this.lastInteractDirection = [0, -1];
         this.updateVelocity();
       }
       return;
     }
-    if (code === "KeyA") {
+    if (this.isActionCode("moveLeft", code, preferences)) {
       e.preventDefault();
-      if (!this.keysPressed.a) {
-        this.keysPressed.a = true;
+      if (!this.keysPressed.moveLeft) {
+        this.keysPressed.moveLeft = true;
         this.lastInteractDirection = [-1, 0];
         this.updateVelocity();
       }
       return;
     }
-    if (code === "KeyS") {
+    if (this.isActionCode("moveDown", code, preferences)) {
       e.preventDefault();
-      if (!this.keysPressed.s) {
-        this.keysPressed.s = true;
+      if (!this.keysPressed.moveDown) {
+        this.keysPressed.moveDown = true;
         this.lastInteractDirection = [0, 1];
         this.updateVelocity();
       }
       return;
     }
-    if (code === "KeyD") {
+    if (this.isActionCode("moveRight", code, preferences)) {
       e.preventDefault();
-      if (!this.keysPressed.d) {
-        this.keysPressed.d = true;
+      if (!this.keysPressed.moveRight) {
+        this.keysPressed.moveRight = true;
         this.lastInteractDirection = [1, 0];
         this.updateVelocity();
       }
@@ -131,7 +133,7 @@ export class InputHandler {
     }
 
     // Interact with doors
-    if (key === "o") {
+    if (this.isActionCode("interact", code, preferences)) {
       e.preventDefault();
       const [dx, dy] = this.getInteractDirection();
       this.callbacks.onInteract(dx, dy);
@@ -139,35 +141,37 @@ export class InputHandler {
     }
 
     // Pick up items
-    if (key === "g") {
+    if (this.isActionCode("pickup", code, preferences)) {
       e.preventDefault();
       this.callbacks.onPickup();
       return;
     }
 
-    // Toggle God Mode
-    if (key === "m") {
+    if (
+      preferences.devTools &&
+      this.isActionCode("toggleGodMode", code, preferences)
+    ) {
       e.preventDefault();
       this.callbacks.onToggleGodMode();
       return;
     }
 
-    // Reload weapon
-    if (key === "r") {
+    if (this.isActionCode("reload", code, preferences)) {
       e.preventDefault();
       this.callbacks.onReload();
       return;
     }
 
-    // Toggle FOV
-    if (key === "v") {
+    if (
+      preferences.devTools &&
+      this.isActionCode("toggleFOV", code, preferences)
+    ) {
       e.preventDefault();
       this.callbacks.onToggleFOV();
       return;
     }
 
-    // Toggle CTDM on/off (C)
-    if (key === "c") {
+    if (this.isActionCode("toggleCTDM", code, preferences)) {
       e.preventDefault();
       this.callbacks.onToggleCTDM();
       return;
@@ -183,46 +187,53 @@ export class InputHandler {
     }
 
     const code = e.code;
+    const preferences = this.getPreferences();
 
-    // Track WASD key releases
-    if (code === "KeyW") {
+    if (this.isActionCode("moveUp", code, preferences)) {
       e.preventDefault();
-      this.keysPressed.w = false;
+      this.keysPressed.moveUp = false;
       this.updateVelocity();
       return;
     }
-    if (code === "KeyA") {
+    if (this.isActionCode("moveLeft", code, preferences)) {
       e.preventDefault();
-      this.keysPressed.a = false;
+      this.keysPressed.moveLeft = false;
       this.updateVelocity();
       return;
     }
-    if (code === "KeyS") {
+    if (this.isActionCode("moveDown", code, preferences)) {
       e.preventDefault();
-      this.keysPressed.s = false;
+      this.keysPressed.moveDown = false;
       this.updateVelocity();
       return;
     }
-    if (code === "KeyD") {
+    if (this.isActionCode("moveRight", code, preferences)) {
       e.preventDefault();
-      this.keysPressed.d = false;
+      this.keysPressed.moveRight = false;
       this.updateVelocity();
       return;
     }
   }
 
+  private isActionCode(
+    action: KeyBindingAction,
+    code: string,
+    preferences: UserPreferences,
+  ): boolean {
+    return preferences.keyBindings[action] === code;
+  }
+
   /**
-   * Calculate and apply normalized velocity from WASD key states
+   * Calculate and apply normalized velocity from movement key states.
    */
   private updateVelocity(): void {
     let vx = 0;
     let vy = 0;
 
-    // Calculate raw velocity from key states
-    if (this.keysPressed.a) vx -= 1;
-    if (this.keysPressed.d) vx += 1;
-    if (this.keysPressed.w) vy -= 1;
-    if (this.keysPressed.s) vy += 1;
+    if (this.keysPressed.moveLeft) vx -= 1;
+    if (this.keysPressed.moveRight) vx += 1;
+    if (this.keysPressed.moveUp) vy -= 1;
+    if (this.keysPressed.moveDown) vy += 1;
 
     // Normalize diagonal movement to maintain consistent speed
     if (vx !== 0 && vy !== 0) {
@@ -242,10 +253,10 @@ export class InputHandler {
   private getInteractDirection(): Direction {
     let dx = 0;
     let dy = 0;
-    if (this.keysPressed.a) dx -= 1;
-    if (this.keysPressed.d) dx += 1;
-    if (this.keysPressed.w) dy -= 1;
-    if (this.keysPressed.s) dy += 1;
+    if (this.keysPressed.moveLeft) dx -= 1;
+    if (this.keysPressed.moveRight) dx += 1;
+    if (this.keysPressed.moveUp) dy -= 1;
+    if (this.keysPressed.moveDown) dy += 1;
 
     if (Math.abs(dx) + Math.abs(dy) === 1) {
       this.lastInteractDirection = [dx, dy];
@@ -267,10 +278,10 @@ export class InputHandler {
    * Reset all key states (useful when starting a new game)
    */
   public resetKeys(): void {
-    this.keysPressed.w = false;
-    this.keysPressed.a = false;
-    this.keysPressed.s = false;
-    this.keysPressed.d = false;
+    this.keysPressed.moveUp = false;
+    this.keysPressed.moveLeft = false;
+    this.keysPressed.moveDown = false;
+    this.keysPressed.moveRight = false;
     this.updateVelocity();
   }
 

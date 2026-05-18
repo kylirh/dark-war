@@ -507,7 +507,7 @@ body.imb-modal-open #retro-window-chrome {
 
 .imb-theme-toggle {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
   border: 2px solid var(--modal-border);
   box-shadow:
     inset 1px 1px 0 var(--chrome-lowlight),
@@ -636,6 +636,17 @@ body.imb-modal-open #retro-window-chrome {
   justify-items: stretch;
 }
 
+.imb-pause-view {
+  display: grid;
+  gap: 16px;
+}
+
+.imb-pause-view.hidden,
+.imb-dev-tools-panel.hidden,
+.imb-keybinding-row.hidden {
+  display: none;
+}
+
 .imb-pause-logo {
   width: min(300px, 80%);
   justify-self: center;
@@ -706,6 +717,83 @@ body.imb-modal-open #retro-window-chrome {
     inset -2px -2px 0 var(--chrome-highlight);
 }
 
+.imb-settings-header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.imb-settings-header h3 {
+  color: var(--modal-text);
+  font-family: "Chicago_12", sans-serif;
+  font-size: 18px;
+  line-height: 1;
+  text-align: center;
+}
+
+.imb-back-btn {
+  min-width: 58px;
+}
+
+.imb-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--modal-accent);
+  font-size: 13px;
+}
+
+.imb-checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--modal-accent);
+}
+
+.imb-dev-tools-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.imb-keybinding-list {
+  display: grid;
+  gap: 7px;
+  max-height: min(44vh, 360px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.imb-keybinding-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(112px, 140px);
+  align-items: center;
+  gap: 10px;
+  color: var(--modal-text);
+  font-size: 13px;
+}
+
+.imb-keybinding-button {
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 2px solid var(--modal-border);
+  background: var(--modal-bg-soft);
+  color: var(--modal-text);
+  font-family: "Chicago_12", sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+  box-shadow:
+    inset 2px 2px 0 var(--chrome-highlight),
+    inset -2px -2px 0 var(--chrome-lowlight);
+}
+
+.imb-keybinding-button:hover,
+.imb-keybinding-button.listening {
+  background: var(--modal-text);
+  color: var(--modal-bg);
+}
+
 @media (max-width: 560px) {
   .imb-dialog {
     left: 12px !important;
@@ -718,7 +806,9 @@ body.imb-modal-open #retro-window-chrome {
   }
 
   .imb-slider-row,
-  .imb-theme-row {
+  .imb-theme-row,
+  .imb-dev-tools-panel,
+  .imb-keybinding-row {
     grid-template-columns: 1fr;
   }
 
@@ -922,41 +1012,6 @@ body {
   flex-direction: column;
   min-width: 0;
   position: relative;
-}
-
-.scale-toggle {
-  position: absolute;
-  top: 16px;
-  right: 36px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--modal-bg-soft);
-  border: 0;
-  color: var(--modal-text);
-  cursor: pointer;
-  z-index: 10;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  -webkit-font-smoothing: antialiased;
-  font-family: "Chicago_12", sans-serif;
-  font-size: 1em;
-}
-
-.scale-toggle:hover {
-  background: var(--modal-text);
-  color: var(--modal-bg);
-  transform: scale(1.05);
-}
-
-.scale-toggle:active {
-  transform: scale(0.95);
-}
-
-.scale-toggle:focus {
-  outline: none;
 }
 
 .viewport {
@@ -1251,19 +1306,4 @@ body {
 .message-log li {
   padding: 4px 0;
   line-height: 1.4;
-}
-
-.controls {
-  padding: 16px;
-  color: var(--ink-dim);
-}
-
-.controls kbd {
-  background: var(--modal-bg-soft);
-  border: 1px solid var(--border);
-  color: var(--ink);
-  padding: 2px 6px;
-  border-radius: 4px;
-  white-space: nowrap;
-  font-family: "Chicago_12", sans-serif;
 }

@@ -2,6 +2,13 @@
  * Reusable retro system modal components for game menu dialogs.
  */
 import { Music } from "./Music";
+import {
+  DEFAULT_KEY_BINDINGS,
+  KEY_BINDING_DEFINITIONS,
+  KeyBindingAction,
+  UserPreferences,
+  keyCodeToLabel,
+} from "./Preferences";
 import { Sound } from "./Sound";
 
 type ThemeMode = "dark" | "light";
@@ -11,6 +18,7 @@ type PauseMenuAction =
   | "multiplayer"
   | "settings"
   | "quit";
+type PauseMenuView = "main" | "settings" | "keybindings";
 
 interface PauseMenuItem {
   action: PauseMenuAction;
@@ -19,9 +27,13 @@ interface PauseMenuItem {
 
 interface GameMenuOptions {
   pausesGame: boolean;
+  preferences: UserPreferences;
   onModalStateChange?: (hasOpenModal: boolean) => void;
+  onPreferencesChange?: (preferences: UserPreferences) => void;
   onNewGame?: () => void;
   onQuit?: () => void;
+  onToggleFOV?: () => void;
+  onToggleGodMode?: () => void;
 }
 
 export interface RetroModalOptions {
@@ -206,14 +218,21 @@ export class GameMenu {
   private readonly options: GameMenuOptions;
   private readonly modals: Map<string, RetroModal> = new Map();
   private readonly scrim: HTMLElement;
+  private preferences: UserPreferences;
+  private pauseMenuView: PauseMenuView = "main";
   private pauseMenuSelection: number = 1;
   private pauseMenuMessage: string | null = null;
+  private listeningForKey: KeyBindingAction | null = null;
   private readonly onKeyDown = (event: KeyboardEvent): void =>
     this.handleKeyDown(event);
 
   constructor(options: GameMenuOptions) {
     this.options = options;
-    this.applySavedTheme();
+    this.preferences = {
+      ...options.preferences,
+      keyBindings: { ...options.preferences.keyBindings },
+    };
+    this.applyTheme(this.preferences.theme);
     this.scrim = document.createElement("div");
     this.scrim.className = "imb-modal-scrim hidden";
     document.body.appendChild(this.scrim);
@@ -222,43 +241,6 @@ export class GameMenu {
   }
 
   private injectHTML(): void {
-    const soundDialog = new RetroModal({
-      id: "sound-dialog",
-      title: "Sound Settings",
-      initialPosition: { top: 112, left: 118 },
-      onOpen: () => this.syncSoundControls(),
-      onClose: () => this.handleModalClosed(),
-      body: `
-        <div class="imb-settings-stack">
-          <div class="imb-slider-row">
-            <label for="sfx-volume">Sound Effects</label>
-            <input type="range" id="sfx-volume" min="0" max="100" value="50" />
-            <span class="imb-slider-val" id="sfx-vol-label">50%</span>
-          </div>
-          <div class="imb-slider-row">
-            <label for="music-volume">Music</label>
-            <input type="range" id="music-volume" min="0" max="100" value="30" />
-            <span class="imb-slider-val" id="music-vol-label">30%</span>
-          </div>
-          <div class="imb-theme-row">
-            <span class="imb-theme-label">Appearance</span>
-            <div class="imb-theme-toggle" role="group" aria-label="Appearance mode">
-              <button class="imb-theme-option" data-theme-value="dark" type="button">
-                Dark
-              </button>
-              <button class="imb-theme-option" data-theme-value="light" type="button">
-                Light
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="imb-dialog-footer">
-          <button class="imb-btn" data-close="sound-dialog" type="button">OK</button>
-        </div>
-      `,
-    });
-    this.registerModal(soundDialog);
-
     const aboutDialog = new RetroModal({
       id: "about-dialog",
       title: "About Dark War",
@@ -301,28 +283,138 @@ export class GameMenu {
       onClose: () => this.handleModalClosed(),
       body: `
         <div class="imb-pause-menu">
-          <img
-            src="assets/img/logo.png"
-            class="imb-pause-logo"
-            alt="Dark War"
-          />
-          <div class="imb-pause-message hidden" id="pause-menu-message"></div>
-          <div class="imb-pause-options" role="menu" aria-label="Pause menu">
-            ${this.pauseItems
-              .map(
-                (item, index) => `
+          <div class="imb-pause-view" data-pause-view="main">
+            <img
+              src="assets/img/logo.png"
+              class="imb-pause-logo"
+              alt="Dark War"
+            />
+            <div class="imb-pause-message hidden" id="pause-menu-message"></div>
+            <div class="imb-pause-options" role="menu" aria-label="Pause menu">
+              ${this.pauseItems
+                .map(
+                  (item, index) => `
+                    <button
+                      class="imb-pause-option"
+                      data-pause-action="${item.action}"
+                      data-pause-index="${index}"
+                      type="button"
+                      role="menuitem"
+                    >
+                      ${item.label}
+                    </button>
+                  `,
+                )
+                .join("")}
+            </div>
+          </div>
+          <div class="imb-pause-view hidden" data-pause-view="settings">
+            <div class="imb-settings-header">
+              <button class="imb-btn imb-back-btn" data-settings-back type="button">
+                Back
+              </button>
+              <h3>Settings</h3>
+            </div>
+            <div class="imb-settings-stack">
+              <div class="imb-slider-row">
+                <label for="pause-sfx-volume">Sound Effects</label>
+                <input
+                  type="range"
+                  id="pause-sfx-volume"
+                  min="0"
+                  max="100"
+                  value="50"
+                />
+                <span class="imb-slider-val" id="pause-sfx-vol-label">50%</span>
+              </div>
+              <div class="imb-slider-row">
+                <label for="pause-music-volume">Music</label>
+                <input
+                  type="range"
+                  id="pause-music-volume"
+                  min="0"
+                  max="100"
+                  value="30"
+                />
+                <span class="imb-slider-val" id="pause-music-vol-label">30%</span>
+              </div>
+              <div class="imb-theme-row">
+                <span class="imb-theme-label">Appearance</span>
+                <div class="imb-theme-toggle" role="group" aria-label="Appearance mode">
                   <button
-                    class="imb-pause-option"
-                    data-pause-action="${item.action}"
-                    data-pause-index="${index}"
+                    class="imb-theme-option"
+                    data-settings-theme-value="dark"
                     type="button"
-                    role="menuitem"
                   >
-                    ${item.label}
+                    Dark
                   </button>
+                  <button
+                    class="imb-theme-option"
+                    data-settings-theme-value="light"
+                    type="button"
+                  >
+                    Light
+                  </button>
+                </div>
+              </div>
+              <div class="imb-theme-row">
+                <span class="imb-theme-label">Zoom</span>
+                <div class="imb-theme-toggle" role="group" aria-label="Zoom level">
+                  <button class="imb-theme-option" data-zoom-value="1" type="button">
+                    1X
+                  </button>
+                  <button class="imb-theme-option" data-zoom-value="2" type="button">
+                    2X
+                  </button>
+                  <button class="imb-theme-option" data-zoom-value="3" type="button">
+                    3X
+                  </button>
+                </div>
+              </div>
+              <label class="imb-checkbox-row">
+                <input id="dev-tools-toggle" type="checkbox" />
+                <span>Dev Tools</span>
+              </label>
+              <div class="imb-dev-tools-panel hidden" data-dev-tools-panel>
+                <button class="imb-btn" data-dev-action="god-mode" type="button">
+                  Toggle God Mode
+                </button>
+                <button class="imb-btn" data-dev-action="fov" type="button">
+                  Toggle FOV
+                </button>
+              </div>
+              <button class="imb-btn" data-open-keybindings type="button">
+                Keyboard Bindings
+              </button>
+            </div>
+          </div>
+          <div class="imb-pause-view hidden" data-pause-view="keybindings">
+            <div class="imb-settings-header">
+              <button class="imb-btn imb-back-btn" data-keybindings-back type="button">
+                Back
+              </button>
+              <h3>Keyboard Bindings</h3>
+            </div>
+            <div class="imb-keybinding-list">
+              ${KEY_BINDING_DEFINITIONS.map(
+                (definition) => `
+                  <div
+                    class="imb-keybinding-row${definition.devOnly ? " dev-only" : ""}"
+                    data-keybinding-row="${definition.action}"
+                  >
+                    <span>${definition.label}</span>
+                    <button
+                      class="imb-keybinding-button"
+                      data-keybinding-action="${definition.action}"
+                      type="button"
+                    ></button>
+                  </div>
                 `,
-              )
-              .join("")}
+              ).join("")}
+            </div>
+            <button class="imb-btn" data-reset-keybindings type="button">
+              Restore Defaults
+            </button>
           </div>
         </div>
       `,
@@ -344,36 +436,91 @@ export class GameMenu {
       });
     });
 
-    const sfxSlider = document.getElementById(
-      "sfx-volume",
+    const pauseSfxSlider = document.getElementById(
+      "pause-sfx-volume",
     ) as HTMLInputElement | null;
-    const musicSlider = document.getElementById(
-      "music-volume",
+    const pauseMusicSlider = document.getElementById(
+      "pause-music-volume",
     ) as HTMLInputElement | null;
 
-    if (sfxSlider) {
-      sfxSlider.addEventListener("input", () => {
-        const volume = Number.parseInt(sfxSlider.value, 10) / 100;
+    if (pauseSfxSlider) {
+      pauseSfxSlider.addEventListener("input", () => {
+        const volume = Number.parseInt(pauseSfxSlider.value, 10) / 100;
         Sound.setVolume(volume);
-        const label = document.getElementById("sfx-vol-label");
-        if (label) label.textContent = `${sfxSlider.value}%`;
+        this.updatePreferences({ sfxVolume: volume });
+        this.syncSoundControls();
       });
     }
 
-    if (musicSlider) {
-      musicSlider.addEventListener("input", () => {
-        const volume = Number.parseInt(musicSlider.value, 10) / 100;
+    if (pauseMusicSlider) {
+      pauseMusicSlider.addEventListener("input", () => {
+        const volume = Number.parseInt(pauseMusicSlider.value, 10) / 100;
         Music.setVolume(volume);
-        const label = document.getElementById("music-vol-label");
-        if (label) label.textContent = `${musicSlider.value}%`;
+        this.updatePreferences({ musicVolume: volume });
+        this.syncSoundControls();
       });
     }
 
-    document.querySelectorAll("[data-theme-value]").forEach((button) => {
+    document.querySelectorAll("[data-settings-theme-value]").forEach((button) => {
       button.addEventListener("click", () => {
-        const theme = (button as HTMLElement).dataset.themeValue;
+        const theme = (button as HTMLElement).dataset.settingsThemeValue;
         if (theme === "dark" || theme === "light") {
           this.setTheme(theme);
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-zoom-value]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const zoom = Number.parseInt(
+          (button as HTMLElement).dataset.zoomValue ?? "1",
+          10,
+        );
+        if (zoom === 1 || zoom === 2 || zoom === 3) {
+          this.updatePreferences({ zoom });
+          this.syncSettingsControls();
+        }
+      });
+    });
+
+    document.getElementById("dev-tools-toggle")?.addEventListener("change", (event) => {
+      const enabled = (event.target as HTMLInputElement).checked;
+      this.updatePreferences({ devTools: enabled });
+      this.syncSettingsControls();
+    });
+
+    document.querySelector("[data-open-keybindings]")?.addEventListener("click", () => {
+      this.setPauseMenuView("keybindings");
+    });
+
+    document.querySelector("[data-settings-back]")?.addEventListener("click", () => {
+      this.setPauseMenuView("main");
+    });
+
+    document.querySelector("[data-keybindings-back]")?.addEventListener("click", () => {
+      this.setPauseMenuView("settings");
+    });
+
+    document.querySelector("[data-reset-keybindings]")?.addEventListener("click", () => {
+      this.updatePreferences({ keyBindings: { ...DEFAULT_KEY_BINDINGS } });
+      this.syncKeybindingControls();
+    });
+
+    document.querySelector("[data-dev-action='god-mode']")?.addEventListener(
+      "click",
+      () => this.options.onToggleGodMode?.(),
+    );
+    document.querySelector("[data-dev-action='fov']")?.addEventListener(
+      "click",
+      () => this.options.onToggleFOV?.(),
+    );
+
+    document.querySelectorAll("[data-keybinding-action]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const action = (button as HTMLElement).dataset.keybindingAction;
+        if (this.isKeyBindingAction(action)) {
+          this.listeningForKey = action;
+          this.syncKeybindingControls();
         }
       });
     });
@@ -431,7 +578,32 @@ export class GameMenu {
   }
 
   private handlePauseMenuKeyDown(event: KeyboardEvent): boolean {
+    if (this.listeningForKey) {
+      event.preventDefault();
+      if (event.key === "Escape") {
+        this.listeningForKey = null;
+        this.syncKeybindingControls();
+        return true;
+      }
+      this.assignKeyBinding(this.listeningForKey, event.code);
+      this.listeningForKey = null;
+      this.syncKeybindingControls();
+      return true;
+    }
+
     const key = event.key.toLowerCase();
+
+    if (this.pauseMenuView !== "main") {
+      if (key === "escape") {
+        event.preventDefault();
+        this.setPauseMenuView(
+          this.pauseMenuView === "keybindings" ? "settings" : "main",
+        );
+        return true;
+      }
+      return false;
+    }
+
     const isPreviousKey = key === "arrowup" || key === "w" || key === "a";
     const isNextKey = key === "arrowdown" || key === "s" || key === "d";
 
@@ -483,7 +655,7 @@ export class GameMenu {
         this.showPauseMessage("Coming Soon");
         return;
       case "settings":
-        this.showPauseMessage("Settings are moving here soon.");
+        this.setPauseMenuView("settings");
         return;
       case "quit":
         this.options.onQuit?.();
@@ -497,6 +669,13 @@ export class GameMenu {
   }
 
   private syncPauseMenu(): void {
+    document.querySelectorAll<HTMLElement>("[data-pause-view]").forEach((view) => {
+      view.classList.toggle(
+        "hidden",
+        view.dataset.pauseView !== this.pauseMenuView,
+      );
+    });
+
     const buttons = document.querySelectorAll<HTMLElement>("[data-pause-index]");
     buttons.forEach((button) => {
       const index = Number.parseInt(button.dataset.pauseIndex ?? "0", 10);
@@ -511,6 +690,8 @@ export class GameMenu {
     }
     message.textContent = this.pauseMenuMessage ?? "";
     message.classList.toggle("hidden", !this.pauseMenuMessage);
+    this.syncSettingsControls();
+    this.syncKeybindingControls();
   }
 
   private isPauseMenuAction(
@@ -549,59 +730,158 @@ export class GameMenu {
   }
 
   private syncSoundControls(): void {
-    const sfxSlider = document.getElementById(
-      "sfx-volume",
+    const pauseSfxSlider = document.getElementById(
+      "pause-sfx-volume",
     ) as HTMLInputElement | null;
-    const musicSlider = document.getElementById(
-      "music-volume",
+    const pauseMusicSlider = document.getElementById(
+      "pause-music-volume",
     ) as HTMLInputElement | null;
-    const sfxLabel = document.getElementById("sfx-vol-label");
-    const musicLabel = document.getElementById("music-vol-label");
+    const pauseSfxLabel = document.getElementById("pause-sfx-vol-label");
+    const pauseMusicLabel = document.getElementById("pause-music-vol-label");
 
-    if (sfxSlider) {
-      const volume = Math.round(Sound.getVolume() * 100);
-      sfxSlider.value = String(volume);
-      if (sfxLabel) sfxLabel.textContent = `${volume}%`;
+    if (pauseSfxSlider) {
+      const volume = Math.round(this.preferences.sfxVolume * 100);
+      pauseSfxSlider.value = String(volume);
+      if (pauseSfxLabel) pauseSfxLabel.textContent = `${volume}%`;
     }
 
-    if (musicSlider) {
-      const volume = Math.round(Music.getVolume() * 100);
-      musicSlider.value = String(volume);
-      if (musicLabel) musicLabel.textContent = `${volume}%`;
+    if (pauseMusicSlider) {
+      const volume = Math.round(this.preferences.musicVolume * 100);
+      pauseMusicSlider.value = String(volume);
+      if (pauseMusicLabel) pauseMusicLabel.textContent = `${volume}%`;
     }
 
     this.syncThemeButtons();
   }
 
-  private applySavedTheme(): void {
-    const savedTheme = localStorage.getItem("darkwar-ui-theme");
-    this.setTheme(savedTheme === "light" ? "light" : "dark", false);
+  private updatePreferences(next: Partial<UserPreferences>): void {
+    this.preferences = {
+      ...this.preferences,
+      ...next,
+      keyBindings: next.keyBindings
+        ? { ...next.keyBindings }
+        : { ...this.preferences.keyBindings },
+    };
+    Sound.setVolume(this.preferences.sfxVolume);
+    Music.setVolume(this.preferences.musicVolume);
+    this.applyTheme(this.preferences.theme);
+    this.options.onPreferencesChange?.({
+      ...this.preferences,
+      keyBindings: { ...this.preferences.keyBindings },
+    });
   }
 
-  private setTheme(theme: ThemeMode, persist: boolean = true): void {
+  private applyTheme(theme: ThemeMode): void {
     document.documentElement.dataset.theme = theme;
-    if (persist) {
-      localStorage.setItem("darkwar-ui-theme", theme);
-    }
+  }
+
+  private setTheme(theme: ThemeMode): void {
+    this.updatePreferences({ theme });
     this.syncThemeButtons();
   }
 
   private syncThemeButtons(): void {
-    const currentTheme =
-      document.documentElement.dataset.theme === "light" ? "light" : "dark";
-    document.querySelectorAll("[data-theme-value]").forEach((button) => {
+    const currentTheme = this.preferences.theme;
+    document.querySelectorAll("[data-settings-theme-value]").forEach((button) => {
       const isSelected =
-        (button as HTMLElement).dataset.themeValue === currentTheme;
+        (button as HTMLElement).dataset.settingsThemeValue === currentTheme;
       button.classList.toggle("selected", isSelected);
       button.setAttribute("aria-pressed", String(isSelected));
     });
+  }
+
+  private syncSettingsControls(): void {
+    this.syncSoundControls();
+    document.querySelectorAll("[data-zoom-value]").forEach((button) => {
+      const zoom = Number.parseInt(
+        (button as HTMLElement).dataset.zoomValue ?? "1",
+        10,
+      );
+      const isSelected = zoom === this.preferences.zoom;
+      button.classList.toggle("selected", isSelected);
+      button.setAttribute("aria-pressed", String(isSelected));
+    });
+
+    const devToolsToggle = document.getElementById(
+      "dev-tools-toggle",
+    ) as HTMLInputElement | null;
+    if (devToolsToggle) {
+      devToolsToggle.checked = this.preferences.devTools;
+    }
+
+    document.querySelectorAll<HTMLElement>(".dev-only").forEach((element) => {
+      element.classList.toggle("hidden", !this.preferences.devTools);
+    });
+    document.querySelectorAll<HTMLElement>("[data-dev-tools-panel]").forEach(
+      (element) => {
+        element.classList.toggle("hidden", !this.preferences.devTools);
+      },
+    );
+  }
+
+  private setPauseMenuView(view: PauseMenuView): void {
+    this.pauseMenuView = view;
+    this.pauseMenuMessage = null;
+    this.listeningForKey = null;
+    this.syncPauseMenu();
+  }
+
+  private assignKeyBinding(action: KeyBindingAction, code: string): void {
+    const keyBindings = { ...this.preferences.keyBindings };
+    for (const definition of KEY_BINDING_DEFINITIONS) {
+      if (
+        definition.action !== action &&
+        keyBindings[definition.action] === code
+      ) {
+        keyBindings[definition.action] = this.preferences.keyBindings[action];
+      }
+    }
+    keyBindings[action] = code;
+    this.updatePreferences({ keyBindings });
+  }
+
+  private syncKeybindingControls(): void {
+    document
+      .querySelectorAll<HTMLElement>("[data-keybinding-row]")
+      .forEach((row) => {
+        const action = row.dataset.keybindingRow;
+        const definition = KEY_BINDING_DEFINITIONS.find(
+          (candidate) => candidate.action === action,
+        );
+        row.classList.toggle(
+          "hidden",
+          Boolean(definition?.devOnly && !this.preferences.devTools),
+        );
+      });
+
+    document
+      .querySelectorAll<HTMLButtonElement>("[data-keybinding-action]")
+      .forEach((button) => {
+        const action = button.dataset.keybindingAction;
+        if (!this.isKeyBindingAction(action)) {
+          return;
+        }
+        button.textContent =
+          this.listeningForKey === action
+            ? "Press a key..."
+            : keyCodeToLabel(this.preferences.keyBindings[action]);
+        button.classList.toggle("listening", this.listeningForKey === action);
+      });
+  }
+
+  private isKeyBindingAction(
+    action: string | undefined,
+  ): action is KeyBindingAction {
+    return KEY_BINDING_DEFINITIONS.some(
+      (definition) => definition.action === action,
+    );
   }
 
   /**
    * Open the sound settings dialog.
    */
   public openSoundDialog(): void {
-    this.showModal("sound-dialog");
+    this.openPauseMenu("settings");
   }
 
   /**
@@ -611,12 +891,11 @@ export class GameMenu {
     this.showModal("about-dialog");
   }
 
-  public openPauseMenu(): void {
-    if (!this.options.pausesGame) {
-      return;
-    }
+  public openPauseMenu(view: PauseMenuView = "main"): void {
+    this.pauseMenuView = view;
     this.pauseMenuSelection = 1;
     this.pauseMenuMessage = null;
+    this.listeningForKey = null;
     this.showModal("pause-dialog");
   }
 

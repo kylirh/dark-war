@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld("native", {
   minimizeWindow: () => ipcRenderer.send("window:minimize"),
   toggleMaximize: () => ipcRenderer.send("window:toggle-maximize"),
   toggleFullscreen: () => ipcRenderer.send("window:toggle-fullscreen"),
+  setDevToolsEnabled: (enabled) =>
+    ipcRenderer.invoke("window:set-devtools-enabled", enabled),
   getWindowBounds: () => ipcRenderer.invoke("window:get-bounds"),
   setWindowBounds: (bounds) => ipcRenderer.send("window:set-bounds", bounds),
   setGameWindowOpaque: () => ipcRenderer.invoke("window:game-ready"),
