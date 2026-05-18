@@ -1,14 +1,19 @@
 import { SerializedState } from "../types";
 
+export interface LobbyPlayer {
+  id: string;
+  name: string;
+  isHost: boolean;
+}
+
+export interface LobbyUpdate {
+  players: LobbyPlayer[];
+  roomId: string;
+  phase: "lobby" | "playing";
+}
+
 export type NetworkAction =
-  | {
-      type: "FIRE";
-      dx: number;
-      dy: number;
-      facingAngle?: number;
-      targetWorldX?: number;
-      targetWorldY?: number;
-    }
+  | { type: "FIRE"; dx: number; dy: number; facingAngle?: number; targetWorldX?: number; targetWorldY?: number }
   | { type: "INTERACT"; dx: number; dy: number }
   | { type: "PICKUP" }
   | { type: "RELOAD" }
@@ -18,7 +23,8 @@ export type NetworkAction =
   | { type: "TOGGLE_GOD_MODE" };
 
 type ServerMessage =
-  | { type: "welcome"; playerId: string; roomId: string }
+  | { type: "welcome"; playerId: string; roomId: string; isHost: boolean }
+  | { type: "lobby_update"; players: LobbyPlayer[]; roomId: string; phase: "lobby" | "playing" }
   | { type: "state"; state: SerializedState }
   | { type: "error"; message: string };
 
@@ -31,10 +37,13 @@ export class MultiplayerClient {
   private reconnectTimer: number | null = null;
   private shouldReconnect = true;
   private localPlayerId: string | null = null;
+  private isHost = false;
+
   private onStateCallback?: (state: SerializedState) => void;
-  private onConnectedCallback?: (playerId: string, roomId: string) => void;
+  private onConnectedCallback?: (playerId: string, roomId: string, isHost: boolean) => void;
   private onDisconnectedCallback?: () => void;
   private onErrorCallback?: (message: string) => void;
+  private onLobbyUpdateCallback?: (update: LobbyUpdate) => void;
 
   constructor(serverUrl: string, roomId: string, playerName: string) {
     this.serverUrl = serverUrl;
@@ -50,9 +59,7 @@ export class MultiplayerClient {
     try {
       url = new URL(this.serverUrl);
     } catch {
-      if (this.onErrorCallback) {
-        this.onErrorCallback(`Invalid server URL: ${this.serverUrl}`);
-      }
+      this.onErrorCallback?.(`Invalid server URL: ${this.serverUrl}`);
       return;
     }
 
@@ -67,21 +74,21 @@ export class MultiplayerClient {
         this.reconnectTimer = null;
       }
     });
+
     this.socket.addEventListener("message", (event) => {
       this.handleMessage(event.data);
     });
+
     this.socket.addEventListener("close", () => {
       this.socket = null;
       this.localPlayerId = null;
-      if (this.onDisconnectedCallback) {
-        this.onDisconnectedCallback();
-      }
+      this.isHost = false;
+      this.onDisconnectedCallback?.();
       this.scheduleReconnect();
     });
+
     this.socket.addEventListener("error", () => {
-      if (this.onErrorCallback) {
-        this.onErrorCallback(`Connection error (${this.serverUrl}).`);
-      }
+      this.onErrorCallback?.(`Connection error (${this.serverUrl}).`);
     });
   }
 
@@ -100,11 +107,21 @@ export class MultiplayerClient {
     return this.localPlayerId;
   }
 
+  public getIsHost(): boolean {
+    return this.isHost;
+  }
+
+  public isConnected(): boolean {
+    return this.socket !== null && this.socket.readyState === WebSocket.OPEN;
+  }
+
+  // ── Callbacks ────────────────────────────────────────────────────────────────
+
   public onState(callback: (state: SerializedState) => void): void {
     this.onStateCallback = callback;
   }
 
-  public onConnected(callback: (playerId: string, roomId: string) => void): void {
+  public onConnected(callback: (playerId: string, roomId: string, isHost: boolean) => void): void {
     this.onConnectedCallback = callback;
   }
 
@@ -116,64 +133,59 @@ export class MultiplayerClient {
     this.onErrorCallback = callback;
   }
 
+  public onLobbyUpdate(callback: (update: LobbyUpdate) => void): void {
+    this.onLobbyUpdateCallback = callback;
+  }
+
+  // ── Send actions ─────────────────────────────────────────────────────────────
+
   public sendVelocity(vx: number, vy: number): void {
-    this.send({
-      type: "velocity",
-      vx: Number.isFinite(vx) ? vx : 0,
-      vy: Number.isFinite(vy) ? vy : 0,
-    });
+    this.send({ type: "velocity", vx: Number.isFinite(vx) ? vx : 0, vy: Number.isFinite(vy) ? vy : 0 });
   }
 
   public sendAction(action: NetworkAction): void {
-    this.send({
-      type: "action",
-      action,
-    });
+    this.send({ type: "action", action });
   }
 
   public selectWeapon(slot: number): void {
-    this.send({
-      type: "select_weapon",
-      slot,
-    });
+    this.send({ type: "select_weapon", slot });
   }
 
   public requestNewGame(): void {
-    this.send({
-      type: "new_game",
-    });
+    this.send({ type: "new_game" });
   }
 
+  public requestStartGame(): void {
+    this.send({ type: "start_game" });
+  }
+
+  public setName(name: string): void {
+    this.send({ type: "set_name", name });
+  }
+
+  // ── Private ──────────────────────────────────────────────────────────────────
+
   private send(payload: unknown): void {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return;
     this.socket.send(JSON.stringify(payload));
   }
 
   private scheduleReconnect(): void {
-    if (!this.shouldReconnect || this.reconnectTimer !== null) {
-      return;
-    }
+    if (!this.shouldReconnect || this.reconnectTimer !== null) return;
     this.reconnectAttempts += 1;
     const delayMs = Math.min(5000, 500 * this.reconnectAttempts);
-
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
-      if (this.onErrorCallback) {
-        this.onErrorCallback("Reconnecting to multiplayer server...");
-      }
+      this.onErrorCallback?.("Reconnecting to multiplayer server...");
       this.connect();
     }, delayMs);
   }
 
   private handleMessage(rawData: unknown): void {
     const text =
-      typeof rawData === "string"
-        ? rawData
-        : rawData instanceof ArrayBuffer
-          ? new TextDecoder().decode(rawData)
-          : "";
+      typeof rawData === "string" ? rawData
+      : rawData instanceof ArrayBuffer ? new TextDecoder().decode(rawData)
+      : "";
     if (!text) return;
 
     let message: ServerMessage;
@@ -185,21 +197,27 @@ export class MultiplayerClient {
 
     if (message.type === "welcome") {
       this.localPlayerId = message.playerId;
-      if (this.onConnectedCallback) {
-        this.onConnectedCallback(message.playerId, message.roomId);
-      }
+      this.isHost = message.isHost;
+      this.onConnectedCallback?.(message.playerId, message.roomId, message.isHost);
+      return;
+    }
+
+    if (message.type === "lobby_update") {
+      this.onLobbyUpdateCallback?.({
+        players: message.players,
+        roomId: message.roomId,
+        phase: message.phase,
+      });
       return;
     }
 
     if (message.type === "state") {
-      if (this.onStateCallback) {
-        this.onStateCallback(message.state);
-      }
+      this.onStateCallback?.(message.state);
       return;
     }
 
-    if (message.type === "error" && this.onErrorCallback) {
-      this.onErrorCallback(message.message);
+    if (message.type === "error") {
+      this.onErrorCallback?.(message.message);
     }
   }
 }

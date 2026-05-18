@@ -1376,3 +1376,177 @@ body {
   padding: 4px 0;
   line-height: 1.4;
 }
+
+/* ── Multiplayer menu styles ───────────────────────────────────────────────── */
+
+.imb-mp-options {
+  display: grid;
+  gap: 8px;
+}
+
+.imb-mp-hint {
+  font-size: 11px;
+  color: var(--modal-text-muted, var(--modal-text));
+  opacity: 0.6;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.imb-input-row {
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.imb-input-row label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.imb-text-input {
+  padding: 4px 8px;
+  background: var(--modal-bg);
+  border: 2px solid var(--modal-border);
+  color: var(--modal-text);
+  font-family: "Chicago_12", sans-serif;
+  font-size: 13px;
+  box-shadow: inset 2px 2px 0 var(--chrome-lowlight);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.imb-text-input:focus {
+  border-color: var(--modal-text);
+}
+
+.imb-mp-status {
+  font-size: 11px;
+  padding: 6px 8px;
+  background: var(--modal-bg-soft);
+  border: 1px solid var(--modal-border);
+  color: var(--modal-text);
+  line-height: 1.4;
+}
+
+.imb-mp-status.hidden {
+  display: none;
+}
+
+/* Server list (Browse view) */
+.imb-server-list {
+  min-height: 80px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 2px solid var(--modal-border);
+  background: var(--modal-bg);
+  box-shadow: inset 2px 2px 0 var(--chrome-lowlight);
+}
+
+.imb-server-searching {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--modal-text);
+  opacity: 0.6;
+  text-align: center;
+}
+
+.imb-server-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--modal-border);
+  gap: 8px;
+}
+
+.imb-server-entry:last-child {
+  border-bottom: none;
+}
+
+.imb-server-entry:hover {
+  background: var(--modal-bg-soft);
+}
+
+.imb-server-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.imb-server-name {
+  font-size: 13px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.imb-server-meta {
+  font-size: 10px;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.imb-server-join-btn {
+  flex-shrink: 0;
+  min-width: 48px;
+  font-size: 11px;
+  padding: 2px 10px;
+  min-height: 22px;
+}
+
+/* Lobby view */
+.imb-mp-lobby-status {
+  font-size: 12px;
+  color: var(--modal-text);
+  opacity: 0.8;
+  padding: 4px 0;
+}
+
+.imb-lobby-players {
+  display: grid;
+  gap: 4px;
+  min-height: 40px;
+}
+
+.imb-lobby-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--modal-bg-soft);
+  border: 1px solid var(--modal-border);
+}
+
+.imb-lobby-player.is-host {
+  border-color: var(--modal-text);
+}
+
+.imb-lobby-player-name {
+  font-size: 13px;
+  flex: 1;
+}
+
+.imb-lobby-host-badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  background: var(--modal-text);
+  color: var(--modal-bg);
+  font-weight: bold;
+  letter-spacing: 0.05em;
+}
+
+.imb-lobby-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* Widen the pause dialog slightly for MP views */
+.imb-pause-dialog {
+  width: min(460px, calc(100vw - 32px));
+}

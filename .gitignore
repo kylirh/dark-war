@@ -6,6 +6,7 @@ dist/
 out/
 app/game.js
 app/game.js.map
+app/server-bundle.js
 
 # Electron Distributables
 packages/

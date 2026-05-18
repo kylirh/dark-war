@@ -1,4 +1,4 @@
-import { createServer } from "node:http";
+import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { RawData, WebSocket, WebSocketServer } from "ws";
 import { Game } from "../src/core/Game";
 import { Physics } from "../src/systems/Physics";
@@ -6,15 +6,18 @@ import { enqueueCommand, SIM_DT_MS, stepSimulationTick } from "../src/systems/Si
 import { Sound } from "../src/systems/Sound";
 import { CommandType, EntityKind, SLOWMO_SCALE, TIME_SCALE_TRANSITION_SPEED, WeaponType } from "../src/types";
 
+// ─── Protocol types ────────────────────────────────────────────────────────────
+
+export interface LobbyPlayer {
+  id: string;
+  name: string;
+  isHost: boolean;
+}
+
+type RoomPhase = "lobby" | "playing";
+
 type IncomingAction =
-  | {
-      type: "FIRE";
-      dx: number;
-      dy: number;
-      facingAngle?: number;
-      targetWorldX?: number;
-      targetWorldY?: number;
-    }
+  | { type: "FIRE"; dx: number; dy: number; facingAngle?: number; targetWorldX?: number; targetWorldY?: number }
   | { type: "INTERACT"; dx: number; dy: number }
   | { type: "PICKUP" }
   | { type: "RELOAD" }
@@ -23,11 +26,13 @@ type IncomingAction =
   | { type: "ASCEND" }
   | { type: "TOGGLE_GOD_MODE" };
 
-type IncomingMessage =
+type IncomingMessage2 =
   | { type: "velocity"; vx: number; vy: number }
   | { type: "action"; action: IncomingAction }
   | { type: "select_weapon"; slot: number }
-  | { type: "new_game" };
+  | { type: "new_game" }
+  | { type: "start_game" }
+  | { type: "set_name"; name: string };
 
 interface RoomClient {
   socket: WebSocket;
@@ -35,10 +40,10 @@ interface RoomClient {
   name: string;
 }
 
+// ─── Validation helpers ────────────────────────────────────────────────────────
+
 function toFiniteNumber(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return null;
-  }
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return value;
 }
 
@@ -50,15 +55,19 @@ function toCardinalStep(value: unknown): number | null {
   return rounded;
 }
 
+// ─── Room session ──────────────────────────────────────────────────────────────
+
 class RoomSession {
   private readonly id: string;
   private readonly game: Game;
   private readonly physics: Physics;
   private readonly clients = new Map<WebSocket, RoomClient>();
   private readonly closeRoom: (roomId: string) => void;
-  private tickHandle: NodeJS.Timeout;
+  private tickHandle: NodeJS.Timeout | null = null;
   private placeholderPlayerId: string;
-  private playerActedThisTick: boolean = false;
+  private playerActedThisTick = false;
+  private phase: RoomPhase = "lobby";
+  private hostPlayerId: string | null = null;
 
   constructor(id: string, closeRoom: (roomId: string) => void) {
     this.id = id;
@@ -68,28 +77,45 @@ class RoomSession {
     this.placeholderPlayerId = this.game.getState().player.id;
     this.physics = new Physics();
     this.rebuildPhysics();
-    this.tickHandle = setInterval(() => this.step(), SIM_DT_MS);
+  }
+
+  // ── Public API ───────────────────────────────────────────────────────────────
+
+  public getInfo(): { roomId: string; phase: RoomPhase; players: LobbyPlayer[]; version: number } {
+    return {
+      roomId: this.id,
+      phase: this.phase,
+      players: this.getLobbyPlayers(),
+      version: 1,
+    };
   }
 
   public addClient(socket: WebSocket, name: string): void {
     const playerId = crypto.randomUUID();
-    const client: RoomClient = { socket, playerId, name };
     const wasEmpty = this.clients.size === 0;
+    const client: RoomClient = { socket, playerId, name };
     this.clients.set(socket, client);
 
-    this.game.addNetworkPlayer(playerId);
-    if (wasEmpty && this.placeholderPlayerId !== playerId) {
+    if (wasEmpty) {
+      this.hostPlayerId = playerId;
       this.game.removeNetworkPlayer(this.placeholderPlayerId);
+    }
+
+    // In lobby: track players but don't add to game yet
+    // In playing: add to game immediately
+    if (this.phase === "playing") {
+      this.game.addNetworkPlayer(playerId);
     }
 
     this.send(socket, {
       type: "welcome",
       playerId,
       roomId: this.id,
+      isHost: playerId === this.hostPlayerId,
     });
 
+    this.broadcastLobbyUpdate();
     this.game.addLog(`${name} joined room ${this.id}.`);
-    this.broadcastState();
   }
 
   public removeClient(socket: WebSocket): void {
@@ -97,73 +123,112 @@ class RoomSession {
     if (!client) return;
 
     this.clients.delete(socket);
-    this.game.removeNetworkPlayer(client.playerId);
+
+    if (this.phase === "playing") {
+      this.game.removeNetworkPlayer(client.playerId);
+    }
+
+    // Transfer host if needed
+    if (client.playerId === this.hostPlayerId && this.clients.size > 0) {
+      const nextClient = this.clients.values().next().value;
+      if (nextClient) {
+        this.hostPlayerId = nextClient.playerId;
+      }
+    }
+
     this.game.addLog(`${client.name} left room ${this.id}.`);
 
     if (this.clients.size === 0) {
-      clearInterval(this.tickHandle);
+      if (this.tickHandle) {
+        clearInterval(this.tickHandle);
+        this.tickHandle = null;
+      }
       this.closeRoom(this.id);
       return;
     }
 
-    this.broadcastState();
+    this.broadcastLobbyUpdate();
+    if (this.phase === "playing") {
+      this.broadcastState();
+    }
   }
 
   public handleMessage(socket: WebSocket, rawMessage: RawData): void {
     const client = this.clients.get(socket);
     if (!client) return;
 
-    const text =
-      typeof rawMessage === "string"
-        ? rawMessage
-        : Array.isArray(rawMessage)
-          ? Buffer.concat(rawMessage).toString("utf8")
-          : rawMessage instanceof ArrayBuffer
-            ? Buffer.from(rawMessage).toString("utf8")
-            : rawMessage.toString("utf8");
-    let message: IncomingMessage;
+    const text = rawMessageToString(rawMessage);
+    let message: IncomingMessage2;
     try {
-      message = JSON.parse(text) as IncomingMessage;
+      message = JSON.parse(text) as IncomingMessage2;
     } catch {
       this.send(socket, { type: "error", message: "Invalid payload." });
       return;
     }
 
+    if (message.type === "set_name") {
+      const cleaned = sanitizePlayerName(message.name);
+      if (cleaned) client.name = cleaned;
+      this.broadcastLobbyUpdate();
+      return;
+    }
+
+    if (message.type === "start_game") {
+      if (client.playerId === this.hostPlayerId && this.phase === "lobby") {
+        this.startGame();
+      }
+      return;
+    }
+
+    if (this.phase !== "playing") return;
+
     if (message.type === "velocity") {
       this.applyVelocity(client.playerId, message.vx, message.vy);
       return;
     }
-
     if (message.type === "action") {
       this.applyAction(client.playerId, message.action);
       return;
     }
-
     if (message.type === "select_weapon") {
       this.applyWeaponSelection(client.playerId, message.slot);
       return;
     }
-
     if (message.type === "new_game") {
       this.resetRoomState();
     }
   }
+
+  // ── Private: phase management ───────────────────────────────────────────────
+
+  private startGame(): void {
+    this.phase = "playing";
+
+    // Add all lobby clients to the game
+    const clientList = Array.from(this.clients.values());
+    for (const client of clientList) {
+      this.game.addNetworkPlayer(client.playerId);
+    }
+
+    // Broadcast lobby update so clients know game started
+    this.broadcastLobbyUpdate();
+
+    // Start the tick loop
+    this.tickHandle = setInterval(() => this.step(), SIM_DT_MS);
+    this.broadcastState();
+  }
+
+  // ── Private: velocity / actions ─────────────────────────────────────────────
 
   private applyVelocity(playerId: string, vx: number, vy: number): void {
     const player = this.game.getPlayerById(playerId);
     if (!player || player.hp <= 0) return;
 
     const speedLimit = 260;
-    const clampedVx = Math.max(-speedLimit, Math.min(speedLimit, vx));
-    const clampedVy = Math.max(-speedLimit, Math.min(speedLimit, vy));
+    player.velocityX = Number.isFinite(vx) ? Math.max(-speedLimit, Math.min(speedLimit, vx)) : 0;
+    player.velocityY = Number.isFinite(vy) ? Math.max(-speedLimit, Math.min(speedLimit, vy)) : 0;
 
-    player.velocityX = Number.isFinite(clampedVx) ? clampedVx : 0;
-    player.velocityY = Number.isFinite(clampedVy) ? clampedVy : 0;
-
-    // Any movement input should resume time (Superhot mechanic)
-    if (vx !== 0 || vy !== 0) {
-      this.playerActedThisTick = true;
-    }
+    if (vx !== 0 || vy !== 0) this.playerActedThisTick = true;
   }
 
   private applyAction(playerId: string, action: IncomingAction): void {
@@ -171,35 +236,19 @@ class RoomSession {
     const player = this.game.getPlayerById(playerId);
     if (!player || player.hp <= 0) return;
 
-    // Any action should resume time (Superhot mechanic)
     this.playerActedThisTick = true;
-
     const tick = state.sim.nowTick;
 
     if (action.type === "FIRE") {
       const dx = toFiniteNumber(action.dx);
       const dy = toFiniteNumber(action.dy);
       if (dx === null || dy === null) return;
-
       const facingAngle = toFiniteNumber(action.facingAngle);
-      if (facingAngle !== null) {
-        player.facingAngle = facingAngle;
-      }
-      const targetWorldX = toFiniteNumber(action.targetWorldX);
-      const targetWorldY = toFiniteNumber(action.targetWorldY);
+      if (facingAngle !== null) player.facingAngle = facingAngle;
       enqueueCommand(state, {
-        tick,
-        actorId: playerId,
-        type: CommandType.FIRE,
-        data: {
-          type: "FIRE",
-          dx,
-          dy,
-          targetWorldX: targetWorldX ?? undefined,
-          targetWorldY: targetWorldY ?? undefined,
-        },
-        priority: 0,
-        source: "PLAYER",
+        tick, actorId: playerId, type: CommandType.FIRE,
+        data: { type: "FIRE", dx, dy, targetWorldX: toFiniteNumber(action.targetWorldX) ?? undefined, targetWorldY: toFiniteNumber(action.targetWorldY) ?? undefined },
+        priority: 0, source: "PLAYER",
       });
       return;
     }
@@ -209,18 +258,10 @@ class RoomSession {
       const dy = toCardinalStep(action.dy);
       if (dx === null || dy === null) return;
       if (Math.abs(dx) + Math.abs(dy) !== 1) return;
-
       enqueueCommand(state, {
-        tick,
-        actorId: playerId,
-        type: CommandType.INTERACT,
-        data: {
-          type: "INTERACT",
-          x: player.gridX + dx,
-          y: player.gridY + dy,
-        },
-        priority: 0,
-        source: "PLAYER",
+        tick, actorId: playerId, type: CommandType.INTERACT,
+        data: { type: "INTERACT", x: player.gridX + dx, y: player.gridY + dy },
+        priority: 0, source: "PLAYER",
       });
       return;
     }
@@ -230,88 +271,51 @@ class RoomSession {
       return;
     }
 
-    const commandTypeByAction: Record<
-      Exclude<
-        IncomingAction["type"],
-        "FIRE" | "INTERACT" | "TOGGLE_GOD_MODE"
-      >,
-      CommandType
-    > = {
+    const commandTypeByAction: Record<string, CommandType> = {
       WAIT: CommandType.WAIT,
       PICKUP: CommandType.PICKUP,
       RELOAD: CommandType.RELOAD,
       DESCEND: CommandType.DESCEND,
       ASCEND: CommandType.ASCEND,
     };
-
     const commandType = commandTypeByAction[action.type];
-    if (!commandType) {
-      return;
-    }
+    if (!commandType) return;
     enqueueCommand(state, {
-      tick,
-      actorId: playerId,
-      type: commandType,
-      data: { type: action.type } as
-        | { type: "WAIT" }
-        | { type: "PICKUP" }
-        | { type: "RELOAD" }
-        | { type: "DESCEND" }
-        | { type: "ASCEND" },
-      priority: 0,
-      source: "PLAYER",
+      tick, actorId: playerId, type: commandType,
+      data: { type: action.type } as { type: "WAIT" } | { type: "PICKUP" } | { type: "RELOAD" } | { type: "DESCEND" } | { type: "ASCEND" },
+      priority: 0, source: "PLAYER",
     });
   }
 
   private applyWeaponSelection(playerId: string, slot: number): void {
     const player = this.game.getPlayerById(playerId);
     if (!player) return;
-
     const slotToWeapon: Record<number, WeaponType> = {
       1: WeaponType.MELEE,
       2: WeaponType.PISTOL,
       3: WeaponType.GRENADE,
       4: WeaponType.LAND_MINE,
     };
-    const selectedWeapon = slotToWeapon[slot];
-    if (!selectedWeapon) return;
-    player.weapon = selectedWeapon;
+    const weapon = slotToWeapon[slot];
+    if (weapon) player.weapon = weapon;
   }
 
   private resetRoomState(): void {
-    const clientIds = Array.from(this.clients.values()).map(
-      (client) => client.playerId,
-    );
+    const clientIds = Array.from(this.clients.values()).map((c) => c.playerId);
     this.game.reset(0);
     this.placeholderPlayerId = this.game.getState().player.id;
-
     for (const playerId of clientIds) {
       const player = this.game.addNetworkPlayer(playerId);
-      // Zero velocities for new players to prevent phantom movement
       player.velocityX = 0;
       player.velocityY = 0;
     }
     this.game.removeNetworkPlayer(this.placeholderPlayerId);
     this.game.addLog("New game started.");
-
     this.rebuildPhysics();
     this.broadcastState();
   }
 
-  private rebuildPhysics(): void {
-    const state = this.game.getState();
-    // Clear existing entity physics body references before rebuilding
-    // so updateEntityBody creates fresh bodies
-    for (const entity of state.entities) {
-      if ("physicsBody" in entity) {
-        (entity as any).physicsBody = undefined;
-      }
-    }
-    this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
-    for (const entity of state.entities) {
-      this.physics.updateEntityBody(entity as any);
-    }
-  }
+  // ── Private: game loop ──────────────────────────────────────────────────────
 
   private step(): void {
     if (this.clients.size === 0) return;
@@ -320,43 +324,24 @@ class RoomSession {
     const dt = SIM_DT_MS / 1000;
     state.sim.mode = "REALTIME";
 
-    // Superhot time dilation: slow time when no players are active
-    const anyPlayerActive = state.players.some(
-      (p) =>
-        p.hp > 0 &&
-        (Math.abs(p.velocityX) > 0.1 || Math.abs(p.velocityY) > 0.1),
-    ) || this.playerActedThisTick;
-
-    // Check if all players are dead - keep the board running in real time
+    const anyPlayerActive =
+      state.players.some((p) => p.hp > 0 && (Math.abs(p.velocityX) > 0.1 || Math.abs(p.velocityY) > 0.1)) ||
+      this.playerActedThisTick;
     const allDead = state.players.every((p) => p.hp <= 0);
 
-    if (allDead) {
-      state.sim.targetTimeScale = 1.0;
-    } else if (anyPlayerActive) {
-      state.sim.targetTimeScale = 1.0;
-    } else {
-      state.sim.targetTimeScale = SLOWMO_SCALE;
-    }
+    state.sim.targetTimeScale = allDead || anyPlayerActive ? 1.0 : SLOWMO_SCALE;
 
-    // Smooth time scale transition
     const timeDiff = state.sim.targetTimeScale - state.sim.timeScale;
     if (Math.abs(timeDiff) > 0.001) {
       if (timeDiff > 0) {
-        state.sim.timeScale = Math.min(
-          state.sim.timeScale + TIME_SCALE_TRANSITION_SPEED,
-          state.sim.targetTimeScale,
-        );
+        state.sim.timeScale = Math.min(state.sim.timeScale + TIME_SCALE_TRANSITION_SPEED, state.sim.targetTimeScale);
       } else {
-        state.sim.timeScale = Math.max(
-          state.sim.timeScale - TIME_SCALE_TRANSITION_SPEED,
-          state.sim.targetTimeScale,
-        );
+        state.sim.timeScale = Math.max(state.sim.timeScale - TIME_SCALE_TRANSITION_SPEED, state.sim.targetTimeScale);
       }
     } else {
       state.sim.timeScale = state.sim.targetTimeScale;
     }
 
-    // Scale physics dt by time scale
     const scaledDt = dt * state.sim.timeScale;
 
     this.physics.updatePhysics(state, scaledDt);
@@ -368,7 +353,6 @@ class RoomSession {
       this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
     }
 
-    // Advance simulation ticks with time scaling (accumulator pattern)
     state.sim.accumulatorMs += scaledDt * 1000;
     while (state.sim.accumulatorMs >= SIM_DT_MS) {
       stepSimulationTick(state);
@@ -388,14 +372,12 @@ class RoomSession {
         this.game.descend();
         this.rebuildPhysics();
       }
-
       if (state.shouldAscend) {
         state.shouldAscend = false;
         this.game.ascend();
         this.rebuildPhysics();
       }
 
-      // Zero velocity for dead players (Fix 3: dead slide)
       for (const player of state.players) {
         if (player.hp <= 0) {
           player.velocityX = 0;
@@ -410,19 +392,47 @@ class RoomSession {
       }
     }
 
-    // Reset per-tick flags
     this.playerActedThisTick = false;
-
     this.broadcastState();
+  }
+
+  // ── Private: broadcasts ─────────────────────────────────────────────────────
+
+  private getLobbyPlayers(): LobbyPlayer[] {
+    return Array.from(this.clients.values()).map((c) => ({
+      id: c.playerId,
+      name: c.name,
+      isHost: c.playerId === this.hostPlayerId,
+    }));
+  }
+
+  private broadcastLobbyUpdate(): void {
+    const msg = {
+      type: "lobby_update",
+      players: this.getLobbyPlayers(),
+      roomId: this.id,
+      phase: this.phase,
+    };
+    for (const client of this.clients.values()) {
+      this.send(client.socket, msg);
+    }
   }
 
   private broadcastState(): void {
     for (const client of this.clients.values()) {
       const payload = this.game.serializeForPlayer(client.playerId);
-      this.send(client.socket, {
-        type: "state",
-        state: payload,
-      });
+      this.send(client.socket, { type: "state", state: payload });
+    }
+  }
+
+  private rebuildPhysics(): void {
+    const state = this.game.getState();
+    for (const entity of state.entities) {
+      if ("physicsBody" in entity) (entity as unknown as Record<string, unknown>).physicsBody = undefined;
+    }
+    this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
+    for (const entity of state.entities) {
+      this.physics.updateEntityBody(entity as Parameters<Physics["updateEntityBody"]>[0]);
     }
   }
 
@@ -432,20 +442,23 @@ class RoomSession {
   }
 }
 
+// ─── Helpers ────────────────────────────────────────────────────────────────────
+
+function rawMessageToString(rawMessage: RawData): string {
+  if (typeof rawMessage === "string") return rawMessage;
+  if (Array.isArray(rawMessage)) return Buffer.concat(rawMessage).toString("utf8");
+  if (rawMessage instanceof ArrayBuffer) return Buffer.from(rawMessage).toString("utf8");
+  return rawMessage.toString("utf8");
+}
+
 function parsePort(argv: string[]): number {
   const portArg = argv.find((arg) => arg.startsWith("--port="));
   if (portArg) {
     const parsed = Number(portArg.split("=")[1]);
-    if (Number.isFinite(parsed) && parsed > 0) {
-      return parsed;
-    }
+    if (Number.isFinite(parsed) && parsed > 0) return parsed;
   }
-
   const envPort = Number(process.env.PORT);
-  if (Number.isFinite(envPort) && envPort > 0) {
-    return envPort;
-  }
-
+  if (Number.isFinite(envPort) && envPort > 0) return envPort;
   return 7777;
 }
 
@@ -453,53 +466,100 @@ function sanitizeRoomId(roomId: string | null): string {
   const fallback = "default";
   if (!roomId) return fallback;
   const normalized = roomId.trim().toLowerCase();
-  if (!normalized) return fallback;
   return normalized.replace(/[^a-z0-9_-]/g, "").slice(0, 64) || fallback;
 }
 
-function sanitizePlayerName(name: string | null): string {
+function sanitizePlayerName(name: string | null | undefined): string {
   if (!name) return "Player";
   const cleaned = name.trim().slice(0, 24);
   return cleaned || "Player";
 }
 
-const port = parsePort(process.argv.slice(2));
-Sound.setEnabled(false);
-const httpServer = createServer((_req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-  res.end("Dark War multiplayer server is running.\n");
-});
-const wss = new WebSocketServer({ server: httpServer });
-const rooms = new Map<string, RoomSession>();
+// ─── Server factory ────────────────────────────────────────────────────────────
 
-wss.on("connection", (socket, request) => {
-  const url = new URL(request.url ?? "/", "http://localhost");
-  const roomId = sanitizeRoomId(url.searchParams.get("room"));
-  const playerName = sanitizePlayerName(url.searchParams.get("name"));
+interface StartedServer {
+  close(): Promise<void>;
+  port: number;
+}
 
-  let room = rooms.get(roomId);
-  if (!room) {
-    room = new RoomSession(roomId, (closedRoomId) => {
-      rooms.delete(closedRoomId);
+export function startMultiplayerServer(port: number): Promise<StartedServer> {
+  Sound.setEnabled(false);
+
+  const rooms = new Map<string, RoomSession>();
+
+  const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+    const url = new URL(req.url ?? "/", `http://localhost:${port}`);
+
+    if (url.pathname === "/info") {
+      const roomId = sanitizeRoomId(url.searchParams.get("room"));
+      const room = rooms.get(roomId);
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(room?.getInfo() ?? { roomId, phase: "lobby", players: [], version: 1 }));
+      return;
+    }
+
+    if (url.pathname === "/rooms") {
+      const list = Array.from(rooms.entries()).map(([id, room]) => ({ ...room.getInfo(), roomId: id }));
+      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
+      res.end(JSON.stringify(list));
+      return;
+    }
+
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Dark War multiplayer server is running.\n");
+  });
+
+  const wss = new WebSocketServer({ server: httpServer });
+
+  wss.on("connection", (socket: WebSocket, request: IncomingMessage) => {
+    const url = new URL(request.url ?? "/", `http://localhost:${port}`);
+    const roomId = sanitizeRoomId(url.searchParams.get("room"));
+    const playerName = sanitizePlayerName(url.searchParams.get("name"));
+
+    let room = rooms.get(roomId);
+    if (!room) {
+      room = new RoomSession(roomId, (closedRoomId) => rooms.delete(closedRoomId));
+      rooms.set(roomId, room);
+    }
+
+    room.addClient(socket, playerName);
+
+    socket.on("message", (rawMessage) => room?.handleMessage(socket, rawMessage));
+    socket.on("close", () => room?.removeClient(socket));
+    socket.on("error", () => room?.removeClient(socket));
+  });
+
+  return new Promise((resolve, reject) => {
+    httpServer.once("error", reject);
+    httpServer.listen(port, () => {
+      console.log(`[dark-war-server] Listening on ws://localhost:${port}`);
+      resolve({
+        port,
+        close(): Promise<void> {
+          return new Promise((res) => {
+            wss.close(() => httpServer.close(() => res()));
+          });
+        },
+      });
     });
-    rooms.set(roomId, room);
-  }
+  });
+}
 
-  room.addClient(socket, playerName);
+// ─── CLI entry point ───────────────────────────────────────────────────────────
 
-  socket.on("message", (rawMessage) => {
-    room?.handleMessage(socket, rawMessage);
+if (require.main === module) {
+  const port = parsePort(process.argv.slice(2));
+  startMultiplayerServer(port).then(() => {
+    console.log(`[dark-war-server] Ready on port ${port}`);
+  }).catch((err) => {
+    console.error("[dark-war-server] Failed to start:", err);
+    process.exit(1);
   });
 
-  socket.on("close", () => {
-    room?.removeClient(socket);
+  // IPC from parent process (when forked by Electron main)
+  process.on("message", (msg: unknown) => {
+    if (typeof msg === "object" && msg !== null && (msg as Record<string, unknown>).type === "shutdown") {
+      process.exit(0);
+    }
   });
-
-  socket.on("error", () => {
-    room?.removeClient(socket);
-  });
-});
-
-httpServer.listen(port, () => {
-  console.log(`Dark War multiplayer server listening on ws://localhost:${port}`);
-});
+}

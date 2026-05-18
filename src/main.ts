@@ -95,44 +95,74 @@ interface DarkWarApplication {
 
 interface DarkWarOptions {
   initialGame?: InitialGameMode;
+  /** Pre-connected multiplayer client (bypasses URL-param based connection). */
+  multiplayerClient?: MultiplayerClient;
+  /** Player name for UI display when using a pre-connected client. */
+  playerName?: string;
 }
 
-// Global reference to save system
+interface DiscoveredServer {
+  ip: string;
+  port: number;
+  name: string;
+  host: string;
+  players: number;
+  maxPlayers: number;
+  phase: "lobby" | "playing";
+}
+
+// Global reference to save system and Electron IPC bridge
 declare global {
   interface Window {
     native?: {
+      // Save / load
       saveWrite: (data: string) => Promise<{ ok: boolean; error?: string }>;
-      saveRead: () => Promise<{
-        ok: boolean;
-        data?: string | null;
-        error?: string;
-      }>;
+      saveRead: () => Promise<{ ok: boolean; data?: string | null; error?: string }>;
+      // Game menu callbacks
       onNewGame: (callback: () => void) => void;
       onSaveGame: (callback: () => void) => void;
       onLoadGame: (callback: () => void) => void;
       onSoundSettings: (callback: () => void) => void;
       onAbout: (callback: () => void) => void;
       onAboutGame: (callback: () => void) => void;
+      // Window control
       closeWindow: () => void;
       minimizeWindow: () => void;
       toggleMaximize: () => void;
       toggleFullscreen: () => void;
       setDevToolsEnabled: (enabled: boolean) => Promise<boolean>;
-      getWindowBounds: () => Promise<{
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-      } | null>;
-      setWindowBounds: (bounds: {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-      }) => void;
+      getWindowBounds: () => Promise<{ x: number; y: number; width: number; height: number } | null>;
+      setWindowBounds: (bounds: { x: number; y: number; width: number; height: number }) => void;
       setGameWindowOpaque: () => Promise<boolean>;
       onEnterFullscreen: (callback: () => void) => void;
       onLeaveFullscreen: (callback: () => void) => void;
+      // Multiplayer: server lifecycle
+      serverStart: (port?: number) => Promise<{ ok: boolean; port?: number; error?: string }>;
+      serverStop: () => Promise<{ ok: boolean; error?: string }>;
+      serverStatus: () => Promise<{ running: boolean; port: number | null }>;
+      serverGetLocalIps: () => Promise<string[]>;
+      onServerExited: (callback: (data: { code: number | null }) => void) => void;
+      // Multiplayer: LAN discovery
+      discoveryStartBroadcast: (info: {
+        name: string;
+        host: string;
+        wsPort: number;
+        players?: number;
+        maxPlayers?: number;
+        phase?: string;
+      }) => Promise<{ ok: boolean; error?: string }>;
+      discoveryUpdateBroadcast: (info: Partial<{
+        name: string;
+        host: string;
+        wsPort: number;
+        players: number;
+        maxPlayers: number;
+        phase: string;
+      }>) => Promise<{ ok: boolean }>;
+      discoveryStopBroadcast: () => Promise<{ ok: boolean }>;
+      discoveryStartListen: () => Promise<{ ok: boolean; error?: string }>;
+      discoveryStopListen: () => Promise<{ ok: boolean }>;
+      discoveryGetServers: () => Promise<DiscoveredServer[]>;
     };
     darkWarApp?: DarkWarApplication;
   }
@@ -264,8 +294,23 @@ class DarkWar {
     this.preferences = loadPreferences();
     this.applyPreferences(false);
     if (DEBUG) console.time("Create Game instance");
-    this.multiplayerConfig = getMultiplayerConfigFromUrl();
-    this.multiplayerMode = this.multiplayerConfig.mode;
+
+    if (options.multiplayerClient) {
+      // Pre-connected online mode: client was set up before DarkWar was created
+      this.multiplayerMode = "online";
+      this.multiplayerConfig = {
+        mode: "online",
+        serverUrl: "",
+        roomId: "default",
+        playerName: options.playerName ?? "Player",
+      };
+      this.multiplayerClient = options.multiplayerClient;
+      this.onlineConnected = true;
+    } else {
+      this.multiplayerConfig = getMultiplayerConfigFromUrl();
+      this.multiplayerMode = this.multiplayerConfig.mode;
+    }
+
     this.game = new Game({ mode: this.multiplayerMode });
     if (DEBUG) console.timeEnd("Create Game instance");
 
@@ -345,10 +390,17 @@ class DarkWar {
     this.setupNativeMenuHandlers();
 
     if (this.multiplayerMode === "online") {
-      this.game.addLog(
-        `Connecting to ${this.multiplayerConfig.serverUrl} (${this.multiplayerConfig.roomId})...`,
-      );
-      this.connectToMultiplayer();
+      if (options.multiplayerClient) {
+        // Pre-connected: just wire up callbacks and start rendering
+        this.setupOnlineClientCallbacks(options.multiplayerClient);
+        this.game.addLog("Multiplayer game starting...");
+      } else {
+        // URL-param based connection (legacy / dev mode)
+        this.game.addLog(
+          `Connecting to ${this.multiplayerConfig.serverUrl} (${this.multiplayerConfig.roomId})...`,
+        );
+        this.connectToMultiplayer();
+      }
       this.finishInitialGameStartup();
     } else {
       if (options.initialGame === "load") {
@@ -494,31 +546,31 @@ class DarkWar {
       this.multiplayerConfig.roomId,
       this.multiplayerConfig.playerName,
     );
+    this.setupOnlineClientCallbacks(this.multiplayerClient);
+    this.multiplayerClient.connect();
+  }
 
-    this.multiplayerClient.onConnected((playerId, roomId) => {
+  private setupOnlineClientCallbacks(client: MultiplayerClient): void {
+    client.onConnected((playerId, roomId, _isHost) => {
       this.onlineConnected = true;
-      this.game.addLog(
-        `Connected as ${playerId.slice(0, 8)} in room ${roomId}.`,
-      );
+      this.game.addLog(`Connected as ${playerId.slice(0, 8)} in room ${roomId}.`);
       this.render(0);
     });
 
-    this.multiplayerClient.onState((serializedState) => {
+    client.onState((serializedState) => {
       this.applyOnlineState(serializedState);
     });
 
-    this.multiplayerClient.onDisconnected(() => {
+    client.onDisconnected(() => {
       this.onlineConnected = false;
       this.game.addLog("Disconnected from multiplayer server.");
       this.render(0);
     });
 
-    this.multiplayerClient.onError((message) => {
+    client.onError((message) => {
       this.game.addLog(message);
       this.render(0);
     });
-
-    this.multiplayerClient.connect();
   }
 
   private applyOnlineState(
@@ -1826,20 +1878,26 @@ class MainMenuApp implements DarkWarApplication {
   private readonly gameMenu: GameMenu;
   private readonly backdrop: HTMLElement;
   private preferences: UserPreferences;
-  private continueEnabled: boolean = false;
-  private disposed: boolean = false;
+  private continueEnabled = false;
+  private disposed = false;
 
-  constructor(private readonly startGame: (mode: InitialGameMode) => void) {
+  // Multiplayer state
+  private mpClient: MultiplayerClient | null = null;
+  private mpIsHosting = false;
+  private mpPlayerName = "Player";
+  private mpGameName = "Dark War";
+
+  constructor(
+    private readonly startGame: (mode: InitialGameMode) => void,
+    private readonly startOnlineGame: (client: MultiplayerClient, playerName: string) => void,
+  ) {
     this.preferences = loadPreferences();
     this.applyPreferences();
 
     const titleNum = Math.floor(Math.random() * 7) + 1;
     this.backdrop = document.createElement("div");
     this.backdrop.className = "main-menu-backdrop";
-    this.backdrop.style.setProperty(
-      "--main-menu-art",
-      `url("../img/title-${titleNum}.png")`,
-    );
+    this.backdrop.style.setProperty("--main-menu-art", `url("../img/title-${titleNum}.png")`);
     document.body.appendChild(this.backdrop);
     document.body.classList.add("main-menu-active");
 
@@ -1848,11 +1906,18 @@ class MainMenuApp implements DarkWarApplication {
       allowPauseMenuClose: false,
       canContinue: false,
       preferences: this.preferences,
-      onPreferencesChange: (preferences) =>
-        this.handlePreferencesChange(preferences),
+      onPreferencesChange: (preferences) => this.handlePreferencesChange(preferences),
       onNewGame: () => this.launchGame("new"),
       onContinue: () => this.launchGame("load"),
       onQuit: () => this.handleQuit(),
+      // Multiplayer callbacks
+      onMultiplayerHost: (gameName, playerName) => this.handleMultiplayerHost(gameName, playerName),
+      onMultiplayerJoin: (ip, port, playerName) => this.handleMultiplayerJoin(ip, port, playerName),
+      onMultiplayerStartGame: () => this.handleMultiplayerStartGame(),
+      onMultiplayerLeaveLobby: () => this.handleMultiplayerLeave(),
+      onMultiplayerGetServers: () => this.handleGetServers(),
+      onMultiplayerStartDiscovery: () => this.handleStartDiscovery(),
+      onMultiplayerStopDiscovery: () => this.handleStopDiscovery(),
     });
 
     this.setupNativeMenuHandlers();
@@ -1861,36 +1926,167 @@ class MainMenuApp implements DarkWarApplication {
     this.refreshContinueEnabled().catch(() => {});
   }
 
-  private setupNativeMenuHandlers(): void {
-    window.native?.onNewGame?.(() => {
-      if (this.disposed) return;
-      this.launchGame("new");
+  // ── Multiplayer handlers ───────────────────────────────────────────────────────
+
+  private async handleMultiplayerHost(gameName: string, playerName: string): Promise<void> {
+    if (this.disposed) return;
+    this.mpGameName = gameName;
+    this.mpPlayerName = playerName;
+    this.mpIsHosting = true;
+
+    try {
+      // Start embedded server
+      const result = await window.native?.serverStart(7777);
+      if (!result?.ok) {
+        this.gameMenu.setMultiplayerStatusMessage(`Failed to start server: ${result?.error ?? "Unknown error"}`);
+        return;
+      }
+
+      const port = result.port ?? 7777;
+
+      // Start UDP broadcast so others can discover us
+      const localIps = await window.native?.serverGetLocalIps() ?? [];
+      await window.native?.discoveryStartBroadcast({
+        name: gameName,
+        host: playerName,
+        wsPort: port,
+        players: 0,
+        maxPlayers: 4,
+        phase: "lobby",
+      });
+
+      // Connect as first player
+      this.connectMultiplayerClient(`ws://127.0.0.1:${port}`, "default", playerName);
+      this.gameMenu.setMultiplayerConnectionState("connecting");
+      void localIps; // used by broadcast above
+    } catch (err) {
+      this.gameMenu.setMultiplayerStatusMessage(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      this.mpIsHosting = false;
+    }
+  }
+
+  private handleMultiplayerJoin(ip: string, port: number, playerName: string): void {
+    if (this.disposed) return;
+    this.mpPlayerName = playerName;
+    this.mpIsHosting = false;
+    this.connectMultiplayerClient(`ws://${ip}:${port}`, "default", playerName);
+    this.gameMenu.setMultiplayerConnectionState("connecting");
+  }
+
+  private handleMultiplayerStartGame(): void {
+    this.mpClient?.requestStartGame();
+  }
+
+  private async handleMultiplayerLeave(): Promise<void> {
+    if (this.mpClient) {
+      this.mpClient.disconnect();
+      this.mpClient = null;
+    }
+
+    if (this.mpIsHosting) {
+      this.mpIsHosting = false;
+      await window.native?.discoveryStopBroadcast();
+      await window.native?.serverStop();
+    }
+
+    this.gameMenu.setMultiplayerConnectionState("disconnected");
+  }
+
+  private async handleGetServers(): Promise<DiscoveredServer[]> {
+    try {
+      return await window.native?.discoveryGetServers() ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  private handleStartDiscovery(): void {
+    window.native?.discoveryStartListen().catch(() => {});
+  }
+
+  private handleStopDiscovery(): void {
+    window.native?.discoveryStopListen().catch(() => {});
+  }
+
+  private connectMultiplayerClient(serverUrl: string, roomId: string, playerName: string): void {
+    // Disconnect any existing client
+    if (this.mpClient) {
+      this.mpClient.disconnect();
+    }
+
+    const client = new MultiplayerClient(serverUrl, roomId, playerName);
+
+    client.onConnected((_playerId, _roomId, isHost) => {
+      if (this.disposed) { client.disconnect(); return; }
+      this.gameMenu.setMultiplayerConnectionState("lobby");
+      this.gameMenu.setPlayerName(playerName);
+      void isHost;
     });
-    window.native?.onLoadGame?.(() => {
+
+    client.onLobbyUpdate((update) => {
       if (this.disposed) return;
-      if (this.continueEnabled) {
-        this.launchGame("load");
+      const myId = client.getLocalPlayerId();
+      const isHost = update.players.find((p) => p.id === myId)?.isHost ?? false;
+
+      // Update discovery broadcast with current player count
+      if (this.mpIsHosting) {
+        window.native?.discoveryUpdateBroadcast({
+          players: update.players.length,
+          phase: update.phase,
+        }).catch(() => {});
+      }
+
+      this.gameMenu.updateLobbyState(update.players, isHost, update.phase);
+
+      // If game started, transition to online play
+      if (update.phase === "playing") {
+        this.launchOnlineGame(client);
       }
     });
-    window.native?.onSoundSettings?.(() => {
+
+    client.onDisconnected(() => {
       if (this.disposed) return;
-      this.gameMenu.openSoundDialog();
+      if (this.mpClient === client) {
+        this.mpClient = null;
+        this.gameMenu.setMultiplayerConnectionState("disconnected");
+        this.gameMenu.setMultiplayerStatusMessage("Disconnected from server.");
+      }
     });
-    window.native?.onAbout?.(() => {
+
+    client.onError((message) => {
       if (this.disposed) return;
-      this.gameMenu.openAboutDialog();
+      this.gameMenu.setMultiplayerStatusMessage(message);
     });
-    window.native?.onAboutGame?.(() => {
-      if (this.disposed) return;
-      this.gameMenu.openAboutDialog();
-    });
+
+    this.mpClient = client;
+    client.connect();
+  }
+
+  private launchOnlineGame(client: MultiplayerClient): void {
+    if (this.disposed) return;
+    const playerName = this.mpPlayerName;
+    // Stop discovery listening (we're in a game now)
+    window.native?.discoveryStopListen().catch(() => {});
+    // Null these out BEFORE startOnlineGame calls dispose() on us.
+    // dispose() would otherwise disconnect the client and stop the server,
+    // but DarkWar needs both to keep running.
+    this.mpClient = null;
+    this.mpIsHosting = false;
+    this.startOnlineGame(client, playerName);
+  }
+
+  // ── Standard handlers ────────────────────────────────────────────────────────
+
+  private setupNativeMenuHandlers(): void {
+    window.native?.onNewGame?.(() => { if (!this.disposed) this.launchGame("new"); });
+    window.native?.onLoadGame?.(() => { if (!this.disposed && this.continueEnabled) this.launchGame("load"); });
+    window.native?.onSoundSettings?.(() => { if (!this.disposed) this.gameMenu.openSoundDialog(); });
+    window.native?.onAbout?.(() => { if (!this.disposed) this.gameMenu.openAboutDialog(); });
+    window.native?.onAboutGame?.(() => { if (!this.disposed) this.gameMenu.openAboutDialog(); });
   }
 
   private handlePreferencesChange(preferences: UserPreferences): void {
-    this.preferences = {
-      ...preferences,
-      keyBindings: { ...preferences.keyBindings },
-    };
+    this.preferences = { ...preferences, keyBindings: { ...preferences.keyBindings } };
     savePreferences(this.preferences);
     this.applyPreferences();
   }
@@ -1904,10 +2100,7 @@ class MainMenuApp implements DarkWarApplication {
 
   private async refreshContinueEnabled(): Promise<void> {
     const hasSave = await this.hasSavedGame();
-    if (this.disposed) {
-      return;
-    }
-
+    if (this.disposed) return;
     this.continueEnabled = hasSave;
     this.gameMenu.setContinueEnabled(hasSave);
   }
@@ -1916,14 +2109,11 @@ class MainMenuApp implements DarkWarApplication {
     if (window.native?.saveRead) {
       try {
         const result = await window.native.saveRead();
-        if (result.ok && typeof result.data === "string") {
-          return result.data.trim().length > 0;
-        }
+        if (result.ok && typeof result.data === "string") return result.data.trim().length > 0;
       } catch {
-        // Fall through to localStorage for browser/dev runs.
+        // Fall through to localStorage
       }
     }
-
     try {
       return Boolean(localStorage.getItem("darkwar-save"));
     } catch {
@@ -1932,28 +2122,28 @@ class MainMenuApp implements DarkWarApplication {
   }
 
   private launchGame(mode: InitialGameMode): void {
-    if (this.disposed) {
-      return;
-    }
-
-    if (mode === "load" && !this.continueEnabled) {
-      return;
-    }
-
+    if (this.disposed) return;
+    if (mode === "load" && !this.continueEnabled) return;
     this.startGame(mode);
   }
 
   private handleQuit(): void {
-    if (window.native?.closeWindow) {
-      window.native.closeWindow();
-      return;
-    }
-
+    if (window.native?.closeWindow) { window.native.closeWindow(); return; }
     window.close();
   }
 
   public dispose(): void {
     this.disposed = true;
+    if (this.mpClient) {
+      this.mpClient.disconnect();
+      this.mpClient = null;
+    }
+    if (this.mpIsHosting) {
+      window.native?.discoveryStopBroadcast().catch(() => {});
+      window.native?.serverStop().catch(() => {});
+      this.mpIsHosting = false;
+    }
+    window.native?.discoveryStopListen().catch(() => {});
     this.gameMenu.dispose();
     this.backdrop.remove();
     document.body.classList.remove("main-menu-active");
@@ -1984,9 +2174,15 @@ const createDarkWarApp = (): void => {
     window.darkWarApp = new DarkWar({ initialGame: mode });
   };
 
+  const startOnlineGame = (client: MultiplayerClient, playerName: string): void => {
+    window.darkWarApp?.dispose();
+    Music.play();
+    window.darkWarApp = new DarkWar({ multiplayerClient: client, playerName });
+  };
+
   const showMainMenu = (): void => {
     window.darkWarApp?.dispose();
-    window.darkWarApp = new MainMenuApp(startGame);
+    window.darkWarApp = new MainMenuApp(startGame, startOnlineGame);
   };
 
   if (shouldSkipTitle) {
