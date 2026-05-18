@@ -133,6 +133,7 @@ export interface Monster extends BaseEntity {
   dmg: number;
   grenades: number;
   landMines: number;
+  bullets: number;
   carriedItems: CarriedItem[];
   alertLevel?: number;
   lastKnownPlayerX?: number;

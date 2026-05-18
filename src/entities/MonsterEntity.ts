@@ -24,6 +24,9 @@ export class MonsterEntity extends GameEntity {
   /** Number of land mines carried */
   public landMines: number;
 
+  /** Number of bullets carried (skulkers only) */
+  public bullets: number;
+
   /** Items carried beyond direct counters */
   public carriedItems: { type: ItemType; amount?: number; heal?: number }[];
 
@@ -47,16 +50,19 @@ export class MonsterEntity extends GameEntity {
       this.dmg = 4;
       this.grenades = 0;
       this.landMines = 0;
+      this.bullets = 0;
     } else if (type === MonsterType.SKULKER) {
       this.hpMax = 3 + Math.floor(depth / 2);
       this.dmg = 1;
       this.grenades = RNG.chance(0.45) ? 1 : 0;
       this.landMines = 0;
+      this.bullets = 3 + RNG.int(6); // 3–8 bullets
     } else {
       this.hpMax = 6 + depth;
       this.dmg = 2 + Math.floor(depth / 2);
       this.grenades = RNG.chance(0.12) ? 1 : 0;
       this.landMines = this.grenades === 0 && RNG.chance(0.08) ? 1 : 0;
+      this.bullets = 0;
     }
 
     this.hp = this.hpMax;

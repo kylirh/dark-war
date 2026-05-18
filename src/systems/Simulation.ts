@@ -54,6 +54,12 @@ const MONSTER_ALERT_DECAY = 5; // Alert decreases per steering update (every 5 t
 const FLEE_HP_RATIO = 0.25; // Flee when HP drops below 25% of max
 const SKULKER_MIN_RANGE_PX = CELL_CONFIG.w * 2.5; // 80px: retreat if player closer
 const SKULKER_MAX_RANGE_PX = CELL_CONFIG.w * 5.5; // 176px: advance if player farther
+const SKULKER_SHOOT_COOLDOWN = 12; // ticks between shots (~600ms at 20 ticks/sec)
+const SKULKER_BULLET_SPEED = 500; // px/s
+const SKULKER_SHOT_VARIANCE = Math.PI / 12; // ±15 degrees
+const SKULKER_MAX_BULLETS = 12;
+const SKULKER_LOW_AMMO_THRESHOLD = 3;
+const SKULKER_SHOOT_MAX_RANGE_PX = CELL_CONFIG.w * 10; // 320px = 10 tiles
 const EXPLOSION_KNOCKBACK_MAX_DISTANCE = 34;
 const EXPLOSION_KNOCKBACK_MIN_DISTANCE = 14;
 const IDLE_WANDER_SPEED = MONSTER_SPEED * 0.5;
@@ -577,6 +583,32 @@ export function updateMonsterSteering(state: GameState): void {
     }
 
     if (monster.type === MonsterType.SKULKER) {
+      // When low on bullets, seek nearby ammo pickups
+      if (monster.bullets < SKULKER_LOW_AMMO_THRESHOLD) {
+        const AMMO_SEEK_RADIUS = CELL_CONFIG.w * 8;
+        let nearestAmmo: Item | null = null;
+        let nearestAmmoDist = AMMO_SEEK_RADIUS;
+        for (const e of state.entities) {
+          if (e.kind !== EntityKind.ITEM) continue;
+          const item = e as Item;
+          if (item.type !== ItemType.AMMO) continue;
+          const adx = (item as any).worldX - m.worldX;
+          const ady = (item as any).worldY - m.worldY;
+          const adist = Math.sqrt(adx * adx + ady * ady);
+          if (adist < nearestAmmoDist) {
+            nearestAmmoDist = adist;
+            nearestAmmo = item;
+          }
+        }
+        if (nearestAmmo && nearestAmmoDist > CELL_CONFIG.w * 0.5) {
+          const adx = (nearestAmmo as any).worldX - m.worldX;
+          const ady = (nearestAmmo as any).worldY - m.worldY;
+          m.velocityX = (adx / nearestAmmoDist) * MONSTER_SPEED;
+          m.velocityY = (ady / nearestAmmoDist) * MONSTER_SPEED;
+          continue;
+        }
+      }
+
       if (pixelDistance < SKULKER_MIN_RANGE_PX) {
         m.velocityX = -dirX * MONSTER_SPEED;
         m.velocityY = -dirY * MONSTER_SPEED;
@@ -811,10 +843,18 @@ function processMonsterItemPickups(state: GameState): void {
           monster.landMines += item.amount || 1;
           break;
         case ItemType.AMMO:
-          monster.carriedItems.push({
-            type: ItemType.AMMO,
-            amount: item.amount,
-          });
+          if (monster.type === MonsterType.SKULKER) {
+            // Skulkers reload directly from ammo pickups
+            monster.bullets = Math.min(
+              SKULKER_MAX_BULLETS,
+              monster.bullets + (item.amount ?? 8),
+            );
+          } else {
+            monster.carriedItems.push({
+              type: ItemType.AMMO,
+              amount: item.amount,
+            });
+          }
           break;
         case ItemType.KEYCARD:
           monster.carriedItems.push({
@@ -1025,12 +1065,21 @@ function getActionCost(state: GameState, cmd: Command, actor: Entity): number {
 
   // In real-time mode, monsters act slower to give player reaction time at high tick rates
   if (actor.kind === EntityKind.MONSTER) {
+    const monster = actor as Monster;
     // Utility bot pauses a bit longer after each repair
     if (
-      (actor as Monster).type === MonsterType.UTILITY_BOT &&
+      monster.type === MonsterType.UTILITY_BOT &&
       cmd.type === CommandType.REPAIR
     ) {
       return MONSTER_ACTION_DELAY + UTILITY_BOT_REPAIR_COOLDOWN;
+    }
+    // Skulker pistol shots have a longer cooldown than normal monster actions
+    if (
+      monster.type === MonsterType.SKULKER &&
+      cmd.type === CommandType.FIRE &&
+      (cmd.data as any).weapon === WeaponType.PISTOL
+    ) {
+      return SKULKER_SHOOT_COOLDOWN;
     }
     return MONSTER_ACTION_DELAY;
   }
@@ -1555,6 +1604,31 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           EXPLOSIVE_OWNER_GRACE_TICKS,
         );
         state.entities.push(mine);
+        return;
+      }
+      case WeaponType.PISTOL: {
+        if (monster.bullets <= 0) return;
+
+        const baseAngle = Math.atan2(dy, dx);
+        const variance = ((RNG.int(100) - 50) / 50) * SKULKER_SHOT_VARIANCE;
+        const angle = baseAngle + variance;
+
+        monster.bullets--;
+        const bullet = new BulletEntity(
+          (monster as any).worldX,
+          (monster as any).worldY,
+          Math.cos(angle) * SKULKER_BULLET_SPEED,
+          Math.sin(angle) * SKULKER_BULLET_SPEED,
+          1,
+          monster.id,
+          SKULKER_SHOOT_MAX_RANGE_PX,
+        );
+        state.entities.push(bullet);
+        state.pendingSounds.push({
+          effect: SoundEffect.SHOOT,
+          worldX: (monster as any).worldX,
+          worldY: (monster as any).worldY,
+        });
         return;
       }
       default:
@@ -2350,6 +2424,12 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
       spawnExplosive(ItemType.LAND_MINE, monster.landMines);
     }
 
+    if (monster.bullets > 0) {
+      const ammoItem = new ItemEntity(monster.gridX, monster.gridY, ItemType.AMMO);
+      ammoItem.amount = monster.bullets;
+      state.entities.push(ammoItem);
+    }
+
     if (monster.carriedItems.length > 0) {
       for (const carried of monster.carriedItems) {
         const item = new ItemEntity(monster.gridX, monster.gridY, carried.type);
@@ -2844,9 +2924,23 @@ function decideMonsterCommand(
     return waitCmd();
   }
 
-  // Skulkers: steering handles velocity, command just waits
-  // Fleeing monsters still pursue attack commands (grenade, etc.) — only movement is suppressed
+  // Skulkers: steering handles velocity; shoot at visible targets with pistol
   if (isSkulker) {
+    if (
+      monster.bullets > 0 &&
+      distance <= SKULKER_SHOOT_MAX_RANGE_PX / CELL_CONFIG.w &&
+      hasGrenadeLOS
+    ) {
+      return {
+        id: crypto.randomUUID(),
+        tick,
+        actorId: monster.id,
+        type: CommandType.FIRE,
+        data: { type: "FIRE", dx: 0, dy: 0, weapon: WeaponType.PISTOL },
+        priority: 1,
+        source: "AI",
+      };
+    }
     return waitCmd();
   }
 
