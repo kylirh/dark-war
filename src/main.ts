@@ -116,7 +116,11 @@ declare global {
     native?: {
       // Save / load
       saveWrite: (data: string) => Promise<{ ok: boolean; error?: string }>;
-      saveRead: () => Promise<{ ok: boolean; data?: string | null; error?: string }>;
+      saveRead: () => Promise<{
+        ok: boolean;
+        data?: string | null;
+        error?: string;
+      }>;
       // Game menu callbacks
       onNewGame: (callback: () => void) => void;
       onSaveGame: (callback: () => void) => void;
@@ -130,17 +134,31 @@ declare global {
       toggleMaximize: () => void;
       toggleFullscreen: () => void;
       setDevToolsEnabled: (enabled: boolean) => Promise<boolean>;
-      getWindowBounds: () => Promise<{ x: number; y: number; width: number; height: number } | null>;
-      setWindowBounds: (bounds: { x: number; y: number; width: number; height: number }) => void;
+      getWindowBounds: () => Promise<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      } | null>;
+      setWindowBounds: (bounds: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }) => void;
       setGameWindowOpaque: () => Promise<boolean>;
       onEnterFullscreen: (callback: () => void) => void;
       onLeaveFullscreen: (callback: () => void) => void;
       // Multiplayer: server lifecycle
-      serverStart: (port?: number) => Promise<{ ok: boolean; port?: number; error?: string }>;
+      serverStart: (
+        port?: number,
+      ) => Promise<{ ok: boolean; port?: number; error?: string }>;
       serverStop: () => Promise<{ ok: boolean; error?: string }>;
       serverStatus: () => Promise<{ running: boolean; port: number | null }>;
       serverGetLocalIps: () => Promise<string[]>;
-      onServerExited: (callback: (data: { code: number | null }) => void) => void;
+      onServerExited: (
+        callback: (data: { code: number | null }) => void,
+      ) => void;
       // Multiplayer: LAN discovery
       discoveryStartBroadcast: (info: {
         name: string;
@@ -150,14 +168,16 @@ declare global {
         maxPlayers?: number;
         phase?: string;
       }) => Promise<{ ok: boolean; error?: string }>;
-      discoveryUpdateBroadcast: (info: Partial<{
-        name: string;
-        host: string;
-        wsPort: number;
-        players: number;
-        maxPlayers: number;
-        phase: string;
-      }>) => Promise<{ ok: boolean }>;
+      discoveryUpdateBroadcast: (
+        info: Partial<{
+          name: string;
+          host: string;
+          wsPort: number;
+          players: number;
+          maxPlayers: number;
+          phase: string;
+        }>,
+      ) => Promise<{ ok: boolean }>;
       discoveryStopBroadcast: () => Promise<{ ok: boolean }>;
       discoveryStartListen: () => Promise<{ ok: boolean; error?: string }>;
       discoveryStopListen: () => Promise<{ ok: boolean }>;
@@ -515,7 +535,9 @@ class DarkWar {
       this.setScale(this.preferences.zoom);
     }
 
-    window.native?.setDevToolsEnabled(this.preferences.devTools).catch(() => {});
+    window.native
+      ?.setDevToolsEnabled(this.preferences.devTools)
+      .catch(() => {});
   }
 
   private handleModalStateChange(hasOpenModal: boolean): void {
@@ -554,7 +576,9 @@ class DarkWar {
   private setupOnlineClientCallbacks(client: MultiplayerClient): void {
     client.onConnected((playerId, roomId, _isHost) => {
       this.onlineConnected = true;
-      this.game.addLog(`Connected as ${playerId.slice(0, 8)} in room ${roomId}.`);
+      this.game.addLog(
+        `Connected as ${playerId.slice(0, 8)} in room ${roomId}.`,
+      );
       this.render(0);
     });
 
@@ -1032,9 +1056,7 @@ class DarkWar {
 
     // Compute CTDM threat level when the device is active
     this.currentThreatLevel =
-      player.hasCTDM && player.ctdmEnabled
-        ? this.computeThreatLevel(state)
-        : 0;
+      player.hasCTDM && player.ctdmEnabled ? this.computeThreatLevel(state) : 0;
 
     // Update target time scale based on CTDM status and threat
     if (isDead) {
@@ -1249,7 +1271,10 @@ class DarkWar {
       player.velocityY = 0;
       this.autoMovePathIndex++;
 
-      if (!this.autoMovePath || this.autoMovePathIndex >= this.autoMovePath.length) {
+      if (
+        !this.autoMovePath ||
+        this.autoMovePathIndex >= this.autoMovePath.length
+      ) {
         const doorTarget = this.autoMoveDoorTarget;
         const pickupTarget = this.autoMovePickupTarget;
         const holeTarget = this.autoMoveHoleTarget;
@@ -1280,8 +1305,9 @@ class DarkWar {
           holeTarget.gridY === player.gridY
         ) {
           const holeTile =
-            state.map[idxFor(holeTarget.gridX, holeTarget.gridY, state.mapWidth)] ===
-            TileType.HOLE;
+            state.map[
+              idxFor(holeTarget.gridX, holeTarget.gridY, state.mapWidth)
+            ] === TileType.HOLE;
           if (holeTile) {
             this.queueHoleJump(holeTarget.gridX, holeTarget.gridY);
             this.playerActedThisTick = true;
@@ -1664,13 +1690,15 @@ class DarkWar {
     const player = state.player;
     const sightPx = player.sight * CELL_CONFIG.w;
     const sightPxSq = sightPx * sightPx;
-    const bulletDangerSq = (CELL_CONFIG.w * 5) * (CELL_CONFIG.w * 5);
+    const bulletDangerSq = CELL_CONFIG.w * 5 * (CELL_CONFIG.w * 5);
     let maxThreat = 0;
 
     for (const entity of state.entities) {
       if (entity.kind === EntityKind.MONSTER) {
         if (entity.hp <= 0) continue;
-        if (!state.visible.has(idxFor(entity.gridX, entity.gridY, state.mapWidth))) {
+        if (
+          !state.visible.has(idxFor(entity.gridX, entity.gridY, state.mapWidth))
+        ) {
           continue;
         }
 
@@ -1916,14 +1944,20 @@ class MainMenuApp implements DarkWarApplication {
 
   constructor(
     private readonly startGame: (mode: InitialGameMode) => void,
-    private readonly startOnlineGame: (client: MultiplayerClient, playerName: string) => void,
+    private readonly startOnlineGame: (
+      client: MultiplayerClient,
+      playerName: string,
+    ) => void,
   ) {
     this.preferences = loadPreferences();
     this.applyPreferences();
 
     this.backdrop = document.createElement("div");
     this.backdrop.className = "main-menu-backdrop";
-    this.backdrop.style.setProperty("--main-menu-art", "url(\"../img/main-background.png\")");
+    this.backdrop.style.setProperty(
+      "--main-menu-art",
+      'url("../img/main.png")',
+    );
     document.body.appendChild(this.backdrop);
     document.body.classList.add("main-menu-active");
 
@@ -1932,13 +1966,16 @@ class MainMenuApp implements DarkWarApplication {
       allowPauseMenuClose: false,
       canContinue: false,
       preferences: this.preferences,
-      onPreferencesChange: (preferences) => this.handlePreferencesChange(preferences),
+      onPreferencesChange: (preferences) =>
+        this.handlePreferencesChange(preferences),
       onNewGame: () => this.launchGame("new"),
       onContinue: () => this.launchGame("load"),
       onQuit: () => this.handleQuit(),
       // Multiplayer callbacks
-      onMultiplayerHost: (gameName, playerName) => this.handleMultiplayerHost(gameName, playerName),
-      onMultiplayerJoin: (ip, port, playerName) => this.handleMultiplayerJoin(ip, port, playerName),
+      onMultiplayerHost: (gameName, playerName) =>
+        this.handleMultiplayerHost(gameName, playerName),
+      onMultiplayerJoin: (ip, port, playerName) =>
+        this.handleMultiplayerJoin(ip, port, playerName),
       onMultiplayerStartGame: () => this.handleMultiplayerStartGame(),
       onMultiplayerLeaveLobby: () => this.handleMultiplayerLeave(),
       onMultiplayerGetServers: () => this.handleGetServers(),
@@ -1954,7 +1991,10 @@ class MainMenuApp implements DarkWarApplication {
 
   // ── Multiplayer handlers ───────────────────────────────────────────────────────
 
-  private async handleMultiplayerHost(gameName: string, playerName: string): Promise<void> {
+  private async handleMultiplayerHost(
+    gameName: string,
+    playerName: string,
+  ): Promise<void> {
     if (this.disposed) return;
     this.mpGameName = gameName;
     this.mpPlayerName = playerName;
@@ -1964,14 +2004,16 @@ class MainMenuApp implements DarkWarApplication {
       // Start embedded server
       const result = await window.native?.serverStart(7777);
       if (!result?.ok) {
-        this.gameMenu.setMultiplayerStatusMessage(`Failed to start server: ${result?.error ?? "Unknown error"}`);
+        this.gameMenu.setMultiplayerStatusMessage(
+          `Failed to start server: ${result?.error ?? "Unknown error"}`,
+        );
         return;
       }
 
       const port = result.port ?? 7777;
 
       // Start UDP broadcast so others can discover us
-      const localIps = await window.native?.serverGetLocalIps() ?? [];
+      const localIps = (await window.native?.serverGetLocalIps()) ?? [];
       await window.native?.discoveryStartBroadcast({
         name: gameName,
         host: playerName,
@@ -1982,16 +2024,26 @@ class MainMenuApp implements DarkWarApplication {
       });
 
       // Connect as first player
-      this.connectMultiplayerClient(`ws://127.0.0.1:${port}`, "default", playerName);
+      this.connectMultiplayerClient(
+        `ws://127.0.0.1:${port}`,
+        "default",
+        playerName,
+      );
       this.gameMenu.setMultiplayerConnectionState("connecting");
       void localIps; // used by broadcast above
     } catch (err) {
-      this.gameMenu.setMultiplayerStatusMessage(`Error: ${err instanceof Error ? err.message : String(err)}`);
+      this.gameMenu.setMultiplayerStatusMessage(
+        `Error: ${err instanceof Error ? err.message : String(err)}`,
+      );
       this.mpIsHosting = false;
     }
   }
 
-  private handleMultiplayerJoin(ip: string, port: number, playerName: string): void {
+  private handleMultiplayerJoin(
+    ip: string,
+    port: number,
+    playerName: string,
+  ): void {
     if (this.disposed) return;
     this.mpPlayerName = playerName;
     this.mpIsHosting = false;
@@ -2020,7 +2072,7 @@ class MainMenuApp implements DarkWarApplication {
 
   private async handleGetServers(): Promise<DiscoveredServer[]> {
     try {
-      return await window.native?.discoveryGetServers() ?? [];
+      return (await window.native?.discoveryGetServers()) ?? [];
     } catch {
       return [];
     }
@@ -2034,7 +2086,11 @@ class MainMenuApp implements DarkWarApplication {
     window.native?.discoveryStopListen().catch(() => {});
   }
 
-  private connectMultiplayerClient(serverUrl: string, roomId: string, playerName: string): void {
+  private connectMultiplayerClient(
+    serverUrl: string,
+    roomId: string,
+    playerName: string,
+  ): void {
     // Disconnect any existing client
     if (this.mpClient) {
       this.mpClient.disconnect();
@@ -2043,7 +2099,10 @@ class MainMenuApp implements DarkWarApplication {
     const client = new MultiplayerClient(serverUrl, roomId, playerName);
 
     client.onConnected((_playerId, _roomId, isHost) => {
-      if (this.disposed) { client.disconnect(); return; }
+      if (this.disposed) {
+        client.disconnect();
+        return;
+      }
       this.gameMenu.setMultiplayerConnectionState("lobby");
       this.gameMenu.setPlayerName(playerName);
       void isHost;
@@ -2056,10 +2115,12 @@ class MainMenuApp implements DarkWarApplication {
 
       // Update discovery broadcast with current player count
       if (this.mpIsHosting) {
-        window.native?.discoveryUpdateBroadcast({
-          players: update.players.length,
-          phase: update.phase,
-        }).catch(() => {});
+        window.native
+          ?.discoveryUpdateBroadcast({
+            players: update.players.length,
+            phase: update.phase,
+          })
+          .catch(() => {});
       }
 
       this.gameMenu.updateLobbyState(update.players, isHost, update.phase);
@@ -2104,15 +2165,28 @@ class MainMenuApp implements DarkWarApplication {
   // ── Standard handlers ────────────────────────────────────────────────────────
 
   private setupNativeMenuHandlers(): void {
-    window.native?.onNewGame?.(() => { if (!this.disposed) this.launchGame("new"); });
-    window.native?.onLoadGame?.(() => { if (!this.disposed && this.continueEnabled) this.launchGame("load"); });
-    window.native?.onSoundSettings?.(() => { if (!this.disposed) this.gameMenu.openSoundDialog(); });
-    window.native?.onAbout?.(() => { if (!this.disposed) this.gameMenu.openAboutDialog(); });
-    window.native?.onAboutGame?.(() => { if (!this.disposed) this.gameMenu.openAboutDialog(); });
+    window.native?.onNewGame?.(() => {
+      if (!this.disposed) this.launchGame("new");
+    });
+    window.native?.onLoadGame?.(() => {
+      if (!this.disposed && this.continueEnabled) this.launchGame("load");
+    });
+    window.native?.onSoundSettings?.(() => {
+      if (!this.disposed) this.gameMenu.openSoundDialog();
+    });
+    window.native?.onAbout?.(() => {
+      if (!this.disposed) this.gameMenu.openAboutDialog();
+    });
+    window.native?.onAboutGame?.(() => {
+      if (!this.disposed) this.gameMenu.openAboutDialog();
+    });
   }
 
   private handlePreferencesChange(preferences: UserPreferences): void {
-    this.preferences = { ...preferences, keyBindings: { ...preferences.keyBindings } };
+    this.preferences = {
+      ...preferences,
+      keyBindings: { ...preferences.keyBindings },
+    };
     savePreferences(this.preferences);
     this.applyPreferences();
   }
@@ -2121,7 +2195,9 @@ class MainMenuApp implements DarkWarApplication {
     Sound.setVolume(this.preferences.sfxVolume);
     Music.setVolume(this.preferences.musicVolume);
     document.documentElement.dataset.theme = this.preferences.theme;
-    window.native?.setDevToolsEnabled(this.preferences.devTools).catch(() => {});
+    window.native
+      ?.setDevToolsEnabled(this.preferences.devTools)
+      .catch(() => {});
   }
 
   private async refreshContinueEnabled(): Promise<void> {
@@ -2135,7 +2211,8 @@ class MainMenuApp implements DarkWarApplication {
     if (window.native?.saveRead) {
       try {
         const result = await window.native.saveRead();
-        if (result.ok && typeof result.data === "string") return result.data.trim().length > 0;
+        if (result.ok && typeof result.data === "string")
+          return result.data.trim().length > 0;
       } catch {
         // Fall through to localStorage
       }
@@ -2167,7 +2244,10 @@ class MainMenuApp implements DarkWarApplication {
   }
 
   private handleQuit(): void {
-    if (window.native?.closeWindow) { window.native.closeWindow(); return; }
+    if (window.native?.closeWindow) {
+      window.native.closeWindow();
+      return;
+    }
     window.close();
   }
 
@@ -2215,7 +2295,10 @@ const createDarkWarApp = (): void => {
     window.darkWarApp = new DarkWar({ initialGame: mode });
   };
 
-  const startOnlineGame = (client: MultiplayerClient, playerName: string): void => {
+  const startOnlineGame = (
+    client: MultiplayerClient,
+    playerName: string,
+  ): void => {
     window.darkWarApp?.dispose();
     Music.play();
     window.darkWarApp = new DarkWar({ multiplayerClient: client, playerName });
