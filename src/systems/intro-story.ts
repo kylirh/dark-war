@@ -11,7 +11,7 @@ const INTRO_STORY_SLIDES: IntroStorySlide[] = [
   {
     imageSrc: "assets/img/intro-1.png",
     text: [
-      "\"DoomsDay in the year 2000\"",
+      '"DoomsDay in the year 2000"',
       "It came in the Spring of the year of our Lord 2000 AD, the doom that mankind had justly feared for so long. Upon the once great nations of the earth rained chemical, biological, and nuclear terror so devastating in its effect, that it laid waste to every strategic, industrial, and cultural center existing on the face of the globe.",
     ],
   },
@@ -38,7 +38,7 @@ const INTRO_STORY_SLIDES: IntroStorySlide[] = [
   {
     imageSrc: "assets/img/intro-5.png",
     text: [
-      "\"Your mission, whether or not you decide to accept it...\"",
+      '"Your mission, whether or not you decide to accept it..."',
       "You are a member of Operation Thunderbolt. Your mission is to recover what is believed to be a working prototype of a revolutionary leap in offensive weapons technology: an anti-matter bomb.",
       "Partially documented in a recently recovered ultra-top-secret Joint Chiefs of Staff report, its light-weight tactical design was evidently being seriously considered as a means of defeating the alien invaders, irrespective of the toll in human life, just three days before the Cheyenne Mountain stronghold was vaporized.",
     ],
@@ -60,7 +60,7 @@ const INTRO_STORY_SLIDES: IntroStorySlide[] = [
   {
     imageSrc: "assets/img/intro-8.png",
     text: [
-      "\"Unfortunately, you encounter an enemy patrol en route...\"",
+      '"Unfortunately, you encounter an enemy patrol en route..."',
       "...and only YOU survived. Retreating with your life, and little else, you barely manage to locate the shattered remains of the research lab.",
       "After several days of harried investigation, with interludes of hunting for food and avoiding predators that hunted YOU as food, you finally dig your way into the basement complex ... and discover that it is inhabited!",
     ],
@@ -73,7 +73,7 @@ const INTRO_STORY_SLIDES: IntroStorySlide[] = [
     ],
   },
   {
-    imageSrc: "assets/img/intro-10.png",
+    imageSrc: "assets/img/intro-9.png",
     text: [
       "Then you find the message. Scrawled with grime and blood across a section of flooring by an unsteady hand are words that tell you all too clearly that the invader is here:",
       "Beware of the Zyths!!!",
@@ -104,7 +104,11 @@ export class IntroStory {
       return;
     }
 
-    if (event.key === "ArrowRight" || event.key === "Enter" || event.key === " ") {
+    if (
+      event.key === "ArrowRight" ||
+      event.key === "Enter" ||
+      event.key === " "
+    ) {
       event.preventDefault();
       event.stopPropagation();
       this.next();
@@ -146,12 +150,22 @@ export class IntroStory {
       </section>
     `;
 
-    this.image = this.overlay.querySelector(".intro-story-image") as HTMLImageElement;
+    this.image = this.overlay.querySelector(
+      ".intro-story-image",
+    ) as HTMLImageElement;
     this.text = this.overlay.querySelector(".intro-story-text") as HTMLElement;
-    this.counter = this.overlay.querySelector(".intro-story-counter") as HTMLElement;
-    this.prevButton = this.overlay.querySelector(".intro-story-prev") as HTMLButtonElement;
-    this.nextButton = this.overlay.querySelector(".intro-story-next") as HTMLButtonElement;
-    this.skipButton = this.overlay.querySelector(".intro-story-skip") as HTMLButtonElement;
+    this.counter = this.overlay.querySelector(
+      ".intro-story-counter",
+    ) as HTMLElement;
+    this.prevButton = this.overlay.querySelector(
+      ".intro-story-prev",
+    ) as HTMLButtonElement;
+    this.nextButton = this.overlay.querySelector(
+      ".intro-story-next",
+    ) as HTMLButtonElement;
+    this.skipButton = this.overlay.querySelector(
+      ".intro-story-skip",
+    ) as HTMLButtonElement;
 
     this.prevButton.addEventListener("click", () => this.previous());
     this.nextButton.addEventListener("click", () => this.next());
@@ -190,7 +204,9 @@ export class IntroStory {
     this.counter.textContent = `${this.slideIndex + 1} / ${INTRO_STORY_SLIDES.length}`;
     this.prevButton.disabled = this.slideIndex === 0;
     this.nextButton.textContent =
-      this.slideIndex === INTRO_STORY_SLIDES.length - 1 ? "Start Mission" : "Next";
+      this.slideIndex === INTRO_STORY_SLIDES.length - 1
+        ? "Start Mission"
+        : "Next";
   }
 
   private complete(): void {
@@ -204,7 +220,8 @@ export class IntroStory {
     window.removeEventListener("keydown", this.onKeyDown);
     this.overlay.remove();
     document.body.classList.remove("intro-story-active");
-    if (!this.hadModalOpenClass) document.body.classList.remove("imb-modal-open");
+    if (!this.hadModalOpenClass)
+      document.body.classList.remove("imb-modal-open");
   }
 }
 
