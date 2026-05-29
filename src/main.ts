@@ -2318,7 +2318,7 @@ const createDarkWarApp = (): void => {
 
   // Kick off asset loading in the background while title screen is showing
   Sound.preload().catch(() => {});
-  Music.load("assets/sounds/theme.ogg").catch(() => {});
+  Music.load().catch(() => {});
   const retroWindowChrome = new RetroWindowChrome();
 
   // Show the title screen first — nothing else initialises until dismissed.

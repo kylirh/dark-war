@@ -224,10 +224,9 @@ class MusicPlayer {
   };
 
   /**
-   * Prepare the procedural graph. The src argument is accepted for compatibility
-   * with the former looped-audio implementation.
+   * Prepare the procedural graph.
    */
-  public async load(_src?: string): Promise<void> {
+  public async load(): Promise<void> {
     this.installUnlockListeners();
   }
 
