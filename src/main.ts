@@ -444,10 +444,10 @@ class DarkWar {
       if (options.multiplayerClient) {
         // Pre-connected: just wire up callbacks and start rendering
         this.setupOnlineClientCallbacks(options.multiplayerClient);
-        this.game.addLog("Multiplayer game starting...");
+        this.game.addStory("Multiplayer game starting...");
       } else {
         // URL-param based connection (legacy / dev mode)
-        this.game.addLog(
+        this.game.addStory(
           `Connecting to ${this.multiplayerConfig.serverUrl} (${this.multiplayerConfig.roomId})...`,
         );
         this.connectToMultiplayer();
@@ -474,7 +474,7 @@ class DarkWar {
         : await this.loadMostRecentGame({ quiet: true });
     if (!didLoad) {
       this.game.reset(0);
-      this.game.addLog("No save found. Starting a new game.");
+      this.game.addStory("No save found. Starting a new game.");
     }
     if (DEBUG) console.timeEnd("Load saved game");
     this.finishInitialGameStartup();
@@ -611,9 +611,7 @@ class DarkWar {
   private setupOnlineClientCallbacks(client: MultiplayerClient): void {
     client.onConnected((playerId, roomId, _isHost) => {
       this.onlineConnected = true;
-      this.game.addLog(
-        `Connected as ${playerId.slice(0, 8)} in room ${roomId}.`,
-      );
+      this.game.addStory(`Connected as ${playerId.slice(0, 8)} in room ${roomId}.`);
       this.render(0);
     });
 
@@ -623,12 +621,12 @@ class DarkWar {
 
     client.onDisconnected(() => {
       this.onlineConnected = false;
-      this.game.addLog("Disconnected from multiplayer server.");
+      this.game.addStory("Disconnected from multiplayer server.");
       this.render(0);
     });
 
     client.onError((message) => {
-      this.game.addLog(message);
+      this.game.addStory(message);
       this.render(0);
     });
   }
@@ -763,7 +761,7 @@ class DarkWar {
     }
 
     this.lastOnlineUnavailableLogAt = now;
-    this.game.addLog("Multiplayer action unavailable while disconnected.");
+    this.game.addStory("Multiplayer action unavailable while disconnected.");
     this.render(0);
   }
 
@@ -1105,7 +1103,7 @@ class DarkWar {
           player.ctdmCharge >= CTDM_REENABLE_THRESHOLD
         ) {
           player.ctdmEnabled = true;
-          state.log.unshift("CTDM recharged.");
+          state.story.unshift("CTDM recharged.");
         }
       }
     } else if (player.hasCTDM && player.ctdmEnabled && player.ctdmCharge > 0) {
@@ -1122,7 +1120,7 @@ class DarkWar {
         );
         if (player.ctdmCharge <= 0) {
           player.ctdmEnabled = false;
-          state.log.unshift("CTDM battery depleted.");
+          state.story.unshift("CTDM battery depleted.");
         }
       } else {
         // No threat: slow recharge while stationary
@@ -1144,7 +1142,7 @@ class DarkWar {
         player.ctdmCharge >= CTDM_REENABLE_THRESHOLD
       ) {
         player.ctdmEnabled = true;
-        state.log.unshift("CTDM recharged.");
+        state.story.unshift("CTDM recharged.");
       }
     } else {
       // No CTDM: real-time until the device is found
@@ -1169,7 +1167,7 @@ class DarkWar {
     this.ui.updateAll(
       state.player,
       state.depth,
-      state.log,
+      state.story,
       state.sim,
       this.currentThreatLevel,
       state.options.godMode,
@@ -1436,7 +1434,7 @@ class DarkWar {
     }
 
     player.weapon = weapon;
-    this.game.addLog(`Weapon set: ${weapon}.`);
+    this.game.addStory(`Weapon set: ${weapon}.`);
   }
 
   private handleCycleWeapon(direction: number): void {
@@ -1459,7 +1457,7 @@ class DarkWar {
     }
 
     player.weapon = weapons[nextIndex];
-    this.game.addLog(`Weapon set: ${player.weapon}.`);
+    this.game.addStory(`Weapon set: ${player.weapon}.`);
   }
 
   /**
@@ -1495,7 +1493,7 @@ class DarkWar {
     }
 
     if (this.isOnlineMode()) {
-      this.game.addLog("Hole-jump shortcut is disabled in online multiplayer.");
+      this.game.addStory("Hole-jump shortcut is disabled in online multiplayer.");
       this.render(0);
       return;
     }
@@ -1526,7 +1524,7 @@ class DarkWar {
 
     // Show prompt if no direction given
     if (dx === 0 && dy === 0) {
-      this.game.addLog("Which direction?");
+      this.game.addStory("Which direction?");
       return;
     }
 
@@ -1702,7 +1700,7 @@ class DarkWar {
     if (!player.hasCTDM) return;
     player.ctdmEnabled = !player.ctdmEnabled;
     const statusMsg = player.ctdmEnabled ? "CTDM enabled." : "CTDM disabled.";
-    state.log.unshift(statusMsg);
+    state.story.unshift(statusMsg);
   }
 
   /**
@@ -1790,7 +1788,7 @@ class DarkWar {
    */
   private handleSave(): void {
     if (this.isOnlineMode()) {
-      this.game.addLog("Save is disabled in online multiplayer.");
+      this.game.addStory("Save is disabled in online multiplayer.");
       this.render(0);
       return;
     }
@@ -1799,7 +1797,7 @@ class DarkWar {
     this.inputHandler.resetKeys();
     this.gameMenu.closePauseMenu(true);
     this.saveSlotDialog.open("save").catch(() => {
-      this.game.addLog("Unable to open save slots.");
+      this.game.addStory("Unable to open save slots.");
       this.render(0);
     });
   }
@@ -1809,7 +1807,7 @@ class DarkWar {
    */
   private async handleLoad(): Promise<void> {
     if (this.isOnlineMode()) {
-      this.game.addLog("Load is disabled in online multiplayer.");
+      this.game.addStory("Load is disabled in online multiplayer.");
       this.render(0);
       return;
     }
@@ -1818,7 +1816,7 @@ class DarkWar {
     this.inputHandler.resetKeys();
     this.gameMenu.closePauseMenu(true);
     this.saveSlotDialog.open("load").catch(() => {
-      this.game.addLog("Unable to open save slots.");
+      this.game.addStory("Unable to open save slots.");
       this.render(0);
     });
   }
@@ -1840,12 +1838,12 @@ class DarkWar {
         screenshotDataUrl,
       );
       await writeSaveSlot(slot, record);
-      this.game.addLog(`Game saved to slot ${slot + 1}.`);
+      this.game.addStory(`Game saved to slot ${slot + 1}.`);
       this.render(0);
       return true;
     } catch (error) {
       console.error("Failed to save game:", error);
-      this.game.addLog("Save failed.");
+      this.game.addStory("Save failed.");
       this.render(0);
       return false;
     }
@@ -1872,14 +1870,14 @@ class DarkWar {
       this.centerOnPlayerSoon(LEVEL_TRANSITION_CAMERA_DELAY_MS);
       this.lastPlayerHp = this.game.getState().player.hp;
       if (!options.quiet) {
-        this.game.addLog(`Game loaded from slot ${slot + 1}.`);
+        this.game.addStory(`Game loaded from slot ${slot + 1}.`);
         this.render(0);
       }
       return true;
     } catch (error) {
       console.error("Failed to load save:", error);
       if (!options.quiet) {
-        this.game.addLog("Failed to load game.");
+        this.game.addStory("Failed to load game.");
         this.render(0);
       }
       return false;
@@ -1902,12 +1900,12 @@ class DarkWar {
   private async deleteGameSaveSlot(slot: number): Promise<boolean> {
     try {
       await deleteSaveSlot(slot);
-      this.game.addLog(`Deleted save slot ${slot + 1}.`);
+      this.game.addStory(`Deleted save slot ${slot + 1}.`);
       this.render(0);
       return true;
     } catch (error) {
       console.error("Failed to delete save:", error);
-      this.game.addLog("Failed to delete save.");
+      this.game.addStory("Failed to delete save.");
       this.render(0);
       return false;
     }

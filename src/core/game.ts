@@ -110,7 +110,7 @@ export class Game {
       player,
       stairsDown: [0, 0],
       stairsUp: null,
-      log: [],
+      story: [],
       options: { fov: true, godMode: false },
       effects: [],
       multiplayer: {
@@ -180,7 +180,7 @@ export class Game {
       player,
       stairsDown: dungeon.stairsDown,
       stairsUp: null,
-      log: [],
+      story: [],
       options: { fov: true, godMode: false },
       effects: [],
       multiplayer: {
@@ -212,7 +212,7 @@ export class Game {
 
     if (outside) {
       this.state.entities.push(...outside.entities);
-      this.addLog("The city is quiet. Megacorp waits to the northeast.");
+      this.addStory("The city is quiet. Megacorp waits to the northeast.");
       this.updateFOV();
       if (DEBUG) console.timeEnd("reset: total");
       return;
@@ -303,7 +303,7 @@ export class Game {
 
     spawnItems(2 + Math.floor(depth / 4), ItemType.POWERCELL);
 
-    this.addLog(`You descend into level ${depth}.`);
+    this.addStory(`You descend into level ${depth}.`);
 
     this.updateFOV();
     if (DEBUG) console.timeEnd("reset: total");
@@ -328,13 +328,10 @@ export class Game {
     return tiles;
   }
 
-  /**
-   * Add message to log (newest first)
-   */
-  public addLog(message: string): void {
-    this.state.log.unshift(message);
-    if (this.state.log.length > 200) {
-      this.state.log.pop();
+  public addStory(message: string): void {
+    this.state.story.unshift(message);
+    if (this.state.story.length > 200) {
+      this.state.story.pop();
     }
   }
 
@@ -485,7 +482,7 @@ export class Game {
    */
   public toggleGodMode(): void {
     this.state.options.godMode = !this.state.options.godMode;
-    this.addLog(
+    this.addStory(
       this.state.options.godMode
         ? "God Mode enabled."
         : "God Mode disabled.",
@@ -746,7 +743,7 @@ export class Game {
     }
 
     this.updateFOV();
-    this.addLog(
+    this.addStory(
       nextDepth === 1
         ? "You enter the Megacorp research facility."
         : `You descend into level ${this.state.depth}.`,
@@ -783,7 +780,7 @@ export class Game {
       }
     }
     this.updateFOV();
-    this.addLog(
+    this.addStory(
       previousDepth === 0
         ? "You step back out into the abandoned city."
         : `You ascend to level ${this.state.depth}.`,
@@ -933,7 +930,7 @@ export class Game {
       enhancedVision: this.state.enhancedVision,
       godMode: this.state.options.godMode,
       exploredByPlayer,
-      log: this.state.log.slice(0, 50),
+      story: this.state.story.slice(0, 50),
       levels,
       multiplayer: this.state.multiplayer,
       sim: {
@@ -1025,7 +1022,7 @@ export class Game {
       entities,
       players,
       player,
-      log: data.log || [],
+      story: data.story || [],
       options: { fov: true, godMode: data.godMode ?? false },
       effects: data.effects || [],
       multiplayer: {
@@ -1319,7 +1316,7 @@ export class Game {
     }
 
     this.state.enhancedVision = true;
-    this.addLog("Level successfully explored!");
+    this.addStory("Level successfully explored!");
     Sound.play(SoundEffect.LEVEL_EXPLORED);
     return true;
   }

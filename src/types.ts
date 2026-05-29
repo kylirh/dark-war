@@ -350,7 +350,7 @@ export interface GameState {
   player: Player;
   stairsDown: [number, number];
   stairsUp: [number, number] | null;
-  log: string[];
+  story: string[];
   options: {
     fov: boolean;
     godMode: boolean;
@@ -391,7 +391,7 @@ export interface SerializedState {
   enhancedVision?: boolean;
   godMode?: boolean;
   exploredByPlayer?: Record<string, number[]>;
-  log: string[];
+  story: string[];
   levels?: SerializedLevelState[];
   multiplayer?: {
     mode: MultiplayerMode;

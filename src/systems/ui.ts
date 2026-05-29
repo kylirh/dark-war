@@ -1,10 +1,8 @@
 import { Player, SimulationState, WeaponType } from "../types";
 
-/**
- * Handles UI updates (stats, log, inventory)
- */
 export class UI {
-  private logElement: HTMLElement;
+  private storyElement: HTMLElement;
+  private storyScrollElement: HTMLElement;
   private floorElement: HTMLElement;
   private hpElement: HTMLElement;
   private hpBarElement: HTMLElement;
@@ -15,8 +13,12 @@ export class UI {
   private ctdmStatusElement: HTMLElement;
   private ctdmBarElement: HTMLElement;
 
+  private lastStoryLength = 0;
+  private userScrolledUp = false;
+
   constructor() {
-    this.logElement = this.getElement("log");
+    this.storyElement = this.getElement("story");
+    this.storyScrollElement = this.getElement("story-scroll");
     this.floorElement = this.getElement("floor");
     this.hpElement = this.getElement("hp");
     this.hpBarElement = this.getElement("hpbar");
@@ -26,6 +28,12 @@ export class UI {
     this.ctdmSectionElement = this.getElement("ctdm-section");
     this.ctdmStatusElement = this.getElement("ctdm-status");
     this.ctdmBarElement = this.getElement("ctdmbar");
+
+    this.storyScrollElement.addEventListener("scroll", () => {
+      const el = this.storyScrollElement;
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 4;
+      this.userScrolledUp = !atBottom;
+    });
   }
 
   private getElement(id: string): HTMLElement {
@@ -36,9 +44,6 @@ export class UI {
     return element;
   }
 
-  /**
-   * Update player stats display
-   */
   public updateStats(player: Player, depth: number): void {
     this.floorElement.textContent = String(depth);
     this.hpElement.textContent = `${player.hp}/${player.hpMax}`;
@@ -49,9 +54,6 @@ export class UI {
     this.hpBarElement.style.setProperty("--hp-width", `${hpPercent * 100}%`);
   }
 
-  /**
-   * Update CTDM power meter display
-   */
   public updateCTDM(player: Player, threatLevel: number): void {
     if (!player.hasCTDM) {
       this.ctdmSectionElement.style.display = "none";
@@ -75,9 +77,6 @@ export class UI {
     );
   }
 
-  /**
-   * Update inventory display
-   */
   public updateInventory(player: Player, godMode: boolean): void {
     const items: string[] = [];
 
@@ -122,33 +121,37 @@ export class UI {
       items.length > 0 ? items.join("  •  ") : "Empty";
   }
 
-  /**
-   * Update message log (messages already ordered newest first)
-   */
-  public updateLog(messages: string[]): void {
-    this.logElement.innerHTML = "";
-    const displayCount = Math.min(100, messages.length);
-    for (let i = 0; i < displayCount; i++) {
+  public updateStory(messages: string[]): void {
+    const newLength = messages.length;
+    const hadNewMessages = newLength !== this.lastStoryLength;
+    this.lastStoryLength = newLength;
+
+    this.storyElement.innerHTML = "";
+    const displayCount = Math.min(200, messages.length);
+    // messages[0] is newest — render oldest→newest so newest is at DOM bottom
+    for (let i = displayCount - 1; i >= 0; i--) {
       const li = document.createElement("li");
       li.textContent = messages[i];
-      this.logElement.appendChild(li);
+      this.storyElement.appendChild(li);
+    }
+
+    // Scroll to bottom when new messages arrive (unless user scrolled up in expanded mode)
+    if (hadNewMessages && !this.userScrolledUp) {
+      this.storyScrollElement.scrollTop = this.storyScrollElement.scrollHeight;
     }
   }
 
-  /**
-   * Update all UI elements
-   */
   public updateAll(
     player: Player,
     depth: number,
-    log: string[],
+    story: string[],
     sim: SimulationState,
     threatLevel: number,
     godMode: boolean,
   ): void {
     this.updateStats(player, depth);
     this.updateInventory(player, godMode);
-    this.updateLog(log);
+    this.updateStory(story);
     this.updateCTDM(player, threatLevel);
   }
 }

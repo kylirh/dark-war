@@ -1811,22 +1811,256 @@ body {
   filter: saturate(calc(1 + var(--ctdm-threat, 0) * 2));
 }
 
-.message-log {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 16px;
+/* ============================================================
+   Story Overlay — floating CRT terminal over game canvas
+   ============================================================ */
+
+/* ── Overlay: always same width, inset from scrollbars ────── */
+.story-overlay {
+  position: absolute;
+  left: 8px;
+  right: 30px;   /* 8px gap from scrollbar left edge (scrollbar = 22px) */
+  bottom: 30px;  /* 8px gap from scrollbar top edge  (scrollbar = 22px) */
+  z-index: 50;
+  pointer-events: none;
 }
 
-.message-log ul {
+/* ── Glass panel — same width in both modes ─────────────────
+   Normal mode:  short strip at the bottom
+   Expanded mode: JS sets height to fill from 8px-top to 30px-bottom
+   ─────────────────────────────────────────────────────────── */
+.story-panel {
+  position: relative;
+  height: 88px;
+  overflow: hidden;
+  transition:
+    height 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+    border-radius 0.38s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.38s ease;
+
+  /* Semi-transparent glass with backdrop blur */
+  background: rgba(0, 11, 5, 0.52);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+
+  /* Fully rounded — free-floating glass pane */
+  border-radius: 13px;
+
+  /* Glass edge */
+  border: 1px solid rgba(57, 255, 106, 0.30);
+
+  /* Depth: outer glow + inner bevel */
+  box-shadow:
+    0 4px 32px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(57, 255, 106, 0.06),
+    0 -2px 16px rgba(57, 255, 106, 0.07),
+    inset 0 1px 0 rgba(57, 255, 106, 0.18),
+    inset 0 0 40px rgba(0, 18, 7, 0.48);
+
+  /* Pass clicks through the glass in normal mode */
+  pointer-events: none;
+}
+
+/* Top glass sheen */
+.story-panel::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  border-radius: 13px 13px 0 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(57, 255, 106, 0.07) 0%,
+    rgba(57, 255, 106, 0.02) 55%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Scanlines */
+.story-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    rgba(0, 0, 0, 0.07) 3px,
+    rgba(0, 0, 0, 0.07) 4px
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Expand button: top-right corner of the glass pane ────── */
+.story-expand-tab {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  width: 20px;
+  height: 20px;
+  z-index: 10;
+  pointer-events: auto;
+
+  background: rgba(0, 18, 7, 0.80);
+  border: 1px solid rgba(57, 255, 106, 0.42);
+  border-radius: 4px;
+  color: rgba(57, 255, 106, 0.78);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.13s, color 0.13s, box-shadow 0.13s;
+  box-shadow:
+    0 0 6px rgba(57, 255, 106, 0.12),
+    inset 0 1px 0 rgba(57, 255, 106, 0.15);
+}
+
+/* Remove browser focus ring after button click */
+.story-expand-tab:focus {
+  outline: none;
+  box-shadow:
+    0 0 6px rgba(57, 255, 106, 0.12),
+    inset 0 1px 0 rgba(57, 255, 106, 0.15);
+}
+
+.story-expand-tab:hover {
+  background: rgba(0, 32, 14, 0.92);
+  color: rgba(57, 255, 106, 1.0);
+  box-shadow:
+    0 0 10px rgba(57, 255, 106, 0.28),
+    inset 0 1px 0 rgba(57, 255, 106, 0.20);
+}
+
+.story-tab-label {
+  font-family: monospace;
+  font-size: 15px;
+  font-weight: bold;
+  line-height: 1;
+  text-shadow: 0 0 6px rgba(57, 255, 106, 0.70);
+  pointer-events: none;
+  /* nudge the + / − to optical centre */
+  margin-top: -1px;
+}
+
+/* ── Scroll container (both modes) ───────────────────────── */
+.story-scroll {
+  height: 100%;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+}
+
+/* Always hide scrollbar in base mode (re-shown in expanded mode below) */
+.story-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Story messages list ──────────────────────────────────── */
+.story-messages {
   list-style: none;
   padding: 0;
   margin: 0;
+  margin-top: auto;       /* anchor text to bottom */
 }
 
-.message-log li {
-  padding: 4px 0;
-  line-height: 1.4;
+.story-messages li {
+  padding: 2px 0;
+  line-height: 1.45;
+  font-family: "Chicago_12", monospace;
+  font-size: 13px;
+  color: #39ff6a;
+  text-shadow:
+    0 0 5px rgba(57, 255, 106, 0.75),
+    0 0 12px rgba(57, 255, 106, 0.35),
+    0 0 22px rgba(57, 255, 106, 0.12);
+}
+
+/* ── Expanded mode ────────────────────────────────────────── */
+.story-overlay.expanded .story-panel {
+  /* height is set by JS to fill from 8px-top to bottom of overlay */
+  overflow: hidden;
+
+  /* Slightly more opaque than normal, still with blur */
+  background: rgba(0, 10, 4, 0.62);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+
+  /* Larger rounded corners */
+  border-radius: 16px;
+
+  border: 1px solid rgba(57, 255, 106, 0.28);
+
+  box-shadow:
+    0 8px 48px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(57, 255, 106, 0.05),
+    0 -4px 24px rgba(57, 255, 106, 0.07),
+    inset 0 1px 0 rgba(57, 255, 106, 0.22),
+    inset 0 0 70px rgba(0, 18, 7, 0.52),
+    inset 2px 0 24px rgba(57, 255, 106, 0.015),
+    inset -2px 0 24px rgba(57, 255, 106, 0.015);
+
+  /* Accept scroll & click events */
+  pointer-events: auto;
+}
+
+/* Expanded: wider sheen covers more of the taller panel */
+.story-overlay.expanded .story-panel::before {
+  border-radius: 16px 16px 0 0;
+  height: 18%;
+  background: linear-gradient(
+    to bottom,
+    rgba(57, 255, 106, 0.065) 0%,
+    rgba(57, 255, 106, 0.02) 55%,
+    transparent 100%
+  );
+}
+
+/* Expanded: scroll area — flex column, text anchored bottom */
+.story-overlay.expanded .story-scroll {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  /* 36px top clears the expand button (20px) + 7px offset + 8px margin;
+     sides and bottom are 8px as requested */
+  padding: 36px 8px 8px 8px;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+/* Custom CRT green scrollbar — visible only when expanded */
+.story-overlay.expanded .story-scroll::-webkit-scrollbar {
+  display: block;
+  width: 5px;
+  background: transparent;
+}
+
+.story-overlay.expanded .story-scroll::-webkit-scrollbar-track {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.story-overlay.expanded .story-scroll::-webkit-scrollbar-thumb {
+  background: rgba(57, 255, 106, 0.52);
+  border-radius: 0;
+  border: none;
+  box-shadow: 0 0 4px rgba(57, 255, 106, 0.28);
+}
+
+.story-overlay.expanded .story-scroll::-webkit-scrollbar-button {
+  display: none;
+  height: 0;
+  width: 0;
 }
 
 /* ── Multiplayer menu styles ───────────────────────────────────────────────── */

@@ -85,6 +85,19 @@
             </div>
           </div>
         </div>
+
+        <!-- Story overlay: floating CRT terminal over game -->
+        <div id="story-overlay" class="story-overlay" aria-live="polite" aria-label="Story">
+          <div id="story-panel" class="story-panel">
+            <!-- Expand/collapse button — upper-right corner of glass pane -->
+            <button id="story-expand-tab" class="story-expand-tab" type="button" aria-label="Toggle story">
+              <span class="story-tab-label">+</span>
+            </button>
+            <div id="story-scroll" class="story-scroll">
+              <ul id="story" class="story-messages"></ul>
+            </div>
+          </div>
+        </div>
       </div>
 
       <aside class="sidebar" id="sidebar">
@@ -118,11 +131,6 @@
         <section class="inventory panel">
           <h2>Inventory</h2>
           <div id="inventory"></div>
-        </section>
-
-        <section class="message-log panel">
-          <h2>Message Log</h2>
-          <ul id="log"></ul>
         </section>
 
       </aside>
@@ -162,6 +170,51 @@
           hpOverlay.classList.toggle("hovered", hovered);
         });
       })();
+
+      // ── Story overlay expand/collapse ────────────────────────
+      const storyOverlay = document.getElementById("story-overlay");
+      const storyPanel = document.getElementById("story-panel");
+      const storyScroll = document.getElementById("story-scroll");
+      const storyExpandTab = document.getElementById("story-expand-tab");
+      const storyTabLabel = storyExpandTab.querySelector(".story-tab-label");
+      const gameArea = storyOverlay.closest(".game-area");
+
+      let storyExpanded = false;
+
+      function setStoryHeight() {
+        if (storyExpanded) {
+          // Panel top at 8px, overlay bottom at 30px → height = H − 38
+          const h = gameArea.clientHeight - 38;
+          storyPanel.style.height = Math.max(200, h) + "px";
+        } else {
+          storyPanel.style.height = "";
+        }
+      }
+
+      storyExpandTab.addEventListener("click", () => {
+        storyExpanded = !storyExpanded;
+        storyOverlay.classList.toggle("expanded", storyExpanded);
+        storyTabLabel.textContent = storyExpanded ? "−" : "+";
+        setStoryHeight();
+        // On expand: jump to newest immediately
+        if (storyExpanded) {
+          storyScroll.scrollTop = storyScroll.scrollHeight;
+        }
+        // Remove focus ring so the button doesn't stay highlighted after click
+        storyExpandTab.blur();
+      });
+
+      // On collapse: wait for the height transition to finish before scrolling
+      // to bottom — setting scrollTop during the animation doesn't stick reliably.
+      storyPanel.addEventListener("transitionend", (e) => {
+        if (e.propertyName === "height" && !storyExpanded) {
+          storyScroll.scrollTop = storyScroll.scrollHeight;
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        if (storyExpanded) setStoryHeight();
+      });
     </script>
   </body>
 </html>

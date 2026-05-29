@@ -147,7 +147,7 @@ class RoomSession {
     });
 
     this.broadcastLobbyUpdate();
-    this.game.addLog(`${name} joined room ${this.id}.`);
+    this.game.addStory(`${name} joined room ${this.id}.`);
   }
 
   public removeClient(socket: WebSocket): void {
@@ -168,7 +168,7 @@ class RoomSession {
       }
     }
 
-    this.game.addLog(`${client.name} left room ${this.id}.`);
+    this.game.addStory(`${client.name} left room ${this.id}.`);
 
     if (this.clients.size === 0) {
       if (this.tickHandle) {
@@ -363,7 +363,7 @@ class RoomSession {
       player.velocityY = 0;
     }
     this.game.removeNetworkPlayer(this.placeholderPlayerId);
-    this.game.addLog("New game started.");
+    this.game.addStory("New game started.");
     this.rebuildPhysics();
     this.broadcastState();
   }
