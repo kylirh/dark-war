@@ -107,6 +107,22 @@ export interface BaseEntity {
   physicsBody?: any; // Body from detect-collisions
 }
 
+export interface InventorySlot {
+  type: ItemType | null;
+}
+
+export const INVENTORY_BAR_SIZE = 12;
+export const INVENTORY_EXTENDED_ROWS = 2;
+export const INVENTORY_TOTAL_SLOTS = INVENTORY_BAR_SIZE * (1 + INVENTORY_EXTENDED_ROWS); // 36
+
+export const STACKABLE_ITEMS: ItemType[] = [
+  ItemType.AMMO,
+  ItemType.GRENADE,
+  ItemType.LAND_MINE,
+  ItemType.KEYCARD,
+  ItemType.POWERCELL,
+];
+
 export interface Player extends BaseEntity {
   kind: EntityKind.PLAYER;
   hpMax: number;
@@ -123,6 +139,8 @@ export interface Player extends BaseEntity {
   ctdmEnabled: boolean;
   ctdmCharge: number;
   ctdmChargeMax: number;
+  inventorySlots: InventorySlot[];
+  selectedBarSlot: number;
 }
 
 export interface Monster extends BaseEntity {

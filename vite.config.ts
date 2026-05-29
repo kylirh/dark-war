@@ -12,7 +12,7 @@ export default defineConfig(({ command }) => ({
   publicDir: command === "serve" ? "app" : false,
 
   server: {
-    port: 5173,
+    port: 5174,
     open: false, // let the preview tool open it
     // Pre-bundle heavy deps so first HMR round-trips are fast
   },

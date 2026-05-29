@@ -14,6 +14,7 @@ import {
 import { passableFor, tileAtFor } from "../../utils/helpers";
 import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
+import { canAddToInventory } from "../../utils/inventory";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../sound";
 import { BulletEntity } from "../../entities/bullet-entity";
@@ -655,18 +656,35 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
     return e.gridX === actor.gridX && e.gridY === actor.gridY;
   });
 
-  if (itemsNearby.length === 0) {
-    pushEvent(state, {
-      type: EventType.MESSAGE,
-      data: { type: "MESSAGE", message: "Nothing to pick up!" },
-    });
-    return;
-  }
+  const player = actor as Player;
+  let anyPickedUp = false;
 
   for (const item of itemsNearby) {
+    const worldItem = item as { type: ItemType };
+    // Medkits and powercells bypass the full-inventory check (auto-consumed)
+    const bypassCheck =
+      worldItem.type === ItemType.MEDKIT ||
+      worldItem.type === ItemType.POWERCELL;
+
+    if (!bypassCheck && !canAddToInventory(player, worldItem.type)) {
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "Inventory full!" },
+      });
+      continue;
+    }
+
     pushEvent(state, {
       type: EventType.PICKUP_ITEM,
       data: { type: "PICKUP_ITEM", actorId: actor.id, itemId: item.id },
+    });
+    anyPickedUp = true;
+  }
+
+  if (!anyPickedUp && itemsNearby.length === 0) {
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "Nothing to pick up!" },
     });
   }
 }

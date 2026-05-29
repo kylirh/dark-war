@@ -1,4 +1,4 @@
-import { Player, SimulationState, WeaponType } from "../types";
+import { Player, SimulationState } from "../types";
 
 export class UI {
   private storyElement: HTMLElement;
@@ -8,7 +8,6 @@ export class UI {
   private hpBarElement: HTMLElement;
   private scoreElement: HTMLElement;
   private gameOverScoreElement: HTMLElement;
-  private inventoryElement: HTMLElement;
   private ctdmSectionElement: HTMLElement;
   private ctdmStatusElement: HTMLElement;
   private ctdmBarElement: HTMLElement;
@@ -24,7 +23,6 @@ export class UI {
     this.hpBarElement = this.getElement("hpbar");
     this.scoreElement = this.getElement("score");
     this.gameOverScoreElement = this.getElement("game-over-score");
-    this.inventoryElement = this.getElement("inventory");
     this.ctdmSectionElement = this.getElement("ctdm-section");
     this.ctdmStatusElement = this.getElement("ctdm-status");
     this.ctdmBarElement = this.getElement("ctdmbar");
@@ -77,50 +75,6 @@ export class UI {
     );
   }
 
-  public updateInventory(player: Player, godMode: boolean): void {
-    const items: string[] = [];
-
-    if (godMode) {
-      items.push("God Mode");
-    }
-
-    switch (player.weapon) {
-      case WeaponType.MELEE:
-        items.push("Weapon: Melee");
-        break;
-      case WeaponType.PISTOL:
-        items.push(`Weapon: Pistol (${player.ammo}/12)`);
-        break;
-      case WeaponType.GRENADE:
-        items.push(`Weapon: Grenade (${player.grenades})`);
-        break;
-      case WeaponType.LAND_MINE:
-        items.push(`Weapon: Land Mine (${player.landMines})`);
-        break;
-      default:
-        break;
-    }
-
-    if (player.ammoReserve > 0) {
-      items.push(`Ammo: ${player.ammoReserve}`);
-    }
-
-    if (player.grenades > 0) {
-      items.push(`Grenades: ${player.grenades}`);
-    }
-
-    if (player.landMines > 0) {
-      items.push(`Land Mines: ${player.landMines}`);
-    }
-
-    if (player.keys > 0) {
-      items.push(`Keycards: ${player.keys}`);
-    }
-
-    this.inventoryElement.textContent =
-      items.length > 0 ? items.join("  •  ") : "Empty";
-  }
-
   public updateStory(messages: string[]): void {
     const newLength = messages.length;
     const hadNewMessages = newLength !== this.lastStoryLength;
@@ -147,10 +101,9 @@ export class UI {
     story: string[],
     sim: SimulationState,
     threatLevel: number,
-    godMode: boolean,
+    _godMode: boolean,
   ): void {
     this.updateStats(player, depth);
-    this.updateInventory(player, godMode);
     this.updateStory(story);
     this.updateCTDM(player, threatLevel);
   }

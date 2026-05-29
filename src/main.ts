@@ -29,11 +29,15 @@ import {
   writeSaveSlot,
 } from "./systems/save-slots";
 import { UI } from "./systems/ui";
+import { InventoryBar } from "./systems/inventory-bar";
+import { CharacterModal, ModalTab } from "./systems/character-modal";
 import {
   CELL_CONFIG,
   CommandData,
   CommandType,
   EntityKind,
+  INVENTORY_BAR_SIZE,
+  ItemType,
   MultiplayerMode,
   REAL_TIME_SPEED,
   SLOWMO_SCALE,
@@ -41,7 +45,17 @@ import {
   TIME_SCALE_TRANSITION_SPEED,
   WeaponType,
 } from "./types";
+import { getWeaponForSlot } from "./utils/inventory";
 import { idxFor, inBoundsFor } from "./utils/helpers";
+
+function weaponToItemType(weapon: WeaponType): ItemType | null {
+  switch (weapon) {
+    case WeaponType.PISTOL: return ItemType.PISTOL;
+    case WeaponType.GRENADE: return ItemType.GRENADE;
+    case WeaponType.LAND_MINE: return ItemType.LAND_MINE;
+    default: return null;
+  }
+}
 import {
   MultiplayerConfig,
   getMultiplayerConfigFromUrl,
@@ -216,6 +230,8 @@ class DarkWar {
   private mouseTracker: MouseTracker;
   private renderer: Renderer;
   private ui: UI;
+  private inventoryBar: InventoryBar;
+  private characterModal: CharacterModal;
   private gameMenu: GameMenu;
   private saveSlotDialog: SaveSlotDialog;
   private preferences: UserPreferences;
@@ -321,7 +337,7 @@ class DarkWar {
       Math.abs(this.wheelDeltaAccumulator) >= SCROLL_WHEEL_DELTA_THRESHOLD
     ) {
       const direction = this.wheelDeltaAccumulator > 0 ? 1 : -1;
-      this.handleCycleWeapon(direction);
+      this.handleCycleSlot(direction);
       this.lastWheelTime = now;
       this.wheelDeltaAccumulator = 0;
     }
@@ -371,6 +387,20 @@ class DarkWar {
     this.ui = new UI();
     if (DEBUG) console.timeEnd("Create UI");
 
+    this.inventoryBar = new InventoryBar();
+    this.inventoryBar.onSlotClick = (idx) => this.handleSelectInventorySlot(idx);
+
+    this.characterModal = new CharacterModal();
+    this.characterModal.onClose = () => this.handleCharacterModalClose();
+    this.characterModal.onWeaponChanged = () => {
+      const state = this.game.getState();
+      const player = state.player;
+      player.weapon = getWeaponForSlot(player.inventorySlots[player.selectedBarSlot]);
+    };
+    this.characterModal.onNewGame = () => this.handleNewGame();
+    this.characterModal.onSave = () => this.handleSave();
+    this.characterModal.onLoad = () => this.handleLoad();
+
     if (DEBUG) console.time("Create GameLoop");
     this.gameLoop = new GameLoop(
       {
@@ -383,7 +413,7 @@ class DarkWar {
 
     // Dialog and menu bridge
     this.gameMenu = new GameMenu({
-      pausesGame: !this.isOnlineMode(),
+      pausesGame: false,
       allowSaveLoad: !this.isOnlineMode(),
       preferences: this.preferences,
       onModalStateChange: (hasOpenModal) =>
@@ -424,6 +454,9 @@ class DarkWar {
       onSave: () => this.handleSave(),
       onLoad: () => this.handleLoad(),
       onSelectWeapon: (slot) => this.handleSelectWeapon(slot),
+      onSelectInventorySlot: (idx) => this.handleSelectInventorySlot(idx),
+      onOpenInventory: (tab) => this.handleOpenInventory(tab),
+      onCycleSlot: (dir) => this.handleCycleSlot(dir),
     };
 
     this.inputHandler = new InputHandler(callbacks, () => this.preferences);
@@ -1172,6 +1205,10 @@ class DarkWar {
       this.currentThreatLevel,
       state.options.godMode,
     );
+    this.inventoryBar.update(state.player);
+    if (this.characterModal.isOpen()) {
+      this.characterModal.renderInventory(state.player);
+    }
 
     const hasVelocity =
       Math.abs(player.velocityX) > 0.05 || Math.abs(player.velocityY) > 0.05;
@@ -1433,6 +1470,19 @@ class DarkWar {
       return;
     }
 
+    // Try to find the slot in the inventory bar that holds this weapon type
+    const weaponItemType = weaponToItemType(weapon);
+    if (weaponItemType !== null) {
+      const barSlot = player.inventorySlots
+        .slice(0, INVENTORY_BAR_SIZE)
+        .findIndex((s) => s.type === weaponItemType);
+      if (barSlot >= 0) {
+        player.selectedBarSlot = barSlot;
+      }
+    } else {
+      // Melee: find first empty bar slot or just keep current
+    }
+
     player.weapon = weapon;
     this.game.addStory(`Weapon set: ${weapon}.`);
   }
@@ -1458,6 +1508,58 @@ class DarkWar {
 
     player.weapon = weapons[nextIndex];
     this.game.addStory(`Weapon set: ${player.weapon}.`);
+  }
+
+  private handleSelectInventorySlot(slotIndex: number): void {
+    if (slotIndex < 0 || slotIndex >= INVENTORY_BAR_SIZE) return;
+
+    const state = this.game.getState();
+    const player = state.player;
+
+    if (this.isOnlineMode()) {
+      // In online mode, map slot to legacy weapon slot for compatibility
+      this.selectOnlineWeapon(slotIndex + 1);
+      return;
+    }
+
+    player.selectedBarSlot = slotIndex;
+    player.weapon = getWeaponForSlot(player.inventorySlots[slotIndex]);
+  }
+
+  private handleCycleSlot(direction: number): void {
+    const state = this.game.getState();
+    const player = state.player;
+    const next =
+      (player.selectedBarSlot + direction + INVENTORY_BAR_SIZE) % INVENTORY_BAR_SIZE;
+    this.handleSelectInventorySlot(next);
+  }
+
+  private handleOpenInventory(tab: "inventory" | "game"): void {
+    const state = this.game.getState();
+
+    if (this.characterModal.isOpen()) {
+      if (this.characterModal.currentTab === tab) {
+        // Same tab pressed again → close
+        this.characterModal.close();
+      } else {
+        // Different tab → switch
+        this.characterModal.open(tab as ModalTab, state.player);
+      }
+      return;
+    }
+
+    if (!this.isOnlineMode()) {
+      this.gameLoop.pause();
+    }
+    this.inventoryBar.setVisible(false);
+    this.characterModal.open(tab as ModalTab, state.player);
+  }
+
+  private handleCharacterModalClose(): void {
+    this.inventoryBar.setVisible(true);
+    if (!this.isOnlineMode()) {
+      this.gameLoop.resume();
+    }
   }
 
   /**
@@ -1950,6 +2052,9 @@ class DarkWar {
     this.introStory?.dispose();
     this.introStory = null;
     this.saveSlotDialog.dispose();
+    this.characterModal.close();
+    this.characterModal.dispose();
+    this.inventoryBar.dispose();
   }
 }
 

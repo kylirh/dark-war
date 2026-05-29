@@ -25,6 +25,7 @@ import {
 } from "./constants";
 import { pushEvent, getEventDepth, getClosestPlayer } from "./sim-helpers";
 import { triggerExplosion } from "./explosives";
+import { addToInventory } from "../../utils/inventory";
 
 export function processEventQueue(state: GameState): void {
   let processed = 0;
@@ -551,6 +552,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
     case ItemType.AMMO: {
       const amount = item.amount ?? 24;
       player.ammoReserve += amount;
+      addToInventory(player, ItemType.AMMO);
       pushEvent(state, {
         type: EventType.MESSAGE,
         data: {
@@ -563,6 +565,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
     }
     case ItemType.KEYCARD:
       player.keys++;
+      addToInventory(player, ItemType.KEYCARD);
       pushEvent(state, {
         type: EventType.MESSAGE,
         data: { type: "MESSAGE", message: "You pick up a keycard." },
@@ -570,16 +573,28 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       });
       break;
     case ItemType.PISTOL:
-      player.weapon = WeaponType.PISTOL;
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "You pick up a pistol." },
-        cause: event.id,
-      });
+      if (!player.inventorySlots.some((s) => s.type === ItemType.PISTOL)) {
+        addToInventory(player, ItemType.PISTOL);
+        player.weapon = WeaponType.PISTOL;
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "You pick up a pistol." },
+          cause: event.id,
+        });
+      } else {
+        // Already have a pistol — convert to ammo
+        player.ammoReserve += 12;
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "You already have a pistol. +12 ammo." },
+          cause: event.id,
+        });
+      }
       break;
     case ItemType.GRENADE: {
       const amount = item.amount ?? 1;
       player.grenades += amount;
+      addToInventory(player, ItemType.GRENADE);
       pushEvent(state, {
         type: EventType.MESSAGE,
         data: { type: "MESSAGE", message: "You pick up a grenade." },
@@ -590,6 +605,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
     case ItemType.LAND_MINE: {
       const amount = item.amount ?? 1;
       player.landMines += amount;
+      addToInventory(player, ItemType.LAND_MINE);
       pushEvent(state, {
         type: EventType.MESSAGE,
         data: { type: "MESSAGE", message: "You pick up a land mine." },
@@ -598,19 +614,28 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       break;
     }
     case ItemType.CTDM:
-      player.hasCTDM = true;
-      player.ctdmEnabled = true;
-      if (player.ctdmCharge <= 0) {
-        player.ctdmCharge = Math.floor(player.ctdmChargeMax * 0.5);
+      if (!player.hasCTDM) {
+        player.hasCTDM = true;
+        player.ctdmEnabled = true;
+        if (player.ctdmCharge <= 0) {
+          player.ctdmCharge = Math.floor(player.ctdmChargeMax * 0.5);
+        }
+        addToInventory(player, ItemType.CTDM);
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: {
+            type: "MESSAGE",
+            message: "CTDM installed. Danger now triggers time dilation.",
+          },
+          cause: event.id,
+        });
+      } else {
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "CTDM already installed." },
+          cause: event.id,
+        });
       }
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: {
-          type: "MESSAGE",
-          message: "CTDM installed. Danger now triggers time dilation.",
-        },
-        cause: event.id,
-      });
       break;
     case ItemType.POWERCELL: {
       const recharge = item.amount ?? 25;

@@ -24,6 +24,9 @@ export interface InputCallbacks {
   onSave: () => void;
   onLoad: () => void;
   onSelectWeapon: (slot: number) => void;
+  onSelectInventorySlot: (slotIndex: number) => void;
+  onOpenInventory: (tab: "inventory" | "game") => void;
+  onCycleSlot: (direction: number) => void;
 }
 
 export class InputHandler {
@@ -54,15 +57,34 @@ export class InputHandler {
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
-    if (
-      e.defaultPrevented ||
-      document.body.classList.contains("imb-modal-open")
-    ) {
+    if (e.defaultPrevented) return;
+
+    // Allow Escape and E to work even when modal-open (for closing/switching)
+    const isModalOpen = document.body.classList.contains("imb-modal-open");
+    const key = e.key.toLowerCase();
+    const code = e.code;
+
+    if (key === "escape") {
+      if (e.defaultPrevented) return; // already handled (e.g. GameMenu modal close)
+      e.preventDefault();
+      if (isModalOpen) {
+        this.callbacks.onOpenInventory("game");
+      } else if (this.fireMode) {
+        this.fireMode = false;
+      } else {
+        this.callbacks.onOpenInventory("game");
+      }
       return;
     }
 
-    const key = e.key.toLowerCase();
-    const code = e.code;
+    if (key === "e") {
+      e.preventDefault();
+      this.callbacks.onOpenInventory("inventory");
+      return;
+    }
+
+    if (isModalOpen) return;
+
     const preferences = this.getPreferences();
 
     if (e.metaKey || e.ctrlKey) {
@@ -81,6 +103,18 @@ export class InputHandler {
         this.callbacks.onNewGame();
         return;
       }
+    }
+
+    // Inventory hot-bar slot selection: 1–9 → slots 0–8, 0 → slot 9, - → slot 10, =/+ → slot 11
+    const slotMap: Record<string, number> = {
+      Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
+      Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8,
+      Digit0: 9, Minus: 10, Equal: 11,
+    };
+    if (code in slotMap) {
+      e.preventDefault();
+      this.callbacks.onSelectInventorySlot(slotMap[code]);
+      return;
     }
 
     if (this.isActionCode("weapon1", code, preferences)) {
@@ -137,15 +171,6 @@ export class InputHandler {
         this.keysPressed.moveRight = true;
         this.lastInteractDirection = [1, 0];
         this.updateVelocity();
-      }
-      return;
-    }
-
-    // Escape key - cancel any active input mode
-    if (key === "escape") {
-      e.preventDefault();
-      if (this.fireMode) {
-        this.fireMode = false;
       }
       return;
     }
