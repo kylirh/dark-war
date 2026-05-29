@@ -5,6 +5,7 @@ import { Physics } from "../src/systems/physics";
 import { stepSimulationTick } from "../src/systems/simulation/tick";
 import { enqueueCommand } from "../src/systems/simulation/commands";
 import { SIM_DT_MS } from "../src/systems/simulation/constants";
+import { PROTOCOL_VERSION } from "../src/net/protocol";
 import { Sound } from "../src/systems/sound";
 import { CommandType, EntityKind, SLOWMO_SCALE, TIME_SCALE_TRANSITION_SPEED, WeaponType } from "../src/types";
 
@@ -29,8 +30,8 @@ type IncomingAction =
   | { type: "TOGGLE_GOD_MODE" };
 
 type IncomingMessage2 =
-  | { type: "velocity"; vx: number; vy: number }
-  | { type: "action"; action: IncomingAction }
+  | { type: "velocity"; vx: number; vy: number; seq?: number }
+  | { type: "action"; action: IncomingAction; seq?: number }
   | { type: "select_weapon"; slot: number }
   | { type: "new_game" }
   | { type: "start_game" }
@@ -40,6 +41,9 @@ interface RoomClient {
   socket: WebSocket;
   playerId: string;
   name: string;
+  // Highest input seq we have processed from this client, echoed back in
+  // state messages so the client can reconcile its prediction.
+  lastProcessedSeq: number;
 }
 
 // ─── Validation helpers ────────────────────────────────────────────────────────
@@ -125,7 +129,7 @@ class RoomSession {
   public addClient(socket: WebSocket, name: string): void {
     const playerId = crypto.randomUUID();
     const wasEmpty = this.clients.size === 0;
-    const client: RoomClient = { socket, playerId, name };
+    const client: RoomClient = { socket, playerId, name, lastProcessedSeq: 0 };
     this.clients.set(socket, client);
 
     if (wasEmpty) {
@@ -144,6 +148,7 @@ class RoomSession {
       playerId,
       roomId: this.id,
       isHost: playerId === this.hostPlayerId,
+      protocolVersion: PROTOCOL_VERSION,
     });
 
     this.broadcastLobbyUpdate();
@@ -220,6 +225,7 @@ class RoomSession {
     if (this.phase !== "playing") return;
 
     if (message.type === "velocity") {
+      this.recordProcessedSeq(client, message.seq);
       this.applyVelocity(client.playerId, message.vx, message.vy);
       return;
     }
@@ -228,6 +234,7 @@ class RoomSession {
         this.send(socket, { type: "error", message: "Invalid action." });
         return;
       }
+      this.recordProcessedSeq(client, message.seq);
       this.applyAction(client.playerId, message.action);
       return;
     }
@@ -264,6 +271,13 @@ class RoomSession {
   }
 
   // ── Private: velocity / actions ─────────────────────────────────────────────
+
+  private recordProcessedSeq(client: RoomClient, seq: number | undefined): void {
+    const value = toFiniteNumber(seq);
+    if (value !== null && value > client.lastProcessedSeq) {
+      client.lastProcessedSeq = value;
+    }
+  }
 
   private applyVelocity(playerId: string, vx: number, vy: number): void {
     const player = this.game.getPlayerById(playerId);
@@ -474,7 +488,11 @@ class RoomSession {
   private broadcastState(): void {
     for (const client of this.clients.values()) {
       const payload = this.game.serializeForPlayer(client.playerId);
-      this.send(client.socket, { type: "state", state: payload });
+      this.send(client.socket, {
+        type: "state",
+        state: payload,
+        ackSeq: client.lastProcessedSeq,
+      });
     }
     this.game.getState().pendingSounds.length = 0;
   }

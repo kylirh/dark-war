@@ -1,4 +1,5 @@
 import { SerializedState } from "../types";
+import { PROTOCOL_VERSION } from "./protocol";
 
 export interface LobbyPlayer {
   id: string;
@@ -23,9 +24,9 @@ export type NetworkAction =
   | { type: "TOGGLE_GOD_MODE" };
 
 type ServerMessage =
-  | { type: "welcome"; playerId: string; roomId: string; isHost: boolean }
+  | { type: "welcome"; playerId: string; roomId: string; isHost: boolean; protocolVersion?: number }
   | { type: "lobby_update"; players: LobbyPlayer[]; roomId: string; phase: "lobby" | "playing" }
-  | { type: "state"; state: SerializedState }
+  | { type: "state"; state: SerializedState; ackSeq?: number }
   | { type: "error"; message: string };
 
 export class MultiplayerClient {
@@ -38,6 +39,11 @@ export class MultiplayerClient {
   private shouldReconnect = true;
   private localPlayerId: string | null = null;
   private isHost = false;
+  // Monotonic id stamped on every input so the server can tell us which of
+  // our inputs it has processed (drives client-side reconciliation).
+  private inputSeq = 0;
+  // Highest input seq the server has acknowledged in a state message.
+  private lastAckedSeq = 0;
 
   private onStateCallback?: (state: SerializedState) => void;
   private onConnectedCallback?: (playerId: string, roomId: string, isHost: boolean) => void;
@@ -139,12 +145,26 @@ export class MultiplayerClient {
 
   // ── Send actions ─────────────────────────────────────────────────────────────
 
-  public sendVelocity(vx: number, vy: number): void {
-    this.send({ type: "velocity", vx: Number.isFinite(vx) ? vx : 0, vy: Number.isFinite(vy) ? vy : 0 });
+  /**
+   * Send a velocity update. Returns the input seq stamped on it so the caller
+   * can record it in its prediction buffer for later reconciliation.
+   */
+  public sendVelocity(vx: number, vy: number): number {
+    const seq = ++this.inputSeq;
+    this.send({ type: "velocity", vx: Number.isFinite(vx) ? vx : 0, vy: Number.isFinite(vy) ? vy : 0, seq });
+    return seq;
   }
 
-  public sendAction(action: NetworkAction): void {
-    this.send({ type: "action", action });
+  /** Send a player action. Returns the input seq stamped on it. */
+  public sendAction(action: NetworkAction): number {
+    const seq = ++this.inputSeq;
+    this.send({ type: "action", action, seq });
+    return seq;
+  }
+
+  /** Highest input seq the server has acknowledged processing. */
+  public getLastAckedSeq(): number {
+    return this.lastAckedSeq;
   }
 
   public selectWeapon(slot: number): void {
@@ -197,8 +217,22 @@ export class MultiplayerClient {
 
     if (message.type === "welcome") {
       if (typeof message.playerId !== "string" || typeof message.roomId !== "string") return;
+      if (
+        typeof message.protocolVersion === "number" &&
+        message.protocolVersion !== PROTOCOL_VERSION
+      ) {
+        // Incompatible build — stop trying to play rather than desync silently.
+        this.shouldReconnect = false;
+        this.onErrorCallback?.(
+          `Incompatible server (protocol v${message.protocolVersion}, expected v${PROTOCOL_VERSION}). Update the game.`,
+        );
+        this.disconnect();
+        return;
+      }
       this.localPlayerId = message.playerId;
       this.isHost = message.isHost;
+      this.inputSeq = 0;
+      this.lastAckedSeq = 0;
       this.onConnectedCallback?.(message.playerId, message.roomId, message.isHost);
       return;
     }
@@ -215,6 +249,9 @@ export class MultiplayerClient {
 
     if (message.type === "state") {
       if (message.state == null || typeof message.state !== "object") return;
+      if (typeof message.ackSeq === "number" && message.ackSeq > this.lastAckedSeq) {
+        this.lastAckedSeq = message.ackSeq;
+      }
       this.onStateCallback?.(message.state);
       return;
     }
