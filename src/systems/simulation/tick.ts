@@ -35,6 +35,13 @@ import {
   resolveCommand,
 } from "./commands";
 
+function positiveAmount(value: number | undefined, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.max(1, Math.floor(value));
+  }
+  return fallback;
+}
+
 // ========================================
 // Main Simulation Tick
 // ========================================
@@ -160,25 +167,25 @@ function processMonsterItemPickups(state: GameState): void {
       switch (item.type) {
         case ItemType.MEDKIT:
           if (!isFleeing) continue;
-          monster.hp = Math.min(hpMax, monster.hp + (item.heal ?? 20));
+          monster.hp = Math.min(hpMax, monster.hp + positiveAmount(item.heal, 20));
           break;
         case ItemType.GRENADE:
-          monster.grenades += item.amount ?? 1;
+          monster.grenades += positiveAmount(item.amount, 1);
           break;
         case ItemType.LAND_MINE:
-          monster.landMines += item.amount ?? 1;
+          monster.landMines += positiveAmount(item.amount, 1);
           break;
         case ItemType.AMMO:
           if (monster.type === MonsterType.SKULKER) {
             // Skulkers reload directly from ammo pickups
             monster.bullets = Math.min(
               SKULKER_MAX_BULLETS,
-              monster.bullets + (item.amount ?? 8),
+              monster.bullets + positiveAmount(item.amount, 8),
             );
           } else {
             monster.carriedItems.push({
               type: ItemType.AMMO,
-              amount: item.amount,
+              amount: positiveAmount(item.amount, 8),
             });
           }
           break;
@@ -198,7 +205,7 @@ function processMonsterItemPickups(state: GameState): void {
         case ItemType.POWERCELL:
           monster.carriedItems.push({
             type: ItemType.POWERCELL,
-            amount: item.amount,
+            amount: positiveAmount(item.amount, 25),
           });
           break;
       }

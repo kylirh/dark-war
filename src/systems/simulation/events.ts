@@ -27,6 +27,13 @@ import { pushEvent, getEventDepth, getClosestPlayer } from "./sim-helpers";
 import { triggerExplosion } from "./explosives";
 import { addToInventory } from "../../utils/inventory";
 
+function positiveAmount(value: number | undefined, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.max(1, Math.floor(value));
+  }
+  return fallback;
+}
+
 export function processEventQueue(state: GameState): void {
   let processed = 0;
   let head = 0;
@@ -540,7 +547,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
 
   switch (item.type) {
     case ItemType.MEDKIT: {
-      const heal = item.heal ?? 20;
+      const heal = positiveAmount(item.heal, 20);
       player.hp = Math.min(player.hpMax, player.hp + heal);
       pushEvent(state, {
         type: EventType.MESSAGE,
@@ -550,7 +557,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       break;
     }
     case ItemType.AMMO: {
-      const amount = item.amount ?? 24;
+      const amount = positiveAmount(item.amount, 24);
       player.ammoReserve += amount;
       addToInventory(player, ItemType.AMMO);
       pushEvent(state, {
@@ -592,7 +599,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       }
       break;
     case ItemType.GRENADE: {
-      const amount = item.amount ?? 1;
+      const amount = positiveAmount(item.amount, 1);
       player.grenades += amount;
       addToInventory(player, ItemType.GRENADE);
       pushEvent(state, {
@@ -603,7 +610,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       break;
     }
     case ItemType.LAND_MINE: {
-      const amount = item.amount ?? 1;
+      const amount = positiveAmount(item.amount, 1);
       player.landMines += amount;
       addToInventory(player, ItemType.LAND_MINE);
       pushEvent(state, {
@@ -638,7 +645,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       }
       break;
     case ItemType.POWERCELL: {
-      const recharge = item.amount ?? 25;
+      const recharge = positiveAmount(item.amount, 25);
       player.ctdmCharge = Math.min(
         player.ctdmChargeMax,
         player.ctdmCharge + recharge,

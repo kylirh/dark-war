@@ -651,7 +651,7 @@ export class Game {
       for (let i = 0; i < count && freeTiles.length > 0; i++) {
         const tileIndex = RNG.int(freeTiles.length);
         const [x, y] = freeTiles[tileIndex];
-        entities.push(new ItemEntity(x, y, type, amount ?? 0));
+        entities.push(new ItemEntity(x, y, type, amount));
         freeTiles.splice(tileIndex, 1);
       }
     };
@@ -1137,7 +1137,7 @@ export class Game {
           gridX,
           gridY,
           (entity as Item).type,
-          (entity as Item).amount ?? 0,
+          (entity as Item).amount,
         );
         Object.assign(item, entity);
         this.syncWorldPosition(item, entity);
