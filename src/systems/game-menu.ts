@@ -46,6 +46,7 @@ interface GameMenuOptions {
   preferences: UserPreferences;
   allowPauseMenuClose?: boolean;
   canContinue?: boolean;
+  mainMenuPresentation?: boolean;
   onModalStateChange?: (hasOpenModal: boolean) => void;
   onPreferencesChange?: (preferences: UserPreferences) => void;
   onNewGame?: () => void;
@@ -80,6 +81,7 @@ export class RetroModal {
   public readonly element: HTMLElement;
   private readonly titlebar: HTMLElement;
   private readonly onClose: () => void;
+  private previouslyFocusedElement: HTMLElement | null = null;
   private dragOffsetX = 0;
   private dragOffsetY = 0;
   private isDragging = false;
@@ -91,6 +93,7 @@ export class RetroModal {
     this.element = document.createElement("div");
     this.element.id = options.id;
     this.element.className = `imb-dialog hidden ${options.className ?? ""}`.trim();
+    this.element.tabIndex = -1;
     this.element.dataset.centerOnOpen = String(options.centerOnOpen ?? false);
     this.element.style.top = `${options.initialPosition.top}px`;
     this.element.style.left = `${options.initialPosition.left}px`;
@@ -116,6 +119,7 @@ export class RetroModal {
     this.titlebar.addEventListener("mousedown", (event) => this.startDrag(event));
     this.element.querySelector("[data-close]")?.addEventListener("click", () => this.hide());
     this.element.addEventListener("mousedown", () => this.bringToFront());
+    this.element.addEventListener("keydown", (event) => this.handleKeyDown(event));
 
     if (options.onOpen) {
       this.element.addEventListener("retro-modal-open", options.onOpen);
@@ -124,10 +128,13 @@ export class RetroModal {
 
   public show(): void {
     this.element.classList.remove("hidden");
+    this.previouslyFocusedElement =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     if (this.element.dataset.centerOnOpen === "true") this.centerInViewport();
     this.clampToViewport();
     this.bringToFront();
     this.element.dispatchEvent(new CustomEvent("retro-modal-open"));
+    this.focusInitialControl();
   }
 
   public hide(): void {
@@ -135,6 +142,10 @@ export class RetroModal {
     this.element.classList.add("hidden");
     this.stopDrag();
     this.onClose();
+    if (this.previouslyFocusedElement?.isConnected) {
+      this.previouslyFocusedElement.focus();
+    }
+    this.previouslyFocusedElement = null;
   }
 
   public isOpen(): boolean {
@@ -180,6 +191,48 @@ export class RetroModal {
     document.removeEventListener("mouseup", this.onMouseUp);
   }
 
+  private handleKeyDown(event: KeyboardEvent): void {
+    if (event.key !== "Tab") return;
+
+    const focusable = this.getFocusableElements();
+    if (focusable.length === 0) {
+      event.preventDefault();
+      this.element.focus();
+      return;
+    }
+
+    const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
+    const lastIndex = focusable.length - 1;
+    const nextIndex = event.shiftKey
+      ? currentIndex <= 0 ? lastIndex : currentIndex - 1
+      : currentIndex === lastIndex ? 0 : currentIndex + 1;
+
+    if (nextIndex !== currentIndex) {
+      event.preventDefault();
+      focusable[nextIndex].focus();
+    }
+  }
+
+  private focusInitialControl(): void {
+    const preferred = this.element.querySelector<HTMLElement>("[data-initial-focus='true']");
+    const target = preferred ?? this.getFocusableElements()[0] ?? this.element;
+    target.focus();
+  }
+
+  private getFocusableElements(): HTMLElement[] {
+    const selector = [
+      "button:not([disabled])",
+      "input:not([disabled]):not([type='hidden'])",
+      "select:not([disabled])",
+      "textarea:not([disabled])",
+      "a[href]",
+      "[tabindex]:not([tabindex='-1'])",
+    ].join(",");
+
+    return Array.from(this.element.querySelectorAll<HTMLElement>(selector))
+      .filter((el) => !el.closest(".hidden") && el.offsetParent !== null);
+  }
+
   private clampToViewport(): void {
     const rect = this.element.getBoundingClientRect();
     const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
@@ -220,6 +273,7 @@ export class GameMenu {
   private pauseMenuMessage: string | null = null;
   private listeningForKey: KeyBindingAction | null = null;
   private canContinue: boolean;
+  private shouldFocusPauseMenu = false;
 
   // Multiplayer state
   private mpPlayerName = "Player";
@@ -287,7 +341,7 @@ export class GameMenu {
     const pauseDialog = new RetroModal({
       id: "pause-dialog",
       title: "Dark War",
-      className: "imb-pause-dialog",
+      className: `imb-pause-dialog${this.options.mainMenuPresentation ? " imb-main-menu-dialog" : ""}`,
       centerOnOpen: true,
       initialPosition: { top: 96, left: 96 },
       onOpen: () => this.syncPauseMenu(),
@@ -351,7 +405,8 @@ export class GameMenu {
               </div>
             </div>
             <label class="imb-checkbox-row">
-              <input id="dev-tools-toggle" type="checkbox" />
+              <input class="imb-checkbox-input" id="dev-tools-toggle" type="checkbox" />
+              <span class="imb-checkbox-box" aria-hidden="true"></span>
               <span>Dev Tools</span>
             </label>
             <div class="imb-dev-tools-panel hidden" data-dev-tools-panel>
@@ -991,6 +1046,7 @@ export class GameMenu {
       nextSelection = (nextSelection + delta + this.pauseItems.length) % this.pauseItems.length;
       if (this.isPauseItemEnabled(this.pauseItems[nextSelection])) {
         this.pauseMenuSelection = nextSelection;
+        this.shouldFocusPauseMenu = true;
         break;
       }
     }
@@ -1036,6 +1092,10 @@ export class GameMenu {
   }
 
   private syncPauseMenu(): void {
+    document
+      .querySelectorAll<HTMLElement>("#pause-dialog [data-initial-focus]")
+      .forEach((el) => el.removeAttribute("data-initial-focus"));
+
     document.querySelectorAll<HTMLElement>("[data-pause-view]").forEach((view) => {
       view.classList.toggle("hidden", view.dataset.pauseView !== this.pauseMenuView);
     });
@@ -1050,6 +1110,9 @@ export class GameMenu {
       button.setAttribute("aria-selected", String(isSelected));
       button.setAttribute("aria-disabled", String(!isEnabled));
       if (button instanceof HTMLButtonElement) button.disabled = !isEnabled;
+      if (this.pauseMenuView === "main" && isSelected && isEnabled) {
+        button.dataset.initialFocus = "true";
+      }
     });
 
     const message = document.getElementById("pause-menu-message");
@@ -1081,6 +1144,23 @@ export class GameMenu {
       const portInput = document.getElementById("mp-join-port") as HTMLInputElement | null;
       if (nameInput && !nameInput.value) nameInput.value = this.mpPlayerName;
       if (portInput && !portInput.value) portInput.value = "7777";
+    }
+
+    if (this.pauseMenuView !== "main") {
+      const visibleView = document.querySelector<HTMLElement>(
+        `[data-pause-view="${this.pauseMenuView}"]`,
+      );
+      const focusTarget = visibleView?.querySelector<HTMLElement>(
+        "button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
+      );
+      focusTarget?.setAttribute("data-initial-focus", "true");
+    }
+
+    if (this.shouldFocusPauseMenu) {
+      this.shouldFocusPauseMenu = false;
+      document
+        .querySelector<HTMLElement>("#pause-dialog [data-initial-focus='true']")
+        ?.focus();
     }
   }
 
@@ -1186,6 +1266,7 @@ export class GameMenu {
     this.pauseMenuView = view;
     this.pauseMenuMessage = null;
     this.listeningForKey = null;
+    this.shouldFocusPauseMenu = true;
     this.syncPauseMenu();
   }
 
@@ -1275,6 +1356,7 @@ export class GameMenu {
     this.pauseMenuSelection = this.getInitialPauseSelection();
     this.pauseMenuMessage = null;
     this.listeningForKey = null;
+    this.shouldFocusPauseMenu = true;
     this.showModal("pause-dialog");
   }
 

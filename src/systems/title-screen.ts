@@ -1,13 +1,22 @@
+/**
+ * Initial lightning artwork shown before the main menu window is created.
+ */
+interface TitleScreenOptions {
+  sfxVolume: number;
+}
+
 export class TitleScreen {
   private overlay: HTMLElement;
   private onDismiss: () => void;
+  private readonly sfxVolume: number;
   private introAudio: HTMLAudioElement | null = null;
   private dismissed = false;
   private completed = false;
   private dismissHandler?: () => void;
 
-  constructor(onDismiss: () => void) {
+  constructor(onDismiss: () => void, options: TitleScreenOptions) {
     this.onDismiss = onDismiss;
+    this.sfxVolume = Math.max(0, Math.min(1, options.sfxVolume));
     this.overlay = this.createOverlay();
     document.body.appendChild(this.overlay);
     this.playIntro();
@@ -31,7 +40,7 @@ export class TitleScreen {
 
   private playIntro(): void {
     this.introAudio = new Audio("assets/sounds/intro.ogg");
-    this.introAudio.volume = 0.8;
+    this.introAudio.volume = 0.8 * this.sfxVolume;
     this.introAudio.play().catch(() => {});
   }
 

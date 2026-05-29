@@ -82,7 +82,7 @@ const INTRO_STORY_SLIDES: IntroStorySlide[] = [
 ];
 
 /**
- * Modal-style story viewer for the single-player intro sequence.
+ * Full-window story viewer for the single-player intro sequence.
  */
 export class IntroStory {
   private readonly overlay: HTMLElement;
@@ -128,11 +128,7 @@ export class IntroStory {
     this.overlay.className = "intro-story-overlay";
     this.overlay.innerHTML = `
       <section class="intro-story-window" role="dialog" aria-modal="true" aria-labelledby="intro-story-title">
-        <div class="intro-story-titlebar">
-          <div class="intro-story-stripes"></div>
-          <h1 id="intro-story-title">Mission Briefing</h1>
-          <div class="intro-story-stripes"></div>
-        </div>
+        <h1 id="intro-story-title" class="intro-story-heading">Mission Briefing</h1>
         <div class="intro-story-body">
           <figure class="intro-story-figure">
             <img class="intro-story-image" alt="" />

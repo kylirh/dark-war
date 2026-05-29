@@ -1965,6 +1965,7 @@ class MainMenuApp implements DarkWarApplication {
       pausesGame: false,
       allowPauseMenuClose: false,
       canContinue: false,
+      mainMenuPresentation: true,
       preferences: this.preferences,
       onPreferencesChange: (preferences) =>
         this.handlePreferencesChange(preferences),
@@ -2323,12 +2324,13 @@ const createDarkWarApp = (): void => {
 
   document.documentElement.classList.add("title-screen-active");
   document.body.classList.add("title-screen-active");
+  const savedPreferences = loadPreferences();
   new TitleScreen(() => {
     retroWindowChrome.transitionFromIntro().then((didCreateGameWindow) => {
       if (didCreateGameWindow) return;
       showMainMenu();
     });
-  });
+  }, { sfxVolume: savedPreferences.sfxVolume });
 };
 
 if (document.readyState === "loading") {
