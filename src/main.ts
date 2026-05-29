@@ -130,9 +130,16 @@ declare global {
         saves: Array<{ slot: number; data: string }>;
         error?: string;
       }>;
-      saveWriteSlot: (slot: number, data: string) => Promise<{ ok: boolean; error?: string }>;
-      saveReadSlot: (slot: number) => Promise<{ ok: boolean; data?: string | null; error?: string }>;
-      saveDeleteSlot: (slot: number) => Promise<{ ok: boolean; error?: string }>;
+      saveWriteSlot: (
+        slot: number,
+        data: string,
+      ) => Promise<{ ok: boolean; error?: string }>;
+      saveReadSlot: (
+        slot: number,
+      ) => Promise<{ ok: boolean; data?: string | null; error?: string }>;
+      saveDeleteSlot: (
+        slot: number,
+      ) => Promise<{ ok: boolean; error?: string }>;
       // Game menu callbacks
       onNewGame: (callback: () => void) => void;
       onSaveGame: (callback: () => void) => void;
@@ -1077,9 +1084,7 @@ class DarkWar {
 
     // Compute CTDM threat level when the device is active
     this.currentThreatLevel =
-      player.hasCTDM && player.ctdmEnabled
-        ? musicThreatLevel
-        : 0;
+      player.hasCTDM && player.ctdmEnabled ? musicThreatLevel : 0;
     Music.updateForGameState(state, musicThreatLevel);
 
     // Update target time scale based on CTDM status and threat
@@ -1966,8 +1971,14 @@ class MainMenuApp implements DarkWarApplication {
   private mpGameName = "Dark War";
 
   constructor(
-    private readonly startGame: (mode: InitialGameMode, loadSlot?: number) => void,
-    private readonly startOnlineGame: (client: MultiplayerClient, playerName: string) => void,
+    private readonly startGame: (
+      mode: InitialGameMode,
+      loadSlot?: number,
+    ) => void,
+    private readonly startOnlineGame: (
+      client: MultiplayerClient,
+      playerName: string,
+    ) => void,
   ) {
     this.preferences = loadPreferences();
     this.applyPreferences();
@@ -2337,7 +2348,10 @@ const createDarkWarApp = (): void => {
     window.darkWarApp?.dispose();
     Music.setScene("outside-peaceful");
     Music.play();
-    window.darkWarApp = new DarkWar({ initialGame: mode, initialLoadSlot: loadSlot });
+    window.darkWarApp = new DarkWar({
+      initialGame: mode,
+      initialLoadSlot: loadSlot,
+    });
   };
 
   const startOnlineGame = (

@@ -177,15 +177,18 @@ function makeDistortionCurve(amount: number): Float32Array<ArrayBuffer> {
   const drive = Math.max(1, amount);
   for (let i = 0; i < samples; i += 1) {
     const x = (i * 2) / samples - 1;
-    curve[i] = ((3 + drive) * x * 20 * (Math.PI / 180)) /
+    curve[i] =
+      ((3 + drive) * x * 20 * (Math.PI / 180)) /
       (Math.PI + drive * Math.abs(x));
   }
   return curve;
 }
 
 function getAudioContextConstructor(): AudioContextConstructor | undefined {
-  return globalThis.AudioContext ??
-    (globalThis as LegacyAudioGlobal).webkitAudioContext;
+  return (
+    globalThis.AudioContext ??
+    (globalThis as LegacyAudioGlobal).webkitAudioContext
+  );
 }
 
 class MusicPlayer {
@@ -293,7 +296,9 @@ class MusicPlayer {
   public updateForGameState(state: GameState, threatLevel: number): void {
     const player = state.player;
     const hpRatio = player.hpMax > 0 ? clamp01(player.hp / player.hpMax) : 1;
-    const enemyWeights: Record<MonsterType, number> = { ...DEFAULT_ENEMY_WEIGHTS };
+    const enemyWeights: Record<MonsterType, number> = {
+      ...DEFAULT_ENEMY_WEIGHTS,
+    };
     const explorationRatio = this.computeExplorationRatio(state);
     let enemyCount = 0;
     let visibleAlerted = 0;
@@ -309,19 +314,26 @@ class MusicPlayer {
         const dy = entity.worldY - player.worldY;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const near = dist < 32 * 14;
-        const visible = state.visible.has(entity.gridY * state.mapWidth + entity.gridX);
+        const visible = state.visible.has(
+          entity.gridY * state.mapWidth + entity.gridX,
+        );
         const alert = clamp01((entity.alertLevel ?? 0) / 100);
-        const pressure = clamp01((near ? 0.35 : 0) + (visible ? 0.35 : 0) + alert * 0.45);
+        const pressure = clamp01(
+          (near ? 0.35 : 0) + (visible ? 0.35 : 0) + alert * 0.45,
+        );
 
         if (pressure > enemyWeights[entity.type]) {
           enemyWeights[entity.type] = pressure;
         }
         if (visible && alert > 0.2) visibleAlerted += 1;
         if (near) nearbyMonsters += 1;
-      } else if (entity.kind === EntityKind.BULLET && entity.ownerId !== player.id) {
+      } else if (
+        entity.kind === EntityKind.BULLET &&
+        entity.ownerId !== player.id
+      ) {
         const dx = entity.worldX - player.worldX;
         const dy = entity.worldY - player.worldY;
-        if (dx * dx + dy * dy < (32 * 8) * (32 * 8)) incomingBullets += 1;
+        if (dx * dx + dy * dy < 32 * 8 * (32 * 8)) incomingBullets += 1;
       }
     }
 
@@ -579,9 +591,15 @@ class MusicPlayer {
     rootMidi: number,
   ): AudioBuffer {
     const seconds = 18;
-    const buffer = context.createBuffer(2, context.sampleRate * seconds, context.sampleRate);
+    const buffer = context.createBuffer(
+      2,
+      context.sampleRate * seconds,
+      context.sampleRate,
+    );
     const rng = makeRng(seed);
-    const chord = [0, 3, 7, 10].map((interval) => midiToFrequency(rootMidi + interval));
+    const chord = [0, 3, 7, 10].map((interval) =>
+      midiToFrequency(rootMidi + interval),
+    );
 
     for (let channel = 0; channel < buffer.numberOfChannels; channel += 1) {
       const data = buffer.getChannelData(channel);
@@ -591,7 +609,9 @@ class MusicPlayer {
         const slow = Math.sin(t * 0.045 + channel * 0.7) * 0.5 + 0.5;
         let sample = 0;
         for (let j = 0; j < chord.length; j += 1) {
-          sample += Math.sin(t * Math.PI * 2 * chord[j] * 0.25 + phaseOffsets[j]) * 0.045;
+          sample +=
+            Math.sin(t * Math.PI * 2 * chord[j] * 0.25 + phaseOffsets[j]) *
+            0.045;
         }
         sample += (rng() * 2 - 1) * 0.018 * slow;
         data[i] = sample;
@@ -606,7 +626,11 @@ class MusicPlayer {
     seconds: number,
     seed: number,
   ): AudioBuffer {
-    const buffer = context.createBuffer(1, context.sampleRate * seconds, context.sampleRate);
+    const buffer = context.createBuffer(
+      1,
+      context.sampleRate * seconds,
+      context.sampleRate,
+    );
     const data = buffer.getChannelData(0);
     const rng = makeRng(seed);
     let last = 0;
@@ -618,7 +642,13 @@ class MusicPlayer {
   }
 
   private applyMoodTargets(): void {
-    if (!this.audioContext || !this.layers || !this.masterGain || !this.dryGain || !this.wetGain) {
+    if (
+      !this.audioContext ||
+      !this.layers ||
+      !this.masterGain ||
+      !this.dryGain ||
+      !this.wetGain
+    ) {
       return;
     }
 
@@ -634,7 +664,11 @@ class MusicPlayer {
 
     const distortionAmount = clamp01((this.mood.lowHealth - 0.52) / 0.34);
     const combatDirt = this.mood.combatIntensity * 0.12;
-    this.wetGain.gain.setTargetAtTime(distortionAmount * 0.34 + combatDirt, now, 0.7);
+    this.wetGain.gain.setTargetAtTime(
+      distortionAmount * 0.34 + combatDirt,
+      now,
+      0.7,
+    );
     this.dryGain.gain.setTargetAtTime(1 - distortionAmount * 0.18, now, 0.7);
     this.masterGain.gain.setTargetAtTime(
       this._playing ? this.getMasterVolume() : 0,
@@ -855,7 +889,14 @@ class MusicPlayer {
     this.scheduleChordStep(sixteenth, time, chordRootMidi, combat);
     this.scheduleBassStep(sixteenth, time, chordRootMidi, combat);
     this.scheduleDrumStep(sixteenth, time, combat);
-    this.scheduleArpStep(step, time, chordRootMidi, profile.scale, combat, unknown);
+    this.scheduleArpStep(
+      step,
+      time,
+      chordRootMidi,
+      profile.scale,
+      combat,
+      unknown,
+    );
     this.scheduleLeadStep(step, time, chordRootMidi, profile.scale, combat);
   }
 
@@ -896,8 +937,13 @@ class MusicPlayer {
     const level = this.layers.bass.level;
     if (level < 0.02) return;
 
-    const combatPattern = sixteenth === 0 || sixteenth === 3 || sixteenth === 6 ||
-      sixteenth === 8 || sixteenth === 11 || sixteenth === 14;
+    const combatPattern =
+      sixteenth === 0 ||
+      sixteenth === 3 ||
+      sixteenth === 6 ||
+      sixteenth === 8 ||
+      sixteenth === 11 ||
+      sixteenth === 14;
     const calmPattern = sixteenth === 0 || sixteenth === 8;
     const shouldPlay = combat > 0.35 ? combatPattern : calmPattern;
     if (!shouldPlay) return;
@@ -923,15 +969,22 @@ class MusicPlayer {
     if (level < 0.015) return;
 
     const heavy = this.mood.scene === "megacorp-heavy-combat";
-    const kickSteps = combat > 0.45
-      ? [0, 3, 8, 10, 14]
-      : [0, 8];
+    const kickSteps = combat > 0.45 ? [0, 3, 8, 10, 14] : [0, 8];
     if (kickSteps.includes(sixteenth)) {
-      this.playKick(time, heavy ? 58 : 52, level * (heavy ? 0.68 : 0.52), this.layers.drums.gain);
+      this.playKick(
+        time,
+        heavy ? 58 : 52,
+        level * (heavy ? 0.68 : 0.52),
+        this.layers.drums.gain,
+      );
     }
 
     if (sixteenth === 4 || sixteenth === 12) {
-      this.playSnare(time, level * lerp(0.32, 0.58, combat), this.layers.drums.gain);
+      this.playSnare(
+        time,
+        level * lerp(0.32, 0.58, combat),
+        this.layers.drums.gain,
+      );
     }
 
     const hatEveryStep = combat > 0.75;
@@ -961,7 +1014,8 @@ class MusicPlayer {
     const shouldPlay = combat > 0.55 || sixteenth % 2 === 0;
     if (!shouldPlay) return;
 
-    const index = (step * (combat > 0.5 ? 3 : 1) + Math.floor(unknown * 5)) % scale.length;
+    const index =
+      (step * (combat > 0.5 ? 3 : 1) + Math.floor(unknown * 5)) % scale.length;
     const octave = combat > 0.45 && sixteenth % 4 === 2 ? 24 : 12;
     this.playFilteredTone(
       time,
@@ -1014,7 +1068,12 @@ class MusicPlayer {
     const interval = lerp(2.8, 0.52, this.mood.combatIntensity);
     if (this.nextPulseAt <= now) this.nextPulseAt = now + 0.04;
     while (this.nextPulseAt < horizon) {
-      this.playKick(this.nextPulseAt, 45, tension * 0.24, this.layers.tension.gain);
+      this.playKick(
+        this.nextPulseAt,
+        45,
+        tension * 0.24,
+        this.layers.tension.gain,
+      );
       this.nextPulseAt += interval;
     }
   }
@@ -1030,7 +1089,12 @@ class MusicPlayer {
     const beat = lerp(0.62, 0.34, this.mood.combatIntensity);
     if (this.nextPercussionAt <= now) this.nextPercussionAt = now + 0.08;
     while (this.nextPercussionAt < horizon) {
-      this.playKick(this.nextPercussionAt, 55, level * 0.42, this.layers.percussion.gain);
+      this.playKick(
+        this.nextPercussionAt,
+        55,
+        level * 0.42,
+        this.layers.percussion.gain,
+      );
       if (this.mood.combatIntensity > 0.45) {
         this.playNoiseHit(
           this.nextPercussionAt + beat * 0.5,
@@ -1064,7 +1128,8 @@ class MusicPlayer {
       const root = SCENE_ROOTS[this.mood.scene];
       const phraseLength = this.mood.scene === "outside-peaceful" ? 3 : 4;
       for (let i = 0; i < phraseLength; i += 1) {
-        const scaleIndex = (i * 2 + Math.floor(now + i)) % SCALE_INTERVALS.length;
+        const scaleIndex =
+          (i * 2 + Math.floor(now + i)) % SCALE_INTERVALS.length;
         const frequency = root * 2 ** (SCALE_INTERVALS[scaleIndex] / 12);
         this.playTone(
           this.nextMelodyAt + i * 0.32,
@@ -1090,7 +1155,11 @@ class MusicPlayer {
     if (this.nextRadioAt <= now) this.nextRadioAt = now + 0.8;
     while (this.nextRadioAt < horizon) {
       this.playRadioBurst(this.nextRadioAt, level);
-      this.nextRadioAt += lerp(9, 3.4, Math.max(this.mood.combatIntensity, level));
+      this.nextRadioAt += lerp(
+        9,
+        3.4,
+        Math.max(this.mood.combatIntensity, level),
+      );
     }
   }
 
@@ -1140,7 +1209,10 @@ class MusicPlayer {
   ): void {
     const level = layer.level;
     if (level < 0.025) {
-      this.nextLeitmotifAt[type] = Math.max(this.nextLeitmotifAt[type], now + 1);
+      this.nextLeitmotifAt[type] = Math.max(
+        this.nextLeitmotifAt[type],
+        now + 1,
+      );
       return;
     }
 
@@ -1177,7 +1249,10 @@ class MusicPlayer {
     oscillator.type = type;
     oscillator.frequency.setValueAtTime(frequency, startTime);
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), startTime + 0.03);
+    gain.gain.exponentialRampToValueAtTime(
+      Math.max(0.0001, volume),
+      startTime + 0.03,
+    );
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
     oscillator.connect(gain);
     gain.connect(destination);
@@ -1200,11 +1275,15 @@ class MusicPlayer {
     const gain = this.audioContext.createGain();
     oscillator.type = type;
     oscillator.frequency.setValueAtTime(frequency, startTime);
-    filter.type = type === "square" || type === "sawtooth" ? "lowpass" : "bandpass";
+    filter.type =
+      type === "square" || type === "sawtooth" ? "lowpass" : "bandpass";
     filter.frequency.setValueAtTime(filterFrequency, startTime);
     filter.Q.value = type === "triangle" ? 1.2 : 0.9;
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), startTime + 0.018);
+    gain.gain.exponentialRampToValueAtTime(
+      Math.max(0.0001, volume),
+      startTime + 0.018,
+    );
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
     oscillator.connect(filter);
     filter.connect(gain);
@@ -1234,7 +1313,10 @@ class MusicPlayer {
     filter.frequency.exponentialRampToValueAtTime(90, startTime + duration);
     filter.Q.value = 4;
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), startTime + 0.012);
+    gain.gain.exponentialRampToValueAtTime(
+      Math.max(0.0001, volume),
+      startTime + 0.012,
+    );
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
     oscillator.connect(filter);
     sub.connect(filter);
@@ -1257,9 +1339,15 @@ class MusicPlayer {
     const gain = this.audioContext.createGain();
     oscillator.type = "sine";
     oscillator.frequency.setValueAtTime(frequency * 1.9, startTime);
-    oscillator.frequency.exponentialRampToValueAtTime(frequency, startTime + 0.16);
+    oscillator.frequency.exponentialRampToValueAtTime(
+      frequency,
+      startTime + 0.16,
+    );
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), startTime + 0.012);
+    gain.gain.exponentialRampToValueAtTime(
+      Math.max(0.0001, volume),
+      startTime + 0.012,
+    );
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.34);
     oscillator.connect(gain);
     gain.connect(destination);
@@ -1278,11 +1366,18 @@ class MusicPlayer {
     const source = this.audioContext.createBufferSource();
     const filter = this.audioContext.createBiquadFilter();
     const gain = this.audioContext.createGain();
-    source.buffer = this.createNoiseBuffer(this.audioContext, Math.max(0.05, duration), 0x4849_5448);
+    source.buffer = this.createNoiseBuffer(
+      this.audioContext,
+      Math.max(0.05, duration),
+      0x4849_5448,
+    );
     filter.type = "highpass";
     filter.frequency.value = cutoff;
     gain.gain.setValueAtTime(0.0001, startTime);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), startTime + 0.005);
+    gain.gain.exponentialRampToValueAtTime(
+      Math.max(0.0001, volume),
+      startTime + 0.005,
+    );
     gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
     source.connect(filter);
     filter.connect(gain);
@@ -1315,7 +1410,14 @@ class MusicPlayer {
     destination: AudioNode,
   ): void {
     this.playTone(startTime, 1300, 0.045, volume, "square", destination);
-    this.playTone(startTime + 0.035, 1760, 0.04, volume * 0.7, "square", destination);
+    this.playTone(
+      startTime + 0.035,
+      1760,
+      0.04,
+      volume * 0.7,
+      "square",
+      destination,
+    );
   }
 
   private playRadioBurst(startTime: number, volume: number): void {
@@ -1324,7 +1426,14 @@ class MusicPlayer {
     for (let i = 0; i < burstCount; i += 1) {
       const time = startTime + i * 0.08;
       const frequency = 380 + ((i * 97) % 420);
-      this.playTone(time, frequency, 0.055, volume * 0.16, "sawtooth", this.layers.radio.gain);
+      this.playTone(
+        time,
+        frequency,
+        0.055,
+        volume * 0.16,
+        "sawtooth",
+        this.layers.radio.gain,
+      );
       this.playNoiseHit(time, 0.05, volume * 0.05, 900, this.layers.radio.gain);
     }
   }
