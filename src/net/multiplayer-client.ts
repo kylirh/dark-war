@@ -1,5 +1,6 @@
 import { SerializedState } from "../types";
 import { PROTOCOL_VERSION } from "./protocol";
+import { StateDelta, applyStateDelta } from "./state-delta";
 
 export interface LobbyPlayer {
   id: string;
@@ -26,7 +27,8 @@ export type NetworkAction =
 type ServerMessage =
   | { type: "welcome"; playerId: string; roomId: string; isHost: boolean; protocolVersion?: number }
   | { type: "lobby_update"; players: LobbyPlayer[]; roomId: string; phase: "lobby" | "playing" }
-  | { type: "state"; state: SerializedState; ackSeq?: number }
+  | { type: "state_full"; state: SerializedState; seq: number; ackSeq?: number }
+  | { type: "state_delta"; delta: StateDelta; ackSeq?: number }
   | { type: "error"; message: string };
 
 export class MultiplayerClient {
@@ -44,6 +46,10 @@ export class MultiplayerClient {
   private inputSeq = 0;
   // Highest input seq the server has acknowledged in a state message.
   private lastAckedSeq = 0;
+  // Last full state reconstructed from the server, used as the baseline that
+  // incoming deltas are applied onto. Null until the first keyframe arrives.
+  private stateBaseline: SerializedState | null = null;
+  private baselineSeq = 0;
 
   private onStateCallback?: (state: SerializedState) => void;
   private onConnectedCallback?: (playerId: string, roomId: string, isHost: boolean) => void;
@@ -190,6 +196,16 @@ export class MultiplayerClient {
     this.socket.send(JSON.stringify(payload));
   }
 
+  private applyAck(ackSeq: number | undefined): void {
+    if (typeof ackSeq === "number" && ackSeq > this.lastAckedSeq) {
+      this.lastAckedSeq = ackSeq;
+    }
+  }
+
+  private requestKeyframe(): void {
+    this.send({ type: "request_keyframe" });
+  }
+
   private scheduleReconnect(): void {
     if (!this.shouldReconnect || this.reconnectTimer !== null) return;
     this.reconnectAttempts += 1;
@@ -233,6 +249,8 @@ export class MultiplayerClient {
       this.isHost = message.isHost;
       this.inputSeq = 0;
       this.lastAckedSeq = 0;
+      this.stateBaseline = null;
+      this.baselineSeq = 0;
       this.onConnectedCallback?.(message.playerId, message.roomId, message.isHost);
       return;
     }
@@ -247,12 +265,29 @@ export class MultiplayerClient {
       return;
     }
 
-    if (message.type === "state") {
+    if (message.type === "state_full") {
       if (message.state == null || typeof message.state !== "object") return;
-      if (typeof message.ackSeq === "number" && message.ackSeq > this.lastAckedSeq) {
-        this.lastAckedSeq = message.ackSeq;
-      }
+      this.applyAck(message.ackSeq);
+      this.stateBaseline = message.state;
+      this.baselineSeq = message.seq;
       this.onStateCallback?.(message.state);
+      return;
+    }
+
+    if (message.type === "state_delta") {
+      if (message.delta == null || typeof message.delta !== "object") return;
+      this.applyAck(message.ackSeq);
+      // A delta is only valid on top of the baseline it was computed against.
+      // If we don't have that exact baseline, ask for a fresh keyframe and
+      // drop this delta rather than corrupt our state.
+      if (this.stateBaseline === null || message.delta.baseSeq !== this.baselineSeq) {
+        this.requestKeyframe();
+        return;
+      }
+      const reconstructed = applyStateDelta(this.stateBaseline, message.delta);
+      this.stateBaseline = reconstructed;
+      this.baselineSeq = message.delta.seq;
+      this.onStateCallback?.(reconstructed);
       return;
     }
 

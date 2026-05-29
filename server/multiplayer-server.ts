@@ -6,8 +6,13 @@ import { stepSimulationTick } from "../src/systems/simulation/tick";
 import { enqueueCommand } from "../src/systems/simulation/commands";
 import { SIM_DT_MS } from "../src/systems/simulation/constants";
 import { PROTOCOL_VERSION } from "../src/net/protocol";
+import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
 import { Sound } from "../src/systems/sound";
-import { CommandType, EntityKind, SLOWMO_SCALE, TIME_SCALE_TRANSITION_SPEED, WeaponType } from "../src/types";
+import { CommandType, EntityKind, SerializedState, SLOWMO_SCALE, TIME_SCALE_TRANSITION_SPEED, WeaponType } from "../src/types";
+
+// Force a fresh keyframe at least this often (in broadcasts) so a client that
+// somehow drifted re-baselines within a few seconds. ~5s at 20 broadcasts/sec.
+const KEYFRAME_INTERVAL = 100;
 
 // ─── Protocol types ────────────────────────────────────────────────────────────
 
@@ -35,7 +40,8 @@ type IncomingMessage2 =
   | { type: "select_weapon"; slot: number }
   | { type: "new_game" }
   | { type: "start_game" }
-  | { type: "set_name"; name: string };
+  | { type: "set_name"; name: string }
+  | { type: "request_keyframe" };
 
 interface RoomClient {
   socket: WebSocket;
@@ -44,6 +50,13 @@ interface RoomClient {
   // Highest input seq we have processed from this client, echoed back in
   // state messages so the client can reconcile its prediction.
   lastProcessedSeq: number;
+  // Delta-broadcast bookkeeping: the last full state we sent this client
+  // (their baseline) plus the monotonic ids used to keep deltas aligned.
+  baseline: SerializedState | null;
+  stateSeq: number;
+  baselineSeq: number;
+  lastKeyframeSeq: number;
+  needsKeyframe: boolean;
 }
 
 // ─── Validation helpers ────────────────────────────────────────────────────────
@@ -87,7 +100,8 @@ function isIncomingMessage(value: unknown): value is IncomingMessage2 {
     value.type === "select_weapon" ||
     value.type === "new_game" ||
     value.type === "start_game" ||
-    value.type === "set_name"
+    value.type === "set_name" ||
+    value.type === "request_keyframe"
   );
 }
 
@@ -129,7 +143,17 @@ class RoomSession {
   public addClient(socket: WebSocket, name: string): void {
     const playerId = crypto.randomUUID();
     const wasEmpty = this.clients.size === 0;
-    const client: RoomClient = { socket, playerId, name, lastProcessedSeq: 0 };
+    const client: RoomClient = {
+      socket,
+      playerId,
+      name,
+      lastProcessedSeq: 0,
+      baseline: null,
+      stateSeq: 0,
+      baselineSeq: 0,
+      lastKeyframeSeq: 0,
+      needsKeyframe: true,
+    };
     this.clients.set(socket, client);
 
     if (wasEmpty) {
@@ -224,6 +248,10 @@ class RoomSession {
 
     if (this.phase !== "playing") return;
 
+    if (message.type === "request_keyframe") {
+      client.needsKeyframe = true;
+      return;
+    }
     if (message.type === "velocity") {
       this.recordProcessedSeq(client, message.seq);
       this.applyVelocity(client.playerId, message.vx, message.vy);
@@ -379,6 +407,7 @@ class RoomSession {
     this.game.removeNetworkPlayer(this.placeholderPlayerId);
     this.game.addStory("New game started.");
     this.rebuildPhysics();
+    for (const client of this.clients.values()) client.needsKeyframe = true;
     this.broadcastState();
   }
 
@@ -487,12 +516,35 @@ class RoomSession {
 
   private broadcastState(): void {
     for (const client of this.clients.values()) {
-      const payload = this.game.serializeForPlayer(client.playerId);
-      this.send(client.socket, {
-        type: "state",
-        state: payload,
-        ackSeq: client.lastProcessedSeq,
-      });
+      const next = this.game.serializeForPlayer(client.playerId);
+      const seq = ++client.stateSeq;
+
+      const mustKeyframe =
+        client.needsKeyframe ||
+        client.baseline === null ||
+        requiresKeyframe(client.baseline, next) ||
+        seq - client.lastKeyframeSeq >= KEYFRAME_INTERVAL;
+
+      if (mustKeyframe) {
+        this.send(client.socket, {
+          type: "state_full",
+          state: next,
+          seq,
+          ackSeq: client.lastProcessedSeq,
+        });
+        client.lastKeyframeSeq = seq;
+        client.needsKeyframe = false;
+      } else {
+        const delta = computeStateDelta(client.baseline!, next, seq, client.baselineSeq);
+        this.send(client.socket, {
+          type: "state_delta",
+          delta,
+          ackSeq: client.lastProcessedSeq,
+        });
+      }
+
+      client.baseline = next;
+      client.baselineSeq = seq;
     }
     this.game.getState().pendingSounds.length = 0;
   }
