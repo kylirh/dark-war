@@ -97,14 +97,19 @@ export class GameMenu {
   private mpLobbyPlayers: LobbyPlayer[] = [];
   private mpIsHost = false;
   private mpPhase: "lobby" | "playing" = "lobby";
-  private mpConnectionState: "disconnected" | "connecting" | "lobby" | "playing" = "disconnected";
+  private mpConnectionState:
+    | "disconnected"
+    | "connecting"
+    | "lobby"
+    | "playing" = "disconnected";
   private mpDiscoveredServers: DiscoveredServer[] = [];
   private mpRefreshTimer: number | null = null;
   private mpStatusMessage = "";
   private mpLastRenderedServerKey = "";
   private mpCachedLocalIps: string[] | null = null;
 
-  private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
+  private readonly onKeyDown = (event: KeyboardEvent): void =>
+    this.handleKeyDown(event);
 
   constructor(options: GameMenuOptions) {
     this.options = options;
@@ -197,7 +202,9 @@ export class GameMenu {
           <img src="assets/img/logo.png" class="imb-pause-logo" alt="Dark War" />
           <div class="imb-pause-message hidden" id="pause-menu-message"></div>
           <div class="imb-pause-options" role="menu" aria-label="Pause menu">
-            ${this.pauseItems.map((item, index) => `
+            ${this.pauseItems
+              .map(
+                (item, index) => `
               <button
                 class="imb-pause-option"
                 data-pause-action="${item.action}"
@@ -205,7 +212,9 @@ export class GameMenu {
                 type="button"
                 role="menuitem"
               >${item.label}</button>
-            `).join("")}
+            `,
+              )
+              .join("")}
           </div>
         </div>
 
@@ -261,7 +270,8 @@ export class GameMenu {
             <h3>Keyboard Bindings</h3>
           </div>
           <div class="imb-keybinding-list">
-            ${KEY_BINDING_DEFINITIONS.map((definition) => `
+            ${KEY_BINDING_DEFINITIONS.map(
+              (definition) => `
               <div
                 class="imb-keybinding-row${definition.devOnly ? " dev-only" : ""}"
                 data-keybinding-row="${definition.action}"
@@ -273,7 +283,8 @@ export class GameMenu {
                   type="button"
                 ></button>
               </div>
-            `).join("")}
+            `,
+            ).join("")}
           </div>
           <button class="imb-btn" data-reset-keybindings type="button">Restore Defaults</button>
         </div>
@@ -395,8 +406,12 @@ export class GameMenu {
   }
 
   private attachSoundControls(): void {
-    const sfxSlider = document.getElementById("pause-sfx-volume") as HTMLInputElement | null;
-    const musicSlider = document.getElementById("pause-music-volume") as HTMLInputElement | null;
+    const sfxSlider = document.getElementById(
+      "pause-sfx-volume",
+    ) as HTMLInputElement | null;
+    const musicSlider = document.getElementById(
+      "pause-music-volume",
+    ) as HTMLInputElement | null;
 
     sfxSlider?.addEventListener("input", () => {
       const volume = Number.parseInt(sfxSlider.value, 10) / 100;
@@ -414,18 +429,23 @@ export class GameMenu {
   }
 
   private attachThemeControls(): void {
-    document.querySelectorAll("[data-settings-theme-value]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const theme = (button as HTMLElement).dataset.settingsThemeValue;
-        if (theme === "dark" || theme === "light") this.setTheme(theme);
+    document
+      .querySelectorAll("[data-settings-theme-value]")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          const theme = (button as HTMLElement).dataset.settingsThemeValue;
+          if (theme === "dark" || theme === "light") this.setTheme(theme);
+        });
       });
-    });
   }
 
   private attachZoomControls(): void {
     document.querySelectorAll("[data-zoom-value]").forEach((button) => {
       button.addEventListener("click", () => {
-        const zoom = Number.parseInt((button as HTMLElement).dataset.zoomValue ?? "1", 10);
+        const zoom = Number.parseInt(
+          (button as HTMLElement).dataset.zoomValue ?? "1",
+          10,
+        );
         if (zoom === 1 || zoom === 2 || zoom === 3) {
           this.updatePreferences({ zoom });
           this.syncSettingsControls();
@@ -435,37 +455,53 @@ export class GameMenu {
   }
 
   private attachDevToolsControls(): void {
-    document.getElementById("dev-tools-toggle")?.addEventListener("change", (event) => {
-      this.updatePreferences({ devTools: (event.target as HTMLInputElement).checked });
-      this.syncSettingsControls();
-    });
+    document
+      .getElementById("dev-tools-toggle")
+      ?.addEventListener("change", (event) => {
+        this.updatePreferences({
+          devTools: (event.target as HTMLInputElement).checked,
+        });
+        this.syncSettingsControls();
+      });
 
-    document.querySelector("[data-open-keybindings]")?.addEventListener("click", () => {
-      this.setPauseMenuView("keybindings");
-    });
+    document
+      .querySelector("[data-open-keybindings]")
+      ?.addEventListener("click", () => {
+        this.setPauseMenuView("keybindings");
+      });
 
-    document.querySelector("[data-settings-back]")?.addEventListener("click", () => {
-      this.setPauseMenuView("main");
-    });
+    document
+      .querySelector("[data-settings-back]")
+      ?.addEventListener("click", () => {
+        this.setPauseMenuView("main");
+      });
 
-    document.querySelector("[data-dev-action='god-mode']")?.addEventListener("click", () => {
-      this.options.onToggleGodMode?.();
-    });
+    document
+      .querySelector("[data-dev-action='god-mode']")
+      ?.addEventListener("click", () => {
+        this.options.onToggleGodMode?.();
+      });
 
-    document.querySelector("[data-dev-action='fov']")?.addEventListener("click", () => {
-      this.options.onToggleFOV?.();
-    });
+    document
+      .querySelector("[data-dev-action='fov']")
+      ?.addEventListener("click", () => {
+        this.options.onToggleFOV?.();
+      });
   }
 
   private attachKeybindingControls(): void {
-    document.querySelector("[data-keybindings-back]")?.addEventListener("click", () => {
-      this.setPauseMenuView("settings");
-    });
+    document
+      .querySelector("[data-keybindings-back]")
+      ?.addEventListener("click", () => {
+        this.setPauseMenuView("settings");
+      });
 
-    document.querySelector("[data-reset-keybindings]")?.addEventListener("click", () => {
-      this.updatePreferences({ keyBindings: { ...DEFAULT_KEY_BINDINGS } });
-      this.syncKeybindingControls();
-    });
+    document
+      .querySelector("[data-reset-keybindings]")
+      ?.addEventListener("click", () => {
+        this.updatePreferences({ keyBindings: { ...DEFAULT_KEY_BINDINGS } });
+        this.syncKeybindingControls();
+      });
 
     document.querySelectorAll("[data-keybinding-action]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -482,14 +518,20 @@ export class GameMenu {
     document.querySelectorAll("[data-pause-action]").forEach((button) => {
       button.addEventListener("click", () => {
         const action = (button as HTMLElement).dataset.pauseAction;
-        const index = Number.parseInt((button as HTMLElement).dataset.pauseIndex ?? "0", 10);
+        const index = Number.parseInt(
+          (button as HTMLElement).dataset.pauseIndex ?? "0",
+          10,
+        );
         if (this.isPauseMenuAction(action)) {
           this.pauseMenuSelection = index;
           this.activatePauseMenuSelection();
         }
       });
       button.addEventListener("mouseenter", () => {
-        const index = Number.parseInt((button as HTMLElement).dataset.pauseIndex ?? "0", 10);
+        const index = Number.parseInt(
+          (button as HTMLElement).dataset.pauseIndex ?? "0",
+          10,
+        );
         this.pauseMenuSelection = index;
         this.syncPauseMenu();
       });
@@ -549,7 +591,10 @@ export class GameMenu {
     this.refreshServerList();
     // Auto-refresh every 3 seconds
     if (this.mpRefreshTimer !== null) window.clearInterval(this.mpRefreshTimer);
-    this.mpRefreshTimer = window.setInterval(() => this.refreshServerList(), 3000);
+    this.mpRefreshTimer = window.setInterval(
+      () => this.refreshServerList(),
+      3000,
+    );
   }
 
   private async refreshServerList(): Promise<void> {
@@ -557,25 +602,35 @@ export class GameMenu {
     if (!list) return;
 
     try {
-      const servers = await (this.options.onMultiplayerGetServers?.() ?? Promise.resolve([]));
+      const servers = await (this.options.onMultiplayerGetServers?.() ??
+        Promise.resolve([]));
       this.mpDiscoveredServers = servers;
       this.renderServerList(list, servers);
     } catch {
-      list.innerHTML = '<div class="imb-server-searching">Error scanning network.</div>';
+      list.innerHTML =
+        '<div class="imb-server-searching">Error scanning network.</div>';
     }
   }
 
-  private renderServerList(container: HTMLElement, servers: DiscoveredServer[]): void {
-    const key = servers.map((s) => `${s.ip}:${s.port}:${s.players}:${s.phase}`).join("|");
+  private renderServerList(
+    container: HTMLElement,
+    servers: DiscoveredServer[],
+  ): void {
+    const key = servers
+      .map((s) => `${s.ip}:${s.port}:${s.players}:${s.phase}`)
+      .join("|");
     if (key === this.mpLastRenderedServerKey) return;
     this.mpLastRenderedServerKey = key;
 
     if (servers.length === 0) {
-      container.innerHTML = '<div class="imb-server-searching">No games found — make sure your host is running.</div>';
+      container.innerHTML =
+        '<div class="imb-server-searching">No games found — make sure your host is running.</div>';
       return;
     }
 
-    container.innerHTML = servers.map((s, i) => `
+    container.innerHTML = servers
+      .map(
+        (s, i) => `
       <div class="imb-server-entry">
         <div class="imb-server-info">
           <span class="imb-server-name">${escapeHtml(s.name)}</span>
@@ -583,14 +638,21 @@ export class GameMenu {
         </div>
         <button class="imb-btn imb-server-join-btn" data-server-index="${i}" type="button">Join</button>
       </div>
-    `).join("");
+    `,
+      )
+      .join("");
 
     container.querySelectorAll("[data-server-index]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const idx = Number.parseInt((btn as HTMLElement).dataset.serverIndex ?? "0", 10);
+        const idx = Number.parseInt(
+          (btn as HTMLElement).dataset.serverIndex ?? "0",
+          10,
+        );
         const server = servers[idx];
         if (!server) return;
-        const nameInput = document.getElementById("mp-browse-name") as HTMLInputElement | null;
+        const nameInput = document.getElementById(
+          "mp-browse-name",
+        ) as HTMLInputElement | null;
         const playerName = sanitizeName(nameInput?.value ?? "Player");
         this.mpPlayerName = playerName;
         this.setMpStatus("browse", "Connecting...");
@@ -600,8 +662,12 @@ export class GameMenu {
   }
 
   private handleHostGame(): void {
-    const gameNameInput = document.getElementById("mp-game-name") as HTMLInputElement | null;
-    const playerNameInput = document.getElementById("mp-host-name") as HTMLInputElement | null;
+    const gameNameInput = document.getElementById(
+      "mp-game-name",
+    ) as HTMLInputElement | null;
+    const playerNameInput = document.getElementById(
+      "mp-host-name",
+    ) as HTMLInputElement | null;
 
     const gameName = sanitizeName(gameNameInput?.value ?? "") || "Dark War";
     const playerName = sanitizeName(playerNameInput?.value ?? "") || "Player";
@@ -614,9 +680,15 @@ export class GameMenu {
   }
 
   private handleJoinByIp(): void {
-    const nameInput = document.getElementById("mp-join-name") as HTMLInputElement | null;
-    const ipInput = document.getElementById("mp-join-ip") as HTMLInputElement | null;
-    const portInput = document.getElementById("mp-join-port") as HTMLInputElement | null;
+    const nameInput = document.getElementById(
+      "mp-join-name",
+    ) as HTMLInputElement | null;
+    const ipInput = document.getElementById(
+      "mp-join-ip",
+    ) as HTMLInputElement | null;
+    const portInput = document.getElementById(
+      "mp-join-port",
+    ) as HTMLInputElement | null;
 
     const playerName = sanitizeName(nameInput?.value ?? "") || "Player";
     const ip = ipInput?.value.trim() ?? "";
@@ -650,7 +722,12 @@ export class GameMenu {
   }
 
   private setMpStatus(view: "host" | "browse" | "join", message: string): void {
-    const id = view === "host" ? "mp-host-status" : view === "browse" ? "mp-browse-status" : "mp-join-status";
+    const id =
+      view === "host"
+        ? "mp-host-status"
+        : view === "browse"
+          ? "mp-browse-status"
+          : "mp-join-status";
     const el = document.getElementById(id);
     if (!el) return;
     el.textContent = message;
@@ -659,7 +736,9 @@ export class GameMenu {
 
   // ── Public API for multiplayer state updates ────────────────────────────────────
 
-  public setMultiplayerConnectionState(state: "disconnected" | "connecting" | "lobby" | "playing"): void {
+  public setMultiplayerConnectionState(
+    state: "disconnected" | "connecting" | "lobby" | "playing",
+  ): void {
     this.mpConnectionState = state;
 
     if (state === "connecting") {
@@ -684,7 +763,11 @@ export class GameMenu {
     }
   }
 
-  public updateLobbyState(players: LobbyPlayer[], isHost: boolean, phase: "lobby" | "playing"): void {
+  public updateLobbyState(
+    players: LobbyPlayer[],
+    isHost: boolean,
+    phase: "lobby" | "playing",
+  ): void {
     this.mpLobbyPlayers = players;
     this.mpIsHost = isHost;
     this.mpPhase = phase;
@@ -723,30 +806,39 @@ export class GameMenu {
     const lobbyTitle = document.getElementById("mp-lobby-title");
     const lobbyStatus = document.getElementById("mp-lobby-status");
     const lobbyPlayers = document.getElementById("mp-lobby-players");
-    const startBtn = document.getElementById("mp-start-btn") as HTMLButtonElement | null;
+    const startBtn = document.getElementById(
+      "mp-start-btn",
+    ) as HTMLButtonElement | null;
     const lobbyHint = document.getElementById("mp-lobby-hint");
 
     if (lobbyTitle) {
-      lobbyTitle.textContent = this.mpIsHost ? `${this.mpGameName} — Lobby` : "Lobby";
+      lobbyTitle.textContent = this.mpIsHost
+        ? `${this.mpGameName} — Lobby`
+        : "Lobby";
     }
 
     if (lobbyStatus) {
       if (this.mpIsHost) {
-        lobbyStatus.textContent = this.mpLobbyPlayers.length === 1
-          ? "Waiting for others to join..."
-          : `${this.mpLobbyPlayers.length} players connected`;
+        lobbyStatus.textContent =
+          this.mpLobbyPlayers.length === 1
+            ? "Waiting for others to join..."
+            : `${this.mpLobbyPlayers.length} players connected`;
       } else {
         lobbyStatus.textContent = "Waiting for host to start...";
       }
     }
 
     if (lobbyPlayers) {
-      lobbyPlayers.innerHTML = this.mpLobbyPlayers.map((p) => `
+      lobbyPlayers.innerHTML = this.mpLobbyPlayers
+        .map(
+          (p) => `
         <div class="imb-lobby-player ${p.isHost ? "is-host" : ""}">
           <span class="imb-lobby-player-name">${escapeHtml(p.name)}</span>
           ${p.isHost ? '<span class="imb-lobby-host-badge">HOST</span>' : ""}
         </div>
-      `).join("");
+      `,
+        )
+        .join("");
     }
 
     if (startBtn) {
@@ -757,19 +849,27 @@ export class GameMenu {
     if (lobbyHint) {
       if (this.mpIsHost) {
         if (this.mpCachedLocalIps !== null) {
-          lobbyHint.textContent = this.mpCachedLocalIps.length > 0
-            ? `Others can find your game on the LAN, or join at: ${this.mpCachedLocalIps[0]}:7777`
-            : "";
+          lobbyHint.textContent =
+            this.mpCachedLocalIps.length > 0
+              ? `Others can find your game on the LAN, or join at: ${this.mpCachedLocalIps[0]}:7777`
+              : "";
         } else {
-          const native = (window as Window & { native?: { serverGetLocalIps?: () => Promise<string[]> } }).native;
-          native?.serverGetLocalIps?.()
+          const native = (
+            window as Window & {
+              native?: { serverGetLocalIps?: () => Promise<string[]> };
+            }
+          ).native;
+          native
+            ?.serverGetLocalIps?.()
             .then((ips) => {
               this.mpCachedLocalIps = ips ?? [];
               if (lobbyHint && this.mpCachedLocalIps.length > 0) {
                 lobbyHint.textContent = `Others can find your game on the LAN, or join at: ${this.mpCachedLocalIps[0]}:7777`;
               }
             })
-            .catch(() => { this.mpCachedLocalIps = []; });
+            .catch(() => {
+              this.mpCachedLocalIps = [];
+            });
         }
       } else {
         lobbyHint.textContent = "";
@@ -786,7 +886,9 @@ export class GameMenu {
 
     if (event.key !== "Escape") return;
 
-    const openModals = Array.from(this.modals.values()).filter((m) => m.isOpen());
+    const openModals = Array.from(this.modals.values()).filter((m) =>
+      m.isOpen(),
+    );
     const activeModal = openModals[openModals.length - 1];
     if (!activeModal) {
       if (this.options.pausesGame) {
@@ -815,23 +917,28 @@ export class GameMenu {
     }
 
     const key = event.key.toLowerCase();
-    const isMultiplayerView = (
+    const isMultiplayerView =
       this.pauseMenuView === "multiplayer" ||
       this.pauseMenuView === "host-game" ||
       this.pauseMenuView === "browse-games" ||
       this.pauseMenuView === "join-ip" ||
-      this.pauseMenuView === "lobby"
-    );
+      this.pauseMenuView === "lobby";
 
     if (this.pauseMenuView !== "main") {
       if (key === "escape") {
         event.preventDefault();
-        if (this.pauseMenuView === "keybindings") this.setPauseMenuView("settings");
-        else if (this.pauseMenuView === "settings") this.setPauseMenuView("main");
+        if (this.pauseMenuView === "keybindings")
+          this.setPauseMenuView("settings");
+        else if (this.pauseMenuView === "settings")
+          this.setPauseMenuView("main");
         else if (isMultiplayerView) {
           if (this.pauseMenuView === "lobby") {
             // Don't navigate away from lobby with Escape
-          } else if (this.pauseMenuView === "host-game" || this.pauseMenuView === "browse-games" || this.pauseMenuView === "join-ip") {
+          } else if (
+            this.pauseMenuView === "host-game" ||
+            this.pauseMenuView === "browse-games" ||
+            this.pauseMenuView === "join-ip"
+          ) {
             this.setPauseMenuView("multiplayer");
           } else {
             this.setPauseMenuView("main");
@@ -880,7 +987,9 @@ export class GameMenu {
     this.pauseMenuMessage = null;
     let nextSelection = this.pauseMenuSelection;
     for (let i = 0; i < this.pauseItems.length; i++) {
-      nextSelection = (nextSelection + delta + this.pauseItems.length) % this.pauseItems.length;
+      nextSelection =
+        (nextSelection + delta + this.pauseItems.length) %
+        this.pauseItems.length;
       if (this.isPauseItemEnabled(this.pauseItems[nextSelection])) {
         this.pauseMenuSelection = nextSelection;
         this.shouldFocusPauseMenu = true;
@@ -941,24 +1050,31 @@ export class GameMenu {
       .querySelectorAll<HTMLElement>("#pause-dialog [data-initial-focus]")
       .forEach((el) => el.removeAttribute("data-initial-focus"));
 
-    document.querySelectorAll<HTMLElement>("[data-pause-view]").forEach((view) => {
-      view.classList.toggle("hidden", view.dataset.pauseView !== this.pauseMenuView);
-    });
+    document
+      .querySelectorAll<HTMLElement>("[data-pause-view]")
+      .forEach((view) => {
+        view.classList.toggle(
+          "hidden",
+          view.dataset.pauseView !== this.pauseMenuView,
+        );
+      });
 
-    document.querySelectorAll<HTMLElement>("[data-pause-index]").forEach((button) => {
-      const index = Number.parseInt(button.dataset.pauseIndex ?? "0", 10);
-      const item = this.pauseItems[index];
-      const isSelected = index === this.pauseMenuSelection;
-      const isEnabled = item ? this.isPauseItemEnabled(item) : true;
-      button.classList.toggle("selected", isSelected);
-      button.classList.toggle("disabled", !isEnabled);
-      button.setAttribute("aria-selected", String(isSelected));
-      button.setAttribute("aria-disabled", String(!isEnabled));
-      if (button instanceof HTMLButtonElement) button.disabled = !isEnabled;
-      if (this.pauseMenuView === "main" && isSelected && isEnabled) {
-        button.dataset.initialFocus = "true";
-      }
-    });
+    document
+      .querySelectorAll<HTMLElement>("[data-pause-index]")
+      .forEach((button) => {
+        const index = Number.parseInt(button.dataset.pauseIndex ?? "0", 10);
+        const item = this.pauseItems[index];
+        const isSelected = index === this.pauseMenuSelection;
+        const isEnabled = item ? this.isPauseItemEnabled(item) : true;
+        button.classList.toggle("selected", isSelected);
+        button.classList.toggle("disabled", !isEnabled);
+        button.setAttribute("aria-selected", String(isSelected));
+        button.setAttribute("aria-disabled", String(!isEnabled));
+        if (button instanceof HTMLButtonElement) button.disabled = !isEnabled;
+        if (this.pauseMenuView === "main" && isSelected && isEnabled) {
+          button.dataset.initialFocus = "true";
+        }
+      });
 
     const message = document.getElementById("pause-menu-message");
     if (message) {
@@ -966,7 +1082,10 @@ export class GameMenu {
       message.classList.toggle("hidden", !this.pauseMenuMessage);
     }
 
-    if (this.pauseMenuView === "settings" || this.pauseMenuView === "keybindings") {
+    if (
+      this.pauseMenuView === "settings" ||
+      this.pauseMenuView === "keybindings"
+    ) {
       this.syncSettingsControls();
     }
     if (this.pauseMenuView === "keybindings") {
@@ -975,18 +1094,30 @@ export class GameMenu {
     if (this.pauseMenuView === "lobby") this.syncLobbyView();
     if (this.pauseMenuView === "browse-games") {
       // Populate name input from stored player name
-      const nameInput = document.getElementById("mp-browse-name") as HTMLInputElement | null;
+      const nameInput = document.getElementById(
+        "mp-browse-name",
+      ) as HTMLInputElement | null;
       if (nameInput && !nameInput.value) nameInput.value = this.mpPlayerName;
     }
     if (this.pauseMenuView === "host-game") {
-      const gameNameInput = document.getElementById("mp-game-name") as HTMLInputElement | null;
-      const hostNameInput = document.getElementById("mp-host-name") as HTMLInputElement | null;
-      if (gameNameInput && !gameNameInput.value) gameNameInput.value = this.mpGameName;
-      if (hostNameInput && !hostNameInput.value) hostNameInput.value = this.mpPlayerName;
+      const gameNameInput = document.getElementById(
+        "mp-game-name",
+      ) as HTMLInputElement | null;
+      const hostNameInput = document.getElementById(
+        "mp-host-name",
+      ) as HTMLInputElement | null;
+      if (gameNameInput && !gameNameInput.value)
+        gameNameInput.value = this.mpGameName;
+      if (hostNameInput && !hostNameInput.value)
+        hostNameInput.value = this.mpPlayerName;
     }
     if (this.pauseMenuView === "join-ip") {
-      const nameInput = document.getElementById("mp-join-name") as HTMLInputElement | null;
-      const portInput = document.getElementById("mp-join-port") as HTMLInputElement | null;
+      const nameInput = document.getElementById(
+        "mp-join-name",
+      ) as HTMLInputElement | null;
+      const portInput = document.getElementById(
+        "mp-join-port",
+      ) as HTMLInputElement | null;
       if (nameInput && !nameInput.value) nameInput.value = this.mpPlayerName;
       if (portInput && !portInput.value) portInput.value = "7777";
     }
@@ -1012,8 +1143,12 @@ export class GameMenu {
   // ── Settings sync ──────────────────────────────────────────────────────────────
 
   private syncSoundControls(): void {
-    const sfxSlider = document.getElementById("pause-sfx-volume") as HTMLInputElement | null;
-    const musicSlider = document.getElementById("pause-music-volume") as HTMLInputElement | null;
+    const sfxSlider = document.getElementById(
+      "pause-sfx-volume",
+    ) as HTMLInputElement | null;
+    const musicSlider = document.getElementById(
+      "pause-music-volume",
+    ) as HTMLInputElement | null;
     const sfxLabel = document.getElementById("pause-sfx-vol-label");
     const musicLabel = document.getElementById("pause-music-vol-label");
 
@@ -1032,47 +1167,68 @@ export class GameMenu {
 
   private syncThemeButtons(): void {
     const currentTheme = this.preferences.theme;
-    document.querySelectorAll("[data-settings-theme-value]").forEach((button) => {
-      const isSelected = (button as HTMLElement).dataset.settingsThemeValue === currentTheme;
-      button.classList.toggle("selected", isSelected);
-      button.setAttribute("aria-pressed", String(isSelected));
-    });
+    document
+      .querySelectorAll("[data-settings-theme-value]")
+      .forEach((button) => {
+        const isSelected =
+          (button as HTMLElement).dataset.settingsThemeValue === currentTheme;
+        button.classList.toggle("selected", isSelected);
+        button.setAttribute("aria-pressed", String(isSelected));
+      });
   }
 
   private syncSettingsControls(): void {
     this.syncSoundControls();
     document.querySelectorAll("[data-zoom-value]").forEach((button) => {
-      const zoom = Number.parseInt((button as HTMLElement).dataset.zoomValue ?? "1", 10);
+      const zoom = Number.parseInt(
+        (button as HTMLElement).dataset.zoomValue ?? "1",
+        10,
+      );
       const isSelected = zoom === this.preferences.zoom;
       button.classList.toggle("selected", isSelected);
       button.setAttribute("aria-pressed", String(isSelected));
     });
 
-    const devToolsToggle = document.getElementById("dev-tools-toggle") as HTMLInputElement | null;
+    const devToolsToggle = document.getElementById(
+      "dev-tools-toggle",
+    ) as HTMLInputElement | null;
     if (devToolsToggle) devToolsToggle.checked = this.preferences.devTools;
 
     document.querySelectorAll<HTMLElement>(".dev-only").forEach((el) => {
       el.classList.toggle("hidden", !this.preferences.devTools);
     });
-    document.querySelectorAll<HTMLElement>("[data-dev-tools-panel]").forEach((el) => {
-      el.classList.toggle("hidden", !this.preferences.devTools);
-    });
+    document
+      .querySelectorAll<HTMLElement>("[data-dev-tools-panel]")
+      .forEach((el) => {
+        el.classList.toggle("hidden", !this.preferences.devTools);
+      });
   }
 
   private syncKeybindingControls(): void {
-    document.querySelectorAll<HTMLElement>("[data-keybinding-row]").forEach((row) => {
-      const action = row.dataset.keybindingRow;
-      const definition = KEY_BINDING_DEFINITIONS.find((c) => c.action === action);
-      row.classList.toggle("hidden", Boolean(definition?.devOnly && !this.preferences.devTools));
-    });
+    document
+      .querySelectorAll<HTMLElement>("[data-keybinding-row]")
+      .forEach((row) => {
+        const action = row.dataset.keybindingRow;
+        const definition = KEY_BINDING_DEFINITIONS.find(
+          (c) => c.action === action,
+        );
+        row.classList.toggle(
+          "hidden",
+          Boolean(definition?.devOnly && !this.preferences.devTools),
+        );
+      });
 
-    document.querySelectorAll<HTMLButtonElement>("[data-keybinding-action]").forEach((button) => {
-      const action = button.dataset.keybindingAction;
-      if (!this.isKeyBindingAction(action)) return;
-      button.textContent =
-        this.listeningForKey === action ? "Press a key..." : keyCodeToLabel(this.preferences.keyBindings[action]);
-      button.classList.toggle("listening", this.listeningForKey === action);
-    });
+    document
+      .querySelectorAll<HTMLButtonElement>("[data-keybinding-action]")
+      .forEach((button) => {
+        const action = button.dataset.keybindingAction;
+        if (!this.isKeyBindingAction(action)) return;
+        button.textContent =
+          this.listeningForKey === action
+            ? "Press a key..."
+            : keyCodeToLabel(this.preferences.keyBindings[action]);
+        button.classList.toggle("listening", this.listeningForKey === action);
+      });
   }
 
   // ── Preferences ────────────────────────────────────────────────────────────────
@@ -1081,12 +1237,17 @@ export class GameMenu {
     this.preferences = {
       ...this.preferences,
       ...next,
-      keyBindings: next.keyBindings ? { ...next.keyBindings } : { ...this.preferences.keyBindings },
+      keyBindings: next.keyBindings
+        ? { ...next.keyBindings }
+        : { ...this.preferences.keyBindings },
     };
     Sound.setVolume(this.preferences.sfxVolume);
     Music.setVolume(this.preferences.musicVolume);
     this.applyTheme(this.preferences.theme);
-    this.options.onPreferencesChange?.({ ...this.preferences, keyBindings: { ...this.preferences.keyBindings } });
+    this.options.onPreferencesChange?.({
+      ...this.preferences,
+      keyBindings: { ...this.preferences.keyBindings },
+    });
   }
 
   private applyTheme(theme: ThemeMode): void {
@@ -1120,7 +1281,10 @@ export class GameMenu {
   private assignKeyBinding(action: KeyBindingAction, code: string): void {
     const keyBindings = { ...this.preferences.keyBindings };
     for (const definition of KEY_BINDING_DEFINITIONS) {
-      if (definition.action !== action && keyBindings[definition.action] === code) {
+      if (
+        definition.action !== action &&
+        keyBindings[definition.action] === code
+      ) {
         keyBindings[definition.action] = this.preferences.keyBindings[action];
       }
     }
@@ -1130,7 +1294,9 @@ export class GameMenu {
 
   // ── Type guards ────────────────────────────────────────────────────────────────
 
-  private isPauseMenuAction(action: string | undefined): action is PauseMenuAction {
+  private isPauseMenuAction(
+    action: string | undefined,
+  ): action is PauseMenuAction {
     return this.pauseItems.some((item) => item.action === action);
   }
 
@@ -1138,8 +1304,12 @@ export class GameMenu {
     return item.action !== "continue" || this.canContinue;
   }
 
-  private isKeyBindingAction(action: string | undefined): action is KeyBindingAction {
-    return KEY_BINDING_DEFINITIONS.some((definition) => definition.action === action);
+  private isKeyBindingAction(
+    action: string | undefined,
+  ): action is KeyBindingAction {
+    return KEY_BINDING_DEFINITIONS.some(
+      (definition) => definition.action === action,
+    );
   }
 
   // ── Modal management ──────────────────────────────────────────────────────────
@@ -1170,7 +1340,9 @@ export class GameMenu {
   }
 
   private syncModalState(): void {
-    const hasOpenModal = Array.from(this.modals.values()).some((m) => m.isOpen());
+    const hasOpenModal = Array.from(this.modals.values()).some((m) =>
+      m.isOpen(),
+    );
     this.scrim.classList.toggle("hidden", !hasOpenModal);
     document.body.classList.toggle("imb-modal-open", hasOpenModal);
     if (this.options.pausesGame) {
@@ -1183,7 +1355,10 @@ export class GameMenu {
       (item) => item.action === "continue" && this.isPauseItemEnabled(item),
     );
     if (continueIndex >= 0) return continueIndex;
-    return Math.max(0, this.pauseItems.findIndex((item) => this.isPauseItemEnabled(item)));
+    return Math.max(
+      0,
+      this.pauseItems.findIndex((item) => this.isPauseItemEnabled(item)),
+    );
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────────
