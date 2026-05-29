@@ -2,6 +2,8 @@
  * Skippable single-player story intro shown before starting a new game.
  */
 
+import { Music } from "./music";
+
 interface IntroStorySlide {
   imageSrc: string;
   text: string[];
@@ -123,6 +125,8 @@ export class IntroStory {
   };
 
   constructor(private readonly onComplete: () => void) {
+    Music.setScene("intro-story");
+    Music.play();
     this.hadModalOpenClass = document.body.classList.contains("imb-modal-open");
     this.overlay = document.createElement("div");
     this.overlay.className = "intro-story-overlay";

@@ -487,6 +487,8 @@ class DarkWar {
     // Center on player initially (after first render)
     this.centerOnPlayerSoon(INITIAL_CAMERA_CENTER_DELAY_MS);
 
+    const state = this.game.getState();
+    Music.updateForGameState(state, this.computeThreatLevel(state));
     this.gameLoop.start();
   }
 
@@ -967,6 +969,7 @@ class DarkWar {
       if (!this.onlineConnected) {
         state.sim.targetTimeScale = 0;
       }
+      Music.updateForGameState(state, this.computeThreatLevel(state));
       if (this.playerActedThisTick) {
         this.playerActedThisTick = false;
       }
@@ -1070,9 +1073,14 @@ class DarkWar {
     const playerMoving =
       Math.abs(player.velocityX) > 0.1 || Math.abs(player.velocityY) > 0.1;
 
+    const musicThreatLevel = this.computeThreatLevel(state);
+
     // Compute CTDM threat level when the device is active
     this.currentThreatLevel =
-      player.hasCTDM && player.ctdmEnabled ? this.computeThreatLevel(state) : 0;
+      player.hasCTDM && player.ctdmEnabled
+        ? musicThreatLevel
+        : 0;
+    Music.updateForGameState(state, musicThreatLevel);
 
     // Update target time scale based on CTDM status and threat
     if (isDead) {
@@ -2014,6 +2022,7 @@ class MainMenuApp implements DarkWarApplication {
     });
 
     this.setupNativeMenuHandlers();
+    Music.setScene("main-menu");
     Music.play();
     this.gameMenu.openPauseMenu();
     this.refreshContinueEnabled().catch(() => {});
@@ -2303,6 +2312,10 @@ class MainMenuApp implements DarkWarApplication {
 const createDarkWarApp = (): void => {
   window.darkWarApp?.dispose();
 
+  const savedPreferences = loadPreferences();
+  Sound.setVolume(savedPreferences.sfxVolume);
+  Music.setVolume(savedPreferences.musicVolume);
+
   // Kick off asset loading in the background while title screen is showing
   Sound.preload().catch(() => {});
   Music.load("assets/sounds/theme.ogg").catch(() => {});
@@ -2322,6 +2335,7 @@ const createDarkWarApp = (): void => {
     loadSlot?: number,
   ): void => {
     window.darkWarApp?.dispose();
+    Music.setScene("outside-peaceful");
     Music.play();
     window.darkWarApp = new DarkWar({ initialGame: mode, initialLoadSlot: loadSlot });
   };
@@ -2331,6 +2345,7 @@ const createDarkWarApp = (): void => {
     playerName: string,
   ): void => {
     window.darkWarApp?.dispose();
+    Music.setScene("outside-peaceful");
     Music.play();
     window.darkWarApp = new DarkWar({ multiplayerClient: client, playerName });
   };
@@ -2354,13 +2369,12 @@ const createDarkWarApp = (): void => {
 
   document.documentElement.classList.add("title-screen-active");
   document.body.classList.add("title-screen-active");
-  const savedPreferences = loadPreferences();
   new TitleScreen(() => {
     retroWindowChrome.transitionFromIntro().then((didCreateGameWindow) => {
       if (didCreateGameWindow) return;
       showMainMenu();
     });
-  }, { sfxVolume: savedPreferences.sfxVolume });
+  });
 };
 
 if (document.readyState === "loading") {
