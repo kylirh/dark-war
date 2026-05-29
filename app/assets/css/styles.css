@@ -1621,98 +1621,6 @@ body {
   image-rendering: crisp-edges;
 }
 
-.sidebar {
-  width: 340px;
-  background: var(--panel);
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  transition: margin-right 0.3s ease;
-  flex-shrink: 0;
-}
-
-.sidebar.collapsed {
-  margin-right: -340px;
-}
-
-.sidebar-toggle {
-  position: fixed;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-right: none;
-  border-radius: 8px 0 0 8px;
-  padding: 12px 8px;
-  cursor: pointer;
-  z-index: 100;
-  transition: right 0.3s ease;
-  color: var(--ink);
-  font-size: 18px;
-  line-height: 1;
-  font-weight: 500;
-}
-
-.sidebar-toggle:hover {
-  background: var(--modal-bg-soft);
-}
-
-.sidebar-toggle:focus {
-  outline: 2px solid var(--border);
-  outline-offset: -2px;
-}
-
-.sidebar-toggle:active {
-  transform: translateY(-50%);
-}
-
-.sidebar.collapsed ~ .sidebar-toggle {
-  right: 0;
-}
-
-.sidebar:not(.collapsed) ~ .sidebar-toggle {
-  right: 340px;
-}
-
-.panel {
-  padding: 16px;
-  border-bottom: 1px solid var(--border);
-}
-
-.panel:last-child {
-  border-bottom: none;
-}
-
-.panel h2 {
-  font-size: 1.2em;
-  color: var(--ink-dim);
-  margin-bottom: 12px;
-  margin-left: -1px;
-  -webkit-font-smoothing: antialiased;
-}
-
-.stats-grid {
-  display: grid;
-  gap: 8px;
-}
-
-.stat-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
-}
-
-.stat-label {
-  color: var(--ink-dim);
-}
-
-.stat-value {
-  font-weight: bold;
-}
-
 .hp-overlay {
   position: absolute;
   top: 12px;
@@ -1786,30 +1694,6 @@ body {
 
 .hp-overlay.hovered .hp-overlay-text {
   opacity: 1;
-}
-
-.ctdm-stat {
-  padding-top: 8px;
-  padding-bottom: 0;
-}
-
-.ctdm-bar {
-  height: 8px;
-  background: var(--modal-bg-soft);
-  overflow: hidden;
-  position: relative;
-  margin-top: 4px;
-}
-
-.ctdm-bar-fill {
-  display: block;
-  height: 100%;
-  width: var(--ctdm-width, 100%);
-  background: linear-gradient(90deg, #ff8800, #ffdd00, #aaff44);
-  transition:
-    width 0.15s ease,
-    filter 0.2s ease;
-  filter: saturate(calc(1 + var(--ctdm-threat, 0) * 2));
 }
 
 /* ============================================================

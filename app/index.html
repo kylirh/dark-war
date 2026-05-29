@@ -101,59 +101,10 @@
         </div>
       </div>
 
-      <aside class="sidebar" id="sidebar">
-        <section class="status panel">
-          <h2>Status</h2>
-          <div class="stats-grid">
-            <div class="stat-row">
-              <span class="stat-label">Region</span>
-              <span class="stat-value" id="floor">1</span>
-            </div>
-            <div class="stat-row">
-              <span class="stat-label">Score</span>
-              <span class="stat-value" id="score">0</span>
-            </div>
-            <div id="ctdm-section" style="display: none">
-              <div class="stat-row ctdm-stat">
-                <span class="stat-label">CTDM</span>
-                <span class="stat-value" id="ctdm-status">ON</span>
-              </div>
-              <div
-                class="ctdm-bar"
-                id="ctdmbar"
-                style="--ctdm-width: 100%; --ctdm-threat: 0"
-              >
-                <span class="ctdm-bar-fill"></span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-      </aside>
-      <button
-        class="sidebar-toggle"
-        id="sidebarToggle"
-        aria-label="Toggle sidebar"
-        title="Toggle sidebar"
-      >
-        ▶
-      </button>
     </div>
 
     <script src="game.js"></script>
     <script>
-      const sidebar = document.getElementById("sidebar");
-      const sidebarToggle = document.getElementById("sidebarToggle");
-
-      sidebarToggle.addEventListener("click", () => {
-        const isCollapsed = sidebar.classList.toggle("collapsed");
-        sidebarToggle.textContent = isCollapsed ? "◀" : "▶";
-        sidebarToggle.setAttribute(
-          "aria-label",
-          isCollapsed ? "Show Sidebar" : "Hide Sidebar",
-        );
-      });
-
       (function () {
         const hpOverlay = document.getElementById("hp-overlay");
         document.addEventListener("mousemove", (e) => {
