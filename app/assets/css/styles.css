@@ -549,7 +549,7 @@ body.is-fullscreen .app-container {
 .imb-modal-scrim {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 9998;
   background: var(--modal-scrim);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
@@ -577,10 +577,12 @@ body.main-menu-active .imb-modal-scrim {
 
 body.imb-modal-open #retro-window-chrome {
   z-index: 10000;
+  filter: none;
 }
 
 .imb-dialog {
   position: fixed;
+  z-index: 10001;
   width: min(450px, calc(100vw - 32px));
   min-width: 320px;
   background: var(--modal-bg);
@@ -1130,6 +1132,160 @@ body.imb-modal-open #retro-window-chrome {
   color: var(--modal-bg);
 }
 
+.save-slot-dialog {
+  width: min(820px, calc(100vw - 32px));
+  min-width: 320px;
+}
+
+.save-slot-dialog .imb-dialog-body {
+  max-height: min(76vh, 720px);
+}
+
+.save-slot-status {
+  min-height: 22px;
+  margin-bottom: 12px;
+  color: var(--modal-accent);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.save-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.save-slot-shell {
+  position: relative;
+  min-width: 0;
+}
+
+.save-slot-tile {
+  position: relative;
+  width: 100%;
+  min-height: 150px;
+  display: grid;
+  align-content: end;
+  gap: 5px;
+  overflow: hidden;
+  padding: 12px;
+  background:
+    linear-gradient(180deg, rgba(5, 7, 10, 0.18), rgba(5, 7, 10, 0.9)),
+    var(--save-preview, var(--modal-bg-soft));
+  background-size: cover;
+  background-position: center;
+  border: 2px solid var(--modal-border);
+  color: var(--modal-text);
+  font-family: "Chicago_12", sans-serif;
+  text-align: left;
+  cursor: pointer;
+  image-rendering: pixelated;
+  box-shadow:
+    inset 2px 2px 0 var(--chrome-highlight),
+    inset -2px -2px 0 var(--chrome-lowlight),
+    2px 2px 0 var(--chrome-shadow);
+}
+
+.save-slot-shell.is-empty .save-slot-tile {
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.04) 0,
+      rgba(255, 255, 255, 0.04) 8px,
+      rgba(0, 0, 0, 0.1) 8px,
+      rgba(0, 0, 0, 0.1) 16px
+    ),
+    var(--modal-bg-soft);
+}
+
+.save-slot-tile:hover,
+.save-slot-tile:focus,
+.save-slot-shell.selected .save-slot-tile {
+  outline: 2px solid var(--modal-accent);
+  outline-offset: 2px;
+}
+
+.save-slot-tile:disabled {
+  cursor: default;
+  opacity: 0.58;
+}
+
+.save-slot-number {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 7px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #ffffff;
+  font-size: 12px;
+  line-height: 1;
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.save-slot-overlay {
+  display: grid;
+  gap: 4px;
+  padding: 9px;
+  background: rgba(0, 0, 0, 0.74);
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.save-slot-character {
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.save-slot-region,
+.save-slot-date,
+.save-slot-empty,
+.save-slot-hint {
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.save-slot-region {
+  color: #c8e6ff;
+}
+
+.save-slot-date,
+.save-slot-hint {
+  color: #d7d7d7;
+}
+
+.save-slot-empty {
+  color: var(--modal-text);
+  font-size: 17px;
+}
+
+.save-slot-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--modal-border);
+  background: var(--modal-bg);
+  color: var(--modal-text);
+  font-family: "Chicago_12", sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow:
+    inset 2px 2px 0 var(--chrome-highlight),
+    inset -2px -2px 0 var(--chrome-lowlight),
+    1px 1px 0 var(--chrome-shadow);
+}
+
+.save-slot-delete:hover,
+.save-slot-delete:focus {
+  background: var(--modal-text);
+  color: var(--modal-bg);
+}
+
 @media (max-width: 560px) {
   .imb-dialog {
     left: 12px !important;
@@ -1144,7 +1300,8 @@ body.imb-modal-open #retro-window-chrome {
   .imb-slider-row,
   .imb-theme-row,
   .imb-dev-tools-panel,
-  .imb-keybinding-row {
+  .imb-keybinding-row,
+  .save-slot-grid {
     grid-template-columns: 1fr;
   }
 

@@ -19,6 +19,15 @@ import { TitleScreen } from "./systems/title-screen";
 import { IntroStory } from "./systems/intro-story";
 import { GameMenu } from "./systems/game-menu";
 import { RetroWindowChrome } from "./systems/retro-window-chrome";
+import {
+  SaveSlotDialog,
+  createSaveSlotRecord,
+  deleteSaveSlot,
+  hasSavedGame,
+  readMostRecentSaveSlot,
+  readSaveSlot,
+  writeSaveSlot,
+} from "./systems/save-slots";
 import { UI } from "./systems/ui";
 import {
   CELL_CONFIG,
@@ -94,6 +103,7 @@ interface DarkWarApplication {
 
 interface DarkWarOptions {
   initialGame?: InitialGameMode;
+  initialLoadSlot?: number;
   /** Pre-connected multiplayer client (bypasses URL-param based connection). */
   multiplayerClient?: MultiplayerClient;
   /** Player name for UI display when using a pre-connected client. */
@@ -115,12 +125,14 @@ declare global {
   interface Window {
     native?: {
       // Save / load
-      saveWrite: (data: string) => Promise<{ ok: boolean; error?: string }>;
-      saveRead: () => Promise<{
+      saveList: () => Promise<{
         ok: boolean;
-        data?: string | null;
+        saves: Array<{ slot: number; data: string }>;
         error?: string;
       }>;
+      saveWriteSlot: (slot: number, data: string) => Promise<{ ok: boolean; error?: string }>;
+      saveReadSlot: (slot: number) => Promise<{ ok: boolean; data?: string | null; error?: string }>;
+      saveDeleteSlot: (slot: number) => Promise<{ ok: boolean; error?: string }>;
       // Game menu callbacks
       onNewGame: (callback: () => void) => void;
       onSaveGame: (callback: () => void) => void;
@@ -198,6 +210,7 @@ class DarkWar {
   private renderer: Renderer;
   private ui: UI;
   private gameMenu: GameMenu;
+  private saveSlotDialog: SaveSlotDialog;
   private preferences: UserPreferences;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private inputHandler: InputHandler;
@@ -364,15 +377,25 @@ class DarkWar {
     // Dialog and menu bridge
     this.gameMenu = new GameMenu({
       pausesGame: !this.isOnlineMode(),
+      allowSaveLoad: !this.isOnlineMode(),
       preferences: this.preferences,
       onModalStateChange: (hasOpenModal) =>
         this.handleModalStateChange(hasOpenModal),
       onPreferencesChange: (preferences) =>
         this.handlePreferencesChange(preferences),
+      onContinue: () => this.gameMenu.closePauseMenu(true),
       onNewGame: () => this.handleNewGame(),
+      onSave: () => this.handleSave(),
+      onLoad: () => this.handleLoad(),
       onQuit: () => this.handleQuit(),
       onToggleFOV: () => this.handleToggleFOV(),
       onToggleGodMode: () => this.handleToggleGodMode(),
+    });
+    this.saveSlotDialog = new SaveSlotDialog({
+      onOpenChange: (isOpen) => this.handleModalStateChange(isOpen),
+      onSaveSlot: (slot) => this.saveGameToSlot(slot),
+      onLoadSlot: (slot) => this.loadGameFromSlot(slot),
+      onDeleteSlot: (slot) => this.deleteGameSaveSlot(slot),
     });
 
     // Preload sounds asynchronously (don't block startup)
@@ -425,7 +448,7 @@ class DarkWar {
       this.finishInitialGameStartup();
     } else {
       if (options.initialGame === "load") {
-        this.loadInitialSavedGame();
+        this.loadInitialSavedGame(options.initialLoadSlot);
       } else {
         if (DEBUG) console.time("Start new game");
         this.game.reset(0);
@@ -436,9 +459,12 @@ class DarkWar {
     if (DEBUG) console.timeEnd("Game initialization");
   }
 
-  private async loadInitialSavedGame(): Promise<void> {
+  private async loadInitialSavedGame(slot?: number): Promise<void> {
     if (DEBUG) console.time("Load saved game");
-    const didLoad = await this.loadGame();
+    const didLoad =
+      typeof slot === "number"
+        ? await this.loadGameFromSlot(slot, { quiet: true })
+        : await this.loadMostRecentGame({ quiet: true });
     if (!didLoad) {
       this.game.reset(0);
       this.game.addLog("No save found. Starting a new game.");
@@ -658,15 +684,10 @@ class DarkWar {
 
   private finalizeImmediateOfflineAction(
     state: ReturnType<Game["getState"]>,
-    options: { autoSave?: boolean } = {},
   ): void {
     this.playPendingSounds(state);
     this.game.updateFOV();
     this.syncOfflineDeathState(state);
-
-    if (options.autoSave ?? true) {
-      this.autoSave();
-    }
   }
 
   private runOfflinePlayerCommand(
@@ -676,7 +697,6 @@ class DarkWar {
       tick?: number;
       resumeTime?: boolean;
       executeImmediately?: boolean;
-      autoSave?: boolean;
     } = {},
   ): ReturnType<Game["getState"]> {
     const state = this.game.getState();
@@ -698,11 +718,7 @@ class DarkWar {
 
     if (options.executeImmediately ?? true) {
       stepSimulationTick(state);
-      this.finalizeImmediateOfflineAction(state, {
-        autoSave: options.autoSave,
-      });
-    } else if (options.autoSave ?? true) {
-      this.autoSave();
+      this.finalizeImmediateOfflineAction(state);
     }
 
     return state;
@@ -1584,7 +1600,6 @@ class DarkWar {
             : currentState.sim.nowTick + 1,
         resumeTime: false,
         executeImmediately: currentState.sim.mode === "PLANNING",
-        autoSave: false,
       },
     );
 
@@ -1596,8 +1611,6 @@ class DarkWar {
         this.centerOnPlayerSoon(LEVEL_TRANSITION_CAMERA_DELAY_MS);
       }
     }
-
-    this.autoSave();
   }
 
   /**
@@ -1627,7 +1640,6 @@ class DarkWar {
             : currentState.sim.nowTick + 1,
         resumeTime: false,
         executeImmediately: currentState.sim.mode === "PLANNING",
-        autoSave: false,
       },
     );
 
@@ -1639,8 +1651,6 @@ class DarkWar {
         this.centerOnPlayerSoon(LEVEL_TRANSITION_CAMERA_DELAY_MS);
       }
     }
-
-    this.autoSave();
   }
 
   /**
@@ -1760,7 +1770,6 @@ class DarkWar {
     // Center on player after new game starts
     this.centerOnPlayerSoon(INITIAL_CAMERA_CENTER_DELAY_MS);
     this.lastPlayerHp = this.game.getState().player.hp;
-    this.autoSave();
   }
 
   /**
@@ -1773,30 +1782,13 @@ class DarkWar {
       return;
     }
 
-    const saveData = JSON.stringify(this.game.serialize());
-
-    // Try Electron save first
-    if (window.native?.saveWrite) {
-      window.native.saveWrite(saveData).then((result) => {
-        if (result.ok) {
-          this.game.addLog("Game saved.");
-          this.render(0);
-        } else {
-          this.game.addLog("Save failed.");
-          this.render(0);
-        }
-      });
-    } else {
-      // Fallback to localStorage
-      try {
-        localStorage.setItem("darkwar-save", saveData);
-        this.game.addLog("Game saved.");
-        this.render(0);
-      } catch (e) {
-        this.game.addLog("Failed to save game.");
-        this.render(0);
-      }
-    }
+    this.cancelAutoMove();
+    this.inputHandler.resetKeys();
+    this.gameMenu.closePauseMenu(true);
+    this.saveSlotDialog.open("save").catch(() => {
+      this.game.addLog("Unable to open save slots.");
+      this.render(0);
+    });
   }
 
   /**
@@ -1810,81 +1802,102 @@ class DarkWar {
     }
 
     this.cancelAutoMove();
-
-    if (await this.loadGame()) {
-      this.game.addLog("Game loaded.");
-
-      this.reinitializePhysicsForCurrentState();
-
+    this.inputHandler.resetKeys();
+    this.gameMenu.closePauseMenu(true);
+    this.saveSlotDialog.open("load").catch(() => {
+      this.game.addLog("Unable to open save slots.");
       this.render(0);
-      this.lastPlayerHp = this.game.getState().player.hp;
-    } else {
-      this.game.addLog("No save found.");
+    });
+  }
+
+  /**
+   * Save the current game to a selected slot.
+   */
+  private async saveGameToSlot(slot: number): Promise<boolean> {
+    try {
       this.render(0);
+      const serializedState = this.game.serialize();
+      const screenshotDataUrl = await this.renderer.capturePlayerSnapshot(
+        this.game.getState(),
+        4,
+      );
+      const record = createSaveSlotRecord(
+        slot,
+        serializedState,
+        screenshotDataUrl,
+      );
+      await writeSaveSlot(slot, record);
+      this.game.addLog(`Game saved to slot ${slot + 1}.`);
+      this.render(0);
+      return true;
+    } catch (error) {
+      console.error("Failed to save game:", error);
+      this.game.addLog("Save failed.");
+      this.render(0);
+      return false;
     }
   }
 
   /**
-   * Auto-save game state
+   * Load game from a selected slot.
    */
-  private autoSave(): void {
-    if (this.isOnlineMode()) {
-      return;
-    }
-
-    const saveData = JSON.stringify(this.game.serialize());
-
-    // Try Electron save first
-    if (window.native?.saveWrite) {
-      window.native.saveWrite(saveData).catch(() => {
-        // Silent fail for auto-save
-      });
-    } else {
-      // Fallback to localStorage
-      try {
-        localStorage.setItem("darkwar-save", saveData);
-      } catch (e) {
-        // Silent fail for auto-save
-      }
-    }
-  }
-
-  /**
-   * Load game from save
-   */
-  private async loadGame(): Promise<boolean> {
+  private async loadGameFromSlot(
+    slot: number,
+    options: { quiet?: boolean } = {},
+  ): Promise<boolean> {
     if (this.isOnlineMode()) {
       return false;
     }
 
-    if (window.native?.saveRead) {
-      try {
-        const result = await window.native.saveRead();
-        if (result.ok && typeof result.data === "string") {
-          const state = JSON.parse(result.data);
-          this.game.deserialize(state);
-          if (DEBUG) console.log("✓ Save game loaded from native storage");
-          return true;
-        }
-      } catch (error) {
-        console.error("Failed to load native save:", error);
-      }
-    }
-
-    // Try localStorage
     try {
-      const saveData = localStorage.getItem("darkwar-save");
-      if (saveData) {
-        const state = JSON.parse(saveData);
-        this.game.deserialize(state);
-        if (DEBUG) console.log("✓ Save game loaded");
-        return true;
+      const record = await readSaveSlot(slot);
+      if (!record) return false;
+      this.game.deserialize(record.state);
+      this.reinitializePhysicsForCurrentState();
+      this.syncGameOverOverlay(this.game.getState().player.hp <= 0);
+      this.render(0);
+      this.centerOnPlayerSoon(LEVEL_TRANSITION_CAMERA_DELAY_MS);
+      this.lastPlayerHp = this.game.getState().player.hp;
+      if (!options.quiet) {
+        this.game.addLog(`Game loaded from slot ${slot + 1}.`);
+        this.render(0);
       }
+      return true;
     } catch (error) {
       console.error("Failed to load save:", error);
+      if (!options.quiet) {
+        this.game.addLog("Failed to load game.");
+        this.render(0);
+      }
+      return false;
     }
+  }
 
-    return false;
+  private async loadMostRecentGame(
+    options: { quiet?: boolean } = {},
+  ): Promise<boolean> {
+    try {
+      const record = await readMostRecentSaveSlot();
+      if (!record) return false;
+      return this.loadGameFromSlot(record.slot, options);
+    } catch (error) {
+      console.error("Failed to load save:", error);
+      return false;
+    }
+  }
+
+  private async deleteGameSaveSlot(slot: number): Promise<boolean> {
+    try {
+      await deleteSaveSlot(slot);
+      this.game.addLog(`Deleted save slot ${slot + 1}.`);
+      this.render(0);
+      return true;
+    } catch (error) {
+      console.error("Failed to delete save:", error);
+      this.game.addLog("Failed to delete save.");
+      this.render(0);
+      return false;
+    }
   }
 
   /**
@@ -1925,11 +1938,13 @@ class DarkWar {
 
     this.introStory?.dispose();
     this.introStory = null;
+    this.saveSlotDialog.dispose();
   }
 }
 
 class MainMenuApp implements DarkWarApplication {
   private readonly gameMenu: GameMenu;
+  private readonly saveSlotDialog: SaveSlotDialog;
   private readonly backdrop: HTMLElement;
   private introStory: IntroStory | null = null;
   private preferences: UserPreferences;
@@ -1943,11 +1958,8 @@ class MainMenuApp implements DarkWarApplication {
   private mpGameName = "Dark War";
 
   constructor(
-    private readonly startGame: (mode: InitialGameMode) => void,
-    private readonly startOnlineGame: (
-      client: MultiplayerClient,
-      playerName: string,
-    ) => void,
+    private readonly startGame: (mode: InitialGameMode, loadSlot?: number) => void,
+    private readonly startOnlineGame: (client: MultiplayerClient, playerName: string) => void,
   ) {
     this.preferences = loadPreferences();
     this.applyPreferences();
@@ -1970,7 +1982,7 @@ class MainMenuApp implements DarkWarApplication {
       onPreferencesChange: (preferences) =>
         this.handlePreferencesChange(preferences),
       onNewGame: () => this.launchGame("new"),
-      onContinue: () => this.launchGame("load"),
+      onContinue: () => this.openLoadDialog(),
       onQuit: () => this.handleQuit(),
       // Multiplayer callbacks
       onMultiplayerHost: (gameName, playerName) =>
@@ -1982,6 +1994,23 @@ class MainMenuApp implements DarkWarApplication {
       onMultiplayerGetServers: () => this.handleGetServers(),
       onMultiplayerStartDiscovery: () => this.handleStartDiscovery(),
       onMultiplayerStopDiscovery: () => this.handleStopDiscovery(),
+    });
+    this.saveSlotDialog = new SaveSlotDialog({
+      onOpenChange: (isOpen) => {
+        if (!isOpen && !this.disposed) {
+          this.gameMenu.openPauseMenu();
+        }
+      },
+      onLoadSlot: (slot) => {
+        if (this.disposed) return Promise.resolve(false);
+        this.startGame("load", slot);
+        return Promise.resolve(true);
+      },
+      onDeleteSlot: async (slot) => {
+        await deleteSaveSlot(slot);
+        await this.refreshContinueEnabled();
+        return true;
+      },
     });
 
     this.setupNativeMenuHandlers();
@@ -2170,7 +2199,7 @@ class MainMenuApp implements DarkWarApplication {
       if (!this.disposed) this.launchGame("new");
     });
     window.native?.onLoadGame?.(() => {
-      if (!this.disposed && this.continueEnabled) this.launchGame("load");
+      if (!this.disposed && this.continueEnabled) this.openLoadDialog();
     });
     window.native?.onSoundSettings?.(() => {
       if (!this.disposed) this.gameMenu.openSoundDialog();
@@ -2209,20 +2238,17 @@ class MainMenuApp implements DarkWarApplication {
   }
 
   private async hasSavedGame(): Promise<boolean> {
-    if (window.native?.saveRead) {
-      try {
-        const result = await window.native.saveRead();
-        if (result.ok && typeof result.data === "string")
-          return result.data.trim().length > 0;
-      } catch {
-        // Fall through to localStorage
-      }
-    }
     try {
-      return Boolean(localStorage.getItem("darkwar-save"));
+      return await hasSavedGame();
     } catch {
       return false;
     }
+  }
+
+  private openLoadDialog(): void {
+    if (!this.continueEnabled) return;
+    this.gameMenu.closePauseMenu(true);
+    this.saveSlotDialog.open("load").catch(() => {});
   }
 
   private launchGame(mode: InitialGameMode): void {
@@ -2232,7 +2258,7 @@ class MainMenuApp implements DarkWarApplication {
       this.showIntroBeforeLaunch();
       return;
     }
-    this.startGame(mode);
+    this.openLoadDialog();
   }
 
   private showIntroBeforeLaunch(): void {
@@ -2266,6 +2292,7 @@ class MainMenuApp implements DarkWarApplication {
     window.native?.discoveryStopListen().catch(() => {});
     this.introStory?.dispose();
     this.introStory = null;
+    this.saveSlotDialog.dispose();
     this.gameMenu.dispose();
     this.backdrop.remove();
     document.body.classList.remove("main-menu-active");
@@ -2290,10 +2317,13 @@ const createDarkWarApp = (): void => {
     "showMenu",
   );
 
-  const startGame = (mode: InitialGameMode = "new"): void => {
+  const startGame = (
+    mode: InitialGameMode = "new",
+    loadSlot?: number,
+  ): void => {
     window.darkWarApp?.dispose();
     Music.play();
-    window.darkWarApp = new DarkWar({ initialGame: mode });
+    window.darkWarApp = new DarkWar({ initialGame: mode, initialLoadSlot: loadSlot });
   };
 
   const startOnlineGame = (

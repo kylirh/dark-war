@@ -65,6 +65,24 @@ export class InputHandler {
     const code = e.code;
     const preferences = this.getPreferences();
 
+    if (e.metaKey || e.ctrlKey) {
+      if (key === "s") {
+        e.preventDefault();
+        this.callbacks.onSave();
+        return;
+      }
+      if (key === "o") {
+        e.preventDefault();
+        this.callbacks.onLoad();
+        return;
+      }
+      if (key === "n") {
+        e.preventDefault();
+        this.callbacks.onNewGame();
+        return;
+      }
+    }
+
     if (this.isActionCode("weapon1", code, preferences)) {
       e.preventDefault();
       this.callbacks.onSelectWeapon(1);

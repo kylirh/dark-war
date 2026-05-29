@@ -221,6 +221,19 @@ ipcMain.handle("window:game-ready", async (event) => {
 
 const SAVE_DIR = app.getPath("userData");
 const SAVE_FILE = path.join(SAVE_DIR, "darkwar-save.json");
+const SAVE_SLOT_COUNT = 8;
+const SAVE_SLOT_DIR = path.join(SAVE_DIR, "saves");
+
+function isValidSaveSlot(slot) {
+  return Number.isInteger(slot) && slot >= 0 && slot < SAVE_SLOT_COUNT;
+}
+
+function saveSlotFile(slot) {
+  if (!isValidSaveSlot(slot)) {
+    throw new Error("Invalid save slot.");
+  }
+  return path.join(SAVE_SLOT_DIR, `slot-${slot + 1}.json`);
+}
 
 ipcMain.handle("save:write", async (_evt, dataStr) => {
   try {
@@ -238,6 +251,62 @@ ipcMain.handle("save:read", async () => {
     return { ok: true, data };
   } catch (e) {
     if (e.code === "ENOENT") return { ok: true, data: null };
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle("save:list", async () => {
+  try {
+    const saves = [];
+    for (let slot = 0; slot < SAVE_SLOT_COUNT; slot++) {
+      try {
+        const data = await fs.promises.readFile(saveSlotFile(slot), "utf8");
+        saves.push({ slot, data });
+      } catch (e) {
+        if (e.code !== "ENOENT") throw e;
+      }
+    }
+    return { ok: true, saves };
+  } catch (e) {
+    return { ok: false, error: e.message, saves: [] };
+  }
+});
+
+ipcMain.handle("save:write-slot", async (_evt, slot, dataStr) => {
+  try {
+    if (!isValidSaveSlot(slot)) {
+      return { ok: false, error: "Invalid save slot." };
+    }
+    await fs.promises.mkdir(SAVE_SLOT_DIR, { recursive: true });
+    await fs.promises.writeFile(saveSlotFile(slot), dataStr, "utf8");
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
+ipcMain.handle("save:read-slot", async (_evt, slot) => {
+  try {
+    if (!isValidSaveSlot(slot)) {
+      return { ok: false, data: null, error: "Invalid save slot." };
+    }
+    const data = await fs.promises.readFile(saveSlotFile(slot), "utf8");
+    return { ok: true, data };
+  } catch (e) {
+    if (e.code === "ENOENT") return { ok: true, data: null };
+    return { ok: false, data: null, error: e.message };
+  }
+});
+
+ipcMain.handle("save:delete-slot", async (_evt, slot) => {
+  try {
+    if (!isValidSaveSlot(slot)) {
+      return { ok: false, error: "Invalid save slot." };
+    }
+    await fs.promises.unlink(saveSlotFile(slot));
+    return { ok: true };
+  } catch (e) {
+    if (e.code === "ENOENT") return { ok: true };
     return { ok: false, error: e.message };
   }
 });

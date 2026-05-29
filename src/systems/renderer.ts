@@ -35,9 +35,11 @@ import {
  */
 export class Renderer {
   private app: Application;
+  private readonly canvas: HTMLCanvasElement;
   private mapContainer: Container;
   private entityContainer: Container;
   private spriteSheet?: Texture;
+  private spriteSheetImage?: HTMLImageElement;
   private textureCache: Map<string, Texture> = new Map();
   private ready: boolean = false;
   private pendingRender?: { state: GameState; isDead: boolean };
@@ -56,6 +58,7 @@ export class Renderer {
     if (!canvas) {
       throw new Error(`Canvas element with id "${canvasId}" not found`);
     }
+    this.canvas = canvas;
 
     // Get the viewport element (parent with scrolling)
     this.viewportElement = canvas.parentElement || undefined;
@@ -91,6 +94,7 @@ export class Renderer {
       backgroundColor: 0x4954aa,
       antialias: false, // Disable antialiasing for sharp pixels
       roundPixels: true, // Ensure pixel-perfect rendering
+      preserveDrawingBuffer: true, // Allows reliable save-slot screenshots.
     });
 
     // Scale the stage to render at configured scale
@@ -100,13 +104,13 @@ export class Renderer {
     this.app.stage.addChild(this.mapContainer);
     this.app.stage.addChild(this.entityContainer);
 
+    const spriteSheetUrl = "./assets/img/sprites.png?v=outside-level-0";
     try {
-      this.spriteSheet = await Assets.load<Texture>(
-        "./assets/img/sprites.png?v=outside-level-0",
-      );
+      this.spriteSheet = await Assets.load<Texture>(spriteSheetUrl);
       if (this.spriteSheet?.source) {
         this.spriteSheet.source.scaleMode = "nearest";
       }
+      this.spriteSheetImage = await this.loadSpriteSheetImage(spriteSheetUrl);
     } catch (error) {
       console.error("Failed to load sprite sheet:", error);
     } finally {
@@ -117,6 +121,15 @@ export class Renderer {
         this.pendingRender = undefined;
       }
     }
+  }
+
+  private loadSpriteSheetImage(src: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error(`Failed to load ${src}`));
+      image.src = src;
+    });
   }
 
   /**
@@ -155,6 +168,353 @@ export class Renderer {
    */
   public getScale(): number {
     return this.scale;
+  }
+
+  /**
+   * Capture a cropped bitmap around the local player for save slot previews.
+   */
+  public async capturePlayerSnapshot(
+    state: GameState,
+    radiusTiles: number = 4,
+  ): Promise<string | null> {
+    if (!this.ready || !this.canvas) return null;
+
+    const player = state.player;
+    const playerWorldX =
+      typeof player.worldX === "number"
+        ? player.worldX
+        : player.gridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const playerWorldY =
+      typeof player.worldY === "number"
+        ? player.worldY
+        : player.gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    const radiusPx = radiusTiles * CELL_CONFIG.w;
+    const cropSize = (radiusTiles * 2 + 1) * CELL_CONFIG.w * this.scale;
+    const cropX = (CELL_CONFIG.padX + playerWorldX - radiusPx) * this.scale;
+    const cropY = (CELL_CONFIG.padY + playerWorldY - radiusPx) * this.scale;
+
+    const sourceX = Math.max(0, Math.min(cropX, this.canvas.width - cropSize));
+    const sourceY = Math.max(0, Math.min(cropY, this.canvas.height - cropSize));
+    const sourceWidth = Math.min(cropSize, this.canvas.width - sourceX);
+    const sourceHeight = Math.min(cropSize, this.canvas.height - sourceY);
+
+    if (sourceWidth <= 0 || sourceHeight <= 0) return null;
+
+    const renderedPreview = this.capturePlayerSnapshotFromSprites(
+      state,
+      radiusTiles,
+    );
+    if (renderedPreview) return renderedPreview;
+
+    const copied = this.capturePlayerSnapshotFromCanvas(
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+    );
+    if (copied) return copied;
+
+    return this.capturePlayerSnapshotFromRenderer(
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+    );
+  }
+
+  private capturePlayerSnapshotFromRenderer(
+    sourceX: number,
+    sourceY: number,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): string | null {
+    try {
+      const extractedCanvas = this.app.renderer.extract.canvas({
+        target: this.app.stage,
+        frame: new Rectangle(sourceX, sourceY, sourceWidth, sourceHeight),
+        resolution: 1,
+        clearColor: 0x05070a,
+      });
+      return this.canvasToPreviewDataUrl(extractedCanvas as HTMLCanvasElement);
+    } catch {
+      return null;
+    }
+  }
+
+  private capturePlayerSnapshotFromCanvas(
+    sourceX: number,
+    sourceY: number,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): string | null {
+    try {
+      return this.canvasToPreviewDataUrl(
+        this.canvas,
+        sourceX,
+        sourceY,
+        sourceWidth,
+        sourceHeight,
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  private canvasToPreviewDataUrl(
+    sourceCanvas: HTMLCanvasElement,
+    sourceX: number = 0,
+    sourceY: number = 0,
+    sourceWidth: number = sourceCanvas.width,
+    sourceHeight: number = sourceCanvas.height,
+  ): string | null {
+    const preview = document.createElement("canvas");
+    preview.width = 320;
+    preview.height = 320;
+    const context = preview.getContext("2d");
+    if (!context) return null;
+    context.imageSmoothingEnabled = false;
+    context.fillStyle = "#05070a";
+    context.fillRect(0, 0, preview.width, preview.height);
+    context.drawImage(
+      sourceCanvas,
+      sourceX,
+      sourceY,
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      preview.width,
+      preview.height,
+    );
+    return preview.toDataURL("image/png");
+  }
+
+  private capturePlayerSnapshotFromSprites(
+    state: GameState,
+    radiusTiles: number,
+  ): string | null {
+    if (!this.spriteSheetImage) return null;
+
+    const tileCount = radiusTiles * 2 + 1;
+    const sourceSize = tileCount * CELL_CONFIG.w;
+    const sourceCanvas = document.createElement("canvas");
+    sourceCanvas.width = sourceSize;
+    sourceCanvas.height = sourceSize;
+    const context = sourceCanvas.getContext("2d");
+    if (!context) return null;
+
+    context.imageSmoothingEnabled = false;
+    context.fillStyle = "#05070a";
+    context.fillRect(0, 0, sourceCanvas.width, sourceCanvas.height);
+
+    const player = state.player;
+    const minGridX = player.gridX - radiusTiles;
+    const minGridY = player.gridY - radiusTiles;
+    const usingShadowFov = state.options.fov;
+
+    for (let y = 0; y < tileCount; y++) {
+      for (let x = 0; x < tileCount; x++) {
+        const mapX = minGridX + x;
+        const mapY = minGridY + y;
+        if (
+          mapX < 0 ||
+          mapY < 0 ||
+          mapX >= state.mapWidth ||
+          mapY >= state.mapHeight
+        ) {
+          continue;
+        }
+
+        const tileIndex = mapX + mapY * state.mapWidth;
+        const isRevealed = usingShadowFov ? state.explored.has(tileIndex) : true;
+        if (!isRevealed) continue;
+
+        const isVisible = usingShadowFov
+          ? state.enhancedVision
+            ? state.explored.has(tileIndex)
+            : state.visible.has(tileIndex)
+          : true;
+        const alpha = !isVisible && usingShadowFov ? 0.45 : 1;
+        const tileType = state.map[tileIndex];
+        const screenX = x * CELL_CONFIG.w;
+        const screenY = y * CELL_CONFIG.h;
+
+        this.drawTilePreviewSprites(
+          context,
+          tileType,
+          state,
+          tileIndex,
+          screenX,
+          screenY,
+          alpha,
+        );
+      }
+    }
+
+    const sortedEntities = state.entities
+      .filter((entity) => entity.kind !== EntityKind.PLAYER || entity.id !== player.id)
+      .sort((a, b) => {
+        const aIsItem = a.kind === EntityKind.ITEM ? 1 : 0;
+        const bIsItem = b.kind === EntityKind.ITEM ? 1 : 0;
+        const aIsExplosive = a.kind === EntityKind.EXPLOSIVE ? 1 : 0;
+        const bIsExplosive = b.kind === EntityKind.EXPLOSIVE ? 1 : 0;
+        return bIsItem + bIsExplosive - (aIsItem + aIsExplosive);
+      });
+
+    for (const entity of sortedEntities) {
+      if (
+        entity.gridX < minGridX ||
+        entity.gridY < minGridY ||
+        entity.gridX >= minGridX + tileCount ||
+        entity.gridY >= minGridY + tileCount
+      ) {
+        continue;
+      }
+      const tileIndex = entity.gridX + entity.gridY * state.mapWidth;
+      const shouldRenderEntity = usingShadowFov
+        ? state.enhancedVision
+          ? state.explored.has(tileIndex)
+          : state.visible.has(tileIndex)
+        : true;
+      if (!shouldRenderEntity) continue;
+
+      const coord = this.getPreviewEntitySpriteCoord(entity);
+      if (!coord) continue;
+      this.drawPreviewSprite(
+        context,
+        coord,
+        entity.worldX - minGridX * CELL_CONFIG.w - CELL_CONFIG.w / 2,
+        entity.worldY - minGridY * CELL_CONFIG.h - CELL_CONFIG.h / 2,
+      );
+    }
+
+    const playerCoord =
+      player.hp <= 0
+        ? SPRITE_COORDS["player_dead"]
+        : PLAYER_IDLE_FRAMES[this.playerFacing];
+    this.drawPreviewSprite(
+      context,
+      playerCoord,
+      player.worldX - minGridX * CELL_CONFIG.w - CELL_CONFIG.w / 2,
+      player.worldY - minGridY * CELL_CONFIG.h - CELL_CONFIG.h / 2,
+    );
+
+    return this.canvasToPreviewDataUrl(sourceCanvas);
+  }
+
+  private drawTilePreviewSprites(
+    context: CanvasRenderingContext2D,
+    tileType: TileType,
+    state: GameState,
+    tileIndex: number,
+    screenX: number,
+    screenY: number,
+    alpha: number,
+  ): void {
+    const floorVariant = state.floorVariant ?? 0;
+    const floorCoord =
+      FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
+    const damage = state.wallDamage[tileIndex] || 0;
+    let baseCoord: { x: number; y: number } | null = null;
+    let overlayCoord: { x: number; y: number } | null = null;
+    let tileCoord: { x: number; y: number } | null = null;
+
+    if (tileType === TileType.FLOOR) {
+      baseCoord = floorCoord;
+      if (damage >= FLOOR_DAMAGE_THRESHOLDS[0]) {
+        overlayCoord = SPRITE_COORDS.floor_damaged;
+      }
+    } else if (tileType === TileType.HOLE) {
+      baseCoord = floorCoord;
+      overlayCoord = SPRITE_COORDS.hole;
+    }
+
+    const needsFloorBase =
+      tileType === TileType.DOOR_CLOSED ||
+      tileType === TileType.DOOR_OPEN ||
+      tileType === TileType.DOOR_LOCKED ||
+      tileType === TileType.STAIRS_DOWN ||
+      tileType === TileType.STAIRS_UP;
+
+    if (needsFloorBase) {
+      this.drawPreviewSprite(context, floorCoord, screenX, screenY, alpha);
+      tileCoord =
+        state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
+          ? SPRITE_COORDS.megacorp_entrance
+          : SPRITE_COORDS[tileType];
+    } else if (tileType === TileType.WALL) {
+      const isWood = state.wallSet === "wood";
+      const wallSpriteKey =
+        damage >= WALL_DAMAGE_THRESHOLDS[1]
+          ? isWood
+            ? "wall_wood_damaged_2"
+            : "wall_damaged_2"
+          : damage >= WALL_DAMAGE_THRESHOLDS[0]
+            ? isWood
+              ? "wall_wood_damaged_1"
+              : "wall_damaged_1"
+            : isWood
+              ? "wall_wood"
+              : TileType.WALL;
+      tileCoord = SPRITE_COORDS[wallSpriteKey] || SPRITE_COORDS[tileType];
+    } else if (tileType !== TileType.FLOOR && tileType !== TileType.HOLE) {
+      tileCoord = SPRITE_COORDS[tileType];
+    }
+
+    if (baseCoord) this.drawPreviewSprite(context, baseCoord, screenX, screenY, alpha);
+    if (overlayCoord) this.drawPreviewSprite(context, overlayCoord, screenX, screenY, alpha);
+    if (tileCoord) this.drawPreviewSprite(context, tileCoord, screenX, screenY, alpha);
+  }
+
+  private getPreviewEntitySpriteCoord(entity: GameState["entities"][number]): {
+    x: number;
+    y: number;
+  } | null {
+    if (entity.kind === EntityKind.MONSTER) {
+      return MONSTER_IDLE_FRAMES[entity.type] ?? SPRITE_COORDS[entity.type];
+    }
+    if (entity.kind === EntityKind.ITEM) {
+      return SPRITE_COORDS[entity.type] ?? null;
+    }
+    if (entity.kind === EntityKind.EXPLOSIVE) {
+      if (entity.type === ItemType.LAND_MINE && entity.armed) {
+        return SPRITE_COORDS.land_mine_active;
+      }
+      return SPRITE_COORDS[entity.type] ?? null;
+    }
+    if (entity.kind === EntityKind.BULLET) {
+      return SPRITE_COORDS.bullet;
+    }
+    if (entity.kind === EntityKind.PLAYER) {
+      return entity.hp <= 0
+        ? SPRITE_COORDS.player_dead
+        : PLAYER_IDLE_FRAMES[this.playerFacing];
+    }
+    return null;
+  }
+
+  private drawPreviewSprite(
+    context: CanvasRenderingContext2D,
+    coord: { x: number; y: number },
+    screenX: number,
+    screenY: number,
+    alpha: number = 1,
+  ): void {
+    if (!this.spriteSheetImage) return;
+    context.save();
+    context.globalAlpha = alpha;
+    context.drawImage(
+      this.spriteSheetImage,
+      coord.x * SPRITE_SIZE,
+      coord.y * SPRITE_SIZE,
+      SPRITE_SIZE,
+      SPRITE_SIZE,
+      Math.round(screenX),
+      Math.round(screenY),
+      CELL_CONFIG.w,
+      CELL_CONFIG.h,
+    );
+    context.restore();
   }
 
   /**

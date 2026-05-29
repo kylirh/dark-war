@@ -4,6 +4,10 @@ contextBridge.exposeInMainWorld("native", {
   // ── Save / Load ────────────────────────────────────────────────────────────
   saveWrite: (dataStr) => ipcRenderer.invoke("save:write", dataStr),
   saveRead: () => ipcRenderer.invoke("save:read"),
+  saveList: () => ipcRenderer.invoke("save:list"),
+  saveWriteSlot: (slot, dataStr) => ipcRenderer.invoke("save:write-slot", slot, dataStr),
+  saveReadSlot: (slot) => ipcRenderer.invoke("save:read-slot", slot),
+  saveDeleteSlot: (slot) => ipcRenderer.invoke("save:delete-slot", slot),
 
   // ── Game menu callbacks ────────────────────────────────────────────────────
   onNewGame: (callback) => { ipcRenderer.on("game:new", () => callback()); },

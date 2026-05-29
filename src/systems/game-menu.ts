@@ -2,6 +2,7 @@
  * Reusable retro system modal components for game menu dialogs.
  */
 import { Music } from "./music";
+import { RetroModal } from "./retro-modal";
 import {
   DEFAULT_KEY_BINDINGS,
   KEY_BINDING_DEFINITIONS,
@@ -15,7 +16,14 @@ import { LobbyPlayer } from "../net/multiplayer-client";
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
 type ThemeMode = "dark" | "light";
-type PauseMenuAction = "new-game" | "continue" | "multiplayer" | "settings" | "quit";
+type PauseMenuAction =
+  | "continue"
+  | "save"
+  | "load"
+  | "new-game"
+  | "multiplayer"
+  | "settings"
+  | "quit";
 type PauseMenuView =
   | "main"
   | "settings"
@@ -45,12 +53,15 @@ interface GameMenuOptions {
   pausesGame: boolean;
   preferences: UserPreferences;
   allowPauseMenuClose?: boolean;
+  allowSaveLoad?: boolean;
   canContinue?: boolean;
   mainMenuPresentation?: boolean;
   onModalStateChange?: (hasOpenModal: boolean) => void;
   onPreferencesChange?: (preferences: UserPreferences) => void;
   onNewGame?: () => void;
   onContinue?: () => void;
+  onSave?: () => void;
+  onLoad?: () => void;
   onQuit?: () => void;
   onToggleFOV?: () => void;
   onToggleGodMode?: () => void;
@@ -63,207 +74,10 @@ interface GameMenuOptions {
   onMultiplayerStartDiscovery?: () => void;
   onMultiplayerStopDiscovery?: () => void;
 }
-
-export interface RetroModalOptions {
-  id: string;
-  title: string;
-  body: string;
-  initialPosition: { top: number; left: number };
-  className?: string;
-  centerOnOpen?: boolean;
-  onOpen?: () => void;
-  onClose?: () => void;
-}
-
-// ─── RetroModal ──────────────────────────────────────────────────────────────────
-
-export class RetroModal {
-  public readonly element: HTMLElement;
-  private readonly titlebar: HTMLElement;
-  private readonly onClose: () => void;
-  private previouslyFocusedElement: HTMLElement | null = null;
-  private dragOffsetX = 0;
-  private dragOffsetY = 0;
-  private isDragging = false;
-  private readonly onMouseMove = (event: MouseEvent): void => this.handleMouseMove(event);
-  private readonly onMouseUp = (): void => this.stopDrag();
-
-  constructor(options: RetroModalOptions) {
-    this.onClose = options.onClose ?? (() => {});
-    this.element = document.createElement("div");
-    this.element.id = options.id;
-    this.element.className = `imb-dialog hidden ${options.className ?? ""}`.trim();
-    this.element.tabIndex = -1;
-    this.element.dataset.centerOnOpen = String(options.centerOnOpen ?? false);
-    this.element.style.top = `${options.initialPosition.top}px`;
-    this.element.style.left = `${options.initialPosition.left}px`;
-    this.element.innerHTML = `
-      <div class="imb-dialog-titlebar" data-drag-handle="true">
-        <button
-          class="imb-dialog-close retro-window-button retro-window-button-close"
-          data-close="${options.id}"
-          type="button"
-          title="Close"
-          aria-label="Close ${options.title}"
-        >
-          <span>X</span>
-        </button>
-        <div class="imb-dialog-stripes"></div>
-        <span class="imb-dialog-title">${options.title}</span>
-        <div class="imb-dialog-stripes"></div>
-      </div>
-      <div class="imb-dialog-body">${options.body}</div>
-    `;
-
-    this.titlebar = this.element.querySelector(".imb-dialog-titlebar")!;
-    this.titlebar.addEventListener("mousedown", (event) => this.startDrag(event));
-    this.element.querySelector("[data-close]")?.addEventListener("click", () => this.hide());
-    this.element.addEventListener("mousedown", () => this.bringToFront());
-    this.element.addEventListener("keydown", (event) => this.handleKeyDown(event));
-
-    if (options.onOpen) {
-      this.element.addEventListener("retro-modal-open", options.onOpen);
-    }
-  }
-
-  public show(): void {
-    this.element.classList.remove("hidden");
-    this.previouslyFocusedElement =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    if (this.element.dataset.centerOnOpen === "true") this.centerInViewport();
-    this.clampToViewport();
-    this.bringToFront();
-    this.element.dispatchEvent(new CustomEvent("retro-modal-open"));
-    this.focusInitialControl();
-  }
-
-  public hide(): void {
-    if (this.element.classList.contains("hidden")) return;
-    this.element.classList.add("hidden");
-    this.stopDrag();
-    this.onClose();
-    if (this.previouslyFocusedElement?.isConnected) {
-      this.previouslyFocusedElement.focus();
-    }
-    this.previouslyFocusedElement = null;
-  }
-
-  public isOpen(): boolean {
-    return !this.element.classList.contains("hidden");
-  }
-
-  public dispose(): void {
-    this.stopDrag();
-    this.element.remove();
-  }
-
-  private bringToFront(): void {
-    RetroModalZIndex.current += 1;
-    this.element.style.zIndex = String(RetroModalZIndex.current);
-  }
-
-  private startDrag(event: MouseEvent): void {
-    if ((event.target as HTMLElement).closest("button")) return;
-    const rect = this.element.getBoundingClientRect();
-    this.dragOffsetX = event.clientX - rect.left;
-    this.dragOffsetY = event.clientY - rect.top;
-    this.isDragging = true;
-    this.bringToFront();
-    this.element.classList.add("dragging");
-    document.addEventListener("mousemove", this.onMouseMove);
-    document.addEventListener("mouseup", this.onMouseUp);
-    event.preventDefault();
-  }
-
-  private handleMouseMove(event: MouseEvent): void {
-    if (!this.isDragging) return;
-    const maxLeft = window.innerWidth - this.element.offsetWidth - 8;
-    const maxTop = window.innerHeight - this.element.offsetHeight - 8;
-    this.element.style.left = `${Math.min(Math.max(8, event.clientX - this.dragOffsetX), Math.max(8, maxLeft))}px`;
-    this.element.style.top = `${Math.min(Math.max(8, event.clientY - this.dragOffsetY), Math.max(8, maxTop))}px`;
-  }
-
-  private stopDrag(): void {
-    if (!this.isDragging) return;
-    this.isDragging = false;
-    this.element.classList.remove("dragging");
-    document.removeEventListener("mousemove", this.onMouseMove);
-    document.removeEventListener("mouseup", this.onMouseUp);
-  }
-
-  private handleKeyDown(event: KeyboardEvent): void {
-    if (event.key !== "Tab") return;
-
-    const focusable = this.getFocusableElements();
-    if (focusable.length === 0) {
-      event.preventDefault();
-      this.element.focus();
-      return;
-    }
-
-    const currentIndex = focusable.indexOf(document.activeElement as HTMLElement);
-    const lastIndex = focusable.length - 1;
-    const nextIndex = event.shiftKey
-      ? currentIndex <= 0 ? lastIndex : currentIndex - 1
-      : currentIndex === lastIndex ? 0 : currentIndex + 1;
-
-    if (nextIndex !== currentIndex) {
-      event.preventDefault();
-      focusable[nextIndex].focus();
-    }
-  }
-
-  private focusInitialControl(): void {
-    const preferred = this.element.querySelector<HTMLElement>("[data-initial-focus='true']");
-    const target = preferred ?? this.getFocusableElements()[0] ?? this.element;
-    target.focus();
-  }
-
-  private getFocusableElements(): HTMLElement[] {
-    const selector = [
-      "button:not([disabled])",
-      "input:not([disabled]):not([type='hidden'])",
-      "select:not([disabled])",
-      "textarea:not([disabled])",
-      "a[href]",
-      "[tabindex]:not([tabindex='-1'])",
-    ].join(",");
-
-    return Array.from(this.element.querySelectorAll<HTMLElement>(selector))
-      .filter((el) => !el.closest(".hidden") && el.offsetParent !== null);
-  }
-
-  private clampToViewport(): void {
-    const rect = this.element.getBoundingClientRect();
-    const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
-    const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
-    const currentLeft = Number.parseFloat(this.element.style.left) || rect.left;
-    const currentTop = Number.parseFloat(this.element.style.top) || rect.top;
-    this.element.style.left = `${Math.min(Math.max(8, currentLeft), maxLeft)}px`;
-    this.element.style.top = `${Math.min(Math.max(8, currentTop), maxTop)}px`;
-  }
-
-  private centerInViewport(): void {
-    const rect = this.element.getBoundingClientRect();
-    this.element.style.left = `${Math.max(8, (window.innerWidth - rect.width) / 2)}px`;
-    this.element.style.top = `${Math.max(8, (window.innerHeight - rect.height) / 2)}px`;
-  }
-}
-
-class RetroModalZIndex {
-  public static current = 10000;
-}
-
 // ─── GameMenu ────────────────────────────────────────────────────────────────────
 
 export class GameMenu {
-  private readonly pauseItems: PauseMenuItem[] = [
-    { action: "new-game", label: "New Game" },
-    { action: "continue", label: "Continue Game" },
-    { action: "multiplayer", label: "Multiplayer" },
-    { action: "settings", label: "Settings" },
-    { action: "quit", label: "Quit" },
-  ];
+  private readonly pauseItems: PauseMenuItem[];
   private readonly options: GameMenuOptions;
   private readonly modals: Map<string, RetroModal> = new Map();
   private readonly scrim: HTMLElement;
@@ -294,6 +108,7 @@ export class GameMenu {
 
   constructor(options: GameMenuOptions) {
     this.options = options;
+    this.pauseItems = this.buildPauseItems(options.allowSaveLoad ?? false);
     this.canContinue = options.canContinue ?? true;
     this.preferences = {
       ...options.preferences,
@@ -305,6 +120,28 @@ export class GameMenu {
     document.body.appendChild(this.scrim);
     this.injectHTML();
     this.attachListeners();
+  }
+
+  private buildPauseItems(allowSaveLoad: boolean): PauseMenuItem[] {
+    if (allowSaveLoad) {
+      return [
+        { action: "continue", label: "Resume Game" },
+        { action: "save", label: "Save Game" },
+        { action: "load", label: "Load Game" },
+        { action: "new-game", label: "New Game" },
+        { action: "multiplayer", label: "Multiplayer" },
+        { action: "settings", label: "Settings" },
+        { action: "quit", label: "Quit" },
+      ];
+    }
+
+    return [
+      { action: "new-game", label: "New Game" },
+      { action: "continue", label: "Continue Game" },
+      { action: "multiplayer", label: "Multiplayer" },
+      { action: "settings", label: "Settings" },
+      { action: "quit", label: "Quit" },
+    ];
   }
 
   // ── HTML injection ──────────────────────────────────────────────────────────────
@@ -1068,6 +905,14 @@ export class GameMenu {
       case "continue":
         this.closePauseMenu(true);
         this.options.onContinue?.();
+        return;
+      case "save":
+        this.closePauseMenu(true);
+        this.options.onSave?.();
+        return;
+      case "load":
+        this.closePauseMenu(true);
+        this.options.onLoad?.();
         return;
       case "multiplayer":
         if (this.mpConnectionState === "lobby") {
