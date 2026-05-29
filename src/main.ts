@@ -390,7 +390,14 @@ class DarkWar {
     this.inventoryBar = new InventoryBar();
     this.inventoryBar.onSlotClick = (idx) => this.handleSelectInventorySlot(idx);
 
-    this.characterModal = new CharacterModal();
+    this.characterModal = new CharacterModal({
+      preferences: this.preferences,
+      onPreferencesChange: (prefs) => this.handlePreferencesChange(prefs),
+      onToggleGodMode: () => this.handleToggleGodMode(),
+      onToggleFOV: () => this.handleToggleFOV(),
+      // Multiplayer from within an active game session is not supported;
+      // players must start multiplayer from the main menu.
+    });
     this.characterModal.onClose = () => this.handleCharacterModalClose();
     this.characterModal.onWeaponChanged = () => {
       const state = this.game.getState();
@@ -400,6 +407,7 @@ class DarkWar {
     this.characterModal.onNewGame = () => this.handleNewGame();
     this.characterModal.onSave = () => this.handleSave();
     this.characterModal.onLoad = () => this.handleLoad();
+    this.characterModal.onQuit = () => this.handleQuit();
 
     if (DEBUG) console.time("Create GameLoop");
     this.gameLoop = new GameLoop(
@@ -558,7 +566,7 @@ class DarkWar {
       window.native.onLoadGame(() => this.handleLoad());
     }
     if (window.native?.onSoundSettings) {
-      window.native.onSoundSettings(() => this.gameMenu.openSoundDialog());
+      window.native.onSoundSettings(() => this.handleOpenInventory("settings"));
     }
     if (window.native?.onAbout) {
       window.native.onAbout(() => this.gameMenu.openAboutDialog());
@@ -588,6 +596,8 @@ class DarkWar {
     };
     savePreferences(this.preferences);
     this.applyPreferences();
+    // Keep CharacterModal in sync if prefs changed from elsewhere (e.g. GameMenu)
+    this.characterModal.setPreferences(this.preferences);
 
     if (this.preferences.devTools) {
       console.info("Dark War preferences updated.", this.preferences);
@@ -1534,7 +1544,7 @@ class DarkWar {
     this.handleSelectInventorySlot(next);
   }
 
-  private handleOpenInventory(tab: "inventory" | "game"): void {
+  private handleOpenInventory(tab: ModalTab): void {
     const state = this.game.getState();
 
     if (this.characterModal.isOpen()) {
@@ -1543,7 +1553,7 @@ class DarkWar {
         this.characterModal.close();
       } else {
         // Different tab → switch
-        this.characterModal.open(tab as ModalTab, state.player);
+        this.characterModal.open(tab, state.player);
       }
       return;
     }
@@ -1552,7 +1562,7 @@ class DarkWar {
       this.gameLoop.pause();
     }
     this.inventoryBar.setVisible(false);
-    this.characterModal.open(tab as ModalTab, state.player);
+    this.characterModal.open(tab, state.player);
   }
 
   private handleCharacterModalClose(): void {

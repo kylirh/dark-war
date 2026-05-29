@@ -2250,6 +2250,8 @@ body {
 /* ============================================================
    Floating HUD inventory bar — overlays the game canvas
    ============================================================ */
+/* ── Retro floating inventory HUD ─────────────────────────── */
+
 .inventory-bar {
   position: absolute;
   top: 8px;
@@ -2261,20 +2263,17 @@ body {
   flex-direction: row;
   justify-content: center;
   align-items: center;
-  gap: 2px;
-  padding: 5px 6px;
+  gap: 1px;
+  padding: 4px 5px;
 
-  /* Glassy floating pill */
-  background: rgba(0, 0, 0, 0.52);
-  backdrop-filter: blur(10px) saturate(1.2);
-  -webkit-backdrop-filter: blur(10px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 8px;
+  /* Retro sharp look — no blur, no rounded corners */
+  background: rgba(0, 0, 0, 0.78);
+  border: 2px solid rgba(255, 255, 255, 0.18);
   box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.7),
-    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    inset 1px 1px 0 rgba(255, 255, 255, 0.10),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.5),
+    3px 3px 0 rgba(0, 0, 0, 0.8);
 
-  /* Don't shift the viewport — out of normal flow */
   pointer-events: auto;
   white-space: nowrap;
 }
@@ -2284,8 +2283,7 @@ body {
   width: 42px;
   height: 50px;
   background: rgba(0, 0, 0, 0.0);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -2293,26 +2291,24 @@ body {
   justify-content: center;
   padding: 2px;
   box-sizing: border-box;
-  transition: background 0.08s, border-color 0.08s;
   flex-shrink: 0;
 }
 
 .inv-slot:hover {
-  background: rgba(255, 255, 255, 0.12);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.28);
 }
 
 .inv-slot.selected {
-  background: rgba(80, 160, 255, 0.18);
-  border-color: rgba(100, 180, 255, 0.65);
+  background: rgba(80, 160, 255, 0.20);
+  border-color: rgba(100, 180, 255, 0.80);
   box-shadow:
-    0 0 0 1px rgba(100, 180, 255, 0.35),
-    0 0 8px rgba(80, 160, 255, 0.3),
-    inset 0 1px 0 rgba(100, 180, 255, 0.2);
+    0 0 0 1px rgba(100, 180, 255, 0.45),
+    inset 1px 1px 0 rgba(100, 180, 255, 0.20);
 }
 
 .inv-slot.empty .inv-slot-icon {
-  opacity: 0.12;
+  opacity: 0.10;
 }
 
 .inv-slot-key {
@@ -2342,12 +2338,12 @@ body {
 
 .inv-slot-count {
   position: absolute;
-  bottom: 10px;
+  bottom: 9px;
   right: 2px;
   font-family: "Chicago_12", sans-serif;
-  font-size: 9px;
-  color: #e8e8e8;
-  text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
+  font-size: 11px;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #000, -1px 0 0 #000, 0 -1px 0 #000;
   line-height: 1;
   pointer-events: none;
   z-index: 2;
@@ -2356,11 +2352,10 @@ body {
 .inv-slot-bar {
   position: absolute;
   bottom: 2px;
-  left: 3px;
-  right: 3px;
+  left: 2px;
+  right: 2px;
   height: 3px;
-  background: rgba(0, 0, 0, 0.35);
-  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.5);
   overflow: hidden;
 }
 
@@ -2368,8 +2363,7 @@ body {
   height: 100%;
   width: 0;
   background: var(--bar-color, #44ff88);
-  transition: width 0.2s ease;
-  border-radius: 2px;
+  transition: width 0.15s ease;
 }
 
 /* ============================================================
@@ -2415,106 +2409,65 @@ body {
 
 /* ============================================================
    Character Modal
+   Uses .imb-dialog chrome classes for visual consistency with
+   RetroModal (same titlebar, stripes, close button).
    ============================================================ */
 
-.char-modal-overlay {
+/* ── Character Modal scrim (full-screen backdrop) ────────── */
+
+.char-modal-scrim {
   position: fixed;
   inset: 0;
   z-index: 8000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: var(--modal-scrim);
+  pointer-events: none; /* window sits on top, scrim doesn't steal clicks */
 }
 
+/* ── Character Modal window ──────────────────────────────── */
+
+/* Inherits .imb-dialog (position: fixed, z-index: 10001).
+   We override width and add flex column layout. */
 .char-modal-window {
-  width: min(700px, calc(100vw - 32px));
-  max-height: calc(100vh - 80px);
-  background: var(--modal-bg);
-  border: 2px solid var(--chrome-border);
-  color: var(--modal-text);
-  font-family: "Chicago_12", sans-serif;
+  width: min(680px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
   display: flex;
   flex-direction: column;
-  box-shadow:
-    inset 2px 2px 0 var(--chrome-highlight),
-    inset -2px -2px 0 var(--chrome-lowlight),
-    6px 6px 0 var(--chrome-shadow);
   overflow: hidden;
+  /* Center via CSS — JS clears this on drag start */
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 8001;
 }
 
-.char-modal-titlebar {
-  display: grid;
-  grid-template-columns: minmax(24px, 1fr) auto minmax(24px, 1fr) auto;
-  align-items: center;
-  min-height: 28px;
-  padding: 2px 6px;
-  background: var(--chrome-title-bg);
-  border-bottom: 2px solid var(--chrome-border);
-  gap: 6px;
+/* Drag cursor on titlebar */
+.char-modal-titlebar-drag {
+  cursor: move;
+}
+.char-modal-window.dragging {
+  cursor: move;
+  user-select: none;
 }
 
-.char-modal-stripes {
-  height: 14px;
-  background: repeating-linear-gradient(
-    to bottom,
-    var(--chrome-stripe-light) 0,
-    var(--chrome-stripe-light) 2px,
-    var(--chrome-stripe-dark) 2px,
-    var(--chrome-stripe-dark) 4px
-  );
-  box-shadow:
-    inset 0 1px 0 var(--chrome-border),
-    inset 0 -1px 0 var(--chrome-border);
-}
-
-.char-modal-title {
-  font-size: 13px;
-  color: var(--chrome-text);
-  text-shadow: 1px 1px 0 var(--chrome-shadow);
-  white-space: nowrap;
-  text-align: center;
-}
-
-.char-modal-close {
-  width: 18px;
-  height: 18px;
-  background: var(--modal-bg-soft);
-  border: 2px solid var(--chrome-border);
-  color: var(--modal-text);
-  font-family: "Chicago_12", sans-serif;
-  font-size: 10px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  line-height: 1;
-  box-shadow:
-    inset 1px 1px 0 var(--chrome-highlight),
-    inset -1px -1px 0 var(--chrome-lowlight);
-}
-
-.char-modal-close:hover {
-  background: var(--chrome-mid);
-}
+/* ── Tabs ─────────────────────────────────────────────────── */
 
 .char-modal-tabs {
   display: flex;
   border-bottom: 2px solid var(--chrome-border);
   background: var(--chrome-bg);
-  padding: 0 4px;
+  padding: 0 6px;
   gap: 2px;
+  flex-shrink: 0;
 }
 
 .char-modal-tab-btn {
-  padding: 5px 14px;
+  padding: 6px 18px;
   background: var(--modal-bg-soft);
   border: 2px solid var(--chrome-border);
   border-bottom: none;
   color: var(--modal-muted);
   font-family: "Chicago_12", sans-serif;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
   margin-top: 4px;
   margin-bottom: -2px;
@@ -2524,10 +2477,8 @@ body {
     inset -1px 0 0 var(--chrome-lowlight);
 }
 
-.char-modal-tab-btn:hover {
-  color: var(--modal-text);
-  background: var(--chrome-mid);
-}
+.char-modal-tab-btn:hover { color: var(--modal-text); background: var(--chrome-mid); }
+.char-modal-tab-btn:focus-visible { outline: 2px solid var(--modal-accent); outline-offset: -2px; }
 
 .char-modal-tab-btn.active {
   background: var(--modal-bg);
@@ -2539,23 +2490,22 @@ body {
     0 2px 0 var(--modal-bg);
 }
 
+/* ── Panel container — fixed height so tabs don't resize modal ── */
+
 .char-modal-panels {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px;
+  padding: 16px;
 }
 
+/* All panels share the same fixed height — prevents modal resizing on tab switch */
 .char-modal-panel {
-  min-height: 200px;
+  height: 400px;
+  overflow-y: auto;
 }
 
-/* Inventory grid: 12 columns */
-.char-modal-inv-label {
-  font-size: 11px;
-  color: var(--modal-muted);
-  margin: 0 0 8px;
-}
+/* ── Inventory grid: 12 columns ──────────────────────────── */
 
 .char-modal-inv-grid {
   display: grid;
@@ -2579,9 +2529,7 @@ body {
   overflow: hidden;
 }
 
-.char-inv-slot:hover {
-  background: var(--chrome-mid);
-}
+.char-inv-slot:hover { background: var(--chrome-mid); }
 
 .char-inv-slot.bar-slot {
   border-color: var(--modal-accent);
@@ -2597,9 +2545,7 @@ body {
     inset 1px 1px 0 rgba(100, 180, 255, 0.3);
 }
 
-.char-inv-slot.empty {
-  cursor: default;
-}
+.char-inv-slot.empty { cursor: default; }
 
 .char-inv-key {
   position: absolute;
@@ -2612,9 +2558,7 @@ body {
   z-index: 1;
 }
 
-.char-inv-slot.selected .char-inv-key {
-  color: var(--modal-accent);
-}
+.char-inv-slot.selected .char-inv-key { color: var(--modal-accent); }
 
 .char-inv-icon {
   display: block;
@@ -2654,24 +2598,136 @@ body {
   background: var(--bar-color, #44ff88);
 }
 
-/* Game tab */
-.char-modal-game-panel {
+/* ── Settings panel ──────────────────────────────────────── */
+
+.char-settings-view {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 0;
-  max-width: 200px;
+  gap: 18px;
 }
 
-.char-modal-game-btn {
-  width: 100%;
-  min-height: 28px;
-  padding: 4px 12px;
+.char-settings-heading {
+  font-size: 12px;
+  font-family: "Chicago_12", sans-serif;
+  color: var(--modal-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--modal-border);
+}
+
+/* Larger font for settings controls */
+.char-settings-view .imb-slider-row label,
+.char-settings-view .imb-theme-label,
+.char-settings-view .imb-checkbox-row,
+.char-settings-view .imb-keybinding-row {
+  font-size: 14px;
+}
+
+.char-settings-view .imb-slider-row {
+  grid-template-columns: 140px minmax(120px, 1fr) 46px;
+}
+
+.char-settings-view .imb-theme-row {
+  grid-template-columns: 140px 1fr;
+}
+
+.char-settings-view .imb-slider-val {
+  font-size: 13px;
+}
+
+.char-settings-view .imb-theme-option {
+  font-size: 13px;
+  padding: 4px 14px;
+}
+
+/* Keybinding list */
+.char-keybinding-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.char-settings-view .imb-keybinding-button {
+  font-size: 13px;
+  min-width: 100px;
+}
+
+.char-nav-btn {
+  padding: 7px 14px;
   background: var(--modal-bg-soft);
   border: 2px solid var(--chrome-border);
   color: var(--modal-text);
   font-family: "Chicago_12", sans-serif;
-  font-size: 13px;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  box-shadow:
+    inset 2px 2px 0 var(--chrome-highlight),
+    inset -2px -2px 0 var(--chrome-lowlight),
+    2px 2px 0 var(--chrome-shadow);
+}
+.char-nav-btn:hover { background: var(--chrome-mid); }
+.char-nav-btn:focus-visible { outline: 2px solid var(--modal-accent); outline-offset: -2px; }
+
+.char-sub-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.char-sub-title {
+  font-family: "Chicago_12", sans-serif;
+  font-size: 15px;
+  color: var(--modal-text);
+  margin: 0;
+}
+
+.char-dev-tools-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.char-dev-tools-panel.hidden { display: none; }
+
+/* ── Game tab ─────────────────────────────────────────────── */
+
+.char-game-panel-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.char-game-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.char-game-logo {
+  display: block;
+  width: 180px;
+  height: auto;
+  image-rendering: pixelated;
+  margin: 0 auto 20px;
+}
+
+.char-game-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 240px;
+}
+
+.char-modal-game-btn {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 16px;
+  background: var(--modal-bg-soft);
+  border: 2px solid var(--chrome-border);
+  color: var(--modal-text);
+  font-family: "Chicago_12", sans-serif;
+  font-size: 15px;
   cursor: pointer;
   text-align: left;
   box-shadow:
@@ -2680,9 +2736,8 @@ body {
     2px 2px 0 var(--chrome-shadow);
 }
 
-.char-modal-game-btn:hover {
-  background: var(--chrome-mid);
-}
+.char-modal-game-btn:hover { background: var(--chrome-mid); }
+.char-modal-game-btn:focus-visible { outline: 2px solid var(--modal-accent); outline-offset: -2px; }
 
 .char-modal-game-btn:active {
   box-shadow:
@@ -2691,10 +2746,92 @@ body {
   transform: translate(1px, 1px);
 }
 
-.char-modal-placeholder {
-  color: var(--modal-muted);
+/* ── Multiplayer sub-views ───────────────────────────────── */
+
+.char-mp-hint {
   font-size: 12px;
-  padding: 16px 0;
+  color: var(--modal-muted);
+  margin: 14px 0 0;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.char-mp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.char-mp-status {
+  font-size: 13px;
+  color: var(--modal-accent);
+  font-family: "Chicago_12", sans-serif;
+  padding: 4px 0;
+}
+.char-mp-status.hidden { display: none; }
+
+.char-mp-server-list {
+  max-height: 160px;
+  overflow-y: auto;
+  border: 1px solid var(--chrome-border);
+  background: var(--modal-bg-soft);
+  margin: 8px 0;
+}
+
+.char-mp-server-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--chrome-border);
+}
+.char-mp-server-entry:last-child { border-bottom: none; }
+
+.char-mp-server-name {
+  font-size: 13px;
+  color: var(--modal-text);
+  display: block;
+}
+
+.char-mp-server-meta {
+  font-size: 11px;
+  color: var(--modal-muted);
+  display: block;
+}
+
+.char-mp-searching {
+  padding: 12px;
+  font-size: 12px;
+  color: var(--modal-muted);
+  text-align: center;
+}
+
+.char-mp-lobby-status {
+  font-size: 13px;
+  color: var(--modal-muted);
+  margin-bottom: 10px;
+}
+
+.char-mp-lobby-players {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.char-mp-lobby-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--modal-text);
+}
+
+.char-mp-host-badge {
+  font-size: 10px;
+  color: var(--modal-accent);
+  border: 1px solid var(--modal-accent);
+  padding: 1px 4px;
 }
 
 /* Cursor ghost while dragging */

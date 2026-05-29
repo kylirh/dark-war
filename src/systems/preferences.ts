@@ -47,10 +47,8 @@ export const KEY_BINDING_DEFINITIONS: KeyBindingDefinition[] = [
   { action: "pickup", label: "Pickup" },
   { action: "reload", label: "Reload" },
   { action: "toggleCTDM", label: "Toggle CTDM" },
-  { action: "weapon1", label: "Weapon 1" },
-  { action: "weapon2", label: "Weapon 2" },
-  { action: "weapon3", label: "Weapon 3" },
-  { action: "weapon4", label: "Weapon 4" },
+  // weapon1-4 intentionally omitted: inventory slot keys (1-9, 0, -, =)
+  // now handle weapon selection through the inventory bar.
   { action: "toggleGodMode", label: "God Mode", devOnly: true },
   { action: "toggleFOV", label: "Toggle FOV", devOnly: true },
 ];
