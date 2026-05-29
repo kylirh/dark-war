@@ -404,7 +404,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           640,
         );
 
-        state.entities.push(bullet);
+        state.entityManager.spawn(bullet);
         pushEvent(state, {
           type: EventType.MESSAGE,
           data: { type: "MESSAGE", message: "Fired!" },
@@ -458,7 +458,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         }
         grenade.worldX += grenade.velocityX * (SIM_DT_MS / 1000);
         grenade.worldY += grenade.velocityY * (SIM_DT_MS / 1000);
-        state.entities.push(grenade);
+        state.entityManager.spawn(grenade);
         pushEvent(state, {
           type: EventType.MESSAGE,
           data: { type: "MESSAGE", message: "Grenade out!" },
@@ -497,7 +497,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           player.id,
           EXPLOSIVE_OWNER_GRACE_TICKS,
         );
-        state.entities.push(mine);
+        state.entityManager.spawn(mine);
         pushEvent(state, {
           type: EventType.MESSAGE,
           data: { type: "MESSAGE", message: "Mine armed." },
@@ -551,7 +551,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         grenade.velocityY = Math.sin(angle) * THROW_SPEED;
         grenade.worldX += grenade.velocityX * (SIM_DT_MS / 1000);
         grenade.worldY += grenade.velocityY * (SIM_DT_MS / 1000);
-        state.entities.push(grenade);
+        state.entityManager.spawn(grenade);
         return;
       }
       case WeaponType.LAND_MINE: {
@@ -566,7 +566,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           monster.id,
           EXPLOSIVE_OWNER_GRACE_TICKS,
         );
-        state.entities.push(mine);
+        state.entityManager.spawn(mine);
         return;
       }
       case WeaponType.PISTOL: {
@@ -586,7 +586,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           monster.id,
           SKULKER_SHOOT_MAX_RANGE_PX,
         );
-        state.entities.push(bullet);
+        state.entityManager.spawn(bullet);
         state.pendingSounds.push({
           effect: SoundEffect.SHOOT,
           worldX: (monster as any).worldX,

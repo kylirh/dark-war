@@ -53,6 +53,7 @@ const LANDED_GRENADE_DAMPING = 0.82;
 export class Physics {
   private system: System;
   private wallBodies: Map<number, Box> = new Map(); // tileIndex -> Box
+  private entityBodies: Map<string, Circle> = new Map(); // entityId -> Circle
 
   constructor() {
     this.system = new System();
@@ -186,6 +187,7 @@ export class Physics {
     // Store reference
     (circle as any).entityId = entity.id;
     entity.physicsBody = circle;
+    this.entityBodies.set(entity.id, circle);
   }
 
   /**
@@ -196,6 +198,7 @@ export class Physics {
       this.system.remove(entity.physicsBody);
       entity.physicsBody = undefined;
     }
+    this.entityBodies.delete(entity.id);
   }
 
   /**
@@ -207,6 +210,51 @@ export class Physics {
         this.system.remove(body);
       }
     }
+    this.entityBodies.clear();
+  }
+
+  /**
+   * Incrementally reconcile physics bodies with the entity manager's
+   * spawn/despawn tracking. Replaces the per-frame full-scan reconcile:
+   * only entities that actually appeared or disappeared are touched.
+   * Clears the lifecycle tracking once applied.
+   */
+  public syncEntityBodies(state: GameState): void {
+    const manager = state.entityManager;
+
+    for (const id of manager.removedIds) {
+      const body = this.entityBodies.get(id);
+      if (body) {
+        this.system.remove(body);
+        this.entityBodies.delete(id);
+      }
+    }
+
+    for (const id of manager.spawnedIds) {
+      const entity = manager.getById(id);
+      if (entity instanceof GameEntity && !entity.physicsBody) {
+        this.updateEntityBody(entity);
+      }
+    }
+
+    manager.clearLifecycle();
+  }
+
+  /**
+   * Rebuild the entire physics world from scratch: wall bodies from the map
+   * plus fresh bodies for every current entity. Used on level transitions and
+   * after deserialize, replacing the old manual init + clear + recreate dance.
+   */
+  public rebuildAll(state: GameState): void {
+    this.initializeMap(state.map, state.mapWidth, state.mapHeight);
+    this.clearEntityBodies();
+    for (const entity of state.entities) {
+      if (entity instanceof GameEntity) {
+        entity.physicsBody = undefined;
+        this.updateEntityBody(entity);
+      }
+    }
+    state.entityManager.clearLifecycle();
   }
 
   /**
@@ -215,26 +263,14 @@ export class Physics {
    * @param dt Delta time in seconds (already scaled by timeScale * REAL_TIME_SPEED)
    */
   public updatePhysics(state: GameState, dt: number): void {
+    // Reconcile bodies for entities spawned/despawned since the last frame.
+    this.syncEntityBodies(state);
+
     // Build entity Map once for O(1) lookup in collision handlers
     const entityMap = new Map<string, GameEntity>();
     for (const entity of state.entities) {
       if (entity instanceof GameEntity) {
         entityMap.set(entity.id, entity);
-      }
-    }
-
-    // Remove physics bodies for entities no longer in state
-    for (const body of this.system.all()) {
-      const entityId = (body as any).entityId;
-      if (entityId !== undefined && !entityMap.has(entityId)) {
-        this.system.remove(body);
-      }
-    }
-
-    // Ensure all entities have physics bodies
-    for (const entity of entityMap.values()) {
-      if (!entity.physicsBody) {
-        this.updateEntityBody(entity);
       }
     }
 
@@ -704,8 +740,7 @@ export class Physics {
    */
   private removeStateEntity(state: GameState, entity: GameEntity): void {
     this.removeEntity(entity);
-    const index = state.entities.indexOf(entity as any);
-    if (index > -1) state.entities.splice(index, 1);
+    state.entityManager.destroy(entity.id);
   }
 
   /**

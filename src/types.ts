@@ -1,3 +1,7 @@
+// Type-only import: the concrete class lives in core/entity-manager.ts.
+// Imported as a type so types.ts stays free of runtime dependencies.
+import type { EntityManager } from "./core/entity-manager";
+
 // ========================================
 // Tile Types and Definitions
 // ========================================
@@ -364,6 +368,10 @@ export interface GameState {
   visibilityByPlayer: Map<string, Set<number>>;
   exploredByPlayer: Map<string, Set<number>>;
   entities: Entity[];
+  // Owns entity add/remove and lifecycle tracking. Shares its array with
+  // `entities` above (same reference, mutated in place). Runtime-only —
+  // never serialized.
+  entityManager: EntityManager;
   players: Player[];
   player: Player;
   stairsDown: [number, number];

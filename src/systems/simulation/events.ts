@@ -385,7 +385,7 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
       explosive.type,
       event.id,
     );
-    state.entities = state.entities.filter((e) => e.id !== explosive.id);
+    state.entityManager.destroy(explosive.id);
   }
 
   for (const item of itemsToTrigger) {
@@ -396,7 +396,7 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
       item.type as ItemType.GRENADE | ItemType.LAND_MINE,
       event.id,
     );
-    state.entities = state.entities.filter((e) => e.id !== item.id);
+    state.entityManager.destroy(item.id);
   }
 }
 
@@ -465,7 +465,7 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
               event.cause,
             );
           } else {
-            state.entities.push(
+            state.entityManager.spawn(
               new ItemEntity(monster.gridX, monster.gridY, type),
             );
           }
@@ -479,7 +479,7 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
     if (monster.bullets > 0) {
       const ammoItem = new ItemEntity(monster.gridX, monster.gridY, ItemType.AMMO);
       ammoItem.amount = monster.bullets;
-      state.entities.push(ammoItem);
+      state.entityManager.spawn(ammoItem);
     }
 
     if (monster.carriedItems.length > 0) {
@@ -491,12 +491,12 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
         if (typeof carried.heal === "number") {
           item.heal = carried.heal;
         }
-        state.entities.push(item);
+        state.entityManager.spawn(item);
       }
     }
 
     // Remove from entity list
-    state.entities = state.entities.filter((e) => e.id !== entity.id);
+    state.entityManager.destroy(entity.id);
   }
 }
 
@@ -666,7 +666,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
   }
 
   // Remove item
-  state.entities = state.entities.filter((e) => e.id !== item.id);
+  state.entityManager.destroy(item.id);
 }
 
 function processPlayerDeathEvent(state: GameState, event: GameEvent): void {

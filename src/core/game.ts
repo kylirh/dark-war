@@ -21,6 +21,7 @@ import {
 } from "../types";
 import { generateDungeon } from "./map";
 import { createOutsideLevel } from "./outside-level";
+import { EntityManager } from "./entity-manager";
 import { PlayerEntity } from "../entities/player-entity";
 import { MonsterEntity } from "../entities/monster-entity";
 import { ItemEntity } from "../entities/item-entity";
@@ -89,6 +90,8 @@ export class Game {
       [localPlayerId, explored],
     ]);
 
+    const entities: Entity[] = [];
+
     return {
       depth: 0,
       levelKind: "outside",
@@ -105,7 +108,8 @@ export class Game {
       enhancedVision: false,
       visibilityByPlayer,
       exploredByPlayer,
-      entities: [],
+      entities,
+      entityManager: new EntityManager(entities),
       players: [player],
       player,
       stairsDown: [0, 0],
@@ -158,6 +162,8 @@ export class Game {
       [localPlayerId, explored],
     ]);
 
+    const entities: Entity[] = [];
+
     this.state = {
       depth,
       levelKind: depth === 0 ? "outside" : "dungeon",
@@ -175,7 +181,8 @@ export class Game {
       enhancedVision: false,
       visibilityByPlayer,
       exploredByPlayer,
-      entities: [],
+      entities,
+      entityManager: new EntityManager(entities),
       players: [player],
       player,
       stairsDown: dungeon.stairsDown,
@@ -208,10 +215,10 @@ export class Game {
     };
 
     // Add player to entities
-    this.state.entities.push(this.state.player);
+    this.state.entityManager.spawn(this.state.player);
 
     if (outside) {
-      this.state.entities.push(...outside.entities);
+      this.state.entityManager.spawnAll(outside.entities);
       this.addStory("The city is quiet. Megacorp waits to the northeast.");
       this.updateFOV();
       if (DEBUG) console.timeEnd("reset: total");
@@ -235,16 +242,16 @@ export class Game {
         if (dist([x, y], dungeon.start) > 8) {
         const roll = RNG.int(10);
         if (roll < 3) {
-          this.state.entities.push(
+          this.state.entityManager.spawn(
             new MonsterEntity(x, y, MonsterType.RAT, depth),
           );
           ratCount++;
         } else if (roll < 5) {
-          this.state.entities.push(
+          this.state.entityManager.spawn(
             new MonsterEntity(x, y, MonsterType.SKULKER, depth),
           );
         } else {
-          this.state.entities.push(
+          this.state.entityManager.spawn(
             new MonsterEntity(x, y, MonsterType.MUTANT, depth),
           );
           mutantCount++;
@@ -260,35 +267,35 @@ export class Game {
     for (let i = 0; i < 10 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(new ItemEntity(x, y, ItemType.AMMO));
+      this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.AMMO));
       freeTiles.splice(tileIndex, 1);
     }
 
     for (let i = 0; i < 6 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(new ItemEntity(x, y, ItemType.MEDKIT));
+      this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.MEDKIT));
       freeTiles.splice(tileIndex, 1);
     }
 
     for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(new ItemEntity(x, y, ItemType.KEYCARD));
+      this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.KEYCARD));
       freeTiles.splice(tileIndex, 1);
     }
 
     for (let i = 0; i < 4 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(new ItemEntity(x, y, ItemType.GRENADE));
+      this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.GRENADE));
       freeTiles.splice(tileIndex, 1);
     }
 
     for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
-      this.state.entities.push(new ItemEntity(x, y, ItemType.LAND_MINE));
+      this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.LAND_MINE));
       freeTiles.splice(tileIndex, 1);
     }
 
@@ -296,7 +303,7 @@ export class Game {
       for (let i = 0; i < count && freeTiles.length > 0; i++) {
         const tileIndex = RNG.int(freeTiles.length);
         const [x, y] = freeTiles[tileIndex];
-        this.state.entities.push(new ItemEntity(x, y, type));
+        this.state.entityManager.spawn(new ItemEntity(x, y, type));
         freeTiles.splice(tileIndex, 1);
       }
     };
@@ -416,7 +423,7 @@ export class Game {
     player.nextActTick = this.state.sim.nowTick;
 
     this.state.players.push(player);
-    this.state.entities.push(player);
+    this.state.entityManager.spawn(player);
     this.state.exploredByPlayer.set(playerId, new Set<number>());
     this.state.visibilityByPlayer.set(playerId, new Set<number>());
 
@@ -431,9 +438,7 @@ export class Game {
     this.state.players = this.state.players.filter(
       (player) => player.id !== playerId,
     );
-    this.state.entities = this.state.entities.filter(
-      (entity) => entity.id !== playerId,
-    );
+    this.state.entityManager.destroy(playerId);
     this.state.exploredByPlayer.delete(playerId);
     this.state.visibilityByPlayer.delete(playerId);
 
@@ -561,7 +566,10 @@ export class Game {
       player.nextActTick = this.state.sim.nowTick;
     }
 
-    this.state.entities = [...this.state.players, ...snapshot.entities];
+    this.state.entityManager.replaceAll([
+      ...this.state.players,
+      ...snapshot.entities,
+    ]);
     this.syncLocalExploredState();
     this.normalizeCurrentCompletedExploration();
   }
@@ -698,9 +706,8 @@ export class Game {
     }) as MonsterEntity[];
 
     if (bots.length > 0) {
-      this.state.entities = this.state.entities.filter(
-        (e) => !bots.includes(e as MonsterEntity),
-      );
+      const botIds = new Set(bots.map((b) => b.id));
+      this.state.entityManager.destroyByIds(botIds);
     }
     return bots;
   }
@@ -739,7 +746,7 @@ export class Game {
 
     for (const bot of followingBots) {
       setPositionFromGrid(bot, landingPosition[0], landingPosition[1]);
-      this.state.entities.push(bot);
+      this.state.entityManager.spawn(bot);
     }
 
     this.updateFOV();
@@ -776,7 +783,7 @@ export class Game {
     if (landingPos) {
       for (const bot of followingBots) {
         setPositionFromGrid(bot, landingPos[0], landingPos[1]);
-        this.state.entities.push(bot);
+        this.state.entityManager.spawn(bot);
       }
     }
     this.updateFOV();
@@ -1020,6 +1027,7 @@ export class Game {
       visibilityByPlayer,
       exploredByPlayer,
       entities,
+      entityManager: new EntityManager(entities),
       players,
       player,
       story: data.story || [],

@@ -215,7 +215,7 @@ function processMonsterItemPickups(state: GameState): void {
   }
 
   if (pickedItemIds.size > 0) {
-    state.entities = state.entities.filter((e) => !pickedItemIds.has(e.id));
+    state.entityManager.destroyByIds(pickedItemIds);
   }
 }
 
@@ -311,5 +311,5 @@ function triggerMonsterFall(state: GameState, monster: Monster): void {
     },
   });
 
-  state.entities = state.entities.filter((e) => e.id !== monster.id);
+  state.entityManager.destroy(monster.id);
 }

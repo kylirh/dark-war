@@ -1,6 +1,5 @@
 import { Game } from "./core/game";
 import { GameLoop } from "./core/game-loop";
-import { GameEntity } from "./entities/game-entity";
 import { InputCallbacks, InputHandler, MOVEMENT_SPEED } from "./systems/input";
 import { MouseTracker } from "./systems/mouse-tracker";
 import { Music } from "./systems/music";
@@ -775,16 +774,7 @@ class DarkWar {
   }
 
   private reinitializePhysicsForCurrentState(): void {
-    const state = this.game.getState();
-    this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
-    this.physics.clearEntityBodies();
-
-    for (const entity of state.entities) {
-      if (entity instanceof GameEntity) {
-        entity.physicsBody = undefined;
-        this.physics.updateEntityBody(entity);
-      }
-    }
+    this.physics.rebuildAll(this.game.getState());
   }
 
   private centerOnPlayerSoon(delayMs: number): void {

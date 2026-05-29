@@ -66,7 +66,7 @@ export function updateExplosives(state: GameState): void {
           explosive.worldY,
           explosive.type,
         );
-        state.entities = state.entities.filter((e) => e.id !== explosive.id);
+        state.entityManager.destroy(explosive.id);
         continue;
       }
 
@@ -98,7 +98,7 @@ export function updateExplosives(state: GameState): void {
           explosive.worldY,
           explosive.type,
         );
-        state.entities = state.entities.filter((e) => e.id !== explosive.id);
+        state.entityManager.destroy(explosive.id);
       }
     }
   }

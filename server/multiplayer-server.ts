@@ -480,15 +480,7 @@ class RoomSession {
   }
 
   private rebuildPhysics(): void {
-    const state = this.game.getState();
-    for (const entity of state.entities) {
-      if ("physicsBody" in entity) (entity as unknown as Record<string, unknown>).physicsBody = undefined;
-    }
-    this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
-    this.physics.clearEntityBodies();
-    for (const entity of state.entities) {
-      this.physics.updateEntityBody(entity as Parameters<Physics["updateEntityBody"]>[0]);
-    }
+    this.physics.rebuildAll(this.game.getState());
   }
 
   private send(socket: WebSocket, payload: unknown): void {
