@@ -1712,16 +1712,33 @@ body {
   font-weight: bold;
 }
 
-.hp {
-  padding-bottom: 0;
+.hp-overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 50;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.hp-bar-container {
-  margin-top: -4px;
+.hp-bar-outer {
+  width: 120px;
+  height: 14px;
+  border: 2px solid #ffffff;
+  padding: 1px;
+  background: #2a2a2a;
+  box-shadow:
+    inset 1px 1px 0 rgba(255, 255, 255, 0.15),
+    inset -1px -1px 0 rgba(0, 0, 0, 0.5),
+    1px 1px 0 rgba(0, 0, 0, 0.9);
+  flex-shrink: 0;
 }
 
-.hp-bar {
-  height: 10px;
+.hp-bar-inner {
+  height: 100%;
+  width: 100%;
   background: linear-gradient(
     90deg,
     #dd4444 0%,
@@ -1739,24 +1756,35 @@ body {
   position: relative;
 }
 
-.hp-bar-fill {
-  display: block;
-  height: 100%;
-  background: transparent;
-  width: 100%;
-  transition: width 0.3s ease;
-  position: relative;
-}
-
-.hp-bar::after {
+.hp-bar-inner::after {
   content: "";
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  background: var(--panel);
+  background: #2a2a2a;
   width: calc(100% - var(--hp-width, 100%));
   transition: width 0.3s ease;
+}
+
+.hp-overlay-text {
+  opacity: 0;
+  color: #ffffff;
+  font-family: "Chicago_12", sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow:
+    1px 1px 0 #000,
+    -1px -1px 0 #000,
+    1px -1px 0 #000,
+    -1px 1px 0 #000,
+    0 2px 6px rgba(0, 0, 0, 0.9);
+  transition: opacity 0.15s ease;
+}
+
+.hp-overlay.hovered .hp-overlay-text {
+  opacity: 1;
 }
 
 .ctdm-stat {

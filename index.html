@@ -57,6 +57,12 @@
     <div class="resize-handle" data-edge="bottom-right"></div>
     <div class="app-container">
       <div class="game-area">
+        <div id="hp-overlay" class="hp-overlay">
+          <div class="hp-bar-outer">
+            <div id="hpbar" class="hp-bar-inner" style="--hp-width: 100%"></div>
+          </div>
+          <span id="hp" class="hp-overlay-text">—</span>
+        </div>
         <div class="viewport">
           <canvas
             id="game"
@@ -100,13 +106,6 @@
             <div class="stat-row">
               <span class="stat-label">Score</span>
               <span class="stat-value" id="score">0</span>
-            </div>
-            <div class="hp stat-row">
-              <span class="stat-label">Hit Points</span>
-              <span class="stat-value" id="hp">—</span>
-            </div>
-            <div class="hp-bar" id="hpbar" style="--hp-width: 100%">
-              <span class="hp-bar-fill"></span>
             </div>
             <div id="ctdm-section" style="display: none">
               <div class="stat-row ctdm-stat">
@@ -174,6 +173,19 @@
           isCollapsed ? "Show Sidebar" : "Hide Sidebar",
         );
       });
+
+      (function () {
+        const hpOverlay = document.getElementById("hp-overlay");
+        document.addEventListener("mousemove", (e) => {
+          const rect = hpOverlay.getBoundingClientRect();
+          const hovered =
+            e.clientX >= rect.left &&
+            e.clientX <= rect.right &&
+            e.clientY >= rect.top &&
+            e.clientY <= rect.bottom;
+          hpOverlay.classList.toggle("hovered", hovered);
+        });
+      })();
 
       const scaleToggle = document.getElementById("scaleToggle");
       const scales = [1, 2, 3];
