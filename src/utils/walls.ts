@@ -4,6 +4,7 @@ import {
   TileType,
   WALL_MAX_DAMAGE,
 } from "../types";
+import { isWallLikeTile } from "../core/tile-source";
 import { idxFor, inBoundsFor } from "./helpers";
 
 export function applyWallDamageAtIndex(
@@ -20,14 +21,10 @@ export function applyWallDamageAtIndex(
     return false;
   }
   const tile = state.map[tileIndex];
-  const isDoor =
-    tile === TileType.DOOR_CLOSED ||
-    tile === TileType.DOOR_OPEN ||
-    tile === TileType.DOOR_LOCKED;
   const isFloor = tile === TileType.FLOOR;
-  const isWall = tile === TileType.WALL;
+  const isWallLike = isWallLikeTile(tile);
 
-  if (!isWall && !isDoor && !isFloor) return false;
+  if (!isWallLike && !isFloor) return false;
 
   // Ensure wallDamage is kept in sync with map length before accessing.
   if (state.wallDamage.length < state.map.length) {
@@ -51,7 +48,7 @@ export function applyWallDamageAtIndex(
       state.map[tileIndex] = TileType.FLOOR;
     }
     wallDamage[tileIndex] = 0;
-    if (isWall || isDoor) {
+    if (isWallLike) {
       state.mapDirty = true;
     }
     return true;

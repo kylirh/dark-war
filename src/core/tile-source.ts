@@ -37,6 +37,16 @@ export function tileIsPassable(tile: TileType): boolean {
   return !!def && !def.block;
 }
 
+/** Walls and doors — the solid/gating tiles, as opposed to floor or holes. */
+export function isWallLikeTile(tile: TileType): boolean {
+  return (
+    tile === TileType.WALL ||
+    tile === TileType.DOOR_CLOSED ||
+    tile === TileType.DOOR_OPEN ||
+    tile === TileType.DOOR_LOCKED
+  );
+}
+
 /**
  * A TileSource backed by the existing flat `TileType[]`. Semantics match the
  * `*For` helpers exactly so it can stand in anywhere without changing behavior.

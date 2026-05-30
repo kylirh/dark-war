@@ -1,10 +1,12 @@
-import {
-  FLOOR_MAX_DAMAGE,
-  GameState,
-  TileType,
-  WALL_MAX_DAMAGE,
-} from "../types";
+import { GameState, TileType } from "../types";
+import { isWallLikeTile } from "../core/tile-source";
 import { idxFor, inBoundsFor } from "./helpers";
+
+/** A tile worth repairing: a hole, or a damaged floor / wall-like tile. */
+function isRepairable(tile: TileType, damage: number): boolean {
+  if (tile === TileType.HOLE) return true;
+  return damage > 0 && (tile === TileType.FLOOR || isWallLikeTile(tile));
+}
 
 export function applyRepairAt(
   state: GameState,
@@ -25,11 +27,7 @@ export function applyRepairAt(
   const damage = state.wallDamage[tileIndex] ?? 0;
   if (damage <= 0) return false;
 
-  const isWallLike =
-    tile === TileType.WALL ||
-    tile === TileType.DOOR_CLOSED ||
-    tile === TileType.DOOR_OPEN ||
-    tile === TileType.DOOR_LOCKED;
+  const isWallLike = isWallLikeTile(tile);
   const isFloor = tile === TileType.FLOOR;
 
   if (!isWallLike && !isFloor) return false;
@@ -66,16 +64,7 @@ export function findNearestRepairTarget(
       const idx = idxFor(tx, ty, state.mapWidth);
       const tile = state.map[idx];
       const damage = state.wallDamage[idx] ?? 0;
-      const repairable =
-        tile === TileType.HOLE ||
-        ((tile === TileType.FLOOR ||
-          tile === TileType.WALL ||
-          tile === TileType.DOOR_CLOSED ||
-          tile === TileType.DOOR_OPEN ||
-          tile === TileType.DOOR_LOCKED) &&
-          damage > 0);
-
-      if (!repairable) continue;
+      if (!isRepairable(tile, damage)) continue;
 
       const dx = tx - fromX;
       const dy = ty - fromY;
@@ -93,19 +82,7 @@ export function findNearestRepairTarget(
 /** Scan the entire level for any repairable tile. */
 export function hasAnyRepairTarget(state: GameState): boolean {
   for (let i = 0; i < state.map.length; i++) {
-    const tile = state.map[i];
-    const damage = state.wallDamage[i] ?? 0;
-    if (
-      tile === TileType.HOLE ||
-      ((tile === TileType.FLOOR ||
-        tile === TileType.WALL ||
-        tile === TileType.DOOR_CLOSED ||
-        tile === TileType.DOOR_OPEN ||
-        tile === TileType.DOOR_LOCKED) &&
-        damage > 0)
-    ) {
-      return true;
-    }
+    if (isRepairable(state.map[i], state.wallDamage[i] ?? 0)) return true;
   }
   return false;
 }
