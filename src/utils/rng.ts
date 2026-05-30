@@ -2,7 +2,7 @@
  * Deterministic random number generator using SFC32 algorithm
  * Allows for reproducible dungeon generation with seed control
  */
-class RandomNumberGenerator {
+export class RandomNumberGenerator {
   private seed: number;
   private rand: () => number;
 
