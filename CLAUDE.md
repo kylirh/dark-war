@@ -19,9 +19,14 @@ npm run build            # Full distributable build (macOS/Windows/Linux via ele
 npm run type-check       # Type-check both client and server without emitting
 npm run type-check:client  # Type-check client only (tsconfig.json)
 npm run type-check:server  # Type-check server only (tsconfig.server.json)
+npm test                 # Run the Vitest unit suite once
+npm run test:watch       # Vitest in watch mode
 ```
 
-There are no tests or linting configured in this project.
+Unit tests run on **Vitest** and live next to the code they cover as
+`*.test.ts`. They focus on the deterministic logic (simulation, helpers,
+netcode encoding, map/tile systems, entity lifecycle) rather than the
+Electron/Pixi/DOM layers. No linter is configured.
 
 ## Architecture
 
@@ -76,7 +81,9 @@ Two modes: `offline` (default) and `online`. In online mode, an authoritative We
 
 Index tiles with `idx(x, y)` (uses global constants) or `idxFor(x, y, width)` (explicit width, required for non-standard map sizes).
 
-**Chunk-based maps** (`src/core/tile-source.ts`, `src/core/chunked-map.ts`): a `TileSource` abstraction decouples tile read/write from storage. `FlatTileSource` wraps today's flat array (identical semantics); `ChunkedTileSource` stores 16×16 chunks generated on demand (`createDungeonChunkGenerator`), streams chunks in/out to cap memory, and keeps edit overrides that survive eviction. This is the foundation for larger/streaming levels — **the live game still uses the flat `TileType[]` path**; cutting `state.map` over to a chunk source is a follow-up (it intersects the delta protocol's fixed-length-map assumption and needs playtesting).
+**Tile access** (`src/core/tile-source.ts`, `src/core/chunked-map.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — gameplay logic should read/write through it (`getTile`/`setTile`/`passable`), not the raw `map` array. For finite levels it is a `FlatTileSource` over `state.map` (rebuilt on every level transition via `refreshTileSource`), so behavior is unchanged. `ChunkedTileSource` stores 16×16 chunks generated on demand (`createDungeonChunkGenerator`), streams chunks in/out, and keeps edit overrides that survive eviction.
+
+**Streaming-world cutover (in progress):** the canonical `TileSource` accessor is the first landed slice toward a streaming/continuous world. Still to do (each needs playtesting): coordinate-keyed `explored`/`wallDamage` (today they're linear `x + y*width` indices that assume a bounded width), chunk-region serialization in `state-delta.ts` (today the wire sends a fixed-length flat map), and per-chunk streaming in FOV/physics/rendering. Until those land, levels remain finite and flat-backed.
 
 ### Key Utilities
 

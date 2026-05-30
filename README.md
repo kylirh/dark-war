@@ -93,6 +93,15 @@ To check TypeScript types without building:
 npm run type-check
 ```
 
+### Testing
+
+Unit tests (Vitest) cover the game logic, networking, and map systems:
+
+```bash
+npm test            # run once
+npm run test:watch  # watch mode
+```
+
 ## Building Distributables
 
 To create standalone executables for macOS, Windows, and Linux:

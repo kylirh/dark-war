@@ -23,12 +23,19 @@ npm run type-check             # Type-check both client and server
 npm run type-check:client      # Type-check client only (tsconfig.json)
 npm run type-check:server      # Type-check server only (tsconfig.server.json)
 
+# Testing
+npm test                       # Run the Vitest unit suite once
+npm run test:watch             # Vitest watch mode
+
 # Building
 npm run build:ts               # Compile TypeScript (tsc) + bundle with Vite
 npm run build                  # Full distributable build (macOS/Windows/Linux via electron-builder)
 ```
 
-**No tests or linting configured.** Type-checking is the primary validation method.
+**Vitest** covers the deterministic logic (simulation, helpers, netcode
+encoding, tile/map systems, entity lifecycle) as co-located `*.test.ts` files;
+type-checking remains the primary validation for the Electron/Pixi/DOM layers.
+No linter is configured.
 
 ---
 
@@ -171,7 +178,12 @@ if (entity.kind === EntityKind.MONSTER) {
 
 ### Map Representation
 
-- **Flat array:** `TileType[]` — dungeon is `MAP_WIDTH × MAP_HEIGHT` (64×36), outside is 128×72
+- **Canonical accessor:** `state.tiles` (a `TileSource`) — read/write tiles via
+  `getTile(x, y)`, `setTile(x, y, tile)`, `passable(x, y)`. For finite levels
+  it wraps the flat array; a streaming dungeon swaps in a `ChunkedTileSource`.
+- **Flat array (backing / serialization):** `TileType[]` — dungeon is
+  `MAP_WIDTH × MAP_HEIGHT` (64×36), outside is 128×72. The `*For` helpers below
+  still operate on it directly in code that hasn't migrated to `state.tiles`.
 - **Index with:** `idxFor(x, y, width)` — always prefer the `For` variant in systems
 - **Query tile:** `tileAtFor(map, x, y, width, height)`
 - **Check passable:** `passableFor(map, x, y, width, height)`
