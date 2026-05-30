@@ -1131,6 +1131,9 @@ class DarkWar {
       if (!this.onlineConnected) {
         state.sim.targetTimeScale = 0;
       } else if (this.hasOnlineSnapshot) {
+        // Advance click-to-move first so the steering velocity it sets feeds
+        // this frame's prediction and gets sent to the server.
+        this.updateAutoMove(state);
         this.predictLocalPlayer(state, dt);
       }
       Music.updateForGameState(state, this.computeThreatLevel(state));
@@ -1435,6 +1438,23 @@ class DarkWar {
     const player = state.player;
     player.velocityX = 0;
     player.velocityY = 0;
+    if (this.isOnlineMode()) this.setOnlineMoveIntent(0, 0);
+  }
+
+  /**
+   * Apply a movement intent for the local player in online mode: predict it
+   * locally and forward it to the authoritative server. Only re-sends when the
+   * velocity changes meaningfully so click-to-move doesn't flood the socket.
+   */
+  private setOnlineMoveIntent(vx: number, vy: number): void {
+    const changed =
+      Math.abs(vx - this.localInputVx) > 1 || Math.abs(vy - this.localInputVy) > 1;
+    const player = this.game.getState().player;
+    player.velocityX = vx;
+    player.velocityY = vy;
+    this.localInputVx = vx;
+    this.localInputVy = vy;
+    if (changed) this.getReadyOnlineClient()?.sendVelocity(vx, vy);
   }
 
   private updateAutoMove(state: ReturnType<Game["getState"]>): void {
@@ -1459,10 +1479,14 @@ class DarkWar {
 
     // Use larger threshold to prevent oscillation (about 1/4 of a tile)
     if (distance <= 8) {
-      player.worldX = targetWorldX;
-      player.worldY = targetWorldY;
-      player.velocityX = 0;
-      player.velocityY = 0;
+      // Offline we own the position and can snap to the waypoint; online the
+      // server is authoritative, so just advance and let prediction carry us.
+      if (!this.isOnlineMode()) {
+        player.worldX = targetWorldX;
+        player.worldY = targetWorldY;
+        player.velocityX = 0;
+        player.velocityY = 0;
+      }
       this.autoMovePathIndex++;
 
       if (
@@ -1524,6 +1548,9 @@ class DarkWar {
         if (queuedHoleJump) {
           state.sim.targetTimeScale = REAL_TIME_SCALE;
         }
+
+        // Arrived: stop the player on the server too.
+        if (this.isOnlineMode()) this.setOnlineMoveIntent(0, 0);
       }
       return;
     }
@@ -1533,9 +1560,16 @@ class DarkWar {
     const approachDistance = 16; // Start slowing within half a tile
     const speedMultiplier = Math.min(1, distance / approachDistance);
 
-    player.velocityX = (dx / distance) * speed * speedMultiplier;
-    player.velocityY = (dy / distance) * speed * speedMultiplier;
+    const vx = (dx / distance) * speed * speedMultiplier;
+    const vy = (dy / distance) * speed * speedMultiplier;
     player.facingAngle = Math.atan2(dy, dx);
+
+    if (this.isOnlineMode()) {
+      this.setOnlineMoveIntent(vx, vy);
+    } else {
+      player.velocityX = vx;
+      player.velocityY = vy;
+    }
   }
 
   /**
