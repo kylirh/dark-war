@@ -227,6 +227,8 @@ export type Entity = Player | Monster | Item | Bullet | Explosive;
 export const SLOWMO_SCALE = 0.05; // 5% speed during slowdown
 export const REAL_TIME_SPEED = 1.0; // 100% base speed for real-time
 export const TIME_SCALE_TRANSITION_SPEED = 0.05; // Interpolation speed per frame
+// Multiplayer runs at a fixed, slightly-relaxed real-time pace (no CTDM).
+export const ONLINE_TIME_SCALE = 0.8;
 
 export interface SimulationState {
   nowTick: number;

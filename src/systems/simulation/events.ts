@@ -281,8 +281,24 @@ function applyDamageKnockback(
   const unitY = data.knockbackY / length;
   target.prevWorldX = target.worldX;
   target.prevWorldY = target.worldY;
-  target.worldX += unitX * data.knockbackDistance;
-  target.worldY += unitY * data.knockbackDistance;
+
+  // Sweep toward the knockback target in small steps and stop at the last
+  // passable position, so a hit never shoves an actor inside a wall (where the
+  // collision solver would otherwise leave it stuck and jittering).
+  const startX = target.worldX;
+  const startY = target.worldY;
+  const steps = Math.max(1, Math.ceil(data.knockbackDistance / 4));
+  for (let i = 1; i <= steps; i++) {
+    const t = (data.knockbackDistance * i) / steps;
+    const candX = startX + unitX * t;
+    const candY = startY + unitY * t;
+    const gx = Math.floor(candX / CELL_CONFIG.w);
+    const gy = Math.floor(candY / CELL_CONFIG.h);
+    if (!state.tiles.passable(gx, gy)) break;
+    target.worldX = candX;
+    target.worldY = candY;
+  }
+
   if (target.physicsBody) {
     target.physicsBody.setPosition(target.worldX, target.worldY);
   }

@@ -39,6 +39,9 @@ const PLAYER_RADIUS = 8;
 const MONSTER_RADIUS = 7;
 const ITEM_RADIUS = 6;
 const BULLET_RADIUS = 4;
+// Max distance a bullet advances per collision sub-step. Smaller than the
+// bullet+actor overlap radius so fast bullets can't tunnel through enemies.
+const BULLET_SUBSTEP_PX = 6;
 const EXPLOSIVE_RADIUS = 6;
 const COLLISION_RESOLUTION_ITERATIONS = 3;
 const VELOCITY_EPSILON = 0.01;
@@ -375,6 +378,12 @@ export class Physics {
         continue;
       }
 
+      // Bullets are moved+collided in updateBullets, sub-stepped to avoid
+      // tunnelling through enemies at high speed / low tick rates.
+      if (entity.kind === EntityKind.BULLET) {
+        continue;
+      }
+
       // Skip if entity has no velocity
       if (entity.velocityX === 0 && entity.velocityY === 0) {
         continue;
@@ -388,10 +397,10 @@ export class Physics {
       entity.worldX += entity.velocityX * dt;
       entity.worldY += entity.velocityY * dt;
 
-      // Clamp to world bounds to prevent entities escaping the map
+      // Clamp to world bounds to prevent entities escaping the map.
+      // (Bullets are handled in updateBullets and skipped above.)
       const entityRadius = entity.kind === EntityKind.PLAYER ? PLAYER_RADIUS
         : entity.kind === EntityKind.MONSTER ? MONSTER_RADIUS
-        : entity.kind === EntityKind.BULLET ? BULLET_RADIUS
         : entity.kind === EntityKind.EXPLOSIVE ? EXPLOSIVE_RADIUS
         : 8;
       const minBound = CELL_CONFIG.w + entityRadius;
@@ -677,99 +686,117 @@ export class Physics {
       if (bullet.ownerGraceSeconds > 0) {
         bullet.ownerGraceSeconds = Math.max(0, bullet.ownerGraceSeconds - dt);
       }
-
-      // Track distance traveled
-      const distanceThisFrame =
-        Math.sqrt(
-          bullet.velocityX * bullet.velocityX +
-            bullet.velocityY * bullet.velocityY,
-        ) * dt;
-      bullet.traveledDistance += distanceThisFrame;
-
-      // Remove if exceeded max distance or timed out
-      if (
-        bullet.traveledDistance >= bullet.maxDistance ||
-        bullet.fuseSeconds <= 0
-      ) {
+      if (bullet.fuseSeconds <= 0) {
         this.removeStateEntity(state, bullet);
         continue;
       }
+      if (!bullet.physicsBody) continue;
 
-      // Check for actual collisions (not just potentials)
-      if (bullet.physicsBody) {
-        let bulletRemoved = false;
+      const speed = Math.hypot(bullet.velocityX, bullet.velocityY);
+      const frameDistance = speed * dt;
 
-        // Check collision with walls using checkOne
-        this.system.checkOne(bullet.physicsBody, (response) => {
-          if (bulletRemoved) return;
+      // Sub-step the movement so a fast bullet can't skip over (tunnel through)
+      // an enemy between frames — the root cause of "bullets pass through".
+      const substeps = Math.max(1, Math.ceil(frameDistance / BULLET_SUBSTEP_PX));
+      const stepDt = dt / substeps;
 
-          const other = response.b;
+      // prevWorld marks the whole frame's start (used for render interpolation).
+      bullet.prevWorldX = bullet.worldX;
+      bullet.prevWorldY = bullet.worldY;
 
-          // Hit wall
-          if ((other as any).isWall) {
-            const tileIndex = (other as any).tileIndex;
-            const ricocheted = this.tryRicochetBullet(bullet, response);
-            if (!ricocheted && typeof tileIndex === "number") {
-              applyWallDamageAtIndex(state, tileIndex, bullet.damage);
-            }
-            if (!ricocheted) {
-              // Spawn impact sparks
-              const baseAngle = Math.atan2(bullet.velocityY, bullet.velocityX) + Math.PI;
-              for (let s = 0; s < 7; s++) {
-                const angle = baseAngle + (Math.random() - 0.5) * 1.8;
-                const speed = 60 + Math.random() * 120;
-                state.effects.push({
-                  id: crypto.randomUUID(),
-                  type: "spark",
-                  worldX: bullet.worldX,
-                  worldY: bullet.worldY,
-                  ageTicks: 0,
-                  durationTicks: 5,
-                  velocityX: Math.cos(angle) * speed,
-                  velocityY: Math.sin(angle) * speed,
-                });
-              }
-              this.removeStateEntity(state, bullet);
-              bulletRemoved = true;
-            }
-            return;
-          }
+      for (let s = 0; s < substeps; s++) {
+        bullet.worldX += bullet.velocityX * stepDt;
+        bullet.worldY += bullet.velocityY * stepDt;
+        bullet.traveledDistance += speed * stepDt;
 
-          // Hit monster
-          const targetEntity = this.getEntityFromBody(
-            entityMap,
-            other as Circle | Box,
-          );
-          if (
-            targetEntity &&
-            (targetEntity.kind === EntityKind.MONSTER ||
-              targetEntity.kind === EntityKind.PLAYER) &&
-            (targetEntity.id !== bullet.ownerId ||
-              bullet.ownerGraceSeconds <= 0 ||
-              bullet.ricochetCount > 0)
-          ) {
-            // Apply damage via simulation event pipeline for drops
-            pushEvent(state, {
-              type: EventType.DAMAGE,
-              data: {
-                type: "DAMAGE",
-                targetId: targetEntity.id,
-                amount: bullet.damage,
-                sourceId: bullet.ownerId,
-                suppressHitSound: true,
-                knockbackX: bullet.velocityX,
-                knockbackY: bullet.velocityY,
-                knockbackDistance: 6,
-              },
-            });
+        if (bullet.traveledDistance >= bullet.maxDistance) {
+          this.removeStateEntity(state, bullet);
+          break;
+        }
 
-            // Remove bullet
-            this.removeStateEntity(state, bullet);
-            bulletRemoved = true;
-          }
-        });
+        bullet.physicsBody.setPosition(bullet.worldX, bullet.worldY);
+        this.system.update();
+
+        if (this.resolveBulletCollision(state, bullet, entityMap)) break;
       }
     }
+  }
+
+  /**
+   * Resolve a bullet's collisions at its current position. Returns true if the
+   * bullet should stop advancing this frame (it was removed or ricocheted).
+   */
+  private resolveBulletCollision(
+    state: GameState,
+    bullet: BulletEntity,
+    entityMap: Map<string, GameEntity>,
+  ): boolean {
+    if (!bullet.physicsBody) return true;
+    let stop = false;
+
+    this.system.checkOne(bullet.physicsBody, (response) => {
+      if (stop) return;
+      const other = response.b;
+
+      // Hit wall
+      if ((other as any).isWall) {
+        const tileIndex = (other as any).tileIndex;
+        const ricocheted = this.tryRicochetBullet(bullet, response);
+        if (!ricocheted && typeof tileIndex === "number") {
+          applyWallDamageAtIndex(state, tileIndex, bullet.damage);
+        }
+        if (!ricocheted) {
+          const baseAngle = Math.atan2(bullet.velocityY, bullet.velocityX) + Math.PI;
+          for (let s = 0; s < 7; s++) {
+            const angle = baseAngle + (Math.random() - 0.5) * 1.8;
+            const sparkSpeed = 60 + Math.random() * 120;
+            state.effects.push({
+              id: crypto.randomUUID(),
+              type: "spark",
+              worldX: bullet.worldX,
+              worldY: bullet.worldY,
+              ageTicks: 0,
+              durationTicks: 5,
+              velocityX: Math.cos(angle) * sparkSpeed,
+              velocityY: Math.sin(angle) * sparkSpeed,
+            });
+          }
+          this.removeStateEntity(state, bullet);
+        }
+        stop = true;
+        return;
+      }
+
+      // Hit actor
+      const targetEntity = this.getEntityFromBody(entityMap, other as Circle | Box);
+      if (
+        targetEntity &&
+        (targetEntity.kind === EntityKind.MONSTER ||
+          targetEntity.kind === EntityKind.PLAYER) &&
+        (targetEntity as any).hp > 0 &&
+        (targetEntity.id !== bullet.ownerId ||
+          bullet.ownerGraceSeconds <= 0 ||
+          bullet.ricochetCount > 0)
+      ) {
+        pushEvent(state, {
+          type: EventType.DAMAGE,
+          data: {
+            type: "DAMAGE",
+            targetId: targetEntity.id,
+            amount: bullet.damage,
+            sourceId: bullet.ownerId,
+            suppressHitSound: true,
+            knockbackX: bullet.velocityX,
+            knockbackY: bullet.velocityY,
+            knockbackDistance: 6,
+          },
+        });
+        this.removeStateEntity(state, bullet);
+        stop = true;
+      }
+    });
+
+    return stop;
   }
 
   /**

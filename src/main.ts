@@ -976,13 +976,6 @@ class DarkWar {
     return true;
   }
 
-  private getWeaponSlot(weapon: WeaponType): number {
-    if (weapon === WeaponType.MELEE) return 1;
-    if (weapon === WeaponType.PISTOL) return 2;
-    if (weapon === WeaponType.GRENADE) return 3;
-    return 4;
-  }
-
   /**
    * Setup click-to-move functionality
    */
@@ -1632,7 +1625,7 @@ class DarkWar {
     if (!weapon) return;
 
     if (this.isOnlineMode()) {
-      this.selectOnlineWeapon(slot);
+      this.selectOnlineWeaponByType(weapon);
       return;
     }
 
@@ -1653,6 +1646,18 @@ class DarkWar {
     this.game.addStory(`Weapon set: ${weapon}.`);
   }
 
+  /**
+   * Online: select the inventory bar slot that holds the given weapon (so the
+   * authoritative server resolves the weapon from the player's real inventory).
+   */
+  private selectOnlineWeaponByType(weapon: WeaponType): void {
+    const player = this.game.getState().player;
+    const barSlot = player.inventorySlots
+      .slice(0, INVENTORY_BAR_SIZE)
+      .findIndex((s) => getWeaponForSlot(s) === weapon);
+    if (barSlot >= 0) this.handleSelectInventorySlot(barSlot);
+  }
+
   private handleCycleWeapon(direction: number): void {
     const state = this.game.getState();
     const player = state.player;
@@ -1667,8 +1672,7 @@ class DarkWar {
       (currentIndex + direction + weapons.length) % weapons.length;
 
     if (this.isOnlineMode()) {
-      const nextWeapon = weapons[nextIndex];
-      this.selectOnlineWeapon(this.getWeaponSlot(nextWeapon));
+      this.selectOnlineWeaponByType(weapons[nextIndex]);
       return;
     }
 
@@ -1682,14 +1686,14 @@ class DarkWar {
     const state = this.game.getState();
     const player = state.player;
 
-    if (this.isOnlineMode()) {
-      // In online mode, map slot to legacy weapon slot for compatibility
-      this.selectOnlineWeapon(slotIndex + 1);
-      return;
-    }
-
+    // Apply locally for an instant response; the server is authoritative over
+    // selectedBarSlot/weapon and confirms (or corrects) on the next snapshot.
     player.selectedBarSlot = slotIndex;
     player.weapon = getWeaponForSlot(player.inventorySlots[slotIndex]);
+
+    if (this.isOnlineMode()) {
+      this.selectOnlineWeapon(slotIndex);
+    }
   }
 
   private handleCycleSlot(direction: number): void {

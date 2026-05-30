@@ -53,6 +53,25 @@ describe("multiplayer server (multi-world)", () => {
     client.close();
   });
 
+  it("changes the player's weapon by inventory bar slot", async () => {
+    server = await startMultiplayerServer(0);
+    const client = connect(server.port, "Host");
+    await waitFor(client, "welcome");
+
+    send(client, { type: "start_game" });
+    const initial = await waitFor(client, "state_full");
+    expect(initial.state.player.weapon).toBe("pistol"); // default
+
+    // Bar slot 2 holds a grenade by default; selecting it should switch weapons.
+    send(client, { type: "select_weapon", slot: 2 });
+    send(client, { type: "request_keyframe" });
+    const updated = await waitFor(client, "state_full");
+    expect(updated.state.player.weapon).toBe("grenade");
+    expect(updated.state.player.selectedBarSlot).toBe(2);
+
+    client.close();
+  });
+
   it("keeps two players in the same entry world", async () => {
     server = await startMultiplayerServer(0);
     const host = connect(server.port, "Host");

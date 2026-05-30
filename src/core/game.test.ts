@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "./game";
-import { EntityKind, WeaponType } from "../types";
+import { EntityKind, TileType, WeaponType } from "../types";
 import { RNG } from "../utils/rng";
 
 describe("Game serialize/deserialize round-trip", () => {
@@ -37,6 +37,23 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(state.tiles.getTile(state.player.gridX, state.player.gridY)).toBe(
       state.map[state.player.gridX + state.player.gridY * state.mapWidth],
     );
+  });
+
+  it("serializes independent map/wallDamage arrays so deltas can detect changes", () => {
+    const game = new Game({ mode: "online" });
+    game.reset(1);
+
+    const before = game.serialize();
+    // Damage a wall and crack a tile after the first snapshot.
+    game.getState().map[10] = TileType.HOLE;
+    game.getState().wallDamage[10] = 5;
+    const after = game.serialize();
+
+    // Distinct arrays (not shared references) so a delta baseline sees the diff.
+    expect(after.map).not.toBe(before.map);
+    expect(after.wallDamage).not.toBe(before.wallDamage);
+    expect(before.map[10]).not.toBe(after.map[10]);
+    expect(before.wallDamage![10]).not.toBe(after.wallDamage![10]);
   });
 
   it("keeps the player present in the entities list", () => {

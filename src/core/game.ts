@@ -41,6 +41,7 @@ import { Sound, SoundEffect } from "../systems/sound";
 
 const EXPLORATION_COMPLETION_THRESHOLD = 0.9;
 const MIN_COMPLETION_REACHABLE_TILES = 50;
+const MAX_CORPSES_PER_LEVEL = 8;
 
 interface LevelSnapshot {
   depth: number;
@@ -485,6 +486,33 @@ export class Game {
     this.state.exploredByPlayer.set(player.id, new Set<number>());
     this.state.visibilityByPlayer.set(player.id, new Set<number>());
     this.updateFOVForPlayer(player.id);
+  }
+
+  /**
+   * Leave a cosmetic corpse where a player died. It lives in `players` with
+   * hp 0 (so it renders as a dead body and is ignored by AI / alive checks) but
+   * is never controlled. Capped per level so corpses can't grow unbounded.
+   */
+  public spawnCorpse(source: Player): void {
+    const corpse = new PlayerEntity(source.gridX, source.gridY);
+    corpse.id = `corpse-${crypto.randomUUID()}`;
+    corpse.worldX = source.worldX;
+    corpse.worldY = source.worldY;
+    corpse.prevWorldX = source.worldX;
+    corpse.prevWorldY = source.worldY;
+    corpse.facingAngle = source.facingAngle;
+    corpse.hp = 0;
+    corpse.velocityX = 0;
+    corpse.velocityY = 0;
+    this.state.players.push(corpse);
+
+    const corpses = this.state.players.filter(
+      (p) => p.hp <= 0 && p.id.startsWith("corpse-"),
+    );
+    if (corpses.length > MAX_CORPSES_PER_LEVEL) {
+      const oldest = corpses[0];
+      this.state.players = this.state.players.filter((p) => p !== oldest);
+    }
   }
 
   public removeNetworkPlayer(playerId: string): void {
@@ -989,12 +1017,16 @@ export class Game {
     return {
       depth: this.state.depth,
       levelKind: this.state.levelKind,
-      map: this.state.map,
+      // Copy map/wallDamage: the delta encoder keeps the previous serialized
+      // snapshot as a baseline and diffs against it, so these must be distinct
+      // arrays each tick or wall changes are invisible to deltas (and only
+      // surface on the periodic keyframe — the "delayed wall damage" bug).
+      map: this.state.map.slice(),
       mapWidth: this.state.mapWidth,
       mapHeight: this.state.mapHeight,
       floorVariant: this.state.floorVariant,
       wallSet: this.state.wallSet,
-      wallDamage: this.state.wallDamage,
+      wallDamage: this.state.wallDamage.slice(),
       stairsDown: this.state.stairsDown,
       stairsUp: this.state.stairsUp,
       player: this.stripRuntimeEntityState(this.state.player) as Player,

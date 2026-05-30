@@ -8,11 +8,15 @@ import { SIM_DT_MS } from "../src/systems/simulation/constants";
 import { PROTOCOL_VERSION } from "../src/net/protocol";
 import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
 import { Sound } from "../src/systems/sound";
-import { CommandType, EntityKind, HOLE_FALL_DAMAGE, SerializedState, TileType, WeaponType } from "../src/types";
+import { CommandType, EntityKind, HOLE_FALL_DAMAGE, INVENTORY_BAR_SIZE, ONLINE_TIME_SCALE, SerializedState, TileType } from "../src/types";
+import { getWeaponForSlot } from "../src/utils/inventory";
 
 // Force a fresh keyframe at least this often (in broadcasts) so a client that
 // somehow drifted re-baselines within a few seconds. ~5s at 20 broadcasts/sec.
 const KEYFRAME_INTERVAL = 100;
+
+// How long a dead player lingers (as a body) before respawning. ~2s at 20Hz.
+const RESPAWN_DELAY_TICKS = 40;
 
 // ─── Protocol types ────────────────────────────────────────────────────────────
 
@@ -127,6 +131,8 @@ class RoomSession {
   private readonly id: string;
   private readonly worlds = new Map<number, LevelWorld>();
   private readonly playerDepth = new Map<string, number>();
+  // Ticks remaining before a dead player respawns (infinite lives).
+  private readonly respawnTimers = new Map<string, number>();
   private readonly clients = new Map<WebSocket, RoomClient>();
   private readonly closeRoom: (roomId: string) => void;
   private tickHandle: NodeJS.Timeout | null = null;
@@ -487,14 +493,11 @@ class RoomSession {
   private applyWeaponSelection(playerId: string, slot: number): void {
     const player = this.worldOfPlayer(playerId)?.game.getPlayerById(playerId);
     if (!player) return;
-    const slotToWeapon: Record<number, WeaponType> = {
-      1: WeaponType.MELEE,
-      2: WeaponType.PISTOL,
-      3: WeaponType.GRENADE,
-      4: WeaponType.LAND_MINE,
-    };
-    const weapon = slotToWeapon[slot];
-    if (weapon) player.weapon = weapon;
+    // `slot` is a 0-based inventory-bar index; the weapon is whatever item sits
+    // there (authoritative, so it always matches the player's real inventory).
+    if (!Number.isInteger(slot) || slot < 0 || slot >= INVENTORY_BAR_SIZE) return;
+    player.selectedBarSlot = slot;
+    player.weapon = getWeaponForSlot(player.inventorySlots[slot] ?? null);
   }
 
   private resetRoomState(): void {
@@ -554,8 +557,64 @@ class RoomSession {
     for (const world of [...this.worlds.values()]) {
       if (world.players.size > 0) this.handleHoleFalls(world);
     }
+    // Respawn the dead (infinite lives) once their timer elapses.
+    this.handleRespawns();
 
     this.broadcastState();
+  }
+
+  /**
+   * Infinite lives: a dead player leaves a corpse where they fell and respawns
+   * at the entry world after a short delay, keeping their gear, fully healed.
+   */
+  private handleRespawns(): void {
+    for (const [playerId, depth] of [...this.playerDepth]) {
+      const world = this.worlds.get(depth);
+      const player = world?.game.getPlayerById(playerId);
+      if (!player) continue;
+
+      if (player.hp > 0) {
+        this.respawnTimers.delete(playerId);
+        continue;
+      }
+
+      const remaining = this.respawnTimers.get(playerId);
+      if (remaining === undefined) {
+        this.respawnTimers.set(playerId, RESPAWN_DELAY_TICKS);
+        player.velocityX = 0;
+        player.velocityY = 0;
+      } else if (remaining <= 1) {
+        this.respawnTimers.delete(playerId);
+        this.respawnPlayer(playerId);
+      } else {
+        this.respawnTimers.set(playerId, remaining - 1);
+      }
+    }
+  }
+
+  private respawnPlayer(playerId: string): void {
+    const from = this.worldOfPlayer(playerId);
+    if (!from) return;
+    const dead = from.game.getPlayerById(playerId);
+    if (!dead) return;
+
+    // Leave the body behind, then carry the (revived) player to the entry world.
+    from.game.spawnCorpse(dead);
+    const player = from.game.detachPlayer(playerId);
+    if (!player) return;
+    from.players.delete(playerId);
+    from.physics.rebuildAll(from.game.getState());
+
+    player.hp = player.hpMax;
+    const to = this.getOrCreateWorld(0);
+    to.game.attachExistingPlayer(player, to.game.getState().playerStart);
+    to.players.add(playerId);
+    this.playerDepth.set(playerId, 0);
+    to.physics.rebuildAll(to.game.getState());
+    to.game.addStory("You wake up back at the entrance.");
+
+    const client = this.clientByPlayerId(playerId);
+    if (client) client.needsKeyframe = true;
   }
 
   private stepWorld(world: LevelWorld): void {
@@ -564,20 +623,22 @@ class RoomSession {
     const dt = SIM_DT_MS / 1000;
     state.sim.mode = "REALTIME";
 
-    // Multiplayer always runs in real time — no CTDM / threat time dilation.
-    state.sim.timeScale = 1.0;
-    state.sim.targetTimeScale = 1.0;
+    // Multiplayer runs at a fixed, slightly-relaxed real-time pace — no CTDM
+    // time dilation, just a touch under full speed so combat is readable.
+    state.sim.timeScale = ONLINE_TIME_SCALE;
+    state.sim.targetTimeScale = ONLINE_TIME_SCALE;
+    const scaledDt = dt * ONLINE_TIME_SCALE;
 
-    physics.updatePhysics(state, dt);
-    physics.updateBullets(state, dt);
-    physics.updateExplosives(state, dt);
+    physics.updatePhysics(state, scaledDt);
+    physics.updateBullets(state, scaledDt);
+    physics.updateExplosives(state, scaledDt);
 
     if (state.mapDirty) {
       state.mapDirty = false;
       physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
     }
 
-    state.sim.accumulatorMs += dt * 1000;
+    state.sim.accumulatorMs += scaledDt * 1000;
     while (state.sim.accumulatorMs >= SIM_DT_MS) {
       stepSimulationTick(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
@@ -605,7 +666,7 @@ class RoomSession {
     }
 
     for (const player of state.players) {
-      if (player.kind === EntityKind.PLAYER) {
+      if (player.kind === EntityKind.PLAYER && player.hp > 0) {
         game.updateFOVForPlayer(player.id);
       }
     }
