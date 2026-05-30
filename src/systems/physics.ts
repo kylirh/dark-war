@@ -82,70 +82,62 @@ export class Physics {
     }
     this.wallBodies.clear();
 
-    // Create box colliders for walls and closed doors
+    // Only walls that border passable space get colliders — interior solid rock
+    // is unreachable, so skipping it keeps body counts low enough for large
+    // (streamed) maps without changing what the player can actually collide with.
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
-        const tileIndex = idxFor(x, y, width);
-        const tile = tiles.getTile(x, y);
-
-        if (TILE_DEFINITIONS[tile]?.block) {
-          // Position box at tile corner (not center) for proper alignment
-          const worldX = x * CELL_CONFIG.w;
-          const worldY = y * CELL_CONFIG.h;
-
-          // createBox parameters: position, width, height
-          // Position is top-left corner, dimensions are full size
-          const box = this.system.createBox(
-            { x: worldX, y: worldY },
-            CELL_CONFIG.w, // 32px full width
-            CELL_CONFIG.h, // 32px full height
-          );
-          box.isStatic = true;
-          (box as any).isWall = true;
-          (box as any).tileIndex = tileIndex;
-
-          this.wallBodies.set(tileIndex, box);
-        }
+        this.ensureWallBody(tiles, x, y);
       }
     }
   }
 
   /**
-   * Update physics body for a single tile (e.g., when door opens/closes)
+   * Reconcile a single tile's wall collider with the world: a collider exists
+   * iff the tile blocks AND borders a passable tile. Used incrementally when a
+   * tile changes (door, destroyed wall, newly streamed-in chunk).
    */
-  public updateTile(
-    x: number,
-    y: number,
-    tile: TileType,
-    width: number = MAP_WIDTH,
-    height: number = MAP_HEIGHT,
-  ): void {
-    if (x < 0 || y < 0 || x >= width || y >= height) return;
+  public updateTile(tiles: TileSource, x: number, y: number): void {
+    // The tile itself plus its 4 neighbours may gain/lose "borders passable"
+    // status, so re-evaluate all five.
+    this.ensureWallBody(tiles, x, y);
+    this.ensureWallBody(tiles, x + 1, y);
+    this.ensureWallBody(tiles, x - 1, y);
+    this.ensureWallBody(tiles, x, y + 1);
+    this.ensureWallBody(tiles, x, y - 1);
+  }
 
-    const tileIndex = idxFor(x, y, width);
+  private bordersPassable(tiles: TileSource, x: number, y: number): boolean {
+    return (
+      tiles.passable(x + 1, y) ||
+      tiles.passable(x - 1, y) ||
+      tiles.passable(x, y + 1) ||
+      tiles.passable(x, y - 1)
+    );
+  }
 
-    // Remove existing wall body if present
-    const existingBody = this.wallBodies.get(tileIndex);
-    if (existingBody) {
-      this.system.remove(existingBody);
-      this.wallBodies.delete(tileIndex);
-    }
+  /** Create or remove the wall collider for one tile to match the world. */
+  private ensureWallBody(tiles: TileSource, x: number, y: number): void {
+    if (!tiles.inBounds(x, y)) return;
+    const tileIndex = idxFor(x, y, tiles.width);
+    const tile = tiles.getTile(x, y);
+    const shouldBlock =
+      !!TILE_DEFINITIONS[tile]?.block && this.bordersPassable(tiles, x, y);
+    const existing = this.wallBodies.get(tileIndex);
 
-    // Create new wall body if tile should block
-    if (TILE_DEFINITIONS[tile]?.block) {
-      const worldX = x * CELL_CONFIG.w;
-      const worldY = y * CELL_CONFIG.h;
-
+    if (shouldBlock && !existing) {
       const box = this.system.createBox(
-        { x: worldX, y: worldY },
+        { x: x * CELL_CONFIG.w, y: y * CELL_CONFIG.h },
         CELL_CONFIG.w,
         CELL_CONFIG.h,
       );
       box.isStatic = true;
       (box as any).isWall = true;
       (box as any).tileIndex = tileIndex;
-
       this.wallBodies.set(tileIndex, box);
+    } else if (!shouldBlock && existing) {
+      this.system.remove(existing);
+      this.wallBodies.delete(tileIndex);
     }
   }
 

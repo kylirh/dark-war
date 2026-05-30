@@ -1273,8 +1273,7 @@ class DarkWar {
         for (const tileIndex of state.changedTiles) {
           const x = tileIndex % state.mapWidth;
           const y = Math.floor(tileIndex / state.mapWidth);
-          const tile = state.map[tileIndex];
-          this.physics.updateTile(x, y, tile, state.mapWidth, state.mapHeight);
+          this.physics.updateTile(state.tiles, x, y);
         }
         state.changedTiles.clear();
       }

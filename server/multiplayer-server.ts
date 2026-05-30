@@ -664,7 +664,7 @@ class RoomSession {
         for (const tileIndex of state.changedTiles) {
           const x = tileIndex % state.mapWidth;
           const y = Math.floor(tileIndex / state.mapWidth);
-          physics.updateTile(x, y, state.map[tileIndex], state.mapWidth, state.mapHeight);
+          physics.updateTile(state.tiles, x, y);
         }
         state.changedTiles.clear();
       }
