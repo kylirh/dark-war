@@ -177,6 +177,10 @@ export class MultiplayerClient {
     this.send({ type: "select_weapon", slot });
   }
 
+  public swapInventory(from: number, to: number): void {
+    this.send({ type: "inventory_swap", from, to });
+  }
+
   public requestNewGame(): void {
     this.send({ type: "new_game" });
   }

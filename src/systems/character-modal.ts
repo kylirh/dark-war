@@ -100,6 +100,7 @@ export class CharacterModal {
 
   public onClose: (() => void) | null = null;
   public onWeaponChanged: ((slot: number) => void) | null = null;
+  public onInventorySwap: ((from: number, to: number) => void) | null = null;
   public onNewGame: (() => void) | null = null;
   public onSave: (() => void) | null = null;
   public onLoad: (() => void) | null = null;
@@ -994,10 +995,12 @@ export class CharacterModal {
     if (targetSlotEl && this._player) {
       const toIndex = parseInt(targetSlotEl.dataset.index ?? "-1", 10);
       if (toIndex >= 0 && toIndex < INVENTORY_TOTAL_SLOTS && toIndex !== this._grabbedIndex) {
-        swapInventorySlots(this._player, this._grabbedIndex, toIndex);
+        const fromIndex = this._grabbedIndex;
+        swapInventorySlots(this._player, fromIndex, toIndex);
         const selSlot = this._player.selectedBarSlot;
         this._player.weapon = getWeaponForSlot(this._player.inventorySlots[selSlot]);
         this.onWeaponChanged?.(selSlot);
+        this.onInventorySwap?.(fromIndex, toIndex);
         this.renderInventory(this._player);
       }
     }

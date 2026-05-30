@@ -9,7 +9,7 @@ import { PROTOCOL_VERSION } from "../src/net/protocol";
 import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
 import { Sound } from "../src/systems/sound";
 import { CommandType, EntityKind, HOLE_FALL_DAMAGE, INVENTORY_BAR_SIZE, ONLINE_TIME_SCALE, SerializedState, TileType } from "../src/types";
-import { getWeaponForSlot } from "../src/utils/inventory";
+import { getWeaponForSlot, swapInventorySlots } from "../src/utils/inventory";
 
 // Force a fresh keyframe at least this often (in broadcasts) so a client that
 // somehow drifted re-baselines within a few seconds. ~5s at 20 broadcasts/sec.
@@ -42,6 +42,7 @@ type IncomingMessage2 =
   | { type: "velocity"; vx: number; vy: number; seq?: number }
   | { type: "action"; action: IncomingAction; seq?: number }
   | { type: "select_weapon"; slot: number }
+  | { type: "inventory_swap"; from: number; to: number }
   | { type: "new_game" }
   | { type: "start_game" }
   | { type: "set_name"; name: string }
@@ -102,6 +103,7 @@ function isIncomingMessage(value: unknown): value is IncomingMessage2 {
     value.type === "velocity" ||
     value.type === "action" ||
     value.type === "select_weapon" ||
+    value.type === "inventory_swap" ||
     value.type === "new_game" ||
     value.type === "start_game" ||
     value.type === "set_name" ||
@@ -371,6 +373,10 @@ class RoomSession {
       this.applyWeaponSelection(client.playerId, message.slot);
       return;
     }
+    if (message.type === "inventory_swap") {
+      this.applyInventorySwap(client.playerId, message.from, message.to);
+      return;
+    }
     if (message.type === "new_game") {
       if (client.playerId !== this.hostPlayerId) {
         this.send(socket, { type: "error", message: "Only the host can start a new game." });
@@ -498,6 +504,17 @@ class RoomSession {
     if (!Number.isInteger(slot) || slot < 0 || slot >= INVENTORY_BAR_SIZE) return;
     player.selectedBarSlot = slot;
     player.weapon = getWeaponForSlot(player.inventorySlots[slot] ?? null);
+  }
+
+  private applyInventorySwap(playerId: string, from: number, to: number): void {
+    const player = this.worldOfPlayer(playerId)?.game.getPlayerById(playerId);
+    if (!player) return;
+    const total = player.inventorySlots.length;
+    if (!Number.isInteger(from) || !Number.isInteger(to)) return;
+    if (from < 0 || from >= total || to < 0 || to >= total) return;
+    swapInventorySlots(player, from, to);
+    // Keep the equipped weapon consistent with whatever now sits in the bar slot.
+    player.weapon = getWeaponForSlot(player.inventorySlots[player.selectedBarSlot] ?? null);
   }
 
   private resetRoomState(): void {

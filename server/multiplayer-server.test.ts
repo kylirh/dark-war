@@ -72,6 +72,26 @@ describe("multiplayer server (multi-world)", () => {
     client.close();
   });
 
+  it("applies an authoritative inventory swap", async () => {
+    server = await startMultiplayerServer(0);
+    const client = connect(server.port, "Host");
+    await waitFor(client, "welcome");
+    send(client, { type: "start_game" });
+    await waitFor(client, "state_full");
+
+    // Default: slot 0 = pistol, slot 2 = grenade. Swap them.
+    send(client, { type: "inventory_swap", from: 0, to: 2 });
+    send(client, { type: "request_keyframe" });
+    const updated = await waitFor(client, "state_full");
+
+    expect(updated.state.player.inventorySlots[0].type).toBe("grenade");
+    expect(updated.state.player.inventorySlots[2].type).toBe("pistol");
+    // Selected bar slot 0 now holds the grenade, so the weapon follows.
+    expect(updated.state.player.weapon).toBe("grenade");
+
+    client.close();
+  });
+
   it("keeps two players in the same entry world", async () => {
     server = await startMultiplayerServer(0);
     const host = connect(server.port, "Host");

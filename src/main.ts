@@ -426,6 +426,11 @@ class DarkWar {
       const player = state.player;
       player.weapon = getWeaponForSlot(player.inventorySlots[player.selectedBarSlot]);
     };
+    this.characterModal.onInventorySwap = (from, to) => {
+      // Online the server owns the inventory; mirror the local reorder to it so
+      // it sticks instead of being overwritten by the next snapshot.
+      if (this.isOnlineMode()) this.getReadyOnlineClient()?.swapInventory(from, to);
+    };
     this.characterModal.onNewGame = () => this.handleNewGame();
     this.characterModal.onSave = () => this.handleSave();
     this.characterModal.onLoad = () => this.handleLoad();
