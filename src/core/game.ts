@@ -117,6 +117,7 @@ export class Game {
       player,
       stairsDown: [0, 0],
       stairsUp: null,
+      playerStart: [player.gridX, player.gridY],
       story: [],
       options: { fov: true, godMode: false },
       effects: [],
@@ -191,6 +192,7 @@ export class Game {
       player,
       stairsDown: dungeon.stairsDown,
       stairsUp: null,
+      playerStart: [dungeon.start[0], dungeon.start[1]],
       story: [],
       options: { fov: true, godMode: false },
       effects: [],
@@ -222,7 +224,15 @@ export class Game {
     this.state.entityManager.spawn(this.state.player);
 
     if (outside) {
-      this.state.entityManager.spawnAll(outside.entities);
+      // The CTDM (time-dilation device) has no place in multiplayer — online
+      // play is always real-time — so don't spawn it as a findable item there.
+      const outsideEntities =
+        this.multiplayerMode === "online"
+          ? outside.entities.filter(
+              (e) => !(e.kind === EntityKind.ITEM && (e as Item).type === ItemType.CTDM),
+            )
+          : outside.entities;
+      this.state.entityManager.spawnAll(outsideEntities);
       this.addStory("The city is quiet. Megacorp waits to the northeast.");
       this.updateFOV();
       if (DEBUG) console.timeEnd("reset: total");
@@ -417,9 +427,12 @@ export class Game {
       return existingPlayer;
     }
 
-    const reference: [number, number] = this.state.stairsUp
-      ? [this.state.stairsUp[0], this.state.stairsUp[1]]
-      : [this.state.stairsDown[0], this.state.stairsDown[1]];
+    // Spawn at the level's entry tile — the same place single-player starts —
+    // so multiplayer placement matches single-player.
+    const reference: [number, number] = [
+      this.state.playerStart[0],
+      this.state.playerStart[1],
+    ];
     const [spawnX, spawnY] = this.findSpawnTile(reference);
 
     const player = new PlayerEntity(spawnX, spawnY);
@@ -551,6 +564,7 @@ export class Game {
     snapshot: LevelSnapshot,
     playerEntry: [number, number],
   ): void {
+    this.state.playerStart = [playerEntry[0], playerEntry[1]];
     this.state.map = snapshot.map;
     this.state.levelKind = snapshot.levelKind;
     this.state.mapWidth = snapshot.mapWidth;
@@ -1039,6 +1053,7 @@ export class Game {
       stairsDown: data.stairsDown ??
         (data as { stairs?: [number, number] }).stairs ?? [0, 0],
       stairsUp: data.stairsUp ?? null,
+      playerStart: data.stairsUp ?? data.stairsDown ?? [0, 0],
       visible: new Set(),
       explored: new Set(exploredTiles),
       accessible: new Set(),

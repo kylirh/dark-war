@@ -381,6 +381,9 @@ export interface GameState {
   player: Player;
   stairsDown: [number, number];
   stairsUp: [number, number] | null;
+  // Where a fresh player enters this level (same tile single-player starts on).
+  // Network players spawn here so multiplayer matches single-player placement.
+  playerStart: [number, number];
   story: string[];
   options: {
     fov: boolean;

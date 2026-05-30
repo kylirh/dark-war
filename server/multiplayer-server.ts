@@ -8,7 +8,7 @@ import { SIM_DT_MS } from "../src/systems/simulation/constants";
 import { PROTOCOL_VERSION } from "../src/net/protocol";
 import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
 import { Sound } from "../src/systems/sound";
-import { CommandType, EntityKind, SerializedState, SLOWMO_SCALE, TIME_SCALE_TRANSITION_SPEED, WeaponType } from "../src/types";
+import { CommandType, EntityKind, SerializedState, WeaponType } from "../src/types";
 
 // Force a fresh keyframe at least this often (in broadcasts) so a client that
 // somehow drifted re-baselines within a few seconds. ~5s at 20 broadcasts/sec.
@@ -115,7 +115,6 @@ class RoomSession {
   private readonly closeRoom: (roomId: string) => void;
   private tickHandle: NodeJS.Timeout | null = null;
   private placeholderPlayerId: string;
-  private playerActedThisTick = false;
   private phase: RoomPhase = "lobby";
   private hostPlayerId: string | null = null;
 
@@ -322,8 +321,6 @@ class RoomSession {
 
     player.velocityX = nextVx;
     player.velocityY = nextVy;
-
-    if (nextVx !== 0 || nextVy !== 0) this.playerActedThisTick = true;
   }
 
   private applyAction(playerId: string, action: IncomingAction): void {
@@ -331,7 +328,6 @@ class RoomSession {
     const player = this.game.getPlayerById(playerId);
     if (!player || player.hp <= 0) return;
 
-    this.playerActedThisTick = true;
     const tick = state.sim.nowTick;
 
     if (action.type === "FIRE") {
@@ -420,25 +416,12 @@ class RoomSession {
     const dt = SIM_DT_MS / 1000;
     state.sim.mode = "REALTIME";
 
-    const anyPlayerActive =
-      state.players.some((p) => p.hp > 0 && (Math.abs(p.velocityX) > 0.1 || Math.abs(p.velocityY) > 0.1)) ||
-      this.playerActedThisTick;
-    const allDead = state.players.every((p) => p.hp <= 0);
+    // Multiplayer always runs in real time — there is no CTDM / threat-based
+    // time dilation in online play, so the world never slows down.
+    state.sim.timeScale = 1.0;
+    state.sim.targetTimeScale = 1.0;
 
-    state.sim.targetTimeScale = allDead || anyPlayerActive ? 1.0 : SLOWMO_SCALE;
-
-    const timeDiff = state.sim.targetTimeScale - state.sim.timeScale;
-    if (Math.abs(timeDiff) > 0.001) {
-      if (timeDiff > 0) {
-        state.sim.timeScale = Math.min(state.sim.timeScale + TIME_SCALE_TRANSITION_SPEED, state.sim.targetTimeScale);
-      } else {
-        state.sim.timeScale = Math.max(state.sim.timeScale - TIME_SCALE_TRANSITION_SPEED, state.sim.targetTimeScale);
-      }
-    } else {
-      state.sim.timeScale = state.sim.targetTimeScale;
-    }
-
-    const scaledDt = dt * state.sim.timeScale;
+    const scaledDt = dt;
 
     this.physics.updatePhysics(state, scaledDt);
     this.physics.updateBullets(state, scaledDt);
@@ -488,7 +471,6 @@ class RoomSession {
       }
     }
 
-    this.playerActedThisTick = false;
     this.broadcastState();
   }
 
