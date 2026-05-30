@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "./game";
-import { EntityKind } from "../types";
+import { EntityKind, WeaponType } from "../types";
 import { RNG } from "../utils/rng";
 
 describe("Game serialize/deserialize round-trip", () => {
@@ -83,7 +83,7 @@ describe("Game multiplayer player management", () => {
 
     const player = from.addNetworkPlayer("traveler");
     player.hp = 37;
-    player.weapon = 2 as typeof player.weapon;
+    player.weapon = WeaponType.PISTOL;
 
     const detached = from.detachPlayer("traveler");
     expect(detached).toBe(player);
@@ -94,6 +94,7 @@ describe("Game multiplayer player management", () => {
     const moved = to.getState().players.find((p) => p.id === "traveler");
     expect(moved).toBeDefined();
     expect(moved!.hp).toBe(37); // stats carried over
+    expect(moved!.weapon).toBe(WeaponType.PISTOL);
     expect(to.getState().entities.some((e) => e.id === "traveler")).toBe(true);
   });
 });
