@@ -82,6 +82,24 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(state.tiles.getTile(104, 72)).toBe(TileType.STAIRS_DOWN);
   });
 
+  it("descends from the outside into a streamed dungeon that keeps generating", () => {
+    RNG.reseed(99);
+    const game = new Game({ mode: "offline" });
+    game.reset(0); // outside city
+    game.descend(); // → depth 1 streamed dungeon
+    const state = game.getState();
+
+    expect(state.depth).toBe(1);
+    expect(state.levelKind).toBe("dungeon");
+    expect(state.mapWidth).toBe(128);
+
+    state.player.worldX = 104 * 32 + 16;
+    state.player.worldY = 72 * 32 + 16;
+    const before = state.map.filter((t) => t === TileType.FLOOR).length;
+    game.streamAroundPlayers();
+    expect(state.map.filter((t) => t === TileType.FLOOR).length).toBeGreaterThan(before);
+  });
+
   it("keeps the player present in the entities list", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);

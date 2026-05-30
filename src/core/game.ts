@@ -480,6 +480,20 @@ export class Game {
     player: Player,
     position: [number, number],
   ): void {
+    // On a streamed level, generate the landing area first so the player arrives
+    // near where they fell/descended rather than at the nearest old floor.
+    if (this.streamer) {
+      const res = this.streamer.ensureAround(
+        this.state.map,
+        position[0],
+        position[1],
+        STREAM_GEN_CHUNK_RADIUS,
+      );
+      if (res.changed.length > 0) {
+        if (!this.state.changedTiles) this.state.changedTiles = new Set();
+        for (const i of res.changed) this.state.changedTiles.add(i);
+      }
+    }
     const [spawnX, spawnY] = this.findSpawnTile(position);
     setPositionFromGrid(player, spawnX, spawnY);
     player.velocityX = 0;
@@ -1544,6 +1558,11 @@ export class Game {
     explored: Set<number>,
   ): boolean {
     if (this.state.enhancedVision) {
+      return false;
+    }
+    // Streamed dungeons are never "fully explored" — they keep generating as you
+    // go, so exploring the currently-revealed region shouldn't reveal the level.
+    if (this.streamer) {
       return false;
     }
 
