@@ -335,7 +335,7 @@ export class Renderer {
             : state.visible.has(tileIndex)
           : true;
         const alpha = !isVisible && usingShadowFov ? 0.45 : 1;
-        const tileType = state.map[tileIndex];
+        const tileType = state.tiles.getTile(mapX, mapY);
         const screenX = x * CELL_CONFIG.w;
         const screenY = y * CELL_CONFIG.h;
 
@@ -672,7 +672,6 @@ export class Renderer {
     this.syncCanvasSize(state);
 
     const {
-      map,
       visible,
       explored,
       enhancedVision,
@@ -733,7 +732,7 @@ export class Renderer {
             ? explored.has(tileIndex)
             : visible.has(tileIndex)
           : true;
-        const tileType = map[tileIndex];
+        const tileType = state.tiles.getTile(x, y);
 
         if (!isRevealed) continue;
 
