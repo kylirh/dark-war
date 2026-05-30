@@ -243,7 +243,8 @@ The simulation is split into domain modules under `src/systems/simulation/` (no 
 ### Multiplayer Considerations
 
 - Two modes: `offline` (default) and `online`
-- In `online` mode, server is authoritative (runs Game + Physics)
+- In `online` mode, server is authoritative (runs Game + Physics), always real time (no CTDM/time dilation)
+- **Per-depth worlds:** one `LevelWorld` (Game + Physics) per depth, shared by everyone on that depth; players migrate individually on stairs/holes via `Game.detachPlayer`/`attachExistingPlayer` (only the acting player moves)
 - Wire format is versioned (`src/net/protocol.ts`, `PROTOCOL_VERSION`); mismatched clients are rejected
 - Clients send velocity/actions stamped with a monotonic `seq`; the server echoes the processed seq as `ackSeq`
 - **Client-side prediction** (movement-only): the local player is predicted immediately and reconciled against server snapshots (`src/main.ts`, `Physics.predictLocalMovement`). Firing/hits stay server-authoritative

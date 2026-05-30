@@ -62,7 +62,9 @@ The CTDM is an in-game item the player can find and equip. When active, it slows
 
 ### Multiplayer
 
-Two modes: `offline` (default) and `online`. In online mode, an authoritative WebSocket server (`server/multiplayer-server.ts`) runs the Game and Physics simulation. Clients send velocity updates and actions; the server uses per-player FOV and explored state.
+Two modes: `offline` (default) and `online`. In online mode, an authoritative WebSocket server (`server/multiplayer-server.ts`) runs the Game and Physics simulation. Clients send velocity updates and actions; the server uses per-player FOV and explored state. Online play is always **real time** — there is no CTDM/time dilation, and the CTDM item is not spawned.
+
+**Per-depth worlds:** the server simulates one `LevelWorld` (its own `Game` + `Physics`) per depth, shared by everyone on that depth (co-op: same layout, same monsters). Players are tracked by depth and migrate between worlds individually — taking stairs (`DESCEND`/`ASCEND`, validated on the stairs tile) or falling through a hole (a player ending a tick on a `HOLE` tile drops to the next depth with fall damage) moves only that player, never the whole party. Empty worlds are frozen but retained. Migration carries the player entity (HP/inventory) via `Game.detachPlayer`/`attachExistingPlayer` and forces a keyframe so the client rebaselines on the new world.
 
 **Protocol** (`src/net/protocol.ts`, `PROTOCOL_VERSION`): the server stamps its version in the `welcome` message and clients refuse to play on a mismatch. Bump it whenever the wire format changes.
 
