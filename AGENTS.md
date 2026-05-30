@@ -44,12 +44,13 @@ npm run build                  # Full distributable build (macOS/Windows/Linux v
 
 - **Use named imports with relative paths**
   ```typescript
-  import { GameEntity } from "../entities/GameEntity";
-  import { RNG } from "../utils/RNG";
+  import { GameEntity } from "../entities/game-entity";
+  import { RNG } from "../utils/rng";
   import { idxFor, passableFor, tileAtFor } from "../utils/helpers";
   ```
 - **Never use default exports** — Only named exports
 - **One class/system per file**
+- **Filenames are kebab-case** (`game-entity.ts`, `outside-level.ts`, `multiplayer-client.ts`); no barrel/`index.ts` files — import the specific module directly
 
 ### Naming Conventions
 
@@ -205,31 +206,36 @@ enqueueCommand(state, {
 
 **Always use deterministic RNG for gameplay logic:**
 ```typescript
-import { RNG } from "../utils/RNG";
+import { RNG } from "../utils/rng";
 
 RNG.int(10);           // Random integer 0–9
 RNG.choose(array);     // Random element from non-empty array
 RNG.chance(0.5);       // 50% chance, returns true
 ```
 
+### Entity Lifecycle
+
+Add/remove entities only through `state.entityManager` (`src/core/entity-manager.ts`) — `spawn()`, `destroy()`, `destroyWhere()`, `destroyByIds()`, `replaceAll()`. It owns the entity array in place and tracks spawn/remove diffs that `Physics.syncEntityBodies()` uses to reconcile colliders. Direct `state.entities.push(...)` or reassigning `state.entities` will desync physics bodies and network deltas.
+
 ### Simulation Modules
 
-The simulation is split into domain modules under `src/systems/simulation/`:
-- `index.ts` — `stepSimulationTick`, `processEventQueue`, public re-exports
+The simulation is split into domain modules under `src/systems/simulation/` (no barrel — import the specific file):
+- `tick.ts` — `stepSimulationTick` (entry point), hole-fall and item-pickup processing
 - `commands.ts` — `enqueueCommand` + all `resolve*Command` handlers
 - `events.ts` — all `process*Event` handlers + `processEventQueue`
 - `ai.ts` — monster steering, utility bot BFS, `generateAICommands`
 - `explosives.ts` — grenade/mine fuse logic, chain explosions, effects
-- `helpers.ts` — `pushEvent`, `canActorAct`, `hasClearLineOfSight`, entity queries
+- `sim-helpers.ts` — `pushEvent`, `canActorAct`, `hasClearLineOfSight`, entity queries
 - `constants.ts` — all simulation constants (speeds, delays, config)
-
-Import from `"../systems/simulation"` (the index) to get all public exports.
 
 ### Multiplayer Considerations
 
 - Two modes: `offline` (default) and `online`
 - In `online` mode, server is authoritative (runs Game + Physics)
-- Clients send velocity updates and actions
+- Wire format is versioned (`src/net/protocol.ts`, `PROTOCOL_VERSION`); mismatched clients are rejected
+- Clients send velocity/actions stamped with a monotonic `seq`; the server echoes the processed seq as `ackSeq`
+- **Client-side prediction** (movement-only): the local player is predicted immediately and reconciled against server snapshots (`src/main.ts`, `Physics.predictLocalMovement`). Firing/hits stay server-authoritative
+- **Delta broadcasts** (`src/net/state-delta.ts`): per-client keyframe + delta instead of full state every tick
 - Per-player FOV and explored state tracked separately
 - LAN hosting: Electron embeds the server as a child process; UDP discovery via `electron/server-manager.js`
 
@@ -242,53 +248,62 @@ src/
 ├── config/
 │   └── sprites.ts            # Sprite sheet configuration
 ├── core/
-│   ├── Game.ts               # State manager, level transitions, FOV, serialization
-│   ├── GameLoop.ts           # Fixed 60Hz timestep with accumulator
-│   ├── Map.ts                # BSP dungeon generation (64×36)
-│   └── OutsideLevel.ts       # Procedural outside level generation (128×72)
+│   ├── game.ts               # State manager, level transitions, FOV, serialization
+│   ├── game-loop.ts          # Fixed 60Hz timestep with accumulator
+│   ├── entity-manager.ts     # Entity add/remove + lifecycle diff tracking
+│   ├── map.ts                # BSP dungeon generation (64×36)
+│   ├── outside-level.ts      # Procedural outside level generation (128×72)
+│   ├── tile-source.ts        # TileSource interface + FlatTileSource adapter
+│   └── chunked-map.ts        # ChunkedTileSource + chunk generation (streaming)
 ├── entities/
-│   ├── GameEntity.ts         # Base class with worldX/worldY
-│   ├── PlayerEntity.ts
-│   ├── MonsterEntity.ts
-│   ├── ItemEntity.ts
-│   ├── BulletEntity.ts
-│   └── ExplosiveEntity.ts
+│   ├── game-entity.ts        # Base class with worldX/worldY
+│   ├── player-entity.ts
+│   ├── monster-entity.ts
+│   ├── item-entity.ts
+│   ├── bullet-entity.ts
+│   └── explosive-entity.ts
 ├── net/
-│   └── MultiplayerClient.ts  # WebSocket client for online mode
+│   ├── multiplayer-client.ts # WebSocket client for online mode
+│   ├── protocol.ts           # PROTOCOL_VERSION (wire compatibility gate)
+│   └── state-delta.ts        # Keyframe/delta encode + apply for broadcasts
 ├── systems/
-│   ├── FOV.ts                # Field of view (rot.js PreciseShadowcasting)
-│   ├── GameMenu.ts           # Main menu, pause menu, multiplayer lobby
-│   ├── Input.ts              # Keyboard/mouse input handling
-│   ├── IntroStory.ts         # Intro lore slides shown before new game
-│   ├── MouseTracker.ts       # Mouse world-position and aiming angle
-│   ├── Music.ts              # Background music
-│   ├── Physics.ts            # Collision detection (detect-collisions)
-│   ├── Preferences.ts        # Persistent user settings and keybindings
-│   ├── Renderer.ts           # Pixi.js rendering with interpolation
-│   ├── RetroWindowChrome.ts  # Window chrome / UI shell
-│   ├── Sound.ts              # Sound effects
-│   ├── TitleScreen.ts        # Animated title screen
-│   ├── UI.ts                 # In-game HUD updates
-│   └── simulation/           # Simulation system (split into domain modules)
-│       ├── index.ts          # Public API: stepSimulationTick, enqueueCommand, etc.
+│   ├── fov.ts                # Field of view (rot.js PreciseShadowcasting)
+│   ├── game-menu.ts          # Main menu, pause menu, multiplayer lobby
+│   ├── input.ts              # Keyboard/mouse input handling
+│   ├── intro-story.ts        # Intro lore slides shown before new game
+│   ├── mouse-tracker.ts      # Mouse world-position and aiming angle
+│   ├── music.ts              # Background music
+│   ├── physics.ts            # Collision detection (detect-collisions)
+│   ├── preferences.ts        # Persistent user settings and keybindings
+│   ├── renderer.ts           # Pixi.js rendering with interpolation
+│   ├── retro-window-chrome.ts # Window chrome / UI shell
+│   ├── retro-modal.ts        # Shared retro modal component
+│   ├── character-modal.ts    # Character/stats modal
+│   ├── inventory-bar.ts      # Inventory hotbar UI
+│   ├── save-slots.ts         # Save/load slot dialog
+│   ├── sound.ts              # Sound effects
+│   ├── title-screen.ts       # Animated title screen
+│   ├── ui.ts                 # In-game HUD updates
+│   └── simulation/           # Simulation system (domain modules, no barrel)
+│       ├── tick.ts           # stepSimulationTick (entry), hole-falls, pickups
 │       ├── constants.ts      # All simulation constants
-│       ├── helpers.ts        # pushEvent, canActorAct, LOS, entity queries
+│       ├── sim-helpers.ts    # pushEvent, canActorAct, LOS, entity queries
 │       ├── ai.ts             # Monster steering + AI command generation
 │       ├── commands.ts       # Command management + all resolve*Command
 │       ├── events.ts         # processEventQueue + all process*Event handlers
 │       └── explosives.ts     # Grenade/mine fuse, chain explosions, effects
 ├── utils/
 │   ├── helpers.ts            # idxFor(), inBoundsFor(), passableFor(), dist(), etc.
+│   ├── inventory.ts          # Inventory/weapon-slot helpers
 │   ├── multiplayer.ts        # Multiplayer utility helpers
 │   ├── pathfinding.ts        # A* pathfinding (click-to-move)
 │   ├── repair.ts             # applyRepairAt(), findNearestRepairTarget()
-│   ├── RNG.ts                # Deterministic random number generator
+│   ├── rng.ts                # Deterministic RNG (+ exported RandomNumberGenerator)
 │   └── walls.ts              # applyWallDamageAt() for destructible walls
-└── types/
-    └── index.ts              # All TypeScript type definitions
+└── types.ts                  # All TypeScript type definitions
 
 server/
-└── multiplayer-server.ts     # Authoritative WebSocket server
+└── multiplayer-server.ts     # Authoritative WebSocket server (delta broadcasts)
 
 electron/
 ├── main.js                   # Electron main process + IPC handlers

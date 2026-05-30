@@ -32,10 +32,10 @@ Vite bundles `src/main.ts` into `app/game.js` (IIFE format). Electron loads `app
 ### Core Loop
 
 `DarkWar` class in `src/main.ts` orchestrates everything:
-- **GameLoop** (`src/core/GameLoop.ts`): Fixed 60Hz timestep with accumulator pattern. Calls `update(dt)` at fixed rate and `render(alpha)` at variable framerate with interpolation.
-- **Simulation** (`src/systems/simulation/`): Tick-based command/event system running at 20 ticks/sec (`SIM_DT_MS = 50`). Split into domain modules: `constants`, `helpers`, `ai`, `commands`, `explosives`, `events`, `index`. Player actions become Commands, resolved into Events (damage, death, pickup, etc.). AI commands generated after player commands each tick.
-- **Physics** (`src/systems/Physics.ts`): Uses `detect-collisions` library for continuous collision detection. Wall sliding, bullet movement, explosive physics.
-- **Game** (`src/core/Game.ts`): Central state manager. Holds all `GameState`, handles level transitions (descend/ascend), serialization, FOV updates, and multiplayer player management.
+- **GameLoop** (`src/core/game-loop.ts`): Fixed 60Hz timestep with accumulator pattern. Calls `update(dt)` at fixed rate and `render(alpha)` at variable framerate with interpolation.
+- **Simulation** (`src/systems/simulation/`): Tick-based command/event system running at 20 ticks/sec (`SIM_DT_MS = 50`). Split into domain modules: `constants`, `sim-helpers`, `ai`, `commands`, `explosives`, `events`, `tick` (entry point with `stepSimulationTick`). Player actions become Commands, resolved into Events (damage, death, pickup, etc.). AI commands generated after player commands each tick.
+- **Physics** (`src/systems/physics.ts`): Uses `detect-collisions` library for continuous collision detection. Wall sliding, bullet movement, explosive physics.
+- **Game** (`src/core/game.ts`): Central state manager. Holds all `GameState`, handles level transitions (descend/ascend), serialization, FOV updates, and multiplayer player management.
 
 ### Coordinate System (Critical)
 
@@ -47,7 +47,9 @@ Vite bundles `src/main.ts` into `app/game.js` (IIFE format). Electron loads `app
 
 ### Entity System
 
-All entities extend `GameEntity` (`src/entities/GameEntity.ts`) which provides `worldX`/`worldY`, velocity, facing angle, and physics body. Entity types: `PlayerEntity`, `MonsterEntity`, `ItemEntity`, `BulletEntity`, `ExplosiveEntity`. Discriminated by `EntityKind` enum.
+All entities extend `GameEntity` (`src/entities/game-entity.ts`) which provides `worldX`/`worldY`, velocity, facing angle, and physics body. Entity types: `PlayerEntity`, `MonsterEntity`, `ItemEntity`, `BulletEntity`, `ExplosiveEntity`. Discriminated by `EntityKind` enum.
+
+**Entity lifecycle** is owned by `EntityManager` (`src/core/entity-manager.ts`), accessible as `state.entityManager`. It owns the entity array (shared in place with `state.entities`) and is the **only** way to add/remove entities — use `spawn()`, `destroy()`, `destroyWhere()`, `destroyByIds()`, `replaceAll()`. Never `state.entities.push(...)` or reassign `state.entities` directly; that desyncs physics bodies and network deltas. The manager tracks `spawnedIds`/`removedIds` diffs, which `Physics.syncEntityBodies()` consumes to reconcile colliders incrementally each frame. `Physics.rebuildAll(state)` rebuilds the whole physics world (walls + all entity bodies) on level transitions.
 
 ### CTDM (Cognitive Time Dilation Module)
 
@@ -55,16 +57,26 @@ The CTDM is an in-game item the player can find and equip. When active, it slows
 
 ### Multiplayer
 
-Two modes: `offline` (default) and `online`. In online mode, an authoritative WebSocket server (`server/multiplayer-server.ts`) runs the Game and Physics simulation, broadcasting state to clients. Clients send velocity updates and actions. The server uses per-player FOV and explored state.
+Two modes: `offline` (default) and `online`. In online mode, an authoritative WebSocket server (`server/multiplayer-server.ts`) runs the Game and Physics simulation. Clients send velocity updates and actions; the server uses per-player FOV and explored state.
+
+**Protocol** (`src/net/protocol.ts`, `PROTOCOL_VERSION`): the server stamps its version in the `welcome` message and clients refuse to play on a mismatch. Bump it whenever the wire format changes.
+
+**Input sequence numbers**: every client `velocity`/`action` carries a monotonic `seq`. The server records the highest processed seq per client and echoes it as `ackSeq` on every state message (`MultiplayerClient.getLastAckedSeq()`).
+
+**Client-side prediction** (movement-only v1): the online client predicts the local player immediately under the latest local input (`Physics.predictLocalMovement` — single-entity movement vs walls), so input feels instant. On each snapshot `reconcileLocalPlayer` keeps most of the prediction and eases out residual error; large gaps (teleport, hole-fall, respawn) hard-snap to the server. Firing and hit resolution stay fully server-authoritative; remote entities come straight from the server. See `src/main.ts` (`predictLocalPlayer`, `reconcileLocalPlayer`, `ensurePredictionWorld`).
+
+**Delta-compressed broadcasts** (`src/net/state-delta.ts`): instead of the full `GameState` every tick, the server keeps a per-client baseline and sends `state_full` (keyframe — on join, level change, new game, and every ~5s) or `state_delta` (changed entities by id, explored additions, map/wallDamage index changes, changed scalars). The client applies deltas onto its baseline to reconstruct a full `SerializedState` and feeds the existing `deserialize()` path. A baseline mismatch triggers a `request_keyframe`.
 
 **LAN multiplayer**: The Electron app can host an embedded server (child process via `electron/server-manager.js`) and advertises it over UDP LAN discovery. Other players on the same network see available games via `DiscoveryManager`. All managed through the in-game GameMenu — no separate terminal needed.
 
 ### Map Generation
 
-- **Dungeon** (`src/core/Map.ts`): BSP dungeon generation. Maps are flat `TileType[]` arrays of size `MAP_WIDTH × MAP_HEIGHT` (64×36).
-- **Outside** (`src/core/OutsideLevel.ts`): Procedural exterior level with streets, sidewalks, grass, trees, buildings. Size `OUTSIDE_MAP_WIDTH × OUTSIDE_MAP_HEIGHT` (128×72).
+- **Dungeon** (`src/core/map.ts`): BSP dungeon generation. Maps are flat `TileType[]` arrays of size `MAP_WIDTH × MAP_HEIGHT` (64×36).
+- **Outside** (`src/core/outside-level.ts`): Procedural exterior level with streets, sidewalks, grass, trees, buildings. Size `OUTSIDE_MAP_WIDTH × OUTSIDE_MAP_HEIGHT` (128×72).
 
 Index tiles with `idx(x, y)` (uses global constants) or `idxFor(x, y, width)` (explicit width, required for non-standard map sizes).
+
+**Chunk-based maps** (`src/core/tile-source.ts`, `src/core/chunked-map.ts`): a `TileSource` abstraction decouples tile read/write from storage. `FlatTileSource` wraps today's flat array (identical semantics); `ChunkedTileSource` stores 16×16 chunks generated on demand (`createDungeonChunkGenerator`), streams chunks in/out to cap memory, and keeps edit overrides that survive eviction. This is the foundation for larger/streaming levels — **the live game still uses the flat `TileType[]` path**; cutting `state.map` over to a chunk source is a follow-up (it intersects the delta protocol's fixed-length-map assumption and needs playtesting).
 
 ### Key Utilities
 
@@ -73,7 +85,7 @@ Index tiles with `idx(x, y)` (uses global constants) or `idxFor(x, y, width)` (e
   - Functions without suffix use global `MAP_WIDTH`/`MAP_HEIGHT` constants
 - `src/utils/walls.ts`: `applyWallDamageAt()` for destructible walls
 - `src/utils/repair.ts`: `applyRepairAt()`, `findNearestRepairTarget()`, `hasAnyRepairTarget()` — used by utility bot
-- `src/utils/RNG.ts`: Deterministic RNG — `RNG.int(n)`, `RNG.choose(arr)`, `RNG.chance(p)`
+- `src/utils/rng.ts`: Deterministic RNG — `RNG.int(n)`, `RNG.choose(arr)`, `RNG.chance(p)`. The `RandomNumberGenerator` class is exported for independent seeded instances (e.g. per-chunk generation).
 - `src/utils/pathfinding.ts`: A* pathfinding for click-to-move
 
 ### State & Commands Pattern

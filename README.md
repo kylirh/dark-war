@@ -116,12 +116,12 @@ dark-war/
 ├── server/                   # Authoritative multiplayer server
 ├── src/                      # TypeScript source code
 │   ├── config/               # Sprite configuration
-│   ├── core/                 # Game engine (Game, GameLoop, Map, OutsideLevel)
+│   ├── core/                 # Game engine (Game, GameLoop, EntityManager, Map, tile sources)
 │   ├── entities/             # Entity classes (Player, Monster, Item, Bullet, Explosive)
-│   ├── net/                  # Multiplayer networking (MultiplayerClient)
+│   ├── net/                  # Multiplayer client, protocol version, delta encoding
 │   ├── systems/              # Game systems (Physics, Renderer, FOV, Input, UI, menus)
 │   │   └── simulation/       # Simulation subsystem (commands, events, AI, explosives)
-│   ├── types/                # TypeScript type definitions
+│   ├── types.ts              # All TypeScript type definitions
 │   └── utils/                # Helper functions, RNG, pathfinding, walls, repair
 └── reference/                # Original game assets and documentation
 ```

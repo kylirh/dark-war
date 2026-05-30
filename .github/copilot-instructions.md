@@ -95,7 +95,8 @@ A top-down 2D world where players explore, build, fight, and form relationships 
 
 - **LAN multiplayer**: Host a game from within the app; other players discover it via UDP broadcast
 - **Online multiplayer**: Authoritative WebSocket server; clients send input, server runs simulation
-- Per-player FOV and explored-state; server broadcasts full game state each tick
+- Per-player FOV and explored-state; server sends per-client delta-compressed state (keyframe + deltas, `src/net/state-delta.ts`), not the full state each tick
+- Client-side prediction (movement-only): the local player is predicted and reconciled against server snapshots; wire format is versioned via `src/net/protocol.ts`
 
 ---
 
