@@ -402,7 +402,7 @@ export interface GameState {
   descendTarget?: [number, number];
   changedTiles?: Set<number>; // Track tiles that changed for physics updates
   holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
-  pendingSounds: Array<{ effect: string; worldX?: number; worldY?: number }>; // Sound effects queued during simulation for playback
+  pendingSounds: Array<{ effect: string; worldX?: number; worldY?: number; sourceId?: string }>; // Sound effects queued during simulation for playback (sourceId = actor that caused it)
 }
 
 // ========================================

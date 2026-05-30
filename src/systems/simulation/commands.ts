@@ -390,7 +390,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         }
 
         player.ammo--;
-        state.pendingSounds.push({ effect: SoundEffect.SHOOT });
+        state.pendingSounds.push({ effect: SoundEffect.SHOOT, sourceId: player.id });
 
         const BULLET_SPEED = 600; // pixels per second
         const bullet = new BulletEntity(

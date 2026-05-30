@@ -83,6 +83,18 @@ describe("Game multiplayer player management", () => {
     expect(game.getState().entities.some((e) => e.id === "remote-1")).toBe(false);
   });
 
+  it("suppresses a shooter's own shoot-sound echo but not for other players", () => {
+    const game = new Game({ mode: "online" });
+    game.reset(1);
+    game.addNetworkPlayer("p1");
+    game.addNetworkPlayer("p2");
+    // SoundEffect.SHOOT === "gyrojet-pistol"; p1 fired (predicts it locally).
+    game.getState().pendingSounds.push({ effect: "gyrojet-pistol", sourceId: "p1" });
+
+    expect(game.serializeForPlayer("p1").sounds).not.toContain("gyrojet-pistol");
+    expect(game.serializeForPlayer("p2").sounds).toContain("gyrojet-pistol");
+  });
+
   it("does not spawn the CTDM item in online mode", () => {
     const online = new Game({ mode: "online" });
     online.reset(0); // outside level (where the CTDM normally is)

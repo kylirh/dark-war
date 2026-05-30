@@ -1593,6 +1593,13 @@ class DarkWar {
         player.worldY,
       );
       const target = this.mouseTracker.getWorldPosition();
+      if (facingAngle !== undefined) player.facingAngle = facingAngle;
+      // Predict the shot's audio locally so firing feels instant; the server
+      // suppresses its echo of our own shoot sound to avoid doubling. The bullet
+      // and hit resolution stay server-authoritative.
+      if (player.weapon === WeaponType.PISTOL && player.ammo > 0) {
+        Sound.play(SoundEffect.SHOOT);
+      }
       this.dispatchOnlineAction({
         type: "FIRE",
         dx,

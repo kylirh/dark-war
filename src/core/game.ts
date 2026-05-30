@@ -554,6 +554,11 @@ export class Game {
       mode: this.state.multiplayer.mode,
       localPlayerId: playerId,
     };
+    // Drop this player's own shoot sound — their client predicts it locally on
+    // fire, so echoing it back would double up the audio.
+    state.sounds = this.state.pendingSounds
+      .filter((s) => !(s.effect === SoundEffect.SHOOT && s.sourceId === playerId))
+      .map((s) => s.effect);
     return state;
   }
 
