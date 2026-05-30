@@ -28,6 +28,7 @@ import {
 import { GameEntity } from "../entities/game-entity";
 import { BulletEntity } from "../entities/bullet-entity";
 import { ExplosiveEntity } from "../entities/explosive-entity";
+import { TileSource } from "../core/tile-source";
 import { idxFor, tileAtFor } from "../utils/helpers";
 import { applyWallDamageAtIndex } from "../utils/walls";
 
@@ -63,13 +64,18 @@ export class Physics {
   }
 
   /**
-   * Initialize physics bodies for the current map
+   * Build static wall colliders for a level by reading tiles through a
+   * TileSource. For a flat (finite) level this iterates the whole map; a
+   * streaming source must be finite here (a future chunk-streaming path will
+   * build/drop wall bodies per loaded chunk instead).
    */
-  public initializeMap(
-    map: TileType[],
-    width: number = MAP_WIDTH,
-    height: number = MAP_HEIGHT,
-  ): void {
+  public initializeMap(tiles: TileSource): void {
+    const width = tiles.width;
+    const height = tiles.height;
+    if (!Number.isFinite(width) || !Number.isFinite(height)) {
+      throw new Error("initializeMap requires a bounded TileSource");
+    }
+
     // Clear existing wall bodies
     for (const body of this.wallBodies.values()) {
       this.system.remove(body);
@@ -80,7 +86,7 @@ export class Physics {
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         const tileIndex = idxFor(x, y, width);
-        const tile = map[tileIndex];
+        const tile = tiles.getTile(x, y);
 
         if (TILE_DEFINITIONS[tile]?.block) {
           // Position box at tile corner (not center) for proper alignment
@@ -254,7 +260,7 @@ export class Physics {
    * after deserialize, replacing the old manual init + clear + recreate dance.
    */
   public rebuildAll(state: GameState): void {
-    this.initializeMap(state.map, state.mapWidth, state.mapHeight);
+    this.initializeMap(state.tiles);
     this.clearEntityBodies();
     for (const entity of state.entities) {
       if (entity instanceof GameEntity) {

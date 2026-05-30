@@ -5,6 +5,7 @@ import { InputCallbacks, InputHandler, MOVEMENT_SPEED } from "./systems/input";
 import { MouseTracker } from "./systems/mouse-tracker";
 import { Music } from "./systems/music";
 import { Physics } from "./systems/physics";
+import { TileSource } from "./core/tile-source";
 import {
   UserPreferences,
   loadPreferences,
@@ -287,10 +288,10 @@ class DarkWar {
   private static readonly INTERP_DELAY_MS = 100;
   private readonly entityInterp = new Map<string, { t: number; x: number; y: number }[]>();
   private readonly entityDisplay = new Map<string, { x: number; y: number }>();
-  // The map array reference the online physics world was last built for.
-  // When the server sends a new/changed map this differs, triggering a rebuild
-  // of wall colliders for prediction.
-  private predictionMapRef: TileType[] | null = null;
+  // The TileSource the online prediction physics world was last built for.
+  // When the server sends a new/changed level this differs, triggering a
+  // rebuild of wall colliders for prediction.
+  private predictionTilesRef: TileSource | null = null;
   private gameCanvas: HTMLCanvasElement | null = null;
   private newGameButton: HTMLElement | null = null;
   private introStory: IntroStory | null = null;
@@ -688,7 +689,7 @@ class DarkWar {
     client.onConnected((playerId, roomId, _isHost) => {
       this.onlineConnected = true;
       this.hasOnlineSnapshot = false;
-      this.predictionMapRef = null;
+      this.predictionTilesRef = null;
       this.game.addStory(`Connected as ${playerId.slice(0, 8)} in room ${roomId}.`);
       this.render(0);
     });
@@ -889,10 +890,10 @@ class DarkWar {
   private ensurePredictionWorld(
     state: ReturnType<Game["getState"]>,
   ): void {
-    if (this.predictionMapRef === state.map) return;
-    this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
+    if (this.predictionTilesRef === state.tiles) return;
+    this.physics.initializeMap(state.tiles);
     this.physics.clearEntityBodies();
-    this.predictionMapRef = state.map;
+    this.predictionTilesRef = state.tiles;
   }
 
   private syncGameOverOverlay(isDead: boolean): void {
@@ -1256,7 +1257,7 @@ class DarkWar {
     // destroy walls during real-time physics updates
     if (state.mapDirty) {
       state.mapDirty = false;
-      this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
+      this.physics.initializeMap(state.tiles);
     }
 
     // Advance simulation ticks with time scaling

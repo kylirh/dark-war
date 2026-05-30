@@ -652,7 +652,7 @@ class RoomSession {
 
     if (state.mapDirty) {
       state.mapDirty = false;
-      physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
+      physics.initializeMap(state.tiles);
     }
 
     state.sim.accumulatorMs += scaledDt * 1000;

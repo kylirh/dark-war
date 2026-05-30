@@ -32,7 +32,7 @@ describe("Physics.predictLocalMovement", () => {
   it("blocks a player moving straight into a wall", () => {
     const physics = new Physics();
     const map = makeMap();
-    physics.initializeMap(map, W, H);
+    physics.initializeMap(new FlatTileSource(map, W, H));
     const player = new PlayerEntity(3, 3); // worldX = 112
     player.velocityX = 300;
     player.velocityY = 0;
@@ -47,7 +47,7 @@ describe("Physics.predictLocalMovement", () => {
   it("slides along a wall when moving diagonally into it", () => {
     const physics = new Physics();
     const map = makeMap();
-    physics.initializeMap(map, W, H);
+    physics.initializeMap(new FlatTileSource(map, W, H));
     const player = new PlayerEntity(3, 3);
     player.velocityX = 300;
     player.velocityY = 150; // down
@@ -62,7 +62,7 @@ describe("Physics.predictLocalMovement", () => {
   it("advances freely when no wall is in the way", () => {
     const physics = new Physics();
     const map = makeMap();
-    physics.initializeMap(map, W, H);
+    physics.initializeMap(new FlatTileSource(map, W, H));
     const player = new PlayerEntity(2, 5);
     const startX = player.worldX;
     player.velocityX = 0;
@@ -75,7 +75,7 @@ describe("Physics.predictLocalMovement", () => {
   it("creates a physics body on demand for a fresh entity", () => {
     const physics = new Physics();
     const map = makeMap();
-    physics.initializeMap(map, W, H);
+    physics.initializeMap(new FlatTileSource(map, W, H));
     const player = new PlayerEntity(2, 5);
     expect(player.physicsBody).toBeUndefined();
     physics.predictLocalMovement(fakeState(map), player, 1 / 60);
