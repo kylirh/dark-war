@@ -281,6 +281,12 @@ class DarkWar {
   // True once the first authoritative snapshot has arrived, so we don't predict
   // against a not-yet-initialized world right after connecting.
   private hasOnlineSnapshot: boolean = false;
+  // Snapshot-interpolation buffers for remote entities (online). Per entity id,
+  // a short history of (time, x, y) server samples; rendered ~100ms in the past
+  // so motion between 20Hz snapshots is smooth instead of snapping.
+  private static readonly INTERP_DELAY_MS = 100;
+  private readonly entityInterp = new Map<string, { t: number; x: number; y: number }[]>();
+  private readonly entityDisplay = new Map<string, { x: number; y: number }>();
   // The map array reference the online physics world was last built for.
   // When the server sends a new/changed map this differs, triggering a rebuild
   // of wall colliders for prediction.
@@ -741,8 +747,76 @@ class DarkWar {
     this.syncGameOverOverlay(player.hp <= 0);
 
     this.lastPlayerHp = player.hp;
+    this.recordEntitySnapshots(state);
+    this.interpolateRemoteEntities(state);
+
     this.hasOnlineSnapshot = true;
     this.render(0);
+  }
+
+  /** Record this snapshot's server positions for remote-entity interpolation. */
+  private recordEntitySnapshots(state: ReturnType<Game["getState"]>): void {
+    const now = performance.now();
+    const live = new Set<string>();
+    for (const e of state.entities) {
+      if (!("worldX" in e)) continue;
+      live.add(e.id);
+      let buf = this.entityInterp.get(e.id);
+      if (!buf) {
+        buf = [];
+        this.entityInterp.set(e.id, buf);
+      }
+      buf.push({ t: now, x: (e as GameEntity).worldX, y: (e as GameEntity).worldY });
+      if (buf.length > 6) buf.shift();
+    }
+    for (const id of [...this.entityInterp.keys()]) {
+      if (!live.has(id)) {
+        this.entityInterp.delete(id);
+        this.entityDisplay.delete(id);
+      }
+    }
+  }
+
+  /**
+   * Place each remote entity at its interpolated position ~100ms in the past so
+   * it glides between 20Hz server snapshots. The local player is skipped (it is
+   * predicted), and entities without enough history fall back to the raw server
+   * position. Called every frame and on each snapshot.
+   */
+  private interpolateRemoteEntities(state: ReturnType<Game["getState"]>): void {
+    const localId = state.player?.id;
+    const renderTime = performance.now() - DarkWar.INTERP_DELAY_MS;
+
+    for (const e of state.entities) {
+      if (!("worldX" in e) || e.id === localId) continue;
+      const buf = this.entityInterp.get(e.id);
+      if (!buf || buf.length < 2) continue;
+
+      // Newer than our buffered window → leave at the latest server position.
+      if (renderTime >= buf[buf.length - 1].t) continue;
+
+      let s0 = buf[0];
+      let s1 = buf[buf.length - 1];
+      for (let i = 0; i < buf.length - 1; i++) {
+        if (buf[i].t <= renderTime && renderTime <= buf[i + 1].t) {
+          s0 = buf[i];
+          s1 = buf[i + 1];
+          break;
+        }
+      }
+      const span = s1.t - s0.t;
+      const a = span > 0 ? (renderTime - s0.t) / span : 0;
+      const ix = s0.x + (s1.x - s0.x) * a;
+      const iy = s0.y + (s1.y - s0.y) * a;
+
+      const ent = e as GameEntity;
+      const prev = this.entityDisplay.get(e.id) ?? { x: ix, y: iy };
+      ent.prevWorldX = prev.x;
+      ent.prevWorldY = prev.y;
+      ent.worldX = ix;
+      ent.worldY = iy;
+      this.entityDisplay.set(e.id, { x: ix, y: iy });
+    }
   }
 
   /**
@@ -1133,6 +1207,8 @@ class DarkWar {
         // this frame's prediction and gets sent to the server.
         this.updateAutoMove(state);
         this.predictLocalPlayer(state, dt);
+        // Glide remote entities between snapshots.
+        this.interpolateRemoteEntities(state);
       }
       Music.updateForGameState(state, this.computeThreatLevel(state));
       if (this.playerActedThisTick) {
