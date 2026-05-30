@@ -56,6 +56,32 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(before.wallDamage![10]).not.toBe(after.wallDamage![10]);
   });
 
+  it("streams a large dungeon that fills in around the player", () => {
+    RNG.reseed(2024);
+    const game = new Game({ mode: "offline" });
+    game.reset(1); // a streamed dungeon level
+    const state = game.getState();
+
+    expect(state.mapWidth).toBe(128);
+    expect(state.mapHeight).toBe(96);
+    // The player spawns on generated floor.
+    expect(state.tiles.passable(state.player.gridX, state.player.gridY)).toBe(true);
+
+    // The far chunk (containing the down-stairs at its centre) is ungenerated.
+    expect(state.tiles.getTile(104, 72)).toBe(TileType.WALL);
+
+    // Walk the player into that region and stream — it fills in.
+    state.player.worldX = 104 * 32 + 16;
+    state.player.worldY = 72 * 32 + 16;
+    const floorsBefore = state.map.filter((t) => t === TileType.FLOOR).length;
+    game.streamAroundPlayers();
+    const floorsAfter = state.map.filter((t) => t === TileType.FLOOR).length;
+
+    expect(floorsAfter).toBeGreaterThan(floorsBefore);
+    // The down-stairs got placed when its chunk generated.
+    expect(state.tiles.getTile(104, 72)).toBe(TileType.STAIRS_DOWN);
+  });
+
   it("keeps the player present in the entities list", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
