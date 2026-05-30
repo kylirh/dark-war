@@ -8,7 +8,7 @@ import { SIM_DT_MS } from "../src/systems/simulation/constants";
 import { PROTOCOL_VERSION } from "../src/net/protocol";
 import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
 import { Sound } from "../src/systems/sound";
-import { CommandType, EntityKind, SerializedState, WeaponType } from "../src/types";
+import { CommandType, EntityKind, HOLE_FALL_DAMAGE, SerializedState, TileType, WeaponType } from "../src/types";
 
 // Force a fresh keyframe at least this often (in broadcasts) so a client that
 // somehow drifted re-baselines within a few seconds. ~5s at 20 broadcasts/sec.
@@ -105,27 +105,118 @@ function isIncomingMessage(value: unknown): value is IncomingMessage2 {
   );
 }
 
+// ─── Level world ─────────────────────────────────────────────────────────────
+//
+// Each depth is its own simulated world (map + entities + physics), shared by
+// every player currently on that depth. Players migrate between worlds when
+// they take stairs or fall through holes; empty worlds are frozen (not stepped)
+// but keep their state so they're intact when someone returns.
+
+class LevelWorld {
+  readonly players = new Set<string>();
+  constructor(
+    readonly depth: number,
+    readonly game: Game,
+    readonly physics: Physics,
+  ) {}
+}
+
 // ─── Room session ──────────────────────────────────────────────────────────────
 
 class RoomSession {
   private readonly id: string;
-  private readonly game: Game;
-  private readonly physics: Physics;
+  private readonly worlds = new Map<number, LevelWorld>();
+  private readonly playerDepth = new Map<string, number>();
   private readonly clients = new Map<WebSocket, RoomClient>();
   private readonly closeRoom: (roomId: string) => void;
   private tickHandle: NodeJS.Timeout | null = null;
-  private placeholderPlayerId: string;
   private phase: RoomPhase = "lobby";
   private hostPlayerId: string | null = null;
 
   constructor(id: string, closeRoom: (roomId: string) => void) {
     this.id = id;
     this.closeRoom = closeRoom;
-    this.game = new Game({ mode: "online" });
-    this.game.reset(0);
-    this.placeholderPlayerId = this.game.getState().player.id;
-    this.physics = new Physics();
-    this.rebuildPhysics();
+    // Pre-create the entry world (the outside city, depth 0).
+    this.getOrCreateWorld(0);
+  }
+
+  // ── Private: world management ────────────────────────────────────────────────
+
+  /** Get the world for a depth, generating it (player-free) on first visit. */
+  private getOrCreateWorld(depth: number): LevelWorld {
+    const existing = this.worlds.get(depth);
+    if (existing) return existing;
+
+    // Walk a fresh game down to `depth` so the level is generated with proper
+    // up/down stairs, then strip the placeholder player it created.
+    const game = new Game({ mode: "online" });
+    game.reset(0);
+    for (let d = 1; d <= depth; d++) game.descend();
+    const placeholderId = game.getState().player?.id;
+    if (placeholderId) game.detachPlayer(placeholderId);
+
+    const physics = new Physics();
+    physics.rebuildAll(game.getState());
+
+    const world = new LevelWorld(depth, game, physics);
+    this.worlds.set(depth, world);
+    return world;
+  }
+
+  private worldOfPlayer(playerId: string): LevelWorld | undefined {
+    const depth = this.playerDepth.get(playerId);
+    if (depth === undefined) return undefined;
+    return this.worlds.get(depth);
+  }
+
+  private addPlayerToWorld(playerId: string, depth: number): void {
+    const world = this.getOrCreateWorld(depth);
+    world.game.addNetworkPlayer(playerId);
+    world.players.add(playerId);
+    this.playerDepth.set(playerId, depth);
+    world.physics.rebuildAll(world.game.getState());
+  }
+
+  /** Move a player to another depth, carrying their stats and forcing a keyframe. */
+  private migratePlayer(
+    playerId: string,
+    toDepth: number,
+    mode: "descend" | "ascend" | "hole",
+  ): void {
+    const from = this.worldOfPlayer(playerId);
+    if (!from) return;
+    const player = from.game.detachPlayer(playerId);
+    if (!player) return;
+    from.players.delete(playerId);
+    from.physics.rebuildAll(from.game.getState());
+
+    const to = this.getOrCreateWorld(toDepth);
+    const toState = to.game.getState();
+    let position: [number, number];
+    if (mode === "descend") {
+      position = toState.stairsUp ?? toState.playerStart;
+    } else if (mode === "ascend") {
+      position = toState.stairsDown ?? toState.playerStart;
+    } else {
+      // Fall through a hole — land at the same spot and take fall damage.
+      position = [player.gridX, player.gridY];
+      player.hp = Math.max(0, player.hp - HOLE_FALL_DAMAGE);
+    }
+
+    to.game.attachExistingPlayer(player, position);
+    to.players.add(playerId);
+    this.playerDepth.set(playerId, toDepth);
+    to.physics.rebuildAll(toState);
+
+    const client = this.clientByPlayerId(playerId);
+    if (client) client.needsKeyframe = true;
+  }
+
+  private clientByPlayerId(playerId: string): RoomClient | undefined {
+    for (const client of this.clients.values()) {
+      if (client.playerId === playerId) return client;
+    }
+    return undefined;
   }
 
   // ── Public API ───────────────────────────────────────────────────────────────
@@ -157,13 +248,12 @@ class RoomSession {
 
     if (wasEmpty) {
       this.hostPlayerId = playerId;
-      this.game.removeNetworkPlayer(this.placeholderPlayerId);
     }
 
-    // In lobby: track players but don't add to game yet
-    // In playing: add to game immediately
+    // In lobby: track players but don't add to a world yet.
+    // In playing: drop them into the entry world immediately.
     if (this.phase === "playing") {
-      this.game.addNetworkPlayer(playerId);
+      this.addPlayerToWorld(playerId, 0);
     }
 
     this.send(socket, {
@@ -175,7 +265,7 @@ class RoomSession {
     });
 
     this.broadcastLobbyUpdate();
-    this.game.addStory(`${name} joined room ${this.id}.`);
+    this.getOrCreateWorld(0).game.addStory(`${name} joined room ${this.id}.`);
   }
 
   public removeClient(socket: WebSocket): void {
@@ -185,7 +275,13 @@ class RoomSession {
     this.clients.delete(socket);
 
     if (this.phase === "playing") {
-      this.game.removeNetworkPlayer(client.playerId);
+      const world = this.worldOfPlayer(client.playerId);
+      if (world) {
+        world.game.removeNetworkPlayer(client.playerId);
+        world.players.delete(client.playerId);
+        world.physics.rebuildAll(world.game.getState());
+      }
+      this.playerDepth.delete(client.playerId);
     }
 
     // Transfer host if needed
@@ -196,7 +292,7 @@ class RoomSession {
       }
     }
 
-    this.game.addStory(`${client.name} left room ${this.id}.`);
+    this.getOrCreateWorld(0).game.addStory(`${client.name} left room ${this.id}.`);
 
     if (this.clients.size === 0) {
       if (this.tickHandle) {
@@ -283,10 +379,9 @@ class RoomSession {
   private startGame(): void {
     this.phase = "playing";
 
-    // Add all lobby clients to the game
-    const clientList = Array.from(this.clients.values());
-    for (const client of clientList) {
-      this.game.addNetworkPlayer(client.playerId);
+    // Drop every lobby client into the entry world.
+    for (const client of this.clients.values()) {
+      this.addPlayerToWorld(client.playerId, 0);
     }
 
     // Broadcast lobby update so clients know game started
@@ -307,7 +402,8 @@ class RoomSession {
   }
 
   private applyVelocity(playerId: string, vx: number, vy: number): void {
-    const player = this.game.getPlayerById(playerId);
+    const world = this.worldOfPlayer(playerId);
+    const player = world?.game.getPlayerById(playerId);
     if (!player || player.hp <= 0) return;
 
     const speedLimit = 260;
@@ -324,9 +420,21 @@ class RoomSession {
   }
 
   private applyAction(playerId: string, action: IncomingAction): void {
-    const state = this.game.getState();
-    const player = this.game.getPlayerById(playerId);
+    const world = this.worldOfPlayer(playerId);
+    if (!world) return;
+    const state = world.game.getState();
+    const player = world.game.getPlayerById(playerId);
     if (!player || player.hp <= 0) return;
+
+    // Level transitions migrate only this player between worlds.
+    if (action.type === "DESCEND") {
+      this.tryDescend(playerId);
+      return;
+    }
+    if (action.type === "ASCEND") {
+      this.tryAscend(playerId);
+      return;
+    }
 
     const tick = state.sim.nowTick;
 
@@ -358,7 +466,7 @@ class RoomSession {
     }
 
     if (action.type === "TOGGLE_GOD_MODE") {
-      this.game.toggleGodMode();
+      world.game.toggleGodMode();
       return;
     }
 
@@ -366,20 +474,18 @@ class RoomSession {
       WAIT: CommandType.WAIT,
       PICKUP: CommandType.PICKUP,
       RELOAD: CommandType.RELOAD,
-      DESCEND: CommandType.DESCEND,
-      ASCEND: CommandType.ASCEND,
     };
     const commandType = commandTypeByAction[action.type];
     if (!commandType) return;
     enqueueCommand(state, {
       tick, actorId: playerId, type: commandType,
-      data: { type: action.type } as { type: "WAIT" } | { type: "PICKUP" } | { type: "RELOAD" } | { type: "DESCEND" } | { type: "ASCEND" },
+      data: { type: action.type } as { type: "WAIT" } | { type: "PICKUP" } | { type: "RELOAD" },
       priority: 0, source: "PLAYER",
     });
   }
 
   private applyWeaponSelection(playerId: string, slot: number): void {
-    const player = this.game.getPlayerById(playerId);
+    const player = this.worldOfPlayer(playerId)?.game.getPlayerById(playerId);
     if (!player) return;
     const slotToWeapon: Record<number, WeaponType> = {
       1: WeaponType.MELEE,
@@ -393,18 +499,46 @@ class RoomSession {
 
   private resetRoomState(): void {
     const clientIds = Array.from(this.clients.values()).map((c) => c.playerId);
-    this.game.reset(0);
-    this.placeholderPlayerId = this.game.getState().player.id;
-    for (const playerId of clientIds) {
-      const player = this.game.addNetworkPlayer(playerId);
-      player.velocityX = 0;
-      player.velocityY = 0;
-    }
-    this.game.removeNetworkPlayer(this.placeholderPlayerId);
-    this.game.addStory("New game started.");
-    this.rebuildPhysics();
+
+    // Tear every world down and start fresh from the entry world.
+    this.worlds.clear();
+    this.playerDepth.clear();
+    this.getOrCreateWorld(0).game.addStory("New game started.");
+    for (const playerId of clientIds) this.addPlayerToWorld(playerId, 0);
+
     for (const client of this.clients.values()) client.needsKeyframe = true;
     this.broadcastState();
+  }
+
+  // ── Private: level transitions ───────────────────────────────────────────────
+
+  private tileUnderPlayer(world: LevelWorld, playerId: string): TileType | null {
+    const player = world.game.getPlayerById(playerId);
+    if (!player) return null;
+    return world.game.getState().tiles.getTile(player.gridX, player.gridY);
+  }
+
+  private tryDescend(playerId: string): void {
+    const world = this.worldOfPlayer(playerId);
+    if (!world) return;
+    if (this.tileUnderPlayer(world, playerId) !== TileType.STAIRS_DOWN) return;
+    this.migratePlayer(playerId, world.depth + 1, "descend");
+  }
+
+  private tryAscend(playerId: string): void {
+    const world = this.worldOfPlayer(playerId);
+    if (!world || world.depth <= 0) return;
+    if (this.tileUnderPlayer(world, playerId) !== TileType.STAIRS_UP) return;
+    this.migratePlayer(playerId, world.depth - 1, "ascend");
+  }
+
+  /** After a world steps, drop any player standing on a hole to the next depth. */
+  private handleHoleFalls(world: LevelWorld): void {
+    for (const playerId of [...world.players]) {
+      if (this.tileUnderPlayer(world, playerId) === TileType.HOLE) {
+        this.migratePlayer(playerId, world.depth + 1, "hole");
+      }
+    }
   }
 
   // ── Private: game loop ──────────────────────────────────────────────────────
@@ -412,27 +546,38 @@ class RoomSession {
   private step(): void {
     if (this.clients.size === 0) return;
 
-    const state = this.game.getState();
+    // Simulate every world that currently has players; freeze empty ones.
+    for (const world of this.worlds.values()) {
+      if (world.players.size > 0) this.stepWorld(world);
+    }
+    // Resolve hole falls after stepping (migrates players between worlds).
+    for (const world of [...this.worlds.values()]) {
+      if (world.players.size > 0) this.handleHoleFalls(world);
+    }
+
+    this.broadcastState();
+  }
+
+  private stepWorld(world: LevelWorld): void {
+    const { game, physics } = world;
+    const state = game.getState();
     const dt = SIM_DT_MS / 1000;
     state.sim.mode = "REALTIME";
 
-    // Multiplayer always runs in real time — there is no CTDM / threat-based
-    // time dilation in online play, so the world never slows down.
+    // Multiplayer always runs in real time — no CTDM / threat time dilation.
     state.sim.timeScale = 1.0;
     state.sim.targetTimeScale = 1.0;
 
-    const scaledDt = dt;
-
-    this.physics.updatePhysics(state, scaledDt);
-    this.physics.updateBullets(state, scaledDt);
-    this.physics.updateExplosives(state, scaledDt);
+    physics.updatePhysics(state, dt);
+    physics.updateBullets(state, dt);
+    physics.updateExplosives(state, dt);
 
     if (state.mapDirty) {
       state.mapDirty = false;
-      this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
+      physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
     }
 
-    state.sim.accumulatorMs += scaledDt * 1000;
+    state.sim.accumulatorMs += dt * 1000;
     while (state.sim.accumulatorMs >= SIM_DT_MS) {
       stepSimulationTick(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
@@ -441,21 +586,15 @@ class RoomSession {
         for (const tileIndex of state.changedTiles) {
           const x = tileIndex % state.mapWidth;
           const y = Math.floor(tileIndex / state.mapWidth);
-          this.physics.updateTile(x, y, state.map[tileIndex], state.mapWidth, state.mapHeight);
+          physics.updateTile(x, y, state.map[tileIndex], state.mapWidth, state.mapHeight);
         }
         state.changedTiles.clear();
       }
 
-      if (state.shouldDescend) {
-        state.shouldDescend = false;
-        this.game.descend();
-        this.rebuildPhysics();
-      }
-      if (state.shouldAscend) {
-        state.shouldAscend = false;
-        this.game.ascend();
-        this.rebuildPhysics();
-      }
+      // Per-player level transitions are handled by the room, not the shared
+      // descend/ascend flags — clear them so a single Game never warps the party.
+      state.shouldDescend = false;
+      state.shouldAscend = false;
 
       for (const player of state.players) {
         if (player.hp <= 0) {
@@ -467,11 +606,9 @@ class RoomSession {
 
     for (const player of state.players) {
       if (player.kind === EntityKind.PLAYER) {
-        this.game.updateFOVForPlayer(player.id);
+        game.updateFOVForPlayer(player.id);
       }
     }
-
-    this.broadcastState();
   }
 
   // ── Private: broadcasts ─────────────────────────────────────────────────────
@@ -498,7 +635,9 @@ class RoomSession {
 
   private broadcastState(): void {
     for (const client of this.clients.values()) {
-      const next = this.game.serializeForPlayer(client.playerId);
+      const world = this.worldOfPlayer(client.playerId);
+      if (!world) continue;
+      const next = world.game.serializeForPlayer(client.playerId);
       const seq = ++client.stateSeq;
 
       const mustKeyframe =
@@ -528,11 +667,10 @@ class RoomSession {
       client.baseline = next;
       client.baselineSeq = seq;
     }
-    this.game.getState().pendingSounds.length = 0;
-  }
-
-  private rebuildPhysics(): void {
-    this.physics.rebuildAll(this.game.getState());
+    // Sounds are consumed per broadcast; clear each active world's queue.
+    for (const world of this.worlds.values()) {
+      if (world.players.size > 0) world.game.getState().pendingSounds.length = 0;
+    }
   }
 
   private send(socket: WebSocket, payload: unknown): void {
@@ -631,9 +769,11 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
   return new Promise((resolve, reject) => {
     httpServer.once("error", reject);
     httpServer.listen(port, () => {
-      console.log(`[dark-war-server] Listening on ws://localhost:${port}`);
+      const address = httpServer.address();
+      const actualPort = typeof address === "object" && address ? address.port : port;
+      console.log(`[dark-war-server] Listening on ws://localhost:${actualPort}`);
       resolve({
-        port,
+        port: actualPort,
         close(): Promise<void> {
           return new Promise((res) => {
             wss.close(() => httpServer.close(() => res()));

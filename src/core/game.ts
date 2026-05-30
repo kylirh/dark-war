@@ -448,6 +448,45 @@ export class Game {
     return player;
   }
 
+  /**
+   * Detach an existing player entity from this world without destroying it, so
+   * it can be re-attached to another world (level) with its stats intact.
+   * Used by the multiplayer server to move a player between per-depth worlds.
+   */
+  public detachPlayer(playerId: string): Player | null {
+    const player = this.getPlayerById(playerId);
+    if (!player) return null;
+    this.state.players = this.state.players.filter((p) => p.id !== playerId);
+    this.state.entityManager.destroy(playerId);
+    this.state.exploredByPlayer.delete(playerId);
+    this.state.visibilityByPlayer.delete(playerId);
+    if (this.state.player?.id === playerId) {
+      this.state.player = this.state.players[0] ?? this.state.player;
+    }
+    return player;
+  }
+
+  /**
+   * Attach a pre-existing player entity (carried over from another world) at a
+   * grid position, giving it a fresh fog-of-war on this level and a new body.
+   */
+  public attachExistingPlayer(
+    player: Player,
+    position: [number, number],
+  ): void {
+    const [spawnX, spawnY] = this.findSpawnTile(position);
+    setPositionFromGrid(player, spawnX, spawnY);
+    player.velocityX = 0;
+    player.velocityY = 0;
+    player.nextActTick = this.state.sim.nowTick;
+    player.physicsBody = undefined;
+    this.state.players.push(player);
+    this.state.entityManager.spawn(player);
+    this.state.exploredByPlayer.set(player.id, new Set<number>());
+    this.state.visibilityByPlayer.set(player.id, new Set<number>());
+    this.updateFOVForPlayer(player.id);
+  }
+
   public removeNetworkPlayer(playerId: string): void {
     const removedPlayer = this.getPlayerById(playerId);
     if (!removedPlayer) return;

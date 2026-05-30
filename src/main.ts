@@ -1526,7 +1526,9 @@ class DarkWar {
             state.map[
               idxFor(holeTarget.gridX, holeTarget.gridY, state.mapWidth)
             ] === TileType.HOLE;
-          if (holeTile) {
+          // Online the server drops the player once they're on the hole tile;
+          // offline we queue the deliberate hole jump locally.
+          if (holeTile && !this.isOnlineMode()) {
             this.queueHoleJump(holeTarget.gridX, holeTarget.gridY);
             this.playerActedThisTick = true;
             queuedHoleJump = true;
@@ -1759,8 +1761,9 @@ class DarkWar {
     }
 
     if (this.isOnlineMode()) {
-      this.game.addStory("Hole-jump shortcut is disabled in online multiplayer.");
-      this.render(0);
+      // Online: holes are server-authoritative. Standing on a hole tile makes
+      // the server drop just this player to the next level, so there's nothing
+      // to do here beyond letting movement carry the player onto it.
       return;
     }
 

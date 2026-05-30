@@ -65,4 +65,35 @@ describe("Game multiplayer player management", () => {
     expect(game.getState().players.some((p) => p.id === "remote-1")).toBe(false);
     expect(game.getState().entities.some((e) => e.id === "remote-1")).toBe(false);
   });
+
+  it("does not spawn the CTDM item in online mode", () => {
+    const online = new Game({ mode: "online" });
+    online.reset(0); // outside level (where the CTDM normally is)
+    const hasCtdm = online
+      .getState()
+      .entities.some((e) => (e as { type?: string }).type === "CTDM");
+    expect(hasCtdm).toBe(false);
+  });
+
+  it("detaches a player and re-attaches it to another world with stats intact", () => {
+    const from = new Game({ mode: "online" });
+    from.reset(1);
+    const to = new Game({ mode: "online" });
+    to.reset(2);
+
+    const player = from.addNetworkPlayer("traveler");
+    player.hp = 37;
+    player.weapon = 2 as typeof player.weapon;
+
+    const detached = from.detachPlayer("traveler");
+    expect(detached).toBe(player);
+    expect(from.getState().players.some((p) => p.id === "traveler")).toBe(false);
+    expect(from.getState().entities.some((e) => e.id === "traveler")).toBe(false);
+
+    to.attachExistingPlayer(detached!, to.getState().stairsUp ?? [1, 1]);
+    const moved = to.getState().players.find((p) => p.id === "traveler");
+    expect(moved).toBeDefined();
+    expect(moved!.hp).toBe(37); // stats carried over
+    expect(to.getState().entities.some((e) => e.id === "traveler")).toBe(true);
+  });
 });

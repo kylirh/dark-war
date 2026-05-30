@@ -234,8 +234,13 @@ function processHoleFalls(state: GameState): void {
   const holeCreatedTiles = state.holeCreatedTiles;
   const holeCreated = holeCreatedTiles && holeCreatedTiles.size > 0;
 
+  // In online play the multiplayer server owns player hole-falls (it migrates
+  // the individual player between per-depth worlds), so skip them here to avoid
+  // warping the whole party and double-applying fall damage. Monsters still fall.
+  const online = state.multiplayer?.mode === "online";
+
   const players = getAlivePlayers(state);
-  if (holeCreated) {
+  if (holeCreated && !online) {
     for (const player of players) {
       const playerTileIndex = idxFor(player.gridX, player.gridY, state.mapWidth);
       if (holeCreatedTiles?.has(playerTileIndex)) {
