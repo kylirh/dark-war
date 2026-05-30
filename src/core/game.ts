@@ -376,23 +376,11 @@ export class Game {
     }
 
     const accessible = this.computeAccessibleTiles(player.gridX, player.gridY);
-    let visible = computeFOV(
-      this.state.map,
-      player,
-      explored,
-      this.state.mapWidth,
-      this.state.mapHeight,
-    );
+    let visible = computeFOV(this.state.tiles, player, explored);
 
     if (this.checkExplorationCompletion(player, explored)) {
       explored = this.completeLevelExploration(player);
-      visible = computeFOV(
-        this.state.map,
-        player,
-        explored,
-        this.state.mapWidth,
-        this.state.mapHeight,
-      );
+      visible = computeFOV(this.state.tiles, player, explored);
     }
 
     this.state.visibilityByPlayer.set(playerId, visible);
@@ -1492,12 +1480,10 @@ export class Game {
       const x = index % this.state.mapWidth;
       const y = Math.floor(index / this.state.mapWidth);
       const visibleFromTile = computeFOVFrom(
-        this.state.map,
+        this.state.tiles,
         x,
         y,
         player.sight,
-        this.state.mapWidth,
-        this.state.mapHeight,
       );
       for (const visibleIndex of visibleFromTile) {
         completed.add(visibleIndex);

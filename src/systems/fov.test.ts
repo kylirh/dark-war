@@ -1,33 +1,34 @@
 import { describe, it, expect } from "vitest";
 import { TileType, Player } from "../types";
+import { FlatTileSource } from "../core/tile-source";
 import { computeFOVFrom, computeFOV } from "./fov";
 import { idxFor } from "../utils/helpers";
 
 const W = 11;
 const H = 11;
 
-function openMap(): TileType[] {
-  return new Array(W * H).fill(TileType.FLOOR);
+function openSource(): FlatTileSource {
+  return new FlatTileSource(new Array(W * H).fill(TileType.FLOOR), W, H);
 }
 
 describe("computeFOVFrom", () => {
   it("sees its own tile and nearby open floor", () => {
-    const visible = computeFOVFrom(openMap(), 5, 5, 5, W, H);
+    const visible = computeFOVFrom(openSource(), 5, 5, 5);
     expect(visible.has(idxFor(5, 5, W))).toBe(true);
     expect(visible.has(idxFor(6, 5, W))).toBe(true);
     expect(visible.has(idxFor(5, 6, W))).toBe(true);
   });
 
   it("does not see past an opaque wall", () => {
-    const map = openMap();
-    map[idxFor(7, 5, W)] = TileType.WALL; // wall to the east
-    const visible = computeFOVFrom(map, 5, 5, 6, W, H);
+    const src = openSource();
+    src.setTile(7, 5, TileType.WALL); // wall to the east
+    const visible = computeFOVFrom(src, 5, 5, 6);
     // The tile two steps past the wall should be hidden.
     expect(visible.has(idxFor(9, 5, W))).toBe(false);
   });
 
   it("respects the radius", () => {
-    const visible = computeFOVFrom(openMap(), 5, 5, 2, W, H);
+    const visible = computeFOVFrom(openSource(), 5, 5, 2);
     expect(visible.has(idxFor(5, 5, W))).toBe(true);
     expect(visible.has(idxFor(10, 10, W))).toBe(false); // far corner
   });
@@ -35,10 +36,9 @@ describe("computeFOVFrom", () => {
 
 describe("computeFOV", () => {
   it("accumulates visible tiles into the explored set", () => {
-    const map = openMap();
     const explored = new Set<number>();
     const player = { gridX: 5, gridY: 5, sight: 4 } as unknown as Player;
-    const visible = computeFOV(map, player, explored, W, H);
+    const visible = computeFOV(openSource(), player, explored);
     expect(visible.size).toBeGreaterThan(0);
     for (const i of visible) expect(explored.has(i)).toBe(true);
   });
