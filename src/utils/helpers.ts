@@ -3,6 +3,7 @@ import {
   MAP_HEIGHT,
   TileType,
   TILE_DEFINITIONS,
+  CELL_CONFIG,
   Entity,
 } from "../types";
 
@@ -111,56 +112,10 @@ export function passableFor(
 }
 
 /**
- * Check if position is walkable (in bounds, passable, no entity)
- */
-export function isWalkable(
-  map: TileType[],
-  entities: Entity[],
-  x: number,
-  y: number,
-): boolean {
-  if (!inBounds(x, y)) return false;
-  if (!passable(map, x, y)) return false;
-  if (entityAt(entities, x, y)) return false;
-  return true;
-}
-
-/**
- * Find first entity at coordinates, optionally filtered
- */
-export function entityAt(
-  entities: Entity[],
-  x: number,
-  y: number,
-  filter?: (e: Entity) => boolean,
-): Entity | undefined {
-  return entities.find(
-    (e) => e.gridX === x && e.gridY === y && (!filter || filter(e)),
-  );
-}
-
-/**
- * Find all entities at coordinates
- */
-export function entitiesAt(entities: Entity[], x: number, y: number): Entity[] {
-  return entities.filter((e) => e.gridX === x && e.gridY === y);
-}
-
-/**
  * Calculate Manhattan distance between two points
  */
 export function dist(a: [number, number], b: [number, number]): number {
   return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
-}
-
-/**
- * Remove entity from entity array
- */
-export function removeEntity(entities: Entity[], entity: Entity): void {
-  const index = entities.indexOf(entity);
-  if (index >= 0) {
-    entities.splice(index, 1);
-  }
 }
 
 /**
@@ -172,10 +127,8 @@ export function setPositionFromGrid(
   gridX: number,
   gridY: number,
 ): void {
-  const CELL_W = 32;
-  const CELL_H = 32;
-  entity.worldX = gridX * CELL_W + CELL_W / 2;
-  entity.worldY = gridY * CELL_H + CELL_H / 2;
+  entity.worldX = gridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+  entity.worldY = gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
   entity.prevWorldX = entity.worldX;
   entity.prevWorldY = entity.worldY;
 }
