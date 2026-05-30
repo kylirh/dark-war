@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { TileType } from "../../types";
+import { FlatTileSource } from "../../core/tile-source";
 import {
   directionFromAngle,
   normalizeAngle,
@@ -41,24 +42,25 @@ describe("normalizeAngle", () => {
 describe("hasClearLineOfSight", () => {
   const W = 8;
   const H = 3;
+  const source = (map: TileType[]) => new FlatTileSource(map, W, H);
   const openRow = () => new Array(W * H).fill(TileType.FLOOR);
   const center = (gx: number) => gx * 32 + 16;
 
   it("is clear across open floor", () => {
     const map = openRow();
-    expect(hasClearLineOfSight(map, W, H, center(1), center(1), center(6), center(1))).toBe(true);
+    expect(hasClearLineOfSight(source(map), center(1), center(1), center(6), center(1))).toBe(true);
   });
 
   it("is blocked by an opaque wall between the endpoints", () => {
     const map = openRow();
     map[3 + 1 * W] = TileType.WALL; // opaque tile in the path
-    expect(hasClearLineOfSight(map, W, H, center(1), center(1), center(6), center(1))).toBe(false);
+    expect(hasClearLineOfSight(source(map), center(1), center(1), center(6), center(1))).toBe(false);
   });
 
   it("ignores opaque tiles exactly at the endpoints", () => {
     const map = openRow();
     map[1 + 1 * W] = TileType.WALL; // start cell
     map[6 + 1 * W] = TileType.WALL; // end cell
-    expect(hasClearLineOfSight(map, W, H, center(1), center(1), center(6), center(1))).toBe(true);
+    expect(hasClearLineOfSight(source(map), center(1), center(1), center(6), center(1))).toBe(true);
   });
 });

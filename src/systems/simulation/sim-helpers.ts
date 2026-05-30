@@ -12,7 +12,7 @@ import {
   CELL_CONFIG,
 } from "../../types";
 import { passableFor } from "../../utils/helpers";
-import { tileAtFor } from "../../utils/helpers";
+import { TileSource } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
 import {
   IDLE_WANDER_DIRECTIONS,
@@ -208,9 +208,7 @@ export function normalizeAngle(angle: number): number {
 }
 
 export function hasClearLineOfSight(
-  map: TileType[],
-  width: number,
-  height: number,
+  tiles: TileSource,
   startWorldX: number,
   startWorldY: number,
   endWorldX: number,
@@ -231,7 +229,7 @@ export function hasClearLineOfSight(
   let y = gridY1;
 
   while (true) {
-    const tile = tileAtFor(map, x, y, width, height);
+    const tile = tiles.getTile(x, y);
     if (TILE_DEFINITIONS[tile]?.opaque) {
       if ((x !== gridX1 || y !== gridY1) && (x !== gridX2 || y !== gridY2)) {
         return false;

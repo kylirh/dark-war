@@ -32,7 +32,6 @@ import {
   pushEvent,
   canActorAct,
   getActionCost,
-  hasClearLineOfSight,
   directionFromAngle,
   normalizeAngle,
   findMeleeTarget,

@@ -1,6 +1,7 @@
-// Type-only import: the concrete class lives in core/entity-manager.ts.
-// Imported as a type so types.ts stays free of runtime dependencies.
+// Type-only imports: concrete classes live in core/. Imported as types so
+// types.ts stays free of runtime dependencies.
 import type { EntityManager } from "./core/entity-manager";
+import type { TileSource } from "./core/tile-source";
 
 // ========================================
 // Tile Types and Definitions
@@ -361,6 +362,10 @@ export interface GameState {
   wallSet: WallSet;
   wallDamage: number[];
   mapDirty: boolean;
+  // Canonical tile accessor. For finite levels this is a FlatTileSource over
+  // `map` above; a streaming dungeon swaps in a ChunkedTileSource. Gameplay
+  // logic should read/write tiles through this, not the raw `map` array.
+  tiles: TileSource;
   visible: Set<number>;
   explored: Set<number>;
   accessible: Set<number>;

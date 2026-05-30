@@ -390,9 +390,7 @@ export function updateMonsterSteering(state: GameState): void {
     const canSeePlayer =
       gridDistSq <= 15 * 15 &&
       hasClearLineOfSight(
-        state.map,
-        state.mapWidth,
-        state.mapHeight,
+        state.tiles,
         m.worldX,
         m.worldY,
         p.worldX,
@@ -725,9 +723,7 @@ function decideMonsterCommand(
   const playerWorldX = (player as any).worldX;
   const playerWorldY = (player as any).worldY;
   const hasGrenadeLOS = hasClearLineOfSight(
-    state.map,
-    state.mapWidth,
-    state.mapHeight,
+        state.tiles,
     monsterWorldX,
     monsterWorldY,
     playerWorldX,
@@ -771,9 +767,7 @@ function decideMonsterCommand(
   const canSeePlayer =
     aiGridDistSq <= 15 * 15 &&
     hasClearLineOfSight(
-      state.map,
-      state.mapWidth,
-      state.mapHeight,
+        state.tiles,
       (monster as any).worldX,
       (monster as any).worldY,
       (player as any).worldX,

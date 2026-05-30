@@ -22,6 +22,7 @@ import {
 import { generateDungeon } from "./map";
 import { createOutsideLevel } from "./outside-level";
 import { EntityManager } from "./entity-manager";
+import { FlatTileSource } from "./tile-source";
 import { PlayerEntity } from "../entities/player-entity";
 import { MonsterEntity } from "../entities/monster-entity";
 import { ItemEntity } from "../entities/item-entity";
@@ -91,17 +92,19 @@ export class Game {
     ]);
 
     const entities: Entity[] = [];
+    const map: TileType[] = new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL);
 
     return {
       depth: 0,
       levelKind: "outside",
-      map: new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL),
+      map,
       mapWidth: MAP_WIDTH,
       mapHeight: MAP_HEIGHT,
       floorVariant: 0,
       wallSet: "concrete",
       wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
       mapDirty: false,
+      tiles: new FlatTileSource(map, MAP_WIDTH, MAP_HEIGHT),
       visible: new Set(),
       explored,
       accessible: new Set(),
@@ -175,6 +178,7 @@ export class Game {
       wallDamage:
         outside?.wallDamage ?? new Array(dungeon.width * dungeon.height).fill(0),
       mapDirty: false,
+      tiles: new FlatTileSource(dungeon.map, dungeon.width, dungeon.height),
       visible: new Set(),
       explored,
       accessible: new Set(),
@@ -530,6 +534,19 @@ export class Game {
     this.levels.set(currentDepth, snapshot);
   }
 
+  /**
+   * Rebuild the canonical tile accessor after the backing map array or its
+   * dimensions are swapped (level transitions). For finite levels this wraps
+   * the flat `map` array; a streaming dungeon would install a chunk source.
+   */
+  private refreshTileSource(): void {
+    this.state.tiles = new FlatTileSource(
+      this.state.map,
+      this.state.mapWidth,
+      this.state.mapHeight,
+    );
+  }
+
   private applyLevelSnapshot(
     snapshot: LevelSnapshot,
     playerEntry: [number, number],
@@ -541,6 +558,7 @@ export class Game {
     this.state.floorVariant = snapshot.floorVariant;
     this.state.wallSet = snapshot.wallSet;
     this.state.wallDamage = snapshot.wallDamage;
+    this.refreshTileSource();
     this.state.explored = new Set(snapshot.explored);
     this.state.exploredByPlayer = this.cloneExploredByPlayerMap(
       snapshot.exploredByPlayer,
@@ -1017,6 +1035,7 @@ export class Game {
       wallSet,
       wallDamage,
       mapDirty: false,
+      tiles: new FlatTileSource(data.map, mapWidth, mapHeight),
       stairsDown: data.stairsDown ??
         (data as { stairs?: [number, number] }).stairs ?? [0, 0],
       stairsUp: data.stairsUp ?? null,
