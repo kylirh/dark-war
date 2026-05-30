@@ -1,5 +1,6 @@
 import { Game } from "./core/game";
 import { GameLoop } from "./core/game-loop";
+import { GameEntity } from "./entities/game-entity";
 import { InputCallbacks, InputHandler, MOVEMENT_SPEED } from "./systems/input";
 import { MouseTracker } from "./systems/mouse-tracker";
 import { Music } from "./systems/music";
@@ -38,6 +39,7 @@ import {
   INVENTORY_BAR_SIZE,
   ItemType,
   MultiplayerMode,
+  Player,
   REAL_TIME_SPEED,
   SLOWMO_SCALE,
   TileType,
@@ -101,6 +103,15 @@ const SCROLL_WHEEL_THROTTLE_MS = 200; //
 
 // Time scale constants
 const REAL_TIME_SCALE = 0.85; // Slightly slowed "real-time" — full speed before/without CTDM
+
+// Client-side prediction (online mode)
+// How much of the residual error between the predicted and server-authoritative
+// local-player position to correct per snapshot. Small enough to stay smooth,
+// large enough that drift decays within a few snapshots once the player stops.
+const PREDICTION_CORRECTION = 0.3;
+// Above this gap (px) we stop trusting prediction and snap to the server: a
+// teleport, a hole-fall, a respawn, or a major desync. ~1.5 tiles.
+const PREDICTION_HARD_SNAP_PX = 48;
 
 // CTDM time dilation constants
 const CTDM_IDLE_SCALE = 0.35; // Timescale when CTDM is active but no threat detected
@@ -262,6 +273,18 @@ class DarkWar {
   private multiplayerConfig: MultiplayerConfig;
   private multiplayerClient: MultiplayerClient | null = null;
   private onlineConnected: boolean = false;
+  // ── Client-side prediction (online mode, local player only) ──
+  // Latest movement input from this client, applied to the predicted local
+  // player each frame so input feels instant regardless of round-trip time.
+  private localInputVx: number = 0;
+  private localInputVy: number = 0;
+  // True once the first authoritative snapshot has arrived, so we don't predict
+  // against a not-yet-initialized world right after connecting.
+  private hasOnlineSnapshot: boolean = false;
+  // The map array reference the online physics world was last built for.
+  // When the server sends a new/changed map this differs, triggering a rebuild
+  // of wall colliders for prediction.
+  private predictionMapRef: TileType[] | null = null;
   private gameCanvas: HTMLCanvasElement | null = null;
   private newGameButton: HTMLElement | null = null;
   private introStory: IntroStory | null = null;
@@ -653,6 +676,8 @@ class DarkWar {
   private setupOnlineClientCallbacks(client: MultiplayerClient): void {
     client.onConnected((playerId, roomId, _isHost) => {
       this.onlineConnected = true;
+      this.hasOnlineSnapshot = false;
+      this.predictionMapRef = null;
       this.game.addStory(`Connected as ${playerId.slice(0, 8)} in room ${roomId}.`);
       this.render(0);
     });
@@ -663,6 +688,7 @@ class DarkWar {
 
     client.onDisconnected(() => {
       this.onlineConnected = false;
+      this.hasOnlineSnapshot = false;
       this.game.addStory("Disconnected from multiplayer server.");
       this.render(0);
     });
@@ -683,13 +709,111 @@ class DarkWar {
       }
     }
 
+    // Capture the predicted local-player position before the authoritative
+    // state overwrites it, so we can reconcile rather than hard-snap.
+    const previousPlayer = this.game.getState().player;
+    const hadPrediction =
+      this.onlineConnected && previousPlayer != null && previousPlayer.hp > 0;
+    const predictedX = previousPlayer?.worldX;
+    const predictedY = previousPlayer?.worldY;
+
     this.game.deserialize(serializedState);
     const state = this.game.getState();
+    const player = state.player;
 
-    this.syncGameOverOverlay(state.player.hp <= 0);
+    if (
+      hadPrediction &&
+      predictedX !== undefined &&
+      predictedY !== undefined &&
+      player.hp > 0
+    ) {
+      this.reconcileLocalPlayer(player, predictedX, predictedY);
+      // Keep moving under the latest local input, not the server's older echo.
+      player.velocityX = this.localInputVx;
+      player.velocityY = this.localInputVy;
+    }
 
-    this.lastPlayerHp = state.player.hp;
+    this.syncGameOverOverlay(player.hp <= 0);
+
+    this.lastPlayerHp = player.hp;
+    this.hasOnlineSnapshot = true;
     this.render(0);
+  }
+
+  /**
+   * Reconcile the predicted local-player position with the server's
+   * authoritative one. On a small error we keep most of the prediction and
+   * ease out the residual (so steady-state drift decays without the player
+   * being yanked); on a large error — teleport, hole-fall, respawn — we accept
+   * the server position outright. `player` arrives already at the server pos.
+   */
+  private reconcileLocalPlayer(
+    player: Player,
+    predictedX: number,
+    predictedY: number,
+  ): void {
+    const serverX = player.worldX;
+    const serverY = player.worldY;
+    const errorX = predictedX - serverX;
+    const errorY = predictedY - serverY;
+    const distance = Math.hypot(errorX, errorY);
+
+    if (distance > PREDICTION_HARD_SNAP_PX) {
+      // Accept the server position (player is already there). Reset
+      // interpolation so we don't render a streak across the jump.
+      player.prevWorldX = serverX;
+      player.prevWorldY = serverY;
+      return;
+    }
+
+    const correctedX = serverX + errorX * (1 - PREDICTION_CORRECTION);
+    const correctedY = serverY + errorY * (1 - PREDICTION_CORRECTION);
+    player.worldX = correctedX;
+    player.worldY = correctedY;
+    player.prevWorldX = correctedX;
+    player.prevWorldY = correctedY;
+  }
+
+  /**
+   * Advance the predicted local player one frame under the latest local input
+   * so movement feels instant. Only the local player is predicted; all other
+   * entities come straight from the server. The server stays authoritative and
+   * corrections arrive via reconcileLocalPlayer().
+   */
+  private predictLocalPlayer(
+    state: ReturnType<Game["getState"]>,
+    dt: number,
+  ): void {
+    const player = state.player;
+    if (!player || player.hp <= 0) return;
+
+    this.ensurePredictionWorld(state);
+
+    player.velocityX = this.localInputVx;
+    player.velocityY = this.localInputVy;
+
+    const scaledDt = dt * (state.sim.timeScale ?? 1);
+    this.physics.predictLocalMovement(
+      state,
+      player as unknown as GameEntity,
+      scaledDt,
+    );
+  }
+
+  /**
+   * Ensure the prediction physics world matches the current level. The map
+   * reference changes whenever the server sends a new or modified map (level
+   * transition, destructible walls), at which point we rebuild wall colliders
+   * and drop any stale entity bodies — prediction only needs walls plus the
+   * local player's own body (recreated on demand).
+   */
+  private ensurePredictionWorld(
+    state: ReturnType<Game["getState"]>,
+  ): void {
+    if (this.predictionMapRef === state.map) return;
+    this.physics.initializeMap(state.map, state.mapWidth, state.mapHeight);
+    this.physics.clearEntityBodies();
+    this.predictionMapRef = state.map;
   }
 
   private syncGameOverOverlay(isDead: boolean): void {
@@ -1006,6 +1130,8 @@ class DarkWar {
     if (this.isOnlineMode()) {
       if (!this.onlineConnected) {
         state.sim.targetTimeScale = 0;
+      } else if (this.hasOnlineSnapshot) {
+        this.predictLocalPlayer(state, dt);
       }
       Music.updateForGameState(state, this.computeThreatLevel(state));
       if (this.playerActedThisTick) {
@@ -1249,10 +1375,14 @@ class DarkWar {
       if (this.isLocalPlayerDead()) return;
       player.velocityX = vx;
       player.velocityY = vy;
+      this.localInputVx = vx;
+      this.localInputVy = vy;
       const client = this.getReadyOnlineClient();
       if (!client) {
         player.velocityX = 0;
         player.velocityY = 0;
+        this.localInputVx = 0;
+        this.localInputVy = 0;
         return;
       }
       client.sendVelocity(vx, vy);

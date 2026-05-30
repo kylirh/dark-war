@@ -144,8 +144,13 @@ export class Physics {
    * Add or update entity physics body
    */
   public updateEntityBody(entity: GameEntity): void {
-    // Remove existing body if present
-    if (entity.physicsBody) {
+    // Remove any existing body for this entity. We check both the instance's
+    // own reference and the id index, because the client recreates entity
+    // instances on each snapshot (the new instance has no physicsBody but a
+    // stale body may still live in the system under the same id).
+    const staleById = this.entityBodies.get(entity.id);
+    if (staleById) this.system.remove(staleById);
+    if (entity.physicsBody && entity.physicsBody !== staleById) {
       this.system.remove(entity.physicsBody);
     }
 
@@ -255,6 +260,93 @@ export class Physics {
       }
     }
     state.entityManager.clearLifecycle();
+  }
+
+  /**
+   * Client-side prediction: advance a single entity (the local player) against
+   * walls only — no entity-entity collisions, no simulation. Lets local input
+   * feel instant while the server stays authoritative and corrects via
+   * reconciliation. Wall bodies must already be initialized (initializeMap).
+   *
+   * The wall-slide resolution mirrors the entityA branch of handleCollision;
+   * checkOne() reports the queried body as response.a and the wall as
+   * response.b, so the player is pushed out by -overlapV.
+   */
+  public predictLocalMovement(
+    state: GameState,
+    entity: GameEntity,
+    dt: number,
+  ): void {
+    if (!entity.physicsBody) this.updateEntityBody(entity);
+    const body = entity.physicsBody;
+    if (!body) return;
+
+    entity.prevWorldX = entity.worldX;
+    entity.prevWorldY = entity.worldY;
+
+    if (entity.velocityX !== 0 || entity.velocityY !== 0) {
+      entity.worldX += entity.velocityX * dt;
+      entity.worldY += entity.velocityY * dt;
+
+      const minBound = CELL_CONFIG.w + PLAYER_RADIUS;
+      const maxBoundX = (state.mapWidth - 1) * CELL_CONFIG.w - PLAYER_RADIUS;
+      const maxBoundY = (state.mapHeight - 1) * CELL_CONFIG.h - PLAYER_RADIUS;
+      if (entity.worldX < minBound) { entity.worldX = minBound; entity.velocityX = 0; }
+      else if (entity.worldX > maxBoundX) { entity.worldX = maxBoundX; entity.velocityX = 0; }
+      if (entity.worldY < minBound) { entity.worldY = minBound; entity.velocityY = 0; }
+      else if (entity.worldY > maxBoundY) { entity.worldY = maxBoundY; entity.velocityY = 0; }
+    }
+
+    body.setPosition(entity.worldX, entity.worldY);
+    this.system.update();
+
+    for (let i = 0; i < COLLISION_RESOLUTION_ITERATIONS; i++) {
+      let collided = false;
+      this.system.checkOne(body, (response) => {
+        if (!(response.b as any).isWall) return;
+        collided = true;
+        this.resolvePredictedWallCollision(entity, response);
+      });
+      if (!collided) break;
+      this.system.update();
+    }
+  }
+
+  /**
+   * Push a predicted entity out of a wall with sliding. Mirrors the entityA
+   * branch of handleCollision (queried body is response.a, wall is response.b).
+   */
+  private resolvePredictedWallCollision(
+    entity: GameEntity,
+    response: Response,
+  ): void {
+    const separation = 1.01;
+    entity.worldX -= response.overlapV.x * separation;
+    entity.worldY -= response.overlapV.y * separation;
+
+    const absOverlapX = Math.abs(response.overlapV.x);
+    const absOverlapY = Math.abs(response.overlapV.y);
+
+    if (absOverlapX > absOverlapY) {
+      if (
+        (response.overlapV.x > 0 && entity.velocityX > 0) ||
+        (response.overlapV.x < 0 && entity.velocityX < 0)
+      ) {
+        entity.velocityX = 0;
+      }
+    } else if (absOverlapY > absOverlapX) {
+      if (
+        (response.overlapV.y > 0 && entity.velocityY > 0) ||
+        (response.overlapV.y < 0 && entity.velocityY < 0)
+      ) {
+        entity.velocityY = 0;
+      }
+    } else {
+      entity.velocityX = 0;
+      entity.velocityY = 0;
+    }
+
+    entity.physicsBody?.setPosition(entity.worldX, entity.worldY);
   }
 
   /**
