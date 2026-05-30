@@ -78,14 +78,12 @@ Two modes: `offline` (default) and `online`. In online mode, an authoritative We
 
 ### Map Generation
 
-- **Dungeon** (`src/core/map.ts`): BSP dungeon generation. Maps are flat `TileType[]` arrays of size `MAP_WIDTH × MAP_HEIGHT` (64×36).
-- **Outside** (`src/core/outside-level.ts`): Procedural exterior level with streets, sidewalks, grass, trees, buildings. Size `OUTSIDE_MAP_WIDTH × OUTSIDE_MAP_HEIGHT` (128×72).
+- **Dungeon (streamed)** (`src/core/level-streamer.ts`): dungeon levels are large `128×96` maps that start solid and fill in `16×16` connected room/corridor chunks around each player as they explore (`LevelStreamer.ensureAround`, driven by `Game.streamAroundPlayers` from the offline loop and the multiplayer `stepWorld`). Generation is deterministic from `state.levelSeed`; the down-stairs sit in a far chunk and are revealed on approach; monsters/items scatter into newly revealed chunks. The legacy BSP generator (`src/core/map.ts`) is retained but no longer used for live dungeons.
+- **Outside** (`src/core/outside-level.ts`): Procedural exterior level (finite, not streamed). Size `OUTSIDE_MAP_WIDTH × OUTSIDE_MAP_HEIGHT` (128×72).
 
-Index tiles with `idx(x, y)` (uses global constants) or `idxFor(x, y, width)` (explicit width, required for non-standard map sizes).
+The streamed dungeon stays a **bounded** flat `TileType[]`, so serialization, `explored`/`wallDamage` indices, FOV, physics, and rendering all work unchanged — clients just receive carved tiles via the map delta and render them under fog. Index tiles with `idx(x, y)` or `idxFor(x, y, width)`.
 
-**Tile access** (`src/core/tile-source.ts`, `src/core/chunked-map.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — gameplay logic should read/write through it (`getTile`/`setTile`/`passable`), not the raw `map` array. For finite levels it is a `FlatTileSource` over `state.map` (rebuilt on every level transition via `refreshTileSource`), so behavior is unchanged. `ChunkedTileSource` stores 16×16 chunks generated on demand (`createDungeonChunkGenerator`), streams chunks in/out, and keeps edit overrides that survive eviction.
-
-**Streaming-world cutover (in progress):** the canonical `TileSource` accessor is the first landed slice toward a streaming/continuous world. Still to do (each needs playtesting): coordinate-keyed `explored`/`wallDamage` (today they're linear `x + y*width` indices that assume a bounded width), chunk-region serialization in `state-delta.ts` (today the wire sends a fixed-length flat map), and per-chunk streaming in FOV/physics/rendering. Until those land, levels remain finite and flat-backed.
+**Tile access** (`src/core/tile-source.ts`, `src/core/chunked-map.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). For every level today it is a `FlatTileSource` over `state.map`; `ChunkedTileSource` (unbounded, generated on demand) exists for a future truly-infinite world. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors, streamed-in chunks).
 
 ### Key Utilities
 

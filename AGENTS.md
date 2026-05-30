@@ -181,9 +181,13 @@ if (entity.kind === EntityKind.MONSTER) {
 - **Canonical accessor:** `state.tiles` (a `TileSource`) — read/write tiles via
   `getTile(x, y)`, `setTile(x, y, tile)`, `passable(x, y)`. For finite levels
   it wraps the flat array; a streaming dungeon swaps in a `ChunkedTileSource`.
-- **Flat array (backing / serialization):** `TileType[]` — dungeon is
-  `MAP_WIDTH × MAP_HEIGHT` (64×36), outside is 128×72. The `*For` helpers below
-  still operate on it directly in code that hasn't migrated to `state.tiles`.
+- **Streamed dungeons:** dungeon levels are large `128×96` maps that fill in
+  connected chunks around the player as they explore (`LevelStreamer`,
+  `Game.streamAroundPlayers`); the backing store stays a bounded flat
+  `TileType[]`, so serialization/explored/wallDamage/FOV/physics are unchanged.
+- **Flat array (backing / serialization):** `TileType[]` sized
+  `mapWidth × mapHeight` (outside is 128×72). The `*For` helpers operate on it
+  directly in code that reads the array rather than `state.tiles`.
 - **Index with:** `idxFor(x, y, width)` — always prefer the `For` variant in systems
 - **Query tile:** `tileAtFor(map, x, y, width, height)`
 - **Check passable:** `passableFor(map, x, y, width, height)`
