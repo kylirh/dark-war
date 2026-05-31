@@ -21,17 +21,9 @@ function getParam(
   return value && value.length > 0 ? value : fallback;
 }
 
-export function getMultiplayerConfigFromUrl(): MultiplayerConfig {
-  if (typeof window === "undefined") {
-    return {
-      mode: "offline",
-      serverUrl: DEFAULT_SERVER_URL,
-      roomId: DEFAULT_ROOM_ID,
-      playerName: DEFAULT_PLAYER_NAME,
-    };
-  }
-
-  const params = new URLSearchParams(window.location.search);
+/** Parse a `?mode=&server=&room=&name=` query string into a config (pure). */
+export function parseMultiplayerConfig(search: string): MultiplayerConfig {
+  const params = new URLSearchParams(search);
   const modeParam = params.get("mode") as MultiplayerMode | null;
   const mode =
     modeParam && VALID_MODES.includes(modeParam) ? modeParam : "offline";
@@ -42,6 +34,12 @@ export function getMultiplayerConfigFromUrl(): MultiplayerConfig {
     roomId: getParam(params, "room", DEFAULT_ROOM_ID),
     playerName: getParam(params, "name", DEFAULT_PLAYER_NAME),
   };
+}
+
+export function getMultiplayerConfigFromUrl(): MultiplayerConfig {
+  return parseMultiplayerConfig(
+    typeof window === "undefined" ? "" : window.location.search,
+  );
 }
 
 export function getMultiplayerModeFromUrl(): MultiplayerMode {
