@@ -1,25 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { TileType, MAP_WIDTH, Entity } from "../types";
+import { TileType, Entity } from "../types";
 import {
-  idx,
   idxFor,
-  inBounds,
   inBoundsFor,
-  tileAt,
   tileAtFor,
-  setTile,
   setTileFor,
-  passable,
   passableFor,
   dist,
   setPositionFromGrid,
 } from "./helpers";
 
 describe("index math", () => {
-  it("idx uses the global map width", () => {
-    expect(idx(3, 2)).toBe(3 + 2 * MAP_WIDTH);
-  });
-
   it("idxFor uses an explicit width", () => {
     expect(idxFor(3, 2, 10)).toBe(23);
   });
@@ -32,11 +23,6 @@ describe("bounds", () => {
     expect(inBoundsFor(5, 0, 5, 5)).toBe(false);
     expect(inBoundsFor(-1, 0, 5, 5)).toBe(false);
   });
-
-  it("inBounds uses the global dungeon size", () => {
-    expect(inBounds(0, 0)).toBe(true);
-    expect(inBounds(-1, 0)).toBe(false);
-  });
 });
 
 describe("tile read/write", () => {
@@ -48,16 +34,10 @@ describe("tile read/write", () => {
     expect(tileAtFor(map, 9, 9, 2, 2)).toBe(TileType.WALL);
   });
 
-  it("setTileFor writes at the right index", () => {
-    const map = new Array(4).fill(TileType.WALL);
-    setTileFor(map, 1, 1, 3, TileType.FLOOR);
-    expect(map[1 + 1 * 3]).toBe(TileType.FLOOR);
-  });
-
-  it("setTile / tileAt round-trip on a global-width map", () => {
-    const map = new Array(MAP_WIDTH * 4).fill(TileType.WALL);
-    setTile(map, 5, 2, TileType.STAIRS_DOWN);
-    expect(tileAt(map, 5, 2)).toBe(TileType.STAIRS_DOWN);
+  it("setTileFor / tileAtFor round-trip", () => {
+    const map = new Array(9).fill(TileType.WALL);
+    setTileFor(map, 1, 1, 3, TileType.STAIRS_DOWN);
+    expect(tileAtFor(map, 1, 1, 3, 3)).toBe(TileType.STAIRS_DOWN);
   });
 });
 
@@ -69,13 +49,6 @@ describe("passability", () => {
     expect(passableFor(map, 0, 1, 2, 2)).toBe(true); // open door
     expect(passableFor(map, 1, 1, 2, 2)).toBe(false); // closed door
     expect(passableFor(map, -1, 0, 2, 2)).toBe(false); // OOB
-  });
-
-  it("passable mirrors passableFor on the global size", () => {
-    const big = new Array(MAP_WIDTH * 4).fill(TileType.FLOOR);
-    expect(passable(big, 1, 1)).toBe(true);
-    big[idx(1, 1)] = TileType.WALL;
-    expect(passable(big, 1, 1)).toBe(false);
   });
 });
 

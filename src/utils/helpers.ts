@@ -1,31 +1,10 @@
-import {
-  MAP_WIDTH,
-  MAP_HEIGHT,
-  TileType,
-  TILE_DEFINITIONS,
-  CELL_CONFIG,
-  Entity,
-} from "../types";
-
-/**
- * Convert 2D coordinates to 1D map array index
- */
-export function idx(x: number, y: number): number {
-  return x + y * MAP_WIDTH;
-}
+import { TileType, TILE_DEFINITIONS, CELL_CONFIG, Entity } from "../types";
 
 /**
  * Convert 2D coordinates to a 1D map array index for a specific map width.
  */
 export function idxFor(x: number, y: number, width: number): number {
   return x + y * width;
-}
-
-/**
- * Check if coordinates are within map bounds
- */
-export function inBounds(x: number, y: number): boolean {
-  return x >= 0 && y >= 0 && x < MAP_WIDTH && y < MAP_HEIGHT;
 }
 
 /**
@@ -38,14 +17,6 @@ export function inBoundsFor(
   height: number,
 ): boolean {
   return x >= 0 && y >= 0 && x < width && y < height;
-}
-
-/**
- * Get tile type at coordinates
- */
-export function tileAt(map: TileType[], x: number, y: number): TileType {
-  if (!inBounds(x, y)) return TileType.WALL;
-  return map[idx(x, y)];
 }
 
 /**
@@ -63,18 +34,6 @@ export function tileAtFor(
 }
 
 /**
- * Set tile type at coordinates
- */
-export function setTile(
-  map: TileType[],
-  x: number,
-  y: number,
-  tile: TileType,
-): void {
-  map[idx(x, y)] = tile;
-}
-
-/**
  * Set tile type for a specific map width.
  */
 export function setTileFor(
@@ -85,15 +44,6 @@ export function setTileFor(
   tile: TileType,
 ): void {
   map[idxFor(x, y, width)] = tile;
-}
-
-/**
- * Check if tile is passable (not blocked)
- */
-export function passable(map: TileType[], x: number, y: number): boolean {
-  if (!inBounds(x, y)) return false;
-  const tile = TILE_DEFINITIONS[tileAt(map, x, y)];
-  return tile && !tile.block;
 }
 
 /**
