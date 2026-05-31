@@ -7,7 +7,6 @@ import {
   EntityKind,
   Monster,
   Player,
-  TileType,
   TILE_DEFINITIONS,
   CELL_CONFIG,
 } from "../../types";
@@ -18,7 +17,6 @@ import {
   IDLE_WANDER_DIRECTIONS,
   MELEE_ARC,
   MONSTER_ACTION_DELAY,
-  MONSTER_AI_UPDATE_INTERVAL,
   UTILITY_BOT_REPAIR_COOLDOWN,
   SKULKER_SHOOT_COOLDOWN,
 } from "./constants";

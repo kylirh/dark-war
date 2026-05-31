@@ -34,7 +34,6 @@ import {
   dist,
   passableFor,
   setPositionFromGrid,
-  setTile,
 } from "../utils/helpers";
 import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";

@@ -23,7 +23,7 @@ import {
   EXPLOSION_KNOCKBACK_MAX_DISTANCE,
   EXPLOSION_KNOCKBACK_MIN_DISTANCE,
 } from "./constants";
-import { pushEvent, getEventDepth, getClosestPlayer, positiveAmount } from "./sim-helpers";
+import { pushEvent, getClosestPlayer, positiveAmount } from "./sim-helpers";
 import { triggerExplosion } from "./explosives";
 import { addToInventory } from "../../utils/inventory";
 

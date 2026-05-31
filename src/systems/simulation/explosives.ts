@@ -6,7 +6,6 @@ import {
   CELL_CONFIG,
 } from "../../types";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
-import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
 import {
   SIM_DT_MS,

@@ -1750,27 +1750,6 @@ class DarkWar {
     if (barSlot >= 0) this.handleSelectInventorySlot(barSlot);
   }
 
-  private handleCycleWeapon(direction: number): void {
-    const state = this.game.getState();
-    const player = state.player;
-    const weapons = [
-      WeaponType.MELEE,
-      WeaponType.PISTOL,
-      WeaponType.GRENADE,
-      WeaponType.LAND_MINE,
-    ];
-    const currentIndex = weapons.indexOf(player.weapon);
-    const nextIndex =
-      (currentIndex + direction + weapons.length) % weapons.length;
-
-    if (this.isOnlineMode()) {
-      this.selectOnlineWeaponByType(weapons[nextIndex]);
-      return;
-    }
-
-    player.weapon = weapons[nextIndex];
-    this.game.addStory(`Weapon set: ${player.weapon}.`);
-  }
 
   private handleSelectInventorySlot(slotIndex: number): void {
     if (slotIndex < 0 || slotIndex >= INVENTORY_BAR_SIZE) return;

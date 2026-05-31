@@ -6,7 +6,6 @@ import {
   EntityKind,
   Monster,
   MonsterType,
-  Player,
   Item,
   ItemType,
   TileType,
@@ -30,9 +29,7 @@ import {
   UTILITY_BOT_FOLLOW_DIST_PX,
 } from "./constants";
 import {
-  getAlivePlayers,
   getClosestPlayer,
-  isMonsterMoveCandidateClear,
   chooseIdleWanderDirection,
   makeWaitCommand,
   makeIdleWanderCommand,
@@ -640,7 +637,6 @@ function decideMonsterCommand(
 
   const isSkulker = monster.type === MonsterType.SKULKER;
   const hpMax = monster.hpMax ?? monster.hp;
-  const isFleeing = monster.hp <= hpMax * FLEE_HP_RATIO;
 
   const waitCmd = (): Command => makeWaitCommand(monster, tick);
 

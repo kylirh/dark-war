@@ -30,10 +30,8 @@ import {
 } from "./constants";
 import {
   pushEvent,
-  canActorAct,
   getActionCost,
   directionFromAngle,
-  normalizeAngle,
   findMeleeTarget,
   getClosestPlayer,
 } from "./sim-helpers";

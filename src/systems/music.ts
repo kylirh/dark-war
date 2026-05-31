@@ -878,7 +878,6 @@ class MusicPlayer {
   private scheduleMusicStep(step: number, time: number): void {
     if (!this.audioContext || !this.layers) return;
     const sixteenth = step % 16;
-    const eighth = step % 8;
     const bar = Math.floor(step / 16);
     const profile = SCENE_PROFILES[this.mood.scene];
     const chordRootMidi =
