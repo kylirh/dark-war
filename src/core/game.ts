@@ -30,11 +30,7 @@ import { ItemEntity } from "../entities/item-entity";
 import { ExplosiveEntity } from "../entities/explosive-entity";
 import { BulletEntity } from "../entities/bullet-entity";
 import { RNG } from "../utils/rng";
-import {
-  dist,
-  passableFor,
-  setPositionFromGrid,
-} from "../utils/helpers";
+import { dist, passableFor, setPositionFromGrid } from "../utils/helpers";
 import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { Sound, SoundEffect } from "../systems/sound";
@@ -104,7 +100,9 @@ export class Game {
     ]);
 
     const entities: Entity[] = [];
-    const map: TileType[] = new Array(MAP_WIDTH * MAP_HEIGHT).fill(TileType.WALL);
+    const map: TileType[] = new Array(MAP_WIDTH * MAP_HEIGHT).fill(
+      TileType.WALL,
+    );
 
     return {
       depth: 0,
@@ -190,7 +188,8 @@ export class Game {
       floorVariant: dungeon.floorVariant,
       wallSet: dungeon.wallSet,
       wallDamage:
-        outside?.wallDamage ?? new Array(dungeon.width * dungeon.height).fill(0),
+        outside?.wallDamage ??
+        new Array(dungeon.width * dungeon.height).fill(0),
       mapDirty: false,
       tiles: new FlatTileSource(dungeon.map, dungeon.width, dungeon.height),
       visible: new Set(),
@@ -246,7 +245,11 @@ export class Game {
       const outsideEntities =
         this.multiplayerMode === "online"
           ? outside.entities.filter(
-              (e) => !(e.kind === EntityKind.ITEM && (e as Item).type === ItemType.CTDM),
+              (e) =>
+                !(
+                  e.kind === EntityKind.ITEM &&
+                  (e as Item).type === ItemType.CTDM
+                ),
             )
           : outside.entities;
       this.state.entityManager.spawnAll(outsideEntities);
@@ -270,7 +273,7 @@ export class Game {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
 
-        if (dist([x, y], dungeon.start) > 8) {
+      if (dist([x, y], dungeon.start) > 8) {
         const roll = RNG.int(10);
         if (roll < 3) {
           this.state.entityManager.spawn(
@@ -292,7 +295,6 @@ export class Game {
       }
     }
     if (DEBUG) console.log(`Spawned ${ratCount} rats, ${mutantCount} mutants`);
-
 
     // Spawn items
     for (let i = 0; i < 10 && freeTiles.length > 0; i++) {
@@ -575,7 +577,9 @@ export class Game {
     // Drop this player's own shoot sound — their client predicts it locally on
     // fire, so echoing it back would double up the audio.
     state.sounds = this.state.pendingSounds
-      .filter((s) => !(s.effect === SoundEffect.SHOOT && s.sourceId === playerId))
+      .filter(
+        (s) => !(s.effect === SoundEffect.SHOOT && s.sourceId === playerId),
+      )
       .map((s) => s.effect);
     return state;
   }
@@ -595,9 +599,7 @@ export class Game {
   public toggleGodMode(): void {
     this.state.options.godMode = !this.state.options.godMode;
     this.addStory(
-      this.state.options.godMode
-        ? "God Mode enabled."
-        : "God Mode disabled.",
+      this.state.options.godMode ? "God Mode enabled." : "God Mode disabled.",
     );
   }
 
@@ -735,12 +737,26 @@ export class Game {
     ];
     const stairsUp: [number, number] = [start[0], start[1]];
 
-    const streamer = new LevelStreamer(seed, width, height, stairsUp, stairsDown);
+    const streamer = new LevelStreamer(
+      seed,
+      width,
+      height,
+      stairsUp,
+      stairsDown,
+    );
     streamer.ensureAround(map, start[0], start[1], STREAM_GEN_CHUNK_RADIUS);
 
     return {
-      map, width, height, floorVariant, wallSet,
-      start, stairsDown, stairsUp, seed, streamer,
+      map,
+      width,
+      height,
+      floorVariant,
+      wallSet,
+      start,
+      stairsDown,
+      stairsUp,
+      seed,
+      streamer,
     };
   }
 
@@ -828,17 +844,24 @@ export class Game {
       const [x, y] = floors[RNG.int(floors.length)];
       const roll = RNG.int(10);
       const type =
-        roll < 3 ? MonsterType.RAT : roll < 5 ? MonsterType.SKULKER : MonsterType.MUTANT;
+        roll < 3
+          ? MonsterType.RAT
+          : roll < 5
+            ? MonsterType.SKULKER
+            : MonsterType.MUTANT;
       this.state.entityManager.spawn(new MonsterEntity(x, y, type, depth));
     }
     if (RNG.chance(0.5)) {
       const [x, y] = floors[RNG.int(floors.length)];
       const roll = RNG.int(10);
       const itemType =
-        roll < 5 ? ItemType.AMMO
-        : roll < 7 ? ItemType.MEDKIT
-        : roll < 9 ? ItemType.GRENADE
-        : ItemType.KEYCARD;
+        roll < 5
+          ? ItemType.AMMO
+          : roll < 7
+            ? ItemType.MEDKIT
+            : roll < 9
+              ? ItemType.GRENADE
+              : ItemType.KEYCARD;
       this.state.entityManager.spawn(new ItemEntity(x, y, itemType));
     }
   }
@@ -906,7 +929,9 @@ export class Game {
         const tileIndex = RNG.int(freeTiles.length);
         const [x, y] = freeTiles[tileIndex];
         if (dist([x, y], start) > 10) {
-          entities.push(new MonsterEntity(x, y, MonsterType.UTILITY_BOT, depth));
+          entities.push(
+            new MonsterEntity(x, y, MonsterType.UTILITY_BOT, depth),
+          );
           freeTiles.splice(tileIndex, 1);
           break;
         }
@@ -1219,8 +1244,7 @@ export class Game {
         ? data.wallDamage.slice()
         : new Array(data.map.length).fill(0);
     const players = this.hydratePlayers(serializedPlayers, data.depth);
-    const localPlayerId =
-      data.multiplayer?.localPlayerId ?? players[0].id;
+    const localPlayerId = data.multiplayer?.localPlayerId ?? players[0].id;
     this.localPlayerId = localPlayerId;
     const player =
       players.find((candidate) => candidate.id === localPlayerId) ?? players[0];
@@ -1520,7 +1544,12 @@ export class Game {
     while (head < queue.length) {
       const [x, y] = queue[head++];
 
-      if (x < 0 || y < 0 || x >= this.state.mapWidth || y >= this.state.mapHeight) {
+      if (
+        x < 0 ||
+        y < 0 ||
+        x >= this.state.mapWidth ||
+        y >= this.state.mapHeight
+      ) {
         continue;
       }
 
@@ -1706,7 +1735,13 @@ export class Game {
     let head = 0;
     while (head < queue.length) {
       const [x, y] = queue[head++];
-      if (x < 0 || y < 0 || x >= this.state.mapWidth || y >= this.state.mapHeight) continue;
+      if (
+        x < 0 ||
+        y < 0 ||
+        x >= this.state.mapWidth ||
+        y >= this.state.mapHeight
+      )
+        continue;
 
       const index = x + y * this.state.mapWidth;
       if (reachable.has(index)) continue;
@@ -1736,7 +1771,13 @@ export class Game {
     const visited = new Set<number>();
     const queue: [number, number][] = [];
     const enqueue = (x: number, y: number) => {
-      if (x < 0 || y < 0 || x >= this.state.mapWidth || y >= this.state.mapHeight) return;
+      if (
+        x < 0 ||
+        y < 0 ||
+        x >= this.state.mapWidth ||
+        y >= this.state.mapHeight
+      )
+        return;
       const index = x + y * this.state.mapWidth;
       if (visited.has(index)) return;
       visited.add(index);

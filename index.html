@@ -1,182 +1,155 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Dark War" />
-    <title>Dark War</title>
-    <!-- publicDir:"app" serves app/ at root, so these resolve to app/assets/... -->
-    <link rel="stylesheet" href="assets/css/system.css" />
-    <link rel="stylesheet" href="assets/css/styles.css" />
-  </head>
-  <body>
-    <div id="retro-window-chrome" class="retro-window-chrome">
-      <div class="retro-titlebar">
-        <div class="retro-traffic-lights">
-          <button
-            class="retro-window-button retro-window-button-close"
-            id="retro-btn-close"
-            type="button"
-            title="Close"
-            aria-label="Close"
-          >
-            <span>X</span>
-          </button>
-          <button
-            class="retro-window-button retro-window-button-minimize"
-            id="retro-btn-minimize"
-            type="button"
-            title="Minimize"
-            aria-label="Minimize"
-          >
-            <span>-</span>
-          </button>
-          <button
-            class="retro-window-button retro-window-button-fullscreen"
-            id="retro-btn-fullscreen"
-            type="button"
-            title="Fullscreen"
-            aria-label="Fullscreen"
-          >
-            <span>[]</span>
-          </button>
-        </div>
-        <div class="retro-title-stripes"></div>
-        <div class="retro-window-title">Dark War</div>
-        <div class="retro-title-stripes"></div>
-      </div>
-      <div class="retro-content-frame"></div>
-    </div>
-    <div class="resize-handle" data-edge="top"></div>
-    <div class="resize-handle" data-edge="bottom"></div>
-    <div class="resize-handle" data-edge="left"></div>
-    <div class="resize-handle" data-edge="right"></div>
-    <div class="resize-handle" data-edge="top-left"></div>
-    <div class="resize-handle" data-edge="top-right"></div>
-    <div class="resize-handle" data-edge="bottom-left"></div>
-    <div class="resize-handle" data-edge="bottom-right"></div>
-    <div class="app-container">
-      <div class="game-area">
-        <div id="hp-overlay" class="hp-overlay">
-          <div class="hp-bar-outer">
-            <div id="hpbar" class="hp-bar-inner" style="--hp-width: 100%"></div>
-          </div>
-          <span id="hp" class="hp-overlay-text">—</span>
-        </div>
-        <div class="viewport">
-          <canvas
-            id="game"
-            width="2080"
-            height="1184"
-            aria-label="Game Canvas"
-            role="img"
-          ></canvas>
-        </div>
 
-        <div id="game-over-overlay" class="game-over-overlay">
-          <div class="game-over-content">
-            <h1 class="game-over-text">GAME OVER</h1>
-            <h2 class="game-over-score" id="game-over-score">Score: 0</h2>
-            <button
-              class="new-game-button"
-              id="new-game-button"
-              type="button"
-            >
-              New Game
-            </button>
-          </div>
-        </div>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Dark War" />
+  <title>Dark War</title>
+  <!-- publicDir:"app" serves app/ at root, so these resolve to app/assets/... -->
+  <link rel="stylesheet" href="assets/css/system.css" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
 
-        <!-- Story overlay: floating CRT terminal over game -->
-        <div id="story-overlay" class="story-overlay" aria-live="polite" aria-label="Story">
-          <div id="story-panel" class="story-panel">
-            <!-- Expand/collapse button: upper-right corner of glass pane -->
-            <button id="story-expand-tab" class="story-expand-tab" type="button" aria-label="Toggle story">
-              <span class="story-tab-label">+</span>
-            </button>
-            <div id="story-scroll" class="story-scroll">
-              <ul id="story" class="story-messages"></ul>
-            </div>
-          </div>
-        </div>
-        <button
-          class="scale-toggle"
-          id="scaleToggle"
-          aria-label="Zoom"
-          title="Zoom"
-        >
-          1X
+<body>
+  <div id="retro-window-chrome" class="retro-window-chrome">
+    <div class="retro-titlebar">
+      <div class="retro-traffic-lights">
+        <button class="retro-window-button retro-window-button-close" id="retro-btn-close" type="button" title="Close"
+          aria-label="Close">
+          <span>X</span>
+        </button>
+        <button class="retro-window-button retro-window-button-minimize" id="retro-btn-minimize" type="button"
+          title="Minimize" aria-label="Minimize">
+          <span>-</span>
+        </button>
+        <button class="retro-window-button retro-window-button-fullscreen" id="retro-btn-fullscreen" type="button"
+          title="Fullscreen" aria-label="Fullscreen">
+          <span>[]</span>
         </button>
       </div>
+      <div class="retro-title-stripes"></div>
+      <div class="retro-window-title">Dark War</div>
+      <div class="retro-title-stripes"></div>
     </div>
+    <div class="retro-content-frame"></div>
+  </div>
+  <div class="resize-handle" data-edge="top"></div>
+  <div class="resize-handle" data-edge="bottom"></div>
+  <div class="resize-handle" data-edge="left"></div>
+  <div class="resize-handle" data-edge="right"></div>
+  <div class="resize-handle" data-edge="top-left"></div>
+  <div class="resize-handle" data-edge="top-right"></div>
+  <div class="resize-handle" data-edge="bottom-left"></div>
+  <div class="resize-handle" data-edge="bottom-right"></div>
+  <div class="app-container">
+    <div class="game-area">
+      <div id="hp-overlay" class="hp-overlay">
+        <div class="hp-bar-outer">
+          <div id="hpbar" class="hp-bar-inner" style="--hp-width: 100%"></div>
+        </div>
+        <span id="hp" class="hp-overlay-text">—</span>
+      </div>
+      <div class="viewport">
+        <canvas id="game" width="2080" height="1184" aria-label="Game Canvas" role="img"></canvas>
+      </div>
 
-    <!-- Vite dev entry: compiled on-demand with HMR -->
-    <script type="module" src="/src/main.ts"></script>
-    <script>
-      (function () {
-        const hpOverlay = document.getElementById("hp-overlay");
-        document.addEventListener("mousemove", (e) => {
-          const rect = hpOverlay.getBoundingClientRect();
-          const hovered =
-            e.clientX >= rect.left &&
-            e.clientX <= rect.right &&
-            e.clientY >= rect.top &&
-            e.clientY <= rect.bottom;
-          hpOverlay.classList.toggle("hovered", hovered);
-        });
-      })();
+      <div id="game-over-overlay" class="game-over-overlay">
+        <div class="game-over-content">
+          <h1 class="game-over-text">GAME OVER</h1>
+          <h2 class="game-over-score" id="game-over-score">Score: 0</h2>
+          <button class="new-game-button" id="new-game-button" type="button">
+            New Game
+          </button>
+        </div>
+      </div>
 
-      const storyOverlay = document.getElementById("story-overlay");
-      const storyPanel = document.getElementById("story-panel");
-      const storyScroll = document.getElementById("story-scroll");
-      const storyExpandTab = document.getElementById("story-expand-tab");
-      const storyTabLabel = storyExpandTab.querySelector(".story-tab-label");
-      const gameArea = storyOverlay.closest(".game-area");
+      <!-- Story overlay: floating CRT terminal over game -->
+      <div id="story-overlay" class="story-overlay" aria-live="polite" aria-label="Story">
+        <div id="story-panel" class="story-panel">
+          <!-- Expand/collapse button: upper-right corner of glass pane -->
+          <button id="story-expand-tab" class="story-expand-tab" type="button" aria-label="Toggle story">
+            <span class="story-tab-label">+</span>
+          </button>
+          <div id="story-scroll" class="story-scroll">
+            <ul id="story" class="story-messages"></ul>
+          </div>
+        </div>
+      </div>
+      <button class="scale-toggle" id="scaleToggle" aria-label="Zoom" title="Zoom">
+        1X
+      </button>
+    </div>
+  </div>
 
-      let storyExpanded = false;
+  <!-- Vite dev entry: compiled on-demand with HMR -->
+  <script type="module" src="/src/main.ts"></script>
+  <script>
+    (function () {
+      const hpOverlay = document.getElementById("hp-overlay");
+      document.addEventListener("mousemove", (e) => {
+        const rect = hpOverlay.getBoundingClientRect();
+        const hovered =
+          e.clientX >= rect.left &&
+          e.clientX <= rect.right &&
+          e.clientY >= rect.top &&
+          e.clientY <= rect.bottom;
+        hpOverlay.classList.toggle("hovered", hovered);
+      });
+    })();
 
-      function setStoryHeight() {
-        if (storyExpanded) {
-          const h = gameArea.clientHeight - 38;
-          storyPanel.style.height = Math.max(200, h) + "px";
-        } else {
-          storyPanel.style.height = "";
-        }
+    const storyOverlay = document.getElementById("story-overlay");
+    const storyPanel = document.getElementById("story-panel");
+    const storyScroll = document.getElementById("story-scroll");
+    const storyExpandTab = document.getElementById("story-expand-tab");
+    const storyTabLabel = storyExpandTab.querySelector(".story-tab-label");
+    const gameArea = storyOverlay.closest(".game-area");
+
+    let storyExpanded = false;
+
+    function setStoryHeight() {
+      if (storyExpanded) {
+        const h = gameArea.clientHeight - 38;
+        storyPanel.style.height = Math.max(200, h) + "px";
+      } else {
+        storyPanel.style.height = "";
       }
+    }
 
-      storyExpandTab.addEventListener("click", () => {
-        storyExpanded = !storyExpanded;
-        storyOverlay.classList.toggle("expanded", storyExpanded);
-        storyTabLabel.textContent = storyExpanded ? "−" : "+";
-        setStoryHeight();
-        if (storyExpanded) {
-          storyScroll.scrollTop = storyScroll.scrollHeight;
-        }
-        storyExpandTab.blur();
-      });
+    storyExpandTab.addEventListener("click", () => {
+      storyExpanded = !storyExpanded;
+      storyOverlay.classList.toggle("expanded", storyExpanded);
+      storyTabLabel.textContent = storyExpanded ? "−" : "+";
+      setStoryHeight();
+      if (storyExpanded) {
+        storyScroll.scrollTop = storyScroll.scrollHeight;
+      }
+      storyExpandTab.blur();
+    });
 
-      storyPanel.addEventListener("transitionend", (e) => {
-        if (e.propertyName === "height" && !storyExpanded) {
-          storyScroll.scrollTop = storyScroll.scrollHeight;
-        }
-      });
+    storyPanel.addEventListener("transitionend", (e) => {
+      if (e.propertyName === "height" && !storyExpanded) {
+        storyScroll.scrollTop = storyScroll.scrollHeight;
+      }
+    });
 
-      window.addEventListener("resize", () => {
-        if (storyExpanded) setStoryHeight();
-      });
+    window.addEventListener("resize", () => {
+      if (storyExpanded) setStoryHeight();
+    });
 
-      const scaleToggle = document.getElementById("scaleToggle");
-      const scales = [1, 2, 3];
-      let currentScaleIndex = 0;
+    const scaleToggle = document.getElementById("scaleToggle");
+    const scales = [1, 2, 3];
+    let currentScaleIndex = 0;
 
-      scaleToggle.addEventListener("click", () => {
-        currentScaleIndex = (currentScaleIndex + 1) % scales.length;
-        const newScale = scales[currentScaleIndex];
-        scaleToggle.textContent = `${newScale}X`;
-        if (window.darkWarApp && window.darkWarApp.setScale) {
-          window.darkWarApp.setScale(newScale);
-        }
-      });
-    </script>
-  </body>
+    scaleToggle.addEventListener("click", () => {
+      currentScaleIndex = (currentScaleIndex + 1) % scales.length;
+      const newScale = scales[currentScaleIndex];
+      scaleToggle.textContent = `${newScale}X`;
+      if (window.darkWarApp && window.darkWarApp.setScale) {
+        window.darkWarApp.setScale(newScale);
+      }
+    });
+  </script>
+</body>
+
 </html>

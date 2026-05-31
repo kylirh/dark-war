@@ -161,7 +161,10 @@ function processMonsterItemPickups(state: GameState): void {
       switch (item.type) {
         case ItemType.MEDKIT:
           if (!isFleeing) continue;
-          monster.hp = Math.min(hpMax, monster.hp + positiveAmount(item.heal, 20));
+          monster.hp = Math.min(
+            hpMax,
+            monster.hp + positiveAmount(item.heal, 20),
+          );
           break;
         case ItemType.GRENADE:
           monster.grenades += positiveAmount(item.amount, 1);
@@ -236,7 +239,11 @@ function processHoleFalls(state: GameState): void {
   const players = getAlivePlayers(state);
   if (holeCreated && !online) {
     for (const player of players) {
-      const playerTileIndex = idxFor(player.gridX, player.gridY, state.mapWidth);
+      const playerTileIndex = idxFor(
+        player.gridX,
+        player.gridY,
+        state.mapWidth,
+      );
       if (holeCreatedTiles?.has(playerTileIndex)) {
         triggerPlayerFall(state, player);
         break;
@@ -249,14 +256,24 @@ function processHoleFalls(state: GameState): void {
   );
 
   for (const monster of monsters) {
-    const monsterTileIndex = idxFor(monster.gridX, monster.gridY, state.mapWidth);
+    const monsterTileIndex = idxFor(
+      monster.gridX,
+      monster.gridY,
+      state.mapWidth,
+    );
 
     if (holeCreated && holeCreatedTiles?.has(monsterTileIndex)) {
       triggerMonsterFall(state, monster);
       continue;
     }
 
-    const tile = tileAtFor(state.map, monster.gridX, monster.gridY, state.mapWidth, state.mapHeight);
+    const tile = tileAtFor(
+      state.map,
+      monster.gridX,
+      monster.gridY,
+      state.mapWidth,
+      state.mapHeight,
+    );
     if (tile !== TileType.HOLE) continue;
 
     const movedOntoHole =

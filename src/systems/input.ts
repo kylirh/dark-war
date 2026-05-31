@@ -45,7 +45,10 @@ export class InputHandler {
     moveRight: false,
   };
 
-  constructor(callbacks: InputCallbacks, getPreferences: () => UserPreferences) {
+  constructor(
+    callbacks: InputCallbacks,
+    getPreferences: () => UserPreferences,
+  ) {
     this.callbacks = callbacks;
     this.getPreferences = getPreferences;
     this.setupKeyboardListeners();
@@ -107,9 +110,18 @@ export class InputHandler {
 
     // Inventory hot-bar slot selection: 1–9 → slots 0–8, 0 → slot 9, - → slot 10, =/+ → slot 11
     const slotMap: Record<string, number> = {
-      Digit1: 0, Digit2: 1, Digit3: 2, Digit4: 3, Digit5: 4,
-      Digit6: 5, Digit7: 6, Digit8: 7, Digit9: 8,
-      Digit0: 9, Minus: 10, Equal: 11,
+      Digit1: 0,
+      Digit2: 1,
+      Digit3: 2,
+      Digit4: 3,
+      Digit5: 4,
+      Digit6: 5,
+      Digit7: 6,
+      Digit8: 7,
+      Digit9: 8,
+      Digit0: 9,
+      Minus: 10,
+      Equal: 11,
     };
     if (code in slotMap) {
       e.preventDefault();

@@ -127,7 +127,9 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       SoundEffect.PLAYER_HIT_4,
       SoundEffect.PLAYER_HIT_5,
     ];
-    state.pendingSounds.push({ effect: hitSounds[Math.floor(Math.random() * hitSounds.length)] });
+    state.pendingSounds.push({
+      effect: hitSounds[Math.floor(Math.random() * hitSounds.length)],
+    });
 
     pushEvent(state, {
       type: EventType.MESSAGE,
@@ -157,8 +159,14 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     if (!data.suppressHitSound) {
       const mwx = monster.worldX ?? monster.gridX * CELL_CONFIG.w;
       const mwy = monster.worldY ?? monster.gridY * CELL_CONFIG.h;
-      const sourceEntity = data.sourceId ? state.entities.find((e) => e.id === data.sourceId) : null;
-      const monsterTileIdx = idxFor(monster.gridX, monster.gridY, state.mapWidth);
+      const sourceEntity = data.sourceId
+        ? state.entities.find((e) => e.id === data.sourceId)
+        : null;
+      const monsterTileIdx = idxFor(
+        monster.gridX,
+        monster.gridY,
+        state.mapWidth,
+      );
       const sourceTileIdx = sourceEntity
         ? idxFor(sourceEntity.gridX, sourceEntity.gridY, state.mapWidth)
         : monsterTileIdx;
@@ -168,7 +176,11 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       if (eitherVisible) {
         if (monster.type === MonsterType.UTILITY_BOT) {
           // Metal clang when bot is visible
-          const metalSounds = [SoundEffect.HIT_METAL_1, SoundEffect.HIT_METAL_2, SoundEffect.HIT_METAL_3];
+          const metalSounds = [
+            SoundEffect.HIT_METAL_1,
+            SoundEffect.HIT_METAL_2,
+            SoundEffect.HIT_METAL_3,
+          ];
           state.pendingSounds.push({
             effect: metalSounds[Math.floor(Math.random() * metalSounds.length)],
             worldX: mwx,
@@ -192,19 +204,31 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       } else {
         // Neither combatant is visible — silent, occasional distant fighting sound
         if (RNG.chance(0.2)) {
-          state.pendingSounds.push({ effect: SoundEffect.FIGHTING, worldX: mwx, worldY: mwy });
+          state.pendingSounds.push({
+            effect: SoundEffect.FIGHTING,
+            worldX: mwx,
+            worldY: mwy,
+          });
         }
       }
     }
 
     // Utility bot fights back when attacked
-    if (monster.type === MonsterType.UTILITY_BOT && data.sourceId && monster.hp > 0) {
-      const attacker = state.entities.find((e) => e.id === data.sourceId) as any;
+    if (
+      monster.type === MonsterType.UTILITY_BOT &&
+      data.sourceId &&
+      monster.hp > 0
+    ) {
+      const attacker = state.entities.find(
+        (e) => e.id === data.sourceId,
+      ) as any;
       if (attacker) {
         monster.alertLevel = 100;
         monster.lastAttackerId = data.sourceId;
-        monster.lastKnownPlayerX = attacker.worldX ?? attacker.gridX * CELL_CONFIG.w;
-        monster.lastKnownPlayerY = attacker.worldY ?? attacker.gridY * CELL_CONFIG.h;
+        monster.lastKnownPlayerX =
+          attacker.worldX ?? attacker.gridX * CELL_CONFIG.w;
+        monster.lastKnownPlayerY =
+          attacker.worldY ?? attacker.gridY * CELL_CONFIG.h;
       }
     }
 
@@ -218,8 +242,10 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       if (attacker?.kind === EntityKind.MONSTER) {
         monster.alertLevel = Math.max(monster.alertLevel ?? 0, 60);
         monster.lastAttackerId = data.sourceId;
-        monster.lastKnownPlayerX = attacker.worldX ?? attacker.gridX * CELL_CONFIG.w;
-        monster.lastKnownPlayerY = attacker.worldY ?? attacker.gridY * CELL_CONFIG.h;
+        monster.lastKnownPlayerX =
+          attacker.worldX ?? attacker.gridX * CELL_CONFIG.w;
+        monster.lastKnownPlayerY =
+          attacker.worldY ?? attacker.gridY * CELL_CONFIG.h;
       }
     }
 
@@ -259,14 +285,15 @@ function applyDamageKnockback(
 
   if (
     data.fromExplosion &&
-    state.holeCreatedTiles?.has(idxFor(target.gridX, target.gridY, state.mapWidth))
+    state.holeCreatedTiles?.has(
+      idxFor(target.gridX, target.gridY, state.mapWidth),
+    )
   ) {
     return;
   }
 
   const length = Math.sqrt(
-    data.knockbackX * data.knockbackX +
-      data.knockbackY * data.knockbackY,
+    data.knockbackX * data.knockbackX + data.knockbackY * data.knockbackY,
   );
   if (length <= 0.001) return;
 
@@ -486,7 +513,11 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
     }
 
     if (monster.bullets > 0) {
-      const ammoItem = new ItemEntity(monster.gridX, monster.gridY, ItemType.AMMO);
+      const ammoItem = new ItemEntity(
+        monster.gridX,
+        monster.gridY,
+        ItemType.AMMO,
+      );
       ammoItem.amount = monster.bullets;
       state.entityManager.spawn(ammoItem);
     }
@@ -525,14 +556,22 @@ function processDoorOpenEvent(state: GameState, event: GameEvent): void {
   if (tile === TileType.DOOR_CLOSED || tile === TileType.DOOR_LOCKED) {
     // Open the door
     state.map[i] = TileType.DOOR_OPEN;
-    state.pendingSounds.push({ effect: SoundEffect.DOOR_OPEN, worldX: data.x * CELL_CONFIG.w, worldY: data.y * CELL_CONFIG.h });
+    state.pendingSounds.push({
+      effect: SoundEffect.DOOR_OPEN,
+      worldX: data.x * CELL_CONFIG.w,
+      worldY: data.y * CELL_CONFIG.h,
+    });
     // Track tile change for physics update
     if (!state.changedTiles) state.changedTiles = new Set();
     state.changedTiles.add(i);
   } else if (tile === TileType.DOOR_OPEN) {
     // Close the door
     state.map[i] = TileType.DOOR_CLOSED;
-    state.pendingSounds.push({ effect: SoundEffect.DOOR_CLOSE, worldX: data.x * CELL_CONFIG.w, worldY: data.y * CELL_CONFIG.h });
+    state.pendingSounds.push({
+      effect: SoundEffect.DOOR_CLOSE,
+      worldX: data.x * CELL_CONFIG.w,
+      worldY: data.y * CELL_CONFIG.h,
+    });
     // Track tile change for physics update
     if (!state.changedTiles) state.changedTiles = new Set();
     state.changedTiles.add(i);
@@ -602,7 +641,10 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
         player.ammoReserve += 12;
         pushEvent(state, {
           type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "You already have a pistol. +12 ammo." },
+          data: {
+            type: "MESSAGE",
+            message: "You already have a pistol. +12 ammo.",
+          },
           cause: event.id,
         });
       }

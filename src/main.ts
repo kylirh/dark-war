@@ -52,10 +52,14 @@ import { idxFor, inBoundsFor } from "./utils/helpers";
 
 function weaponToItemType(weapon: WeaponType): ItemType | null {
   switch (weapon) {
-    case WeaponType.PISTOL: return ItemType.PISTOL;
-    case WeaponType.GRENADE: return ItemType.GRENADE;
-    case WeaponType.LAND_MINE: return ItemType.LAND_MINE;
-    default: return null;
+    case WeaponType.PISTOL:
+      return ItemType.PISTOL;
+    case WeaponType.GRENADE:
+      return ItemType.GRENADE;
+    case WeaponType.LAND_MINE:
+      return ItemType.LAND_MINE;
+    default:
+      return null;
   }
 }
 import {
@@ -286,7 +290,10 @@ class DarkWar {
   // a short history of (time, x, y) server samples; rendered ~100ms in the past
   // so motion between 20Hz snapshots is smooth instead of snapping.
   private static readonly INTERP_DELAY_MS = 100;
-  private readonly entityInterp = new Map<string, { t: number; x: number; y: number }[]>();
+  private readonly entityInterp = new Map<
+    string,
+    { t: number; x: number; y: number }[]
+  >();
   private readonly entityDisplay = new Map<string, { x: number; y: number }>();
   // The TileSource the online prediction physics world was last built for.
   // When the server sends a new/changed level this differs, triggering a
@@ -417,7 +424,8 @@ class DarkWar {
     if (DEBUG) console.timeEnd("Create UI");
 
     this.inventoryBar = new InventoryBar();
-    this.inventoryBar.onSlotClick = (idx) => this.handleSelectInventorySlot(idx);
+    this.inventoryBar.onSlotClick = (idx) =>
+      this.handleSelectInventorySlot(idx);
 
     this.characterModal = new CharacterModal({
       preferences: this.preferences,
@@ -431,12 +439,15 @@ class DarkWar {
     this.characterModal.onWeaponChanged = () => {
       const state = this.game.getState();
       const player = state.player;
-      player.weapon = getWeaponForSlot(player.inventorySlots[player.selectedBarSlot]);
+      player.weapon = getWeaponForSlot(
+        player.inventorySlots[player.selectedBarSlot],
+      );
     };
     this.characterModal.onInventorySwap = (from, to) => {
       // Online the server owns the inventory; mirror the local reorder to it so
       // it sticks instead of being overwritten by the next snapshot.
-      if (this.isOnlineMode()) this.getReadyOnlineClient()?.swapInventory(from, to);
+      if (this.isOnlineMode())
+        this.getReadyOnlineClient()?.swapInventory(from, to);
     };
     this.characterModal.onNewGame = () => this.handleNewGame();
     this.characterModal.onSave = () => this.handleSave();
@@ -690,7 +701,9 @@ class DarkWar {
       this.onlineConnected = true;
       this.hasOnlineSnapshot = false;
       this.predictionTilesRef = null;
-      this.game.addStory(`Connected as ${playerId.slice(0, 8)} in room ${roomId}.`);
+      this.game.addStory(
+        `Connected as ${playerId.slice(0, 8)} in room ${roomId}.`,
+      );
       this.render(0);
     });
 
@@ -767,7 +780,11 @@ class DarkWar {
         buf = [];
         this.entityInterp.set(e.id, buf);
       }
-      buf.push({ t: now, x: (e as GameEntity).worldX, y: (e as GameEntity).worldY });
+      buf.push({
+        t: now,
+        x: (e as GameEntity).worldX,
+        y: (e as GameEntity).worldY,
+      });
       if (buf.length > 6) buf.shift();
     }
     for (const id of [...this.entityInterp.keys()]) {
@@ -887,9 +904,7 @@ class DarkWar {
    * and drop any stale entity bodies — prediction only needs walls plus the
    * local player's own body (recreated on demand).
    */
-  private ensurePredictionWorld(
-    state: ReturnType<Game["getState"]>,
-  ): void {
+  private ensurePredictionWorld(state: ReturnType<Game["getState"]>): void {
     if (this.predictionTilesRef === state.tiles) return;
     this.physics.initializeMap(state.tiles);
     this.physics.clearEntityBodies();
@@ -1526,7 +1541,8 @@ class DarkWar {
    */
   private setOnlineMoveIntent(vx: number, vy: number): void {
     const changed =
-      Math.abs(vx - this.localInputVx) > 1 || Math.abs(vy - this.localInputVy) > 1;
+      Math.abs(vx - this.localInputVx) > 1 ||
+      Math.abs(vy - this.localInputVy) > 1;
     const player = this.game.getState().player;
     player.velocityX = vx;
     player.velocityY = vy;
@@ -1750,7 +1766,6 @@ class DarkWar {
     if (barSlot >= 0) this.handleSelectInventorySlot(barSlot);
   }
 
-
   private handleSelectInventorySlot(slotIndex: number): void {
     if (slotIndex < 0 || slotIndex >= INVENTORY_BAR_SIZE) return;
 
@@ -1771,7 +1786,8 @@ class DarkWar {
     const state = this.game.getState();
     const player = state.player;
     const next =
-      (player.selectedBarSlot + direction + INVENTORY_BAR_SIZE) % INVENTORY_BAR_SIZE;
+      (player.selectedBarSlot + direction + INVENTORY_BAR_SIZE) %
+      INVENTORY_BAR_SIZE;
     this.handleSelectInventorySlot(next);
   }
 
