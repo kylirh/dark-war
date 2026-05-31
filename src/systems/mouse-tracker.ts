@@ -28,15 +28,43 @@ export class MouseTracker {
   }
 
   private handleMouseMove = (event: MouseEvent): void => {
+    const { x, y } = this.canvasPointFromClient(event.clientX, event.clientY);
+    this.mouseCanvasX = x;
+    this.mouseCanvasY = y;
+  };
+
+  /** Convert a viewport (client) point to canvas-buffer pixels. */
+  private canvasPointFromClient(
+    clientX: number,
+    clientY: number,
+  ): { x: number; y: number } {
     const rect = this.canvasElement.getBoundingClientRect();
-    // Canvas pixels can be a different size than the CSS box; scale accordingly.
+    // The canvas buffer can be a different size than its CSS box; scale to match.
     const pixelScaleX =
       rect.width > 0 ? this.canvasElement.width / rect.width : 1;
     const pixelScaleY =
       rect.height > 0 ? this.canvasElement.height / rect.height : 1;
-    this.mouseCanvasX = (event.clientX - rect.left) * pixelScaleX;
-    this.mouseCanvasY = (event.clientY - rect.top) * pixelScaleY;
-  };
+    return {
+      x: (clientX - rect.left) * pixelScaleX,
+      y: (clientY - rect.top) * pixelScaleY,
+    };
+  }
+
+  /**
+   * Convert a viewport (client) point — e.g. from a click/contextmenu event — to
+   * world coordinates using the live camera. Used by click-to-move so it lands
+   * on the tile actually under the cursor.
+   */
+  public worldFromClientPoint(
+    clientX: number,
+    clientY: number,
+  ): { x: number; y: number } {
+    const canvas = this.canvasPointFromClient(clientX, clientY);
+    return {
+      x: this.cameraLeft + canvas.x / this.scale,
+      y: this.cameraTop + canvas.y / this.scale,
+    };
+  }
 
   private handleMouseLeave = (): void => {
     // Keep last known position

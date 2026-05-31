@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "./game";
-import { EntityKind, TileType, WeaponType } from "../types";
+import { EntityKind, TileType, WeaponType, CommandType } from "../types";
 import { RNG } from "../utils/rng";
+import { enqueueCommand } from "../systems/simulation/commands";
+import { stepSimulationTick } from "../systems/simulation/tick";
+import { BulletEntity } from "../entities/bullet-entity";
 
 describe("Game serialize/deserialize round-trip", () => {
   beforeEach(() => RNG.reseed(424242));
@@ -86,6 +89,35 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(state.tiles.getTile(state.stairsDown[0], state.stairsDown[1])).toBe(
       TileType.STAIRS_DOWN,
     );
+  });
+
+  it("spawns pistol bullets at the muzzle, in front of the shooter", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.weapon = WeaponType.PISTOL;
+    player.ammo = 5;
+    player.facingAngle = 0; // aim +x (right)
+
+    enqueueCommand(state, {
+      tick: state.sim.nowTick,
+      actorId: player.id,
+      type: CommandType.FIRE,
+      data: { type: "FIRE", dx: 1, dy: 0 },
+      priority: 0,
+      source: "PLAYER",
+    });
+    stepSimulationTick(state);
+
+    const bullet = state.entities.find(
+      (e): e is BulletEntity => e.kind === EntityKind.BULLET,
+    );
+    expect(bullet).toBeDefined();
+    // Spawned ahead of the player along the aim (muzzle offset), not at center,
+    // and outside the player's body so it can never self-collide.
+    expect(bullet!.worldX).toBeGreaterThan(player.worldX + 12);
+    expect(Math.abs(bullet!.worldY - player.worldY)).toBeLessThan(0.001);
   });
 
   it("keeps the player present in the entities list", () => {

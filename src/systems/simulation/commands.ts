@@ -387,9 +387,16 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         state.pendingSounds.push({ effect: SoundEffect.SHOOT, sourceId: player.id });
 
         const BULLET_SPEED = 600; // pixels per second
+        // Spawn at the muzzle: just in front of the player along the aim, outside
+        // the player's collision body. This keeps the bullet from appearing
+        // behind the (client-predicted) player online and from ever colliding
+        // with the shooter — even while moving.
+        const MUZZLE_OFFSET = 16; // player radius (8) + bullet radius (4) + margin
+        const spawnX = player.worldX + Math.cos(angle) * MUZZLE_OFFSET;
+        const spawnY = player.worldY + Math.sin(angle) * MUZZLE_OFFSET;
         const bullet = new BulletEntity(
-          player.worldX,
-          player.worldY,
+          spawnX,
+          spawnY,
           Math.cos(angle) * BULLET_SPEED,
           Math.sin(angle) * BULLET_SPEED,
           2,

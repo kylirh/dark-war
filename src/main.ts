@@ -315,16 +315,20 @@ class DarkWar {
       return;
     }
 
-    const scale = this.renderer.getScale();
-    const rect = canvas.getBoundingClientRect();
-    const canvasX = event.clientX - rect.left;
-    const canvasY = event.clientY - rect.top;
-    const gameX = canvasX / scale;
-    const gameY = canvasY / scale;
-    const tileX = Math.floor((gameX - CELL_CONFIG.padX) / CELL_CONFIG.w);
-    const tileY = Math.floor((gameY - CELL_CONFIG.padY) / CELL_CONFIG.h);
-
     const state = this.game.getState();
+    // Convert the click to world coords via the live windowed camera, then to a
+    // tile. On the toroidal outside world, wrap the tile into the map.
+    const world = this.mouseTracker.worldFromClientPoint(
+      event.clientX,
+      event.clientY,
+    );
+    let tileX = Math.floor(world.x / CELL_CONFIG.w);
+    let tileY = Math.floor(world.y / CELL_CONFIG.h);
+    if (state.levelKind === "outside") {
+      tileX = ((tileX % state.mapWidth) + state.mapWidth) % state.mapWidth;
+      tileY = ((tileY % state.mapHeight) + state.mapHeight) % state.mapHeight;
+    }
+
     if (!inBoundsFor(tileX, tileY, state.mapWidth, state.mapHeight)) {
       return;
     }

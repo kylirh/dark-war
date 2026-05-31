@@ -50,6 +50,8 @@ export class Renderer {
   private camTopWorld: number = 0;
   private playerFacing: FacingDirection = "down";
   private shakeIntensity: number = 0;
+  private resizeObserver?: ResizeObserver;
+  private resizeDebounceTimer?: ReturnType<typeof setTimeout>;
 
   constructor(canvasId: string, initialScale: number = 1.0) {
     this.scale = initialScale;
@@ -113,12 +115,29 @@ export class Renderer {
       console.error("Failed to load sprite sheet:", error);
     } finally {
       this.ready = true;
+      this.observeViewportResize();
 
       if (this.pendingRender) {
         this.render(this.pendingRender.state, this.pendingRender.isDead);
         this.pendingRender = undefined;
       }
     }
+  }
+
+  /**
+   * Resize the drawing buffer when the viewport settles after a window resize.
+   * Debounced so a live drag-resize doesn't reallocate the WebGL buffer on every
+   * frame (which janked the main thread and could leave the OS cursor stuck in
+   * resize mode). The CSS keeps the canvas filled during the drag.
+   */
+  private observeViewportResize(): void {
+    if (this.resizeObserver || !this.viewportElement) return;
+    if (typeof ResizeObserver === "undefined") return;
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.resizeDebounceTimer) clearTimeout(this.resizeDebounceTimer);
+      this.resizeDebounceTimer = setTimeout(() => this.resizeToViewport(), 120);
+    });
+    this.resizeObserver.observe(this.viewportElement);
   }
 
   private loadSpriteSheetImage(src: string): Promise<HTMLImageElement> {
@@ -695,8 +714,6 @@ export class Renderer {
       this.pendingRender = { state, isDead };
       return;
     }
-
-    this.resizeToViewport();
 
     const {
       visible,
