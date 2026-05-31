@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "../../core/game";
-import { EntityKind, EventType, Monster } from "../../types";
+import { EntityKind, EventType, ItemType, Monster } from "../../types";
 import { RNG } from "../../utils/rng";
 import { pushEvent } from "./sim-helpers";
 import { processEventQueue } from "./events";
+import { triggerExplosion } from "./explosives";
 
 /** Build a real dungeon state and return the game plus its first monster. */
 function gameWithMonster(): { game: Game; monster: Monster } {
@@ -62,5 +63,24 @@ describe("damage → death event pipeline", () => {
     processEventQueue(state);
 
     expect(state.entityManager.removedIds.has(monster.id)).toBe(true);
+  });
+});
+
+describe("explosion event pipeline", () => {
+  beforeEach(() => RNG.reseed(2024));
+
+  it("damages (or destroys) a monster caught in the blast", () => {
+    const { game, monster } = gameWithMonster();
+    const state = game.getState();
+    const hpBefore = monster.hp;
+
+    triggerExplosion(state, monster.worldX, monster.worldY, ItemType.GRENADE);
+    processEventQueue(state);
+
+    const survivor = state.entities.find((e) => e.id === monster.id) as
+      | Monster
+      | undefined;
+    // Either it took blast damage or it was destroyed outright.
+    expect(survivor === undefined || survivor.hp < hpBefore).toBe(true);
   });
 });
