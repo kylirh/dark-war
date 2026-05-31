@@ -39,34 +39,36 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 
 ## Phase 4 — Content: item mechanics
 
+- [x] Picked-up items land in the inventory (generic collection + counts + equip/armor)
+
 - [x] Death loot **spread** (scatter drops so they're individually visible)
 - [x] **Magnetic auto-pickup** (radius; items drift to player & are collected)
 - [~] Items **fall through holes** (removed on fall; deposit-below deferred) to the level below
 - [ ] Butcher knife (starter melee, not found in levels)
-- [ ] Laser pistol (starter alt; starts half-charged; powers up via power cells)
+- [x] Laser pistol (equip on pickup, half-charged; drains/refills via power cells)
 - [ ] Black pill (starter; eat → instant death; anyone who eats it dies)
 - [ ] Cookie (eat → heal; befriends Snagglepuss)
-- [ ] Gyrojet SMG (auto-fire spray)
-- [ ] Gyrojet Shotgun (spread, slower, heavier ammo use)
-- [ ] Macro Metal Sword & Vibra Sword (stronger melee)
-- [ ] Macrometal jacket (armor / damage resistance)
-- [ ] Powercell (energy for laser/panic button/CTDM)
+- [x] Gyrojet SMG (light/fast spray)
+- [x] Gyrojet Shotgun (6-pellet cone, short range, 4 ammo/blast)
+- [~] Macro Metal Sword & Vibra Sword (collect/equip as melee; damage tier pending)
+- [x] Macrometal jacket (flat armor / damage resistance)
+- [x] Powercell (recharges CTDM + laser + panic; banked as item)
 - [x] Coins, Bone, Metal Scraps, Rubble, Rocks, Trash (drops/economy/cleanup fodder)
 - [ ] Rocks throwable; rubble→rock production on wall/floor damage
 - [ ] Utility bot cleans rubble/rocks/scraps/trash
-- [ ] Panic button (warp to a level closer to entrance; charges via power cells)
-- [ ] Holowall (place → spawns a wall tile)
+- [~] Panic button (collected + charged; warp action pending)
+- [~] Holowall (collected; placement action pending)
 - [ ] Vending machine (sells random items) — placed entity + buy interaction
 
 ## Phase 5 — Content: monsters
 
 - [~] Giant Spider (melee; chance to stun/slow on hit)
-- [~] Icky Lump (slow, weak, breeds/multiplies, may drop coin, won't fight own kind)
-- [~] Flutterbang (fast suicide bomber bat; bites then may explode)
+- [x] Icky Lump (slow; breeds with a cap; drops coins)
+- [x] Flutterbang (explodes like a grenade on death)
 - [~] Wild Dog (befriend with bone(s); nameable; auto-attacks nearby foes; follows)
 - [~] Snagglepuss (steals & flees; cookie befriends → fetches loot to you)
-- [~] Moppet (teleports when hit; trips/steals money; far sight; self-heals; smiley)
-- [~] Cybercop (near-invisible in combat; jail mechanic deferred)
+- [~] Moppet (self-heals + far sight done; steal/teleport pending)
+- [x] Cybercop (near-invisible render; jail deferred)
 - [~] Zyth (alien with laser gun)
 - [~] Tentacular Horror (big, tough, multi-hit; deep levels)
 - [~] Terrorist Collaborator (ranged guns+grenades mini-boss; deep levels)
