@@ -117,10 +117,11 @@ export class LevelStreamer {
         const y = baseY + ly;
         // Keep the outer world border solid so the player can't leave the level.
         if (x <= 0 || y <= 0 || x >= this.width - 1 || y >= this.height - 1) continue;
-        if (tiles[lx + ly * CHUNK_SIZE] !== TileType.FLOOR) continue;
+        const generatedTile = tiles[lx + ly * CHUNK_SIZE];
+        if (generatedTile === TileType.WALL) continue;
         const i = idxFor(x, y, this.width);
-        if (map[i] !== TileType.FLOOR) {
-          map[i] = TileType.FLOOR;
+        if (map[i] !== generatedTile) {
+          map[i] = generatedTile;
           changed.push(i);
         }
       }

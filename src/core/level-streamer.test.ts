@@ -52,6 +52,20 @@ describe("LevelStreamer", () => {
     expect(map[idxFor(stairs[0], stairs[1], W)]).toBe(TileType.STAIRS_DOWN);
   });
 
+  it("preserves generated doors in the streamed map", () => {
+    const map = wallMap();
+    const s = new LevelStreamer(123, W, H, null, null);
+    s.ensureAround(map, 24, 24, 1);
+    const doorCount = map.filter(
+      (tile) =>
+        tile === TileType.DOOR_CLOSED ||
+        tile === TileType.DOOR_LOCKED ||
+        tile === TileType.DOOR_OPEN,
+    ).length;
+
+    expect(doorCount).toBeGreaterThan(0);
+  });
+
   it("connects adjacent generated chunks at the shared edge midpoint", () => {
     const map = wallMap();
     const s = new LevelStreamer(42, W, H, null, null);

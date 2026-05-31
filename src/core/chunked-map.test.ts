@@ -6,6 +6,37 @@ import {
   CHUNK_SIZE,
 } from "./chunked-map";
 
+function hasLocalPath(
+  tiles: TileType[],
+  from: [number, number],
+  to: [number, number],
+): boolean {
+  const key = (x: number, y: number): number => x + y * CHUNK_SIZE;
+  const passable = (x: number, y: number): boolean => {
+    const tile = tiles[key(x, y)];
+    return tile === TileType.FLOOR || tile === TileType.DOOR_OPEN;
+  };
+  const visited = new Set<number>();
+  const queue: [number, number][] = [from];
+  visited.add(key(from[0], from[1]));
+
+  while (queue.length > 0) {
+    const [x, y] = queue.shift()!;
+    if (x === to[0] && y === to[1]) return true;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as [number, number][]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= CHUNK_SIZE || ny >= CHUNK_SIZE) continue;
+      const k = key(nx, ny);
+      if (visited.has(k) || !passable(nx, ny)) continue;
+      visited.add(k);
+      queue.push([nx, ny]);
+    }
+  }
+
+  return false;
+}
+
 describe("ChunkedTileSource", () => {
   const seed = 12345;
   const gen = () => createDungeonChunkGenerator(seed);
@@ -42,6 +73,46 @@ describe("ChunkedTileSource", () => {
         expect(src.passable(sx, sy + 1)).toBe(true);
       }
     }
+  });
+
+  it("keeps the local centre connected to every chunk exit", () => {
+    const generator = gen();
+    const mid = CHUNK_SIZE >> 1;
+    for (let cy = 0; cy < 4; cy++) {
+      for (let cx = 0; cx < 4; cx++) {
+        const chunk = generator(cx, cy);
+        for (const exit of [
+          [mid, 0],
+          [mid, CHUNK_SIZE - 1],
+          [0, mid],
+          [CHUNK_SIZE - 1, mid],
+        ] as [number, number][]) {
+          expect(hasLocalPath(chunk, [mid, mid], exit)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("generates doors and varied chunk layouts", () => {
+    const generator = gen();
+    let doorCount = 0;
+    const signatures = new Set<string>();
+
+    for (let cy = 0; cy < 4; cy++) {
+      for (let cx = 0; cx < 4; cx++) {
+        const chunk = generator(cx, cy);
+        signatures.add(chunk.join(","));
+        doorCount += chunk.filter(
+          (tile) =>
+            tile === TileType.DOOR_CLOSED ||
+            tile === TileType.DOOR_LOCKED ||
+            tile === TileType.DOOR_OPEN,
+        ).length;
+      }
+    }
+
+    expect(doorCount).toBeGreaterThan(0);
+    expect(signatures.size).toBeGreaterThan(8);
   });
 
   it("keeps edits as overrides that survive chunk eviction", () => {
