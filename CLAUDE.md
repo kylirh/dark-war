@@ -78,7 +78,7 @@ Two modes: `offline` (default) and `online`. In online mode, an authoritative We
 
 ### Map Generation
 
-- **Dungeon (streamed)** (`src/core/level-streamer.ts`): dungeon levels are large `128×96` maps that start solid and fill in `16×16` connected room/corridor chunks around each player as they explore (`LevelStreamer.ensureAround`, driven by `Game.streamAroundPlayers` from the offline loop and the multiplayer `stepWorld`). Generation is deterministic from `state.levelSeed`; the down-stairs sit in a far chunk and are revealed on approach; monsters/items scatter into newly revealed chunks. The legacy BSP generator (`src/core/map.ts`) is retained but no longer used for live dungeons.
+- **Dungeon (streamed)** (`src/core/level-streamer.ts`): dungeon levels are large `128×96` maps that start solid and fill in `16×16` connected room/corridor chunks around each player as they explore (`LevelStreamer.ensureAround`, driven by `Game.streamAroundPlayers` from the offline loop and the multiplayer `stepWorld`). Generation is deterministic from `state.levelSeed`; the down-stairs sit in a far chunk and are revealed on approach; monsters/items scatter into newly revealed chunks.
 - **Outside** (`src/core/outside-level.ts`): Procedural exterior level (finite, not streamed). Size `OUTSIDE_MAP_WIDTH × OUTSIDE_MAP_HEIGHT` (128×72).
 
 The streamed dungeon stays a **bounded** flat `TileType[]`, so serialization, `explored`/`wallDamage` indices, FOV, physics, and rendering all work unchanged — clients just receive carved tiles via the map delta and render them under fog. Index tiles with `idx(x, y)` or `idxFor(x, y, width)`.
