@@ -78,21 +78,20 @@ Two modes: `offline` (default) and `online`. In online mode, an authoritative We
 
 ### Map Generation
 
-- **Dungeon (streamed)** (`src/core/level-streamer.ts`): dungeon levels are large `128×96` maps that start solid and fill in `16×16` connected room/corridor chunks around each player as they explore (`LevelStreamer.ensureAround`, driven by `Game.streamAroundPlayers` from the offline loop and the multiplayer `stepWorld`). Generation is deterministic from `state.levelSeed`; the down-stairs sit in a far chunk and are revealed on approach; monsters/items scatter into newly revealed chunks.
-- **Outside** (`src/core/outside-level.ts`): Procedural exterior level (finite, not streamed). Size `OUTSIDE_MAP_WIDTH × OUTSIDE_MAP_HEIGHT` (128×72).
+- **Dungeon** (`src/core/dungeon-generator.ts`): dungeon levels are **bounded** `128×96` maps generated **in full up front** (no streaming). `generateDungeon(width, height, depth, rng)` places varied rectangular and cellular-automata "cave" rooms, connects them with a Prim's MST plus a few extra loop edges (so the layout isn't a pure tree), carves corridors, drops doors at corridor pinch points, and seals an impenetrable border. The start is room 0's center (an up-stair) and the down-stair sits in the farthest room. Generation is deterministic from a per-level seed (`new RandomNumberGenerator(seed)`); full connectivity (stairs reachable from start) is enforced and unit-tested. `Game.createDungeonLevel` calls it and `spawnLevelEntities` scatters monsters/items scaled to floor area.
+- **Outside** (`src/core/outside-level.ts`): Procedural exterior level. Size `OUTSIDE_MAP_WIDTH × OUTSIDE_MAP_HEIGHT` (128×72).
 
-The streamed dungeon stays a **bounded** flat `TileType[]`, so serialization, `explored`/`wallDamage` indices, FOV, physics, and rendering all work unchanged — clients just receive carved tiles via the map delta and render them under fog. Index tiles with `idx(x, y)` or `idxFor(x, y, width)`.
+Every level is a **bounded** flat `TileType[]`, so serialization, `explored`/`wallDamage` indices, FOV, physics, and rendering all work directly. Index tiles with `idxFor(x, y, width)`.
 
-**Tile access** (`src/core/tile-source.ts`, `src/core/chunked-map.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). For every level today it is a `FlatTileSource` over `state.map`; `ChunkedTileSource` (unbounded, generated on demand) exists for a future truly-infinite world. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors, streamed-in chunks).
+**Tile access** (`src/core/tile-source.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). For every level it is a `FlatTileSource` over `state.map`. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors).
 
 ### Key Utilities
 
-- `src/utils/helpers.ts`: `idx()`, `idxFor()`, `inBounds()`, `inBoundsFor()`, `passable()`, `passableFor()`, `tileAt()`, `tileAtFor()`, `dist()`, `setPositionFromGrid()`
-  - Functions ending in `For` take explicit `width`/`height` — use these for outside levels or any non-standard map size
-  - Functions without suffix use global `MAP_WIDTH`/`MAP_HEIGHT` constants
+- `src/utils/helpers.ts`: `idxFor()`, `inBoundsFor()`, `passableFor()`, `tileAtFor()`, `setTileFor()`, `dist()`, `setPositionFromGrid()`
+  - The tile helpers take explicit `width`/`height` (the `For` suffix) — there are no global-width variants; always pass the level's `mapWidth`/`mapHeight`
 - `src/utils/walls.ts`: `applyWallDamageAt()` for destructible walls
 - `src/utils/repair.ts`: `applyRepairAt()`, `findNearestRepairTarget()`, `hasAnyRepairTarget()` — used by utility bot
-- `src/utils/rng.ts`: Deterministic RNG — `RNG.int(n)`, `RNG.choose(arr)`, `RNG.chance(p)`. The `RandomNumberGenerator` class is exported for independent seeded instances (e.g. per-chunk generation).
+- `src/utils/rng.ts`: Deterministic RNG — `RNG.int(n)`, `RNG.choose(arr)`, `RNG.chance(p)`. The `RandomNumberGenerator` class is exported for independent seeded instances (e.g. per-level dungeon generation).
 - `src/utils/pathfinding.ts`: A* pathfinding for click-to-move
 
 ### State & Commands Pattern

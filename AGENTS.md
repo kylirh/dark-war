@@ -127,23 +127,18 @@ entity.velocityY = 0;
 - **`worldX`/`worldY`:** Float pixel coordinates — **source of truth**
 - **`gridX`/`gridY`:** Integer tile coordinates — **computed getters, read-only**
 - **Tiles are 32×32 pixels:** `CELL_CONFIG.w = 32`, `CELL_CONFIG.h = 32`
-- **Map dimensions:** Dungeon = 64×36, Outside = 128×72
+- **Map dimensions:** Dungeon = 128×96, Outside = 128×72
 
-### Helper Functions — Two Variants
+### Helper Functions
 
-Many helpers come in two variants. Use `For` versions for outside levels or any non-standard map size:
+Tile helpers take explicit `width`/`height` (the `For` suffix). There are no
+global-width variants — always pass the level's `mapWidth`/`mapHeight`:
 
 ```typescript
-// Standard dungeon (uses global MAP_WIDTH/MAP_HEIGHT)
-idx(x, y)
-inBounds(x, y)
-tileAt(map, x, y)
-passable(map, x, y)
-
-// Explicit dimensions (required for outside levels, recommended in systems)
 idxFor(x, y, width)
 inBoundsFor(x, y, width, height)
 tileAtFor(map, x, y, width, height)
+setTileFor(map, x, y, width, tile)
 passableFor(map, x, y, width, height)
 ```
 
@@ -179,19 +174,20 @@ if (entity.kind === EntityKind.MONSTER) {
 ### Map Representation
 
 - **Canonical accessor:** `state.tiles` (a `TileSource`) — read/write tiles via
-  `getTile(x, y)`, `setTile(x, y, tile)`, `passable(x, y)`. For finite levels
-  it wraps the flat array; a streaming dungeon swaps in a `ChunkedTileSource`.
-- **Streamed dungeons:** dungeon levels are large `128×96` maps that fill in
-  connected chunks around the player as they explore (`LevelStreamer`,
-  `Game.streamAroundPlayers`); the backing store stays a bounded flat
-  `TileType[]`, so serialization/explored/wallDamage/FOV/physics are unchanged.
+  `getTile(x, y)`, `setTile(x, y, tile)`, `passable(x, y)`. Every level wraps the
+  flat array in a `FlatTileSource`.
+- **Dungeons:** bounded `128×96` maps generated in full up front by
+  `generateDungeon` (`src/core/dungeon-generator.ts`) — rooms + caves connected
+  by a Prim's MST with extra loop edges, doors at corridor pinches, and a sealed
+  impenetrable border. Deterministic from a per-level seed; full connectivity is
+  unit-tested.
 - **Flat array (backing / serialization):** `TileType[]` sized
   `mapWidth × mapHeight` (outside is 128×72). The `*For` helpers operate on it
   directly in code that reads the array rather than `state.tiles`.
 - **Index with:** `idxFor(x, y, width)` — always prefer the `For` variant in systems
 - **Query tile:** `tileAtFor(map, x, y, width, height)`
 - **Check passable:** `passableFor(map, x, y, width, height)`
-- **Set tile:** `setTileFor(map, x, y, TileType.FLOOR, width)`
+- **Set tile:** `setTileFor(map, x, y, width, TileType.FLOOR)`
 
 ### CTDM Time Dilation
 
@@ -268,10 +264,9 @@ src/
 │   ├── game.ts               # State manager, level transitions, FOV, serialization
 │   ├── game-loop.ts          # Fixed 60Hz timestep with accumulator
 │   ├── entity-manager.ts     # Entity add/remove + lifecycle diff tracking
-│   ├── map.ts                # BSP dungeon generation (64×36)
+│   ├── dungeon-generator.ts  # Bounded full-level dungeon generation (128×96)
 │   ├── outside-level.ts      # Procedural outside level generation (128×72)
-│   ├── tile-source.ts        # TileSource interface + FlatTileSource adapter
-│   └── chunked-map.ts        # ChunkedTileSource + chunk generation (streaming)
+│   └── tile-source.ts        # TileSource interface + FlatTileSource adapter
 ├── entities/
 │   ├── game-entity.ts        # Base class with worldX/worldY
 │   ├── player-entity.ts
@@ -348,17 +343,12 @@ app/
 ## Common Helper Functions
 
 ```typescript
-// Coordinate conversion (prefer the For variants in systems code)
-idx(x, y)                              // Grid → array index (uses global MAP_WIDTH)
-idxFor(x, y, width)                    // Grid → array index (explicit width)
-inBounds(x, y)                         // Within dungeon map bounds
+// Coordinate conversion (all take explicit dimensions — pass mapWidth/mapHeight)
+idxFor(x, y, width)                    // Grid → array index
 inBoundsFor(x, y, width, height)       // Within explicit-size map bounds
-tileAt(map, x, y)                      // Get tile type (dungeon dimensions)
-tileAtFor(map, x, y, width, height)    // Get tile type (explicit dimensions)
-passable(map, x, y)                    // Walkable? (dungeon dimensions)
-passableFor(map, x, y, width, height)  // Walkable? (explicit dimensions)
-setTile(map, x, y, tileType)           // Set tile (dungeon dimensions)
-setTileFor(map, x, y, tileType, width) // Set tile (explicit dimensions)
+tileAtFor(map, x, y, width, height)    // Get tile type
+passableFor(map, x, y, width, height)  // Walkable?
+setTileFor(map, x, y, width, tileType) // Set tile
 
 // Entity positioning
 setPositionFromGrid(entity, x, y)      // Teleport entity to grid cell center
