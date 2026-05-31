@@ -161,6 +161,7 @@ export interface Monster extends BaseEntity {
   alertLevel?: number;
   lastKnownPlayerX?: number;
   lastKnownPlayerY?: number;
+  lastAttackerId?: string;
 }
 
 export interface CarriedItem {

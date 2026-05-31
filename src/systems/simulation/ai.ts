@@ -310,8 +310,8 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
   // No repairs — follow the player at a comfortable distance
   const player = getClosestPlayer(state, monster);
   if (player) {
-    const px = (player as any).worldX;
-    const py = (player as any).worldY;
+    const px = player.worldX;
+    const py = player.worldY;
     const dx = px - m.worldX;
     const dy = py - m.worldY;
     const d = Math.sqrt(dx * dx + dy * dy);
@@ -366,11 +366,11 @@ export function updateMonsterSteering(state: GameState): void {
       if (direction) {
         const [dx, dy] = direction;
         const length = Math.sqrt(dx * dx + dy * dy);
-        (monster as any).velocityX = (dx / length) * IDLE_WANDER_SPEED;
-        (monster as any).velocityY = (dy / length) * IDLE_WANDER_SPEED;
+        monster.velocityX = (dx / length) * IDLE_WANDER_SPEED;
+        monster.velocityY = (dy / length) * IDLE_WANDER_SPEED;
       } else {
-        (monster as any).velocityX = 0;
-        (monster as any).velocityY = 0;
+        monster.velocityX = 0;
+        monster.velocityY = 0;
       }
       continue;
     }
@@ -447,8 +447,8 @@ export function updateMonsterSteering(state: GameState): void {
           if (e.kind !== EntityKind.ITEM) continue;
           const item = e as Item;
           if (item.type !== ItemType.AMMO) continue;
-          const adx = (item as any).worldX - m.worldX;
-          const ady = (item as any).worldY - m.worldY;
+          const adx = item.worldX - m.worldX;
+          const ady = item.worldY - m.worldY;
           const adist = Math.sqrt(adx * adx + ady * ady);
           if (adist < nearestAmmoDist) {
             nearestAmmoDist = adist;
@@ -456,8 +456,8 @@ export function updateMonsterSteering(state: GameState): void {
           }
         }
         if (nearestAmmo && nearestAmmoDist > CELL_CONFIG.w * 0.5) {
-          const adx = (nearestAmmo as any).worldX - m.worldX;
-          const ady = (nearestAmmo as any).worldY - m.worldY;
+          const adx = nearestAmmo.worldX - m.worldX;
+          const ady = nearestAmmo.worldY - m.worldY;
           m.velocityX = (adx / nearestAmmoDist) * MONSTER_SPEED;
           m.velocityY = (ady / nearestAmmoDist) * MONSTER_SPEED;
           continue;
@@ -589,8 +589,8 @@ function decideUtilityBotCommand(
   // Nothing to repair — maybe nuzzle the player
   const player = getClosestPlayer(state, monster);
   if (player && m.alertLevel === 0) {
-    const dx = (player as any).worldX - m.worldX;
-    const dy = (player as any).worldY - m.worldY;
+    const dx = player.worldX - m.worldX;
+    const dy = player.worldY - m.worldY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     const hpMax = m.hpMax ?? monster.hp;
     const isHealthy = monster.hp > hpMax * 0.5;
@@ -639,7 +639,7 @@ function decideMonsterCommand(
   }
 
   const isSkulker = monster.type === MonsterType.SKULKER;
-  const hpMax = (monster as any).hpMax ?? monster.hp;
+  const hpMax = monster.hpMax ?? monster.hp;
   const isFleeing = monster.hp <= hpMax * FLEE_HP_RATIO;
 
   const waitCmd = (): Command => makeWaitCommand(monster, tick);
@@ -649,8 +649,8 @@ function decideMonsterCommand(
   let inMeleeRange = false;
 
   if ("worldX" in monster && "worldX" in player) {
-    const dx = (player as any).worldX - (monster as any).worldX;
-    const dy = (player as any).worldY - (monster as any).worldY;
+    const dx = player.worldX - monster.worldX;
+    const dy = player.worldY - monster.worldY;
     const pixelDistance = Math.sqrt(dx * dx + dy * dy);
     distance = pixelDistance / CELL_CONFIG.w;
     const MELEE_RANGE = CELL_CONFIG.w * 1.5;
@@ -679,8 +679,8 @@ function decideMonsterCommand(
   const nearbyBot = state.entities.find((e) => {
     if (e.kind !== EntityKind.MONSTER) return false;
     if ((e as any).type !== MonsterType.UTILITY_BOT) return false;
-    const dx = (e as any).worldX - (monster as any).worldX;
-    const dy = (e as any).worldY - (monster as any).worldY;
+    const dx = e.worldX - monster.worldX;
+    const dy = e.worldY - monster.worldY;
     return Math.sqrt(dx * dx + dy * dy) <= CELL_CONFIG.w * 1.5;
   });
   if (nearbyBot) {
@@ -696,12 +696,12 @@ function decideMonsterCommand(
   }
 
   // Monsters scrap with each other when crowded and alert
-  if (!inMeleeRange && (monster as any).alertLevel > 0 && RNG.chance(0.4)) {
+  if (!inMeleeRange && (monster.alertLevel ?? 0) > 0 && RNG.chance(0.4)) {
     const blockingMonster = state.entities.find((e) => {
       if (e.kind !== EntityKind.MONSTER || e.id === monster.id) return false;
       if ((e as any).type === MonsterType.UTILITY_BOT) return false;
-      const dx = (e as any).worldX - (monster as any).worldX;
-      const dy = (e as any).worldY - (monster as any).worldY;
+      const dx = e.worldX - monster.worldX;
+      const dy = e.worldY - monster.worldY;
       return Math.sqrt(dx * dx + dy * dy) <= CELL_CONFIG.w * 1.5;
     });
     if (blockingMonster) {
@@ -718,10 +718,10 @@ function decideMonsterCommand(
   }
 
   // Throw grenade — skulkers are more aggressive throwers
-  const monsterWorldX = (monster as any).worldX;
-  const monsterWorldY = (monster as any).worldY;
-  const playerWorldX = (player as any).worldX;
-  const playerWorldY = (player as any).worldY;
+  const monsterWorldX = monster.worldX;
+  const monsterWorldY = monster.worldY;
+  const playerWorldX = player.worldX;
+  const playerWorldY = player.worldY;
   const hasGrenadeLOS = hasClearLineOfSight(
         state.tiles,
     monsterWorldX,
@@ -768,15 +768,15 @@ function decideMonsterCommand(
     aiGridDistSq <= 15 * 15 &&
     hasClearLineOfSight(
         state.tiles,
-      (monster as any).worldX,
-      (monster as any).worldY,
-      (player as any).worldX,
-      (player as any).worldY,
+      monster.worldX,
+      monster.worldY,
+      player.worldX,
+      player.worldY,
     );
 
   if (!canSeePlayer) {
     // Alert: steering already moves toward last known pos; command system just waits/wanders
-    if ((monster as any).alertLevel > 0) {
+    if ((monster.alertLevel ?? 0) > 0) {
       return waitCmd();
     }
 

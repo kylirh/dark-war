@@ -190,8 +190,8 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
       if (entity.kind !== EntityKind.MONSTER) continue;
       if (!("worldX" in entity)) continue;
 
-      const dx = (entity as any).worldX - targetWorldX;
-      const dy = (entity as any).worldY - targetWorldY;
+      const dx = entity.worldX - targetWorldX;
+      const dy = entity.worldY - targetWorldY;
 
       if (dx * dx + dy * dy < MELEE_RANGE_SQ) {
         blocker = entity;
@@ -213,8 +213,8 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
           targetId: blocker.id,
           amount: 1,
           sourceId: actor.id,
-          knockbackX: (blocker as any).worldX - (actor as any).worldX,
-          knockbackY: (blocker as any).worldY - (actor as any).worldY,
+          knockbackX: blocker.worldX - actor.worldX,
+          knockbackY: blocker.worldY - actor.worldY,
           knockbackDistance: MELEE_KNOCKBACK_DISTANCE,
         },
       });
@@ -228,23 +228,19 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
     const targetWorldX = nx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     const targetWorldY = ny * CELL_CONFIG.h + CELL_CONFIG.h / 2;
 
-    // Set target position
-    (actor as any).targetWorldX = targetWorldX;
-    (actor as any).targetWorldY = targetWorldY;
-
     // Calculate direction and set velocity
-    const dx = targetWorldX - (actor as any).worldX;
-    const dy = targetWorldY - (actor as any).worldY;
+    const dx = targetWorldX - actor.worldX;
+    const dy = targetWorldY - actor.worldY;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     if (dist > 0) {
       // Movement speed: 225 pixels per second for smooth motion
       const speed = 225;
-      (actor as any).velocityX = (dx / dist) * speed;
-      (actor as any).velocityY = (dy / dist) * speed;
+      actor.velocityX = (dx / dist) * speed;
+      actor.velocityY = (dy / dist) * speed;
 
       // Update facing angle
-      (actor as any).facingAngle = Math.atan2(dy, dx);
+      actor.facingAngle = Math.atan2(dy, dx);
     }
   }
   return true;
@@ -267,8 +263,8 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
 
   if ("worldX" in attacker && "worldX" in target) {
     // Use continuous distance check
-    const dx = (attacker as any).worldX - (target as any).worldX;
-    const dy = (attacker as any).worldY - (target as any).worldY;
+    const dx = attacker.worldX - target.worldX;
+    const dy = attacker.worldY - target.worldY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     const MELEE_RANGE = CELL_CONFIG.w * 1.5; // 1.5 tiles
     inRange = distance <= MELEE_RANGE;
@@ -294,8 +290,8 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
       targetId: target.id,
       amount: damage,
       sourceId: attacker.id,
-      knockbackX: (target as any).worldX - (attacker as any).worldX,
-      knockbackY: (target as any).worldY - (attacker as any).worldY,
+      knockbackX: target.worldX - attacker.worldX,
+      knockbackY: target.worldY - attacker.worldY,
       knockbackDistance: MELEE_KNOCKBACK_DISTANCE,
     },
   });
@@ -323,7 +319,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
     const player = shooter as Player;
     if (!("worldX" in player) || !("facingAngle" in player)) return;
 
-    const angle = (player as any).facingAngle;
+    const angle = player.facingAngle;
     const weapon = weaponOverride ?? player.weapon;
 
     switch (weapon) {
@@ -373,8 +369,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             targetId: target.id,
             amount: 2,
             sourceId: player.id,
-            knockbackX: (target as any).worldX - (player as any).worldX,
-            knockbackY: (target as any).worldY - (player as any).worldY,
+            knockbackX: target.worldX - player.worldX,
+            knockbackY: target.worldY - player.worldY,
             knockbackDistance: MELEE_KNOCKBACK_DISTANCE,
           },
         });
@@ -394,8 +390,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
 
         const BULLET_SPEED = 600; // pixels per second
         const bullet = new BulletEntity(
-          (player as any).worldX,
-          (player as any).worldY,
+          player.worldX,
+          player.worldY,
           Math.cos(angle) * BULLET_SPEED,
           Math.sin(angle) * BULLET_SPEED,
           2,
@@ -422,8 +418,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         player.grenades--;
         const THROW_SPEED = 360;
         const grenade = new ExplosiveEntity(
-          (player as any).worldX,
-          (player as any).worldY,
+          player.worldX,
+          player.worldY,
           ItemType.GRENADE,
           true,
           GRENADE_FUSE_TICKS,
@@ -514,8 +510,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
     const target = getClosestPlayer(state, monster);
     if (!target) return;
 
-    const dx = (target as any).worldX - (monster as any).worldX;
-    const dy = (target as any).worldY - (monster as any).worldY;
+    const dx = target.worldX - monster.worldX;
+    const dy = target.worldY - monster.worldY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance === 0) return;
 
@@ -527,19 +523,19 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
 
         const THROW_SPEED = 320;
         const leadTime = distance / THROW_SPEED;
-        const targetVelocityX = (target as any).velocityX ?? 0;
-        const targetVelocityY = (target as any).velocityY ?? 0;
-        const predictedX = (target as any).worldX + targetVelocityX * leadTime;
-        const predictedY = (target as any).worldY + targetVelocityY * leadTime;
+        const targetVelocityX = target.velocityX ?? 0;
+        const targetVelocityY = target.velocityY ?? 0;
+        const predictedX = target.worldX + targetVelocityX * leadTime;
+        const predictedY = target.worldY + targetVelocityY * leadTime;
         const angle = Math.atan2(
-          predictedY - (monster as any).worldY,
-          predictedX - (monster as any).worldX,
+          predictedY - monster.worldY,
+          predictedX - monster.worldX,
         );
 
         monster.grenades--;
         const grenade = new ExplosiveEntity(
-          (monster as any).worldX,
-          (monster as any).worldY,
+          monster.worldX,
+          monster.worldY,
           ItemType.GRENADE,
           true,
           GRENADE_FUSE_TICKS,
@@ -557,8 +553,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         if (monster.landMines <= 0) return;
         monster.landMines--;
         const mine = new ExplosiveEntity(
-          (monster as any).worldX,
-          (monster as any).worldY,
+          monster.worldX,
+          monster.worldY,
           ItemType.LAND_MINE,
           true,
           undefined,
@@ -577,8 +573,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
 
         monster.bullets--;
         const bullet = new BulletEntity(
-          (monster as any).worldX,
-          (monster as any).worldY,
+          monster.worldX,
+          monster.worldY,
           Math.cos(angle) * SKULKER_BULLET_SPEED,
           Math.sin(angle) * SKULKER_BULLET_SPEED,
           1,
@@ -588,8 +584,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         state.entityManager.spawn(bullet);
         state.pendingSounds.push({
           effect: SoundEffect.SHOOT,
-          worldX: (monster as any).worldX,
-          worldY: (monster as any).worldY,
+          worldX: monster.worldX,
+          worldY: monster.worldY,
         });
         return;
       }
@@ -645,8 +641,8 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
 
     // Use continuous coordinates if available
     if ("worldX" in actor && "worldX" in e) {
-      const dx = (e as any).worldX - (actor as any).worldX;
-      const dy = (e as any).worldY - (actor as any).worldY;
+      const dx = e.worldX - actor.worldX;
+      const dy = e.worldY - actor.worldY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       return dist <= PICKUP_RADIUS;
     }

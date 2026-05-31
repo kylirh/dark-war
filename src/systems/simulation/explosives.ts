@@ -86,8 +86,8 @@ export function updateExplosives(state: GameState): void {
         ) {
           return false;
         }
-        const dx = (actor as any).worldX - explosive.worldX;
-        const dy = (actor as any).worldY - explosive.worldY;
+        const dx = actor.worldX - explosive.worldX;
+        const dy = actor.worldY - explosive.worldY;
         return dx * dx + dy * dy <= triggerRadiusSq;
       });
 

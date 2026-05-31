@@ -141,7 +141,7 @@ function processMonsterItemPickups(state: GameState): void {
     if (!monster.carriedItems) {
       monster.carriedItems = [];
     }
-    const hpMax = (monster as any).hpMax ?? monster.hp;
+    const hpMax = monster.hpMax ?? monster.hp;
     const isFleeing = monster.hp <= hpMax * FLEE_HP_RATIO;
 
     for (const item of items) {
@@ -152,8 +152,8 @@ function processMonsterItemPickups(state: GameState): void {
         item.type === ItemType.MEDKIT ? MEDKIT_PICKUP_RADIUS : PICKUP_RADIUS;
 
       if ("worldX" in monster && "worldX" in item) {
-        const dx = (item as any).worldX - (monster as any).worldX;
-        const dy = (item as any).worldY - (monster as any).worldY;
+        const dx = item.worldX - monster.worldX;
+        const dy = item.worldY - monster.worldY;
         isOverlapping = dx * dx + dy * dy <= radius * radius;
       } else {
         isOverlapping =

@@ -103,8 +103,8 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     state.effects.push({
       id: crypto.randomUUID(),
       type: "hit_flash",
-      worldX: (target as any).worldX ?? target.gridX * CELL_CONFIG.w,
-      worldY: (target as any).worldY ?? target.gridY * CELL_CONFIG.h,
+      worldX: target.worldX ?? target.gridX * CELL_CONFIG.w,
+      worldY: target.worldY ?? target.gridY * CELL_CONFIG.h,
       ageTicks: 0,
       durationTicks: 3,
       entityId: target.id,
@@ -162,8 +162,8 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     }
 
     if (!data.suppressHitSound) {
-      const mwx = (monster as any).worldX ?? monster.gridX * CELL_CONFIG.w;
-      const mwy = (monster as any).worldY ?? monster.gridY * CELL_CONFIG.h;
+      const mwx = monster.worldX ?? monster.gridX * CELL_CONFIG.w;
+      const mwy = monster.worldY ?? monster.gridY * CELL_CONFIG.h;
       const sourceEntity = data.sourceId ? state.entities.find((e) => e.id === data.sourceId) : null;
       const monsterTileIdx = idxFor(monster.gridX, monster.gridY, state.mapWidth);
       const sourceTileIdx = sourceEntity
@@ -208,10 +208,10 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     if (monster.type === MonsterType.UTILITY_BOT && data.sourceId && monster.hp > 0) {
       const attacker = state.entities.find((e) => e.id === data.sourceId) as any;
       if (attacker) {
-        (monster as any).alertLevel = 100;
-        (monster as any).lastAttackerId = data.sourceId;
-        (monster as any).lastKnownPlayerX = attacker.worldX ?? attacker.gridX * CELL_CONFIG.w;
-        (monster as any).lastKnownPlayerY = attacker.worldY ?? attacker.gridY * CELL_CONFIG.h;
+        monster.alertLevel = 100;
+        monster.lastAttackerId = data.sourceId;
+        monster.lastKnownPlayerX = attacker.worldX ?? attacker.gridX * CELL_CONFIG.w;
+        monster.lastKnownPlayerY = attacker.worldY ?? attacker.gridY * CELL_CONFIG.h;
       }
     }
 
@@ -223,10 +223,10 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     ) {
       const attacker = state.entities.find((e) => e.id === data.sourceId);
       if (attacker?.kind === EntityKind.MONSTER) {
-        (monster as any).alertLevel = Math.max((monster as any).alertLevel ?? 0, 60);
-        (monster as any).lastAttackerId = data.sourceId;
-        (monster as any).lastKnownPlayerX = (attacker as any).worldX ?? attacker.gridX * CELL_CONFIG.w;
-        (monster as any).lastKnownPlayerY = (attacker as any).worldY ?? attacker.gridY * CELL_CONFIG.h;
+        monster.alertLevel = Math.max(monster.alertLevel ?? 0, 60);
+        monster.lastAttackerId = data.sourceId;
+        monster.lastKnownPlayerX = attacker.worldX ?? attacker.gridX * CELL_CONFIG.w;
+        monster.lastKnownPlayerY = attacker.worldY ?? attacker.gridY * CELL_CONFIG.h;
       }
     }
 
@@ -331,8 +331,8 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
   const itemsToTrigger: Item[] = [];
 
   for (const entity of state.entities) {
-    const dx = (entity as any).worldX - worldX;
-    const dy = (entity as any).worldY - worldY;
+    const dx = entity.worldX - worldX;
+    const dy = entity.worldY - worldY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance > radiusPx) continue;
 
@@ -396,8 +396,8 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
   for (const explosive of explosivesToTrigger) {
     triggerExplosion(
       state,
-      (explosive as any).worldX,
-      (explosive as any).worldY,
+      explosive.worldX,
+      explosive.worldY,
       explosive.type,
       event.id,
     );
@@ -407,8 +407,8 @@ function processExplosionEvent(state: GameState, event: GameEvent): void {
   for (const item of itemsToTrigger) {
     triggerExplosion(
       state,
-      (item as any).worldX,
-      (item as any).worldY,
+      item.worldX,
+      item.worldY,
       item.type as ItemType.GRENADE | ItemType.LAND_MINE,
       event.id,
     );
@@ -440,8 +440,8 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
         SoundEffect.MONSTER_DEATH_3,
         SoundEffect.MONSTER_DEATH_4,
       ];
-      const mwx = (monster as any).worldX ?? monster.gridX * CELL_CONFIG.w;
-      const mwy = (monster as any).worldY ?? monster.gridY * CELL_CONFIG.h;
+      const mwx = monster.worldX ?? monster.gridX * CELL_CONFIG.w;
+      const mwy = monster.worldY ?? monster.gridY * CELL_CONFIG.h;
       state.pendingSounds.push({
         effect: deathSounds[Math.floor(Math.random() * deathSounds.length)],
         worldX: mwx,
@@ -475,8 +475,8 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
           if (data.fromExplosion) {
             triggerExplosion(
               state,
-              (monster as any).worldX,
-              (monster as any).worldY,
+              monster.worldX,
+              monster.worldY,
               type,
               event.cause,
             );

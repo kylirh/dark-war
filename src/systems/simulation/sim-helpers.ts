@@ -263,8 +263,8 @@ export function findMeleeTarget(
   for (const entity of state.entities) {
     if (entity.kind !== EntityKind.MONSTER) continue;
     const monster = entity as Monster;
-    const dx = (monster as any).worldX - (player as any).worldX;
-    const dy = (monster as any).worldY - (player as any).worldY;
+    const dx = monster.worldX - player.worldX;
+    const dy = monster.worldY - player.worldY;
     const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance > CELL_CONFIG.w * 1.5) continue;
 
