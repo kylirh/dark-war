@@ -11,10 +11,12 @@ import {
   HOLE_FALL_DAMAGE,
   EventType,
 } from "../../types";
-import { idxFor, tileAtFor } from "../../utils/helpers";
+import { idxFor, tileAtFor, passableFor } from "../../utils/helpers";
 import { RNG } from "../../utils/rng";
 import { wrapDelta } from "../../utils/wrap";
 import { ITEM_DEFS } from "../../content/item-defs";
+import { MONSTER_DEFS } from "../../content/monster-defs";
+import { MonsterEntity } from "../../entities/monster-entity";
 import {
   MONSTER_AI_UPDATE_INTERVAL,
   MAX_COMMANDS_PER_TICK,
@@ -96,6 +98,8 @@ export function stepSimulationTick(state: GameState): void {
   processMonsterItemPickups(state);
   // 3.6 Items within a magnetic radius drift to players and auto-collect
   processMagneticPickup(state);
+  // 3.7 Passive creature abilities (breeding, regen)
+  processMonsterAbilities(state);
 
   // 4. Process event queue until empty
   processEventQueue(state);
@@ -288,6 +292,66 @@ function processMagneticPickup(state: GameState): void {
     itm.prevWorldX = itm.worldX;
     itm.prevWorldY = itm.worldY;
     item.physicsBody?.setPosition(itm.worldX, itm.worldY);
+  }
+}
+
+// ========================================
+// Passive Creature Abilities
+// ========================================
+
+const MAX_ICKY_LUMPS = 14; // breeding cap per level
+
+/**
+ * Passive per-tick monster behavior driven by `MONSTER_DEFS` flags:
+ * - `selfHeals`: slow HP regeneration (moppet).
+ * - `breeds`: occasionally spawns a copy in an adjacent open tile (icky lump),
+ *   capped so they don't overrun the level.
+ */
+export function processMonsterAbilities(state: GameState): void {
+  const monsters = state.entities.filter(
+    (e): e is Monster => e.kind === EntityKind.MONSTER && e.hp > 0,
+  );
+
+  // Self-healing creatures regenerate slowly.
+  if (state.sim.nowTick % 20 === 0) {
+    for (const m of monsters) {
+      if (MONSTER_DEFS[m.type]?.flags?.selfHeals && m.hp < m.hpMax) {
+        m.hp = Math.min(m.hpMax, m.hp + 1);
+      }
+    }
+  }
+
+  // Breeding (icky lumps).
+  const breeders = monsters.filter((m) => MONSTER_DEFS[m.type]?.flags?.breeds);
+  if (breeders.length === 0) return;
+  const sameKind = (type: MonsterType) =>
+    monsters.filter((m) => m.type === type).length;
+
+  for (const lump of breeders) {
+    if (sameKind(lump.type) >= MAX_ICKY_LUMPS) break;
+    if (!RNG.chance(0.01)) continue; // ~once per ~5s per lump
+
+    // Try the four neighbours for an open, unoccupied tile.
+    const dirs = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ];
+    const [dx, dy] = dirs[RNG.int(dirs.length)];
+    const nx = lump.gridX + dx;
+    const ny = lump.gridY + dy;
+    if (!passableFor(state.map, nx, ny, state.mapWidth, state.mapHeight)) {
+      continue;
+    }
+    const occupied = state.entities.some(
+      (e) => e.kind === EntityKind.MONSTER && e.gridX === nx && e.gridY === ny,
+    );
+    if (occupied) continue;
+
+    state.entityManager.spawn(
+      new MonsterEntity(nx, ny, lump.type, state.depth),
+    );
   }
 }
 

@@ -1064,6 +1064,13 @@ export class Renderer {
             (entity as any).type === MonsterType.SKULKER
           ) {
             sprite.tint = 0x88ff88;
+          } else if (
+            entity.kind === EntityKind.MONSTER &&
+            (entity as any).type === MonsterType.CYBERCOP
+          ) {
+            // Cybercops engage nearly invisible — a faint shimmer.
+            sprite.alpha = 0.22;
+            sprite.tint = 0x9fc8ff;
           }
 
           // Hit flash overrides any existing tint

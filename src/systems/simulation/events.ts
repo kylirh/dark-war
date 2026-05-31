@@ -502,6 +502,18 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
       scoringPlayer.score += 10;
     }
 
+    // Flutterbangs (and any "explodes" creature) detonate like a grenade on
+    // death — unless they already died from an explosion (avoid recursion).
+    if (MONSTER_DEFS[monster.type]?.flags?.explodes && !data.fromExplosion) {
+      triggerExplosion(
+        state,
+        monster.worldX,
+        monster.worldY,
+        ItemType.GRENADE,
+        event.id,
+      );
+    }
+
     // Drop loot, scattered slightly around the corpse so individual items are
     // visible (and reachable by the magnetic auto-pickup) instead of stacking on
     // one tile.
