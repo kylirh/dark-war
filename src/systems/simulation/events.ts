@@ -14,6 +14,7 @@ import {
   CELL_CONFIG,
 } from "../../types";
 import { ItemEntity } from "../../entities/item-entity";
+import { MONSTER_DEFS } from "../../content/monster-defs";
 import { idxFor } from "../../utils/helpers";
 import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
@@ -486,6 +487,30 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
       scoringPlayer.score += 10;
     }
 
+    // Drop loot, scattered slightly around the corpse so individual items are
+    // visible (and reachable by the magnetic auto-pickup) instead of stacking on
+    // one tile.
+    const baseX =
+      monster.worldX ?? monster.gridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const baseY =
+      monster.worldY ?? monster.gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    const dropItem = (
+      type: ItemType,
+      opts?: { amount?: number; heal?: number },
+    ): void => {
+      const item = new ItemEntity(monster.gridX, monster.gridY, type);
+      if (typeof opts?.amount === "number") item.amount = opts.amount;
+      if (typeof opts?.heal === "number") item.heal = opts.heal;
+      // Scatter within ~6–16px using the deterministic RNG.
+      const ang = (RNG.int(360) * Math.PI) / 180;
+      const r = 6 + RNG.int(11);
+      item.worldX = baseX + Math.cos(ang) * r;
+      item.worldY = baseY + Math.sin(ang) * r;
+      item.prevWorldX = item.worldX;
+      item.prevWorldY = item.worldY;
+      state.entityManager.spawn(item);
+    };
+
     if (monster.grenades > 0 || monster.landMines > 0) {
       const spawnExplosive = (
         type: ItemType.GRENADE | ItemType.LAND_MINE,
@@ -501,9 +526,7 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
               event.cause,
             );
           } else {
-            state.entityManager.spawn(
-              new ItemEntity(monster.gridX, monster.gridY, type),
-            );
+            dropItem(type);
           }
         }
       };
@@ -513,25 +536,20 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
     }
 
     if (monster.bullets > 0) {
-      const ammoItem = new ItemEntity(
-        monster.gridX,
-        monster.gridY,
-        ItemType.AMMO,
-      );
-      ammoItem.amount = monster.bullets;
-      state.entityManager.spawn(ammoItem);
+      dropItem(ItemType.AMMO, { amount: monster.bullets });
     }
 
     if (monster.carriedItems.length > 0) {
       for (const carried of monster.carriedItems) {
-        const item = new ItemEntity(monster.gridX, monster.gridY, carried.type);
-        if (typeof carried.amount === "number") {
-          item.amount = carried.amount;
-        }
-        if (typeof carried.heal === "number") {
-          item.heal = carried.heal;
-        }
-        state.entityManager.spawn(item);
+        dropItem(carried.type, { amount: carried.amount, heal: carried.heal });
+      }
+    }
+
+    // Creature-specific loot table (bones, coins, metal scraps, ...).
+    const lootTable = MONSTER_DEFS[monster.type]?.loot ?? [];
+    for (const entry of lootTable) {
+      if (RNG.chance(entry.chance)) {
+        dropItem(entry.type, { amount: entry.amount });
       }
     }
 

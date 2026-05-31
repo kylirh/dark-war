@@ -13,6 +13,8 @@ import {
 } from "../../types";
 import { idxFor, tileAtFor } from "../../utils/helpers";
 import { RNG } from "../../utils/rng";
+import { wrapDelta } from "../../utils/wrap";
+import { ITEM_DEFS } from "../../content/item-defs";
 import {
   MONSTER_AI_UPDATE_INTERVAL,
   MAX_COMMANDS_PER_TICK,
@@ -92,6 +94,8 @@ export function stepSimulationTick(state: GameState): void {
   }
   // 3.5 Monsters can pick up items when overlapping them
   processMonsterItemPickups(state);
+  // 3.6 Items within a magnetic radius drift to players and auto-collect
+  processMagneticPickup(state);
 
   // 4. Process event queue until empty
   processEventQueue(state);
@@ -217,7 +221,78 @@ function processMonsterItemPickups(state: GameState): void {
 }
 
 // ========================================
-// Hole Falls (Player + Monsters)
+// Magnetic Auto-Pickup
+// ========================================
+
+const MAGNET_RADIUS = 72; // items within this drift toward the player
+const MAGNET_COLLECT_RADIUS = 20; // and are collected within this
+const MAGNET_PULL_PX = 7; // per tick
+
+/**
+ * Pull loose items toward nearby players and auto-collect them. Machines (e.g.
+ * vending machines) are excluded. Wrap-aware on the toroidal outside world.
+ */
+function processMagneticPickup(state: GameState): void {
+  const players = getAlivePlayers(state);
+  if (players.length === 0) return;
+  const wraps = state.levelKind === "outside";
+  const worldW = state.mapWidth * CELL_CONFIG.w;
+  const worldH = state.mapHeight * CELL_CONFIG.h;
+
+  const collected = new Set<string>();
+  for (const item of state.entities) {
+    if (item.kind !== EntityKind.ITEM) continue;
+    const itm = item as Item;
+    if (ITEM_DEFS[itm.type]?.category === "machine") continue;
+    if (collected.has(itm.id)) continue;
+
+    // Nearest player (wrapped distance on the torus).
+    let best: Player | null = null;
+    let bestDx = 0;
+    let bestDy = 0;
+    let bestDist = Infinity;
+    for (const player of players) {
+      const dx = wraps
+        ? wrapDelta(itm.worldX, player.worldX, worldW)
+        : player.worldX - itm.worldX;
+      const dy = wraps
+        ? wrapDelta(itm.worldY, player.worldY, worldH)
+        : player.worldY - itm.worldY;
+      const d = Math.hypot(dx, dy);
+      if (d < bestDist) {
+        bestDist = d;
+        bestDx = dx;
+        bestDy = dy;
+        best = player;
+      }
+    }
+    if (!best || bestDist > MAGNET_RADIUS) continue;
+
+    if (bestDist <= MAGNET_COLLECT_RADIUS) {
+      pushEvent(state, {
+        type: EventType.PICKUP_ITEM,
+        data: { type: "PICKUP_ITEM", actorId: best.id, itemId: itm.id },
+      });
+      collected.add(itm.id);
+      continue;
+    }
+
+    // Drift toward the player.
+    const step = Math.min(MAGNET_PULL_PX, bestDist);
+    itm.worldX += (bestDx / bestDist) * step;
+    itm.worldY += (bestDy / bestDist) * step;
+    if (wraps) {
+      itm.worldX = ((itm.worldX % worldW) + worldW) % worldW;
+      itm.worldY = ((itm.worldY % worldH) + worldH) % worldH;
+    }
+    itm.prevWorldX = itm.worldX;
+    itm.prevWorldY = itm.worldY;
+    item.physicsBody?.setPosition(itm.worldX, itm.worldY);
+  }
+}
+
+// ========================================
+// Hole Falls (Player + Monsters + Items)
 // ========================================
 
 function processHoleFalls(state: GameState): void {
@@ -283,6 +358,25 @@ function processHoleFalls(state: GameState): void {
     if (movedOntoHole && RNG.chance(0.5)) {
       triggerMonsterFall(state, monster);
     }
+  }
+
+  // Loose items resting on a hole fall through to the depths below.
+  // (Depositing them onto the level below is a future refinement — for now they
+  // drop out of reach; see docs/ROADMAP.md.)
+  const fallenItemIds = new Set<string>();
+  for (const entity of state.entities) {
+    if (entity.kind !== EntityKind.ITEM) continue;
+    const tile = tileAtFor(
+      state.map,
+      entity.gridX,
+      entity.gridY,
+      state.mapWidth,
+      state.mapHeight,
+    );
+    if (tile === TileType.HOLE) fallenItemIds.add(entity.id);
+  }
+  if (fallenItemIds.size > 0) {
+    state.entityManager.destroyByIds(fallenItemIds);
   }
 
   if (holeCreatedTiles && holeCreatedTiles.size > 0) {
