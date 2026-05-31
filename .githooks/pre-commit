@@ -1,0 +1,23 @@
+#!/bin/sh
+# Format staged files with Prettier before committing, so committed code always
+# looks the same as a VS Code "format on save" autosave. Mirrors a lint-staged
+# flow without the extra dependency.
+
+# Collect staged files Prettier understands.
+files=$(git diff --cached --name-only --diff-filter=ACMR \
+  | grep -E '\.(ts|js|mjs|json|css|md)$' || true)
+
+[ -z "$files" ] && exit 0
+
+# Resolve prettier (local install preferred).
+if [ -x "./node_modules/.bin/prettier" ]; then
+  prettier="./node_modules/.bin/prettier"
+else
+  prettier="npx --no-install prettier"
+fi
+
+# Format in place (respects .prettierignore), then re-stage the formatted files.
+echo "$files" | xargs $prettier --write --ignore-unknown >/dev/null 2>&1
+echo "$files" | xargs git add
+
+exit 0

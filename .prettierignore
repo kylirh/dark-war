@@ -1,0 +1,17 @@
+# Build output & bundles
+app/game.js
+app/game.js.map
+app/server-bundle.js
+dist/
+build/
+
+# Dependencies
+node_modules/
+
+# Generated / vendored assets (binary or hand-tuned)
+app/assets/
+reference/
+*.min.js
+
+# Lockfiles
+package-lock.json

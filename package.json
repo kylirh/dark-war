@@ -6,9 +6,10 @@
   "type": "commonjs",
   "version": "0.1.0",
   "scripts": {
+    "prepare": "node scripts/setup-git-hooks.mjs",
     "build": "npm run build:ts && electron-builder -mwl",
     "build:server": "esbuild server/multiplayer-server.ts --bundle --platform=node --format=cjs --outfile=app/server-bundle.js --log-level=warning",
-    "build:ts": "npm run build:server && tsc && vite build",
+    "build:ts": "npm run build:server && tsc && node scripts/build-web.mjs",
     "dev": "npm run build:ts && node scripts/launch-electron.js",
     "dev:online": "npm run build:ts && node scripts/launch-electron.js --mode=online --server=ws://localhost:7777 --room=default",
     "online:client": "node scripts/launch-electron.js --mode=online --server=ws://localhost:7777 --room=default",
@@ -18,20 +19,24 @@
     "type-check:server": "tsc --noEmit -p tsconfig.server.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "format": "prettier --write \"{src,server,electron,tools,scripts}/**/*.{ts,js,mjs,json,css}\" \"*.{ts,js,json}\" \"docs/**/*.md\"",
+    "format:check": "prettier --check \"{src,server,electron,tools,scripts}/**/*.{ts,js,mjs,json,css}\" \"*.{ts,js,json}\"",
+    "gen:assets": "node tools/gen-spritesheet.mjs && node tools/gen-sounds.mjs",
     "dev:web": "vite",
     "watch": "vite build --watch"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
-    "@types/rot-js": "^0.6.5",
-    "@types/ws": "^8.18.1",
-    "electron": "^31.3.0",
-    "electron-builder": "^24.13.3",
-    "esbuild": "^0.28.0",
-    "tsx": "^4.20.5",
-    "typescript": "^5.3.0",
-    "vite": "^5.0.0",
-    "vitest": "^2.1.9"
+    "@types/node": "20.19.24",
+    "@types/rot-js": "0.6.5",
+    "@types/ws": "8.18.1",
+    "electron": "31.7.7",
+    "electron-builder": "24.13.3",
+    "esbuild": "0.28.0",
+    "prettier": "3.3.3",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vite": "5.4.21",
+    "vitest": "2.1.9"
   },
   "build": {
     "appId": "com.kylir.darkwar",
@@ -67,9 +72,9 @@
     }
   },
   "dependencies": {
-    "detect-collisions": "^10.10.2025",
-    "pixi.js": "^8.14.0",
-    "rot-js": "^2.2.1",
-    "ws": "^8.18.3"
+    "detect-collisions": "10.10.2025",
+    "pixi.js": "8.14.0",
+    "rot-js": "2.2.1",
+    "ws": "8.21.0"
   }
 }
