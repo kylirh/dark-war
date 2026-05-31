@@ -25,6 +25,7 @@ import { FlatTileSource } from "./tile-source";
 import { generateDungeon } from "./dungeon-generator";
 import { PlayerEntity } from "../entities/player-entity";
 import { MonsterEntity } from "../entities/monster-entity";
+import { MONSTER_DEFS } from "../content/monster-defs";
 import { ItemEntity } from "../entities/item-entity";
 import { ExplosiveEntity } from "../entities/explosive-entity";
 import { BulletEntity } from "../entities/bullet-entity";
@@ -754,30 +755,51 @@ export class Game {
     const floorTiles = freeTiles.length;
     const per = (n: number) => Math.max(1, Math.round(floorTiles / n));
 
-    // Spawn monsters
+    // Spawn monsters from a depth-gated weighted table (see content/monster-defs).
     const monsterCount = per(70) + depth;
-    let ratCount = 0;
-    let mutantCount = 0;
-    for (let i = 0; i < monsterCount && freeTiles.length > 0; i++) {
-      const tileIndex = RNG.int(freeTiles.length);
-      const [x, y] = freeTiles[tileIndex];
+    const pool = (
+      Object.entries(MONSTER_DEFS) as [
+        MonsterType,
+        (typeof MONSTER_DEFS)[MonsterType],
+      ][]
+    ).filter(([, d]) => d.weight > 0 && depth >= d.minDepth);
+    const totalWeight = pool.reduce((sum, [, d]) => sum + d.weight, 0);
+    const pickType = (): MonsterType => {
+      let r = RNG.int(Math.max(1, totalWeight));
+      for (const [type, d] of pool) {
+        r -= d.weight;
+        if (r < 0) return type;
+      }
+      return MonsterType.MUTANT;
+    };
 
-      if (dist([x, y], start) > 8) {
-        const roll = RNG.int(10);
-        if (roll < 3) {
-          entities.push(new MonsterEntity(x, y, MonsterType.RAT, depth));
-          ratCount++;
-        } else if (roll < 5) {
-          entities.push(new MonsterEntity(x, y, MonsterType.SKULKER, depth));
-        } else {
-          entities.push(new MonsterEntity(x, y, MonsterType.MUTANT, depth));
-          mutantCount++;
+    if (pool.length > 0) {
+      for (let i = 0; i < monsterCount && freeTiles.length > 0; i++) {
+        const tileIndex = RNG.int(freeTiles.length);
+        const [x, y] = freeTiles[tileIndex];
+        if (dist([x, y], start) > 8) {
+          entities.push(new MonsterEntity(x, y, pickType(), depth));
+          freeTiles.splice(tileIndex, 1);
         }
-        freeTiles.splice(tileIndex, 1);
       }
     }
-    if (DEBUG && depth === 1) {
-      console.log(`Spawned ${ratCount} rats, ${mutantCount} mutants`);
+
+    // Mini-bosses: at most one of each eligible type, deep and far from start.
+    for (const [type, def] of Object.entries(MONSTER_DEFS) as [
+      MonsterType,
+      (typeof MONSTER_DEFS)[MonsterType],
+    ][]) {
+      if (!def.miniboss || depth < def.minDepth) continue;
+      if (!RNG.chance(0.5)) continue;
+      for (let attempt = 0; attempt < 20 && freeTiles.length > 0; attempt++) {
+        const tileIndex = RNG.int(freeTiles.length);
+        const [x, y] = freeTiles[tileIndex];
+        if (dist([x, y], start) > 14) {
+          entities.push(new MonsterEntity(x, y, type, depth));
+          freeTiles.splice(tileIndex, 1);
+          break;
+        }
+      }
     }
 
     // Spawn items
@@ -800,6 +822,21 @@ export class Game {
     spawnItems(per(650), ItemType.GRENADE);
     spawnItems(per(900), ItemType.LAND_MINE);
     spawnItems(2 + Math.floor(depth / 4), ItemType.POWERCELL);
+
+    // New consumables / economy / clutter.
+    spawnItems(per(420), ItemType.COIN);
+    spawnItems(per(800), ItemType.COOKIE);
+    spawnItems(per(1200), ItemType.TRASH);
+    spawnItems(per(1400), ItemType.ROCK, 3);
+
+    // New gear, found rarely.
+    spawnItems(per(1600), ItemType.GYROJET_SMG);
+    spawnItems(per(1800), ItemType.GYROJET_SHOTGUN);
+    spawnItems(per(2000), ItemType.MACRO_METAL_SWORD);
+    spawnItems(per(2600), ItemType.VIBRA_SWORD);
+    spawnItems(per(2200), ItemType.MACROMETAL_JACKET);
+    spawnItems(per(1800), ItemType.PANIC_BUTTON);
+    spawnItems(per(1500), ItemType.HOLOWALL);
 
     // Spawn utility bot: 0 or 1 per floor (50% chance), far from start
     if (RNG.chance(0.5)) {

@@ -15,27 +15,27 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 
 ## Phase 1 — Tooling & hygiene
 
-- [ ] Prettier config matching the existing style; `npm run format` / `format:check`
-- [ ] Format-on-commit (pre-commit hook formats staged files like VS Code autosave)
-- [ ] Pin/freeze dependency versions (exact, no `^`/`~`) to reduce supply-chain risk
-- [ ] Quiet build console chatter (esbuild/vite logs) & address `npm audit`
+- [x] Prettier config matching the existing style; `npm run format` / `format:check`
+- [x] Format-on-commit (pre-commit hook formats staged files like VS Code autosave)
+- [x] Pin/freeze dependency versions (exact, no `^`/`~`) to reduce supply-chain risk
+- [x] Quiet build console chatter (esbuild/vite logs) & address `npm audit`
 - [ ] (later) lint pass — no linter configured yet; Prettier only for now
 
 ## Phase 2 — Asset generation pipeline
 
-- [ ] `tools/png.mjs` — dependency-free PNG decode/encode (zlib only)
-- [ ] `tools/gen-spritesheet.mjs` — extend `sprites.png` with new item/monster rows
-- [ ] `tools/gen-sounds.mjs` — synthesize new effect sounds (WAV)
-- [ ] `npm run gen:assets` wires both; regenerated PNG/sounds committed
+- [x] `tools/png.mjs` — dependency-free PNG decode/encode (zlib only)
+- [x] `tools/gen-spritesheet.mjs` — extend `sprites.png` with new item/monster rows
+- [x] `tools/gen-sounds.mjs` — synthesize new effect sounds (WAV)
+- [x] `npm run gen:assets` wires both; regenerated PNG/sounds committed
 - Note: art is intentionally simple/procedural placeholder; refine later.
 
 ## Phase 3 — Content: data layer
 
-- [ ] Extend `ItemType`, `WeaponType`, `MonsterType` enums
-- [ ] `content/items.ts` registry (display name, sprite key, category, stack, effects)
-- [ ] `content/monsters.ts` registry (hp, speed, damage, sight, loot, flags, spawn depth)
-- [ ] `content/loadout.ts` starter loadout (pistol XOR laser; butcher knife; black pill)
-- [ ] Wire sprite coords for every new item/monster
+- [x] Extend `ItemType`, `WeaponType`, `MonsterType` enums
+- [x] `content/items.ts` registry (display name, sprite key, category, stack, effects)
+- [x] `content/monsters.ts` registry (hp, speed, damage, sight, loot, flags, spawn depth)
+- [x] `content/loadout.ts` starter loadout (pistol XOR laser; butcher knife; black pill)
+- [x] Wire sprite coords for every new item/monster
 
 ## Phase 4 — Content: item mechanics
 

@@ -99,6 +99,44 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [ItemType.CTDM]: { x: 7, y: 3 },
   [ItemType.POWERCELL]: { x: 8, y: 3 },
   land_mine_active: { x: 6, y: 3 },
+
+  // ========================================
+  // Row 5/6 - New items (see tools/gen-spritesheet.mjs)
+  // ========================================
+  [ItemType.BUTCHER_KNIFE]: { x: 0, y: 5 },
+  [ItemType.LASER_PISTOL]: { x: 1, y: 5 },
+  [ItemType.GYROJET_SMG]: { x: 2, y: 5 },
+  [ItemType.GYROJET_SHOTGUN]: { x: 3, y: 5 },
+  [ItemType.MACRO_METAL_SWORD]: { x: 4, y: 5 },
+  [ItemType.VIBRA_SWORD]: { x: 5, y: 5 },
+  [ItemType.MACROMETAL_JACKET]: { x: 6, y: 5 },
+  [ItemType.PANIC_BUTTON]: { x: 7, y: 5 },
+  [ItemType.HOLOWALL]: { x: 8, y: 5 },
+  [ItemType.BONE]: { x: 9, y: 5 },
+  [ItemType.COOKIE]: { x: 10, y: 5 },
+  [ItemType.BLACK_PILL]: { x: 11, y: 5 },
+  [ItemType.COIN]: { x: 12, y: 5 },
+  [ItemType.ROCK]: { x: 13, y: 5 },
+  [ItemType.RUBBLE_CHUNK]: { x: 14, y: 5 },
+  [ItemType.TRASH]: { x: 15, y: 5 },
+  [ItemType.METAL_SCRAPS]: { x: 0, y: 6 },
+  [ItemType.VENDING_MACHINE]: { x: 1, y: 6 },
+  laser_bullet: { x: 2, y: 6 },
+
+  // ========================================
+  // Row 7 - New monsters
+  // ========================================
+  [MonsterType.GIANT_SPIDER]: { x: 0, y: 7 },
+  [MonsterType.WILD_DOG]: { x: 1, y: 7 },
+  [MonsterType.ICKY_LUMP]: { x: 2, y: 7 },
+  [MonsterType.SNAGGLEPUSS]: { x: 3, y: 7 },
+  [MonsterType.FLUTTERBANG]: { x: 4, y: 7 },
+  [MonsterType.MOPPET]: { x: 5, y: 7 },
+  [MonsterType.CYBERCOP]: { x: 6, y: 7 },
+  [MonsterType.ZYTH]: { x: 7, y: 7 },
+  [MonsterType.TENTACULAR_HORROR]: { x: 8, y: 7 },
+  [MonsterType.TERRORIST_COLLABORATOR]: { x: 9, y: 7 },
+  [MonsterType.DREADNAUGHT]: { x: 10, y: 7 },
 };
 
 export const FLOOR_VARIANTS: SpriteCoordinate[] = [
@@ -138,6 +176,22 @@ export const MONSTER_WALK_FRAMES: Record<MonsterType, SpriteCoordinate[]> = {
     SPRITE_COORDS.utility_bot_walk_1,
     SPRITE_COORDS.utility_bot_walk_2,
   ],
+  // New creatures use a single-frame "walk" (their idle sprite) for now.
+  [MonsterType.GIANT_SPIDER]: [SPRITE_COORDS[MonsterType.GIANT_SPIDER]],
+  [MonsterType.WILD_DOG]: [SPRITE_COORDS[MonsterType.WILD_DOG]],
+  [MonsterType.ICKY_LUMP]: [SPRITE_COORDS[MonsterType.ICKY_LUMP]],
+  [MonsterType.SNAGGLEPUSS]: [SPRITE_COORDS[MonsterType.SNAGGLEPUSS]],
+  [MonsterType.FLUTTERBANG]: [SPRITE_COORDS[MonsterType.FLUTTERBANG]],
+  [MonsterType.MOPPET]: [SPRITE_COORDS[MonsterType.MOPPET]],
+  [MonsterType.CYBERCOP]: [SPRITE_COORDS[MonsterType.CYBERCOP]],
+  [MonsterType.ZYTH]: [SPRITE_COORDS[MonsterType.ZYTH]],
+  [MonsterType.TENTACULAR_HORROR]: [
+    SPRITE_COORDS[MonsterType.TENTACULAR_HORROR],
+  ],
+  [MonsterType.TERRORIST_COLLABORATOR]: [
+    SPRITE_COORDS[MonsterType.TERRORIST_COLLABORATOR],
+  ],
+  [MonsterType.DREADNAUGHT]: [SPRITE_COORDS[MonsterType.DREADNAUGHT]],
 };
 
 export const MONSTER_IDLE_FRAMES: Record<MonsterType, SpriteCoordinate> = {
@@ -145,4 +199,16 @@ export const MONSTER_IDLE_FRAMES: Record<MonsterType, SpriteCoordinate> = {
   [MonsterType.RAT]: SPRITE_COORDS[MonsterType.RAT],
   [MonsterType.SKULKER]: SPRITE_COORDS[MonsterType.RAT],
   [MonsterType.UTILITY_BOT]: SPRITE_COORDS[MonsterType.UTILITY_BOT],
+  [MonsterType.GIANT_SPIDER]: SPRITE_COORDS[MonsterType.GIANT_SPIDER],
+  [MonsterType.WILD_DOG]: SPRITE_COORDS[MonsterType.WILD_DOG],
+  [MonsterType.ICKY_LUMP]: SPRITE_COORDS[MonsterType.ICKY_LUMP],
+  [MonsterType.SNAGGLEPUSS]: SPRITE_COORDS[MonsterType.SNAGGLEPUSS],
+  [MonsterType.FLUTTERBANG]: SPRITE_COORDS[MonsterType.FLUTTERBANG],
+  [MonsterType.MOPPET]: SPRITE_COORDS[MonsterType.MOPPET],
+  [MonsterType.CYBERCOP]: SPRITE_COORDS[MonsterType.CYBERCOP],
+  [MonsterType.ZYTH]: SPRITE_COORDS[MonsterType.ZYTH],
+  [MonsterType.TENTACULAR_HORROR]: SPRITE_COORDS[MonsterType.TENTACULAR_HORROR],
+  [MonsterType.TERRORIST_COLLABORATOR]:
+    SPRITE_COORDS[MonsterType.TERRORIST_COLLABORATOR],
+  [MonsterType.DREADNAUGHT]: SPRITE_COORDS[MonsterType.DREADNAUGHT],
 };

@@ -52,6 +52,18 @@ export enum MonsterType {
   RAT = "rat",
   SKULKER = "skulker",
   UTILITY_BOT = "utility-bot",
+  // New creatures (see src/content/monster-defs.ts for stats/behavior).
+  GIANT_SPIDER = "giant-spider",
+  WILD_DOG = "wild-dog",
+  ICKY_LUMP = "icky-lump",
+  SNAGGLEPUSS = "snagglepuss",
+  FLUTTERBANG = "flutterbang",
+  MOPPET = "moppet",
+  CYBERCOP = "cybercop",
+  ZYTH = "zyth",
+  TENTACULAR_HORROR = "tentacular-horror",
+  TERRORIST_COLLABORATOR = "terrorist-collaborator",
+  DREADNAUGHT = "dreadnaught",
 }
 
 export enum ItemType {
@@ -63,6 +75,25 @@ export enum ItemType {
   LAND_MINE = "land-mine",
   CTDM = "ctdm",
   POWERCELL = "powercell",
+  // New items (see src/content/item-defs.ts for metadata/behavior).
+  BUTCHER_KNIFE = "butcher-knife",
+  LASER_PISTOL = "laser-pistol",
+  GYROJET_SMG = "gyrojet-smg",
+  GYROJET_SHOTGUN = "gyrojet-shotgun",
+  MACRO_METAL_SWORD = "macro-metal-sword",
+  VIBRA_SWORD = "vibra-sword",
+  MACROMETAL_JACKET = "macrometal-jacket",
+  PANIC_BUTTON = "panic-button",
+  HOLOWALL = "holowall",
+  BONE = "bone",
+  COOKIE = "cookie",
+  BLACK_PILL = "black-pill",
+  COIN = "coin",
+  ROCK = "rock",
+  RUBBLE_CHUNK = "rubble-chunk",
+  TRASH = "trash",
+  METAL_SCRAPS = "metal-scraps",
+  VENDING_MACHINE = "vending-machine",
 }
 
 export enum WeaponType {
@@ -70,6 +101,10 @@ export enum WeaponType {
   PISTOL = "pistol",
   GRENADE = "grenade",
   LAND_MINE = "land-mine",
+  // New ranged firing modes.
+  LASER = "laser",
+  SMG = "smg",
+  SHOTGUN = "shotgun",
 }
 
 export type MultiplayerMode = "offline" | "online";

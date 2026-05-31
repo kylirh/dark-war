@@ -1,36 +1,7 @@
 import { EntityKind, ItemType } from "../types";
 import { GameEntity } from "./game-entity";
 import { RNG } from "../utils/rng";
-
-/**
- * Item metadata definitions
- */
-const ITEM_META = {
-  [ItemType.PISTOL]: {
-    name: "Pistol",
-  },
-  [ItemType.AMMO]: {
-    name: "Ammo",
-  },
-  [ItemType.MEDKIT]: {
-    name: "Medkit",
-  },
-  [ItemType.KEYCARD]: {
-    name: "Keycard",
-  },
-  [ItemType.GRENADE]: {
-    name: "Grenade",
-  },
-  [ItemType.LAND_MINE]: {
-    name: "Land Mine",
-  },
-  [ItemType.CTDM]: {
-    name: "CTDM Module",
-  },
-  [ItemType.POWERCELL]: {
-    name: "Powercell",
-  },
-};
+import { itemName } from "../content/item-defs";
 
 /**
  * Represents an item that can be picked up and used
@@ -55,7 +26,7 @@ export class ItemEntity extends GameEntity {
     super(gridX, gridY);
 
     this.type = type;
-    this.name = ITEM_META[type].name;
+    this.name = itemName(type);
 
     // Add type-specific properties
     if (type === ItemType.AMMO) {
@@ -64,6 +35,10 @@ export class ItemEntity extends GameEntity {
       this.heal = 6 + RNG.int(8);
     } else if (type === ItemType.POWERCELL) {
       this.amount = amount ?? 20 + RNG.int(21);
+    } else if (type === ItemType.COIN) {
+      this.amount = amount ?? 1 + RNG.int(5);
+    } else if (type === ItemType.ROCK) {
+      this.amount = amount ?? 1;
     }
 
     // Items are static. This ensures zero velocity.

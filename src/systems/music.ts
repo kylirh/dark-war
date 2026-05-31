@@ -56,12 +56,13 @@ interface VoiceGainTargets {
   utilityBot: number;
 }
 
-const DEFAULT_ENEMY_WEIGHTS: Record<MonsterType, number> = {
-  [MonsterType.MUTANT]: 0,
-  [MonsterType.RAT]: 0,
-  [MonsterType.SKULKER]: 0,
-  [MonsterType.UTILITY_BOT]: 0,
-};
+function zeroEnemyWeights(): Record<MonsterType, number> {
+  const weights = {} as Record<MonsterType, number>;
+  for (const type of Object.values(MonsterType)) weights[type] = 0;
+  return weights;
+}
+
+const DEFAULT_ENEMY_WEIGHTS: Record<MonsterType, number> = zeroEnemyWeights();
 
 const SCENE_ROOTS: Record<MusicScene, number> = {
   title: 36.71,
@@ -208,12 +209,7 @@ class MusicPlayer {
   private nextRadioAt: number = 0;
   private nextMusicStepAt: number = 0;
   private musicStepIndex: number = 0;
-  private nextLeitmotifAt: Record<MonsterType, number> = {
-    [MonsterType.MUTANT]: 0,
-    [MonsterType.RAT]: 0,
-    [MonsterType.SKULKER]: 0,
-    [MonsterType.UTILITY_BOT]: 0,
-  };
+  private nextLeitmotifAt: Record<MonsterType, number> = zeroEnemyWeights();
   private mood: MusicMood = {
     scene: "main-menu",
     combatIntensity: 0,

@@ -14,6 +14,7 @@ import {
 } from "../../types";
 import { idxFor, inBoundsFor, passableFor } from "../../utils/helpers";
 import { RNG } from "../../utils/rng";
+import { isRangedMonster } from "../../content/monster-defs";
 import { SoundEffect } from "../sound";
 import {
   MONSTER_SPEED,
@@ -440,7 +441,7 @@ export function updateMonsterSteering(state: GameState): void {
       continue;
     }
 
-    if (monster.type === MonsterType.SKULKER) {
+    if (isRangedMonster(monster.type)) {
       // When low on bullets, seek nearby ammo pickups
       if (monster.bullets < SKULKER_LOW_AMMO_THRESHOLD) {
         const AMMO_SEEK_RADIUS = CELL_CONFIG.w * 8;
@@ -646,7 +647,7 @@ function decideMonsterCommand(
     return makeIdleWanderCommand(state, monster, tick);
   }
 
-  const isSkulker = monster.type === MonsterType.SKULKER;
+  const isSkulker = isRangedMonster(monster.type);
 
   const waitCmd = (): Command => makeWaitCommand(monster, tick);
 
