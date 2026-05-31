@@ -56,48 +56,36 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(before.wallDamage![10]).not.toBe(after.wallDamage![10]);
   });
 
-  it("streams a large dungeon that fills in around the player", () => {
+  it("generates a large bounded dungeon in full, with the player on floor", () => {
     RNG.reseed(2024);
     const game = new Game({ mode: "offline" });
-    game.reset(1); // a streamed dungeon level
+    game.reset(1); // a dungeon level
     const state = game.getState();
 
     expect(state.mapWidth).toBe(128);
     expect(state.mapHeight).toBe(96);
-    // The player spawns on generated floor.
+    // The player spawns on floor (up-stairs at the entry).
     expect(state.tiles.passable(state.player.gridX, state.player.gridY)).toBe(true);
-
-    // The far chunk (containing the down-stairs at its centre) is ungenerated.
-    expect(state.tiles.getTile(104, 72)).toBe(TileType.WALL);
-
-    // Walk the player into that region and stream — it fills in.
-    state.player.worldX = 104 * 32 + 16;
-    state.player.worldY = 72 * 32 + 16;
-    const floorsBefore = state.map.filter((t) => t === TileType.FLOOR).length;
-    game.streamAroundPlayers();
-    const floorsAfter = state.map.filter((t) => t === TileType.FLOOR).length;
-
-    expect(floorsAfter).toBeGreaterThan(floorsBefore);
-    // The down-stairs got placed when its chunk generated.
-    expect(state.tiles.getTile(104, 72)).toBe(TileType.STAIRS_DOWN);
+    expect(state.tiles.getTile(state.player.gridX, state.player.gridY)).toBe(
+      TileType.STAIRS_UP,
+    );
+    // The whole level exists up front, with plenty of floor.
+    expect(state.map.filter((t) => t === TileType.FLOOR).length).toBeGreaterThan(800);
   });
 
-  it("descends from the outside into a streamed dungeon that keeps generating", () => {
+  it("descends from the outside into a bounded dungeon with down-stairs", () => {
     RNG.reseed(99);
     const game = new Game({ mode: "offline" });
     game.reset(0); // outside city
-    game.descend(); // → depth 1 streamed dungeon
+    game.descend(); // → depth 1 dungeon
     const state = game.getState();
 
     expect(state.depth).toBe(1);
     expect(state.levelKind).toBe("dungeon");
     expect(state.mapWidth).toBe(128);
-
-    state.player.worldX = 104 * 32 + 16;
-    state.player.worldY = 72 * 32 + 16;
-    const before = state.map.filter((t) => t === TileType.FLOOR).length;
-    game.streamAroundPlayers();
-    expect(state.map.filter((t) => t === TileType.FLOOR).length).toBeGreaterThan(before);
+    expect(state.tiles.getTile(state.stairsDown[0], state.stairsDown[1])).toBe(
+      TileType.STAIRS_DOWN,
+    );
   });
 
   it("keeps the player present in the entities list", () => {

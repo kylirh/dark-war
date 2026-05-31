@@ -1233,10 +1233,6 @@ class DarkWar {
       return;
     }
 
-    // Stream in dungeon chunks around the player (offline). Carved tiles get
-    // their colliders reconciled via the changedTiles pass below.
-    this.game.streamAroundPlayers();
-
     this.updateAutoMove(state);
 
     // Smooth time scale transitions

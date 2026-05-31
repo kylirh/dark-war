@@ -22,15 +22,14 @@ import {
 import { createOutsideLevel } from "./outside-level";
 import { EntityManager } from "./entity-manager";
 import { FlatTileSource } from "./tile-source";
-import { LevelStreamer } from "./level-streamer";
-import { CHUNK_SIZE } from "./chunked-map";
+import { generateDungeon } from "./dungeon-generator";
 import { PlayerEntity } from "../entities/player-entity";
 import { MonsterEntity } from "../entities/monster-entity";
 import { ItemEntity } from "../entities/item-entity";
 import { ExplosiveEntity } from "../entities/explosive-entity";
 import { BulletEntity } from "../entities/bullet-entity";
-import { RNG } from "../utils/rng";
-import { dist, passableFor, setPositionFromGrid } from "../utils/helpers";
+import { RNG, RandomNumberGenerator } from "../utils/rng";
+import { dist, passableFor, setPositionFromGrid, setTileFor } from "../utils/helpers";
 import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { Sound, SoundEffect } from "../systems/sound";
@@ -38,10 +37,9 @@ import { Sound, SoundEffect } from "../systems/sound";
 const EXPLORATION_COMPLETION_THRESHOLD = 0.9;
 const MIN_COMPLETION_REACHABLE_TILES = 50;
 const MAX_CORPSES_PER_LEVEL = 8;
-// Streamed dungeons: bounded-but-large maps that fill in around the player.
-const STREAM_DUNGEON_WIDTH = 128;
-const STREAM_DUNGEON_HEIGHT = 96;
-const STREAM_GEN_CHUNK_RADIUS = 2;
+// Bounded dungeon levels — large, generated in full up front.
+const DUNGEON_WIDTH = 128;
+const DUNGEON_HEIGHT = 96;
 
 interface LevelSnapshot {
   depth: number;
@@ -58,10 +56,6 @@ interface LevelSnapshot {
   stairsDown: [number, number];
   stairsUp: [number, number] | null;
   enhancedVision: boolean;
-  // Lazy generator + seed for streamed dungeon levels (absent for the outside
-  // level), preserved so the level keeps generating after an ascend/descend.
-  streamer?: LevelStreamer;
-  levelSeed?: number;
 }
 
 /**
@@ -74,9 +68,6 @@ export class Game {
   private levels = new Map<number, LevelSnapshot>();
   private multiplayerMode: MultiplayerMode;
   private localPlayerId?: string;
-  // Active level's lazy generator (dungeon levels only; null on the outside
-  // level and on the client, which receives already-generated tiles).
-  private streamer: LevelStreamer | null = null;
 
   constructor(options?: { mode?: MultiplayerMode; localPlayerId?: string }) {
     this.multiplayerMode = options?.mode ?? "offline";
@@ -163,8 +154,8 @@ export class Game {
     this.isDead = false;
     this.levels = new Map();
     const outside = depth === 0 ? createOutsideLevel() : null;
-    const streamed = outside ? null : this.createStreamedLevel();
-    const dungeon = outside ?? streamed!;
+    const dungeonLevel = outside ? null : this.createDungeonLevel(depth);
+    const dungeon = outside ?? dungeonLevel!;
 
     const player = new PlayerEntity(dungeon.start[0], dungeon.start[1]);
     const localPlayerId = player.id;
@@ -203,7 +194,7 @@ export class Game {
       players: [player],
       player,
       stairsDown: dungeon.stairsDown,
-      stairsUp: streamed ? streamed.stairsUp : null,
+      stairsUp: dungeonLevel ? dungeonLevel.stairsUp : null,
       playerStart: [dungeon.start[0], dungeon.start[1]],
       story: [],
       options: { fov: true, godMode: false },
@@ -234,10 +225,6 @@ export class Game {
 
     // Add player to entities
     this.state.entityManager.spawn(this.state.player);
-
-    // Streamed dungeon: keep the active generator and its seed.
-    this.streamer = streamed?.streamer ?? null;
-    this.state.levelSeed = streamed?.seed;
 
     if (outside) {
       // The CTDM (time-dilation device) has no place in multiplayer — online
@@ -481,20 +468,6 @@ export class Game {
     player: Player,
     position: [number, number],
   ): void {
-    // On a streamed level, generate the landing area first so the player arrives
-    // near where they fell/descended rather than at the nearest old floor.
-    if (this.streamer) {
-      const res = this.streamer.ensureAround(
-        this.state.map,
-        position[0],
-        position[1],
-        STREAM_GEN_CHUNK_RADIUS,
-      );
-      if (res.changed.length > 0) {
-        if (!this.state.changedTiles) this.state.changedTiles = new Set();
-        for (const i of res.changed) this.state.changedTiles.add(i);
-      }
-    }
     const [spawnX, spawnY] = this.findSpawnTile(position);
     setPositionFromGrid(player, spawnX, spawnY);
     player.velocityX = 0;
@@ -635,8 +608,6 @@ export class Game {
       stairsDown: this.state.stairsDown,
       stairsUp: this.state.stairsUp,
       enhancedVision: this.state.enhancedVision,
-      streamer: this.streamer ?? undefined,
-      levelSeed: this.state.levelSeed,
     };
     this.levels.set(currentDepth, snapshot);
   }
@@ -682,8 +653,6 @@ export class Game {
     this.state.stairsDown = snapshot.stairsDown;
     this.state.stairsUp = snapshot.stairsUp;
     this.state.enhancedVision = snapshot.enhancedVision;
-    this.streamer = snapshot.streamer ?? null;
-    this.state.levelSeed = snapshot.levelSeed;
 
     for (const player of this.state.players) {
       setPositionFromGrid(
@@ -703,11 +672,10 @@ export class Game {
   }
 
   /**
-   * Create a fresh streamed dungeon: a bounded-large solid map plus a seeded
-   * LevelStreamer, with the entry region generated so the player spawns on
-   * floor. The rest fills in as players approach (see streamAroundPlayers).
+   * Generate a fresh bounded dungeon level in full, up front, with the entry
+   * marked as up-stairs so the player can climb back out.
    */
-  private createStreamedLevel(): {
+  private createDungeonLevel(depth: number): {
     map: TileType[];
     width: number;
     height: number;
@@ -716,52 +684,29 @@ export class Game {
     start: [number, number];
     stairsDown: [number, number];
     stairsUp: [number, number];
-    seed: number;
-    streamer: LevelStreamer;
   } {
-    const width = STREAM_DUNGEON_WIDTH;
-    const height = STREAM_DUNGEON_HEIGHT;
     const seed = RNG.int(0x40000000);
-    const floorVariant = RNG.int(3);
-    const wallSet: WallSet = RNG.chance(0.5) ? "wood" : "concrete";
-    const map = new Array<TileType>(width * height).fill(TileType.WALL);
-
-    const half = CHUNK_SIZE >> 1;
-    // Entry near the top-left chunk; stairs down in a far chunk.
-    const start: [number, number] = [CHUNK_SIZE + half, CHUNK_SIZE + half];
-    const farChunkX = Math.floor(width / CHUNK_SIZE) - 2;
-    const farChunkY = Math.floor(height / CHUNK_SIZE) - 2;
-    const stairsDown: [number, number] = [
-      farChunkX * CHUNK_SIZE + half,
-      farChunkY * CHUNK_SIZE + half,
-    ];
-    const stairsUp: [number, number] = [start[0], start[1]];
-
-    const streamer = new LevelStreamer(
-      seed,
-      width,
-      height,
-      stairsUp,
-      stairsDown,
+    const d = generateDungeon(
+      DUNGEON_WIDTH,
+      DUNGEON_HEIGHT,
+      depth,
+      new RandomNumberGenerator(seed),
     );
-    streamer.ensureAround(map, start[0], start[1], STREAM_GEN_CHUNK_RADIUS);
-
+    setTileFor(d.map, d.start[0], d.start[1], d.width, TileType.STAIRS_UP);
     return {
-      map,
-      width,
-      height,
-      floorVariant,
-      wallSet,
-      start,
-      stairsDown,
-      stairsUp,
-      seed,
-      streamer,
+      map: d.map,
+      width: d.width,
+      height: d.height,
+      floorVariant: d.floorVariant,
+      wallSet: d.wallSet,
+      start: d.start,
+      stairsDown: d.stairsDown,
+      stairsUp: [d.start[0], d.start[1]],
     };
   }
 
   private buildNewLevel(depth: number): LevelSnapshot {
-    const level = this.createStreamedLevel();
+    const level = this.createDungeonLevel(depth);
 
     return {
       depth,
@@ -786,84 +731,7 @@ export class Game {
       stairsDown: level.stairsDown,
       stairsUp: level.stairsUp,
       enhancedVision: false,
-      streamer: level.streamer,
-      levelSeed: level.seed,
     };
-  }
-
-  /**
-   * Lazily generate streamed-dungeon chunks around each live player and
-   * populate newly revealed chunks with monsters/items. Carved tiles are added
-   * to changedTiles so the caller can refresh physics colliders incrementally;
-   * the map array itself is what serializes to clients. No-op off a streamed
-   * level. Run by the offline loop and the multiplayer server before stepping.
-   */
-  public streamAroundPlayers(): void {
-    if (!this.streamer) return;
-    for (const player of this.state.players) {
-      if (player.kind !== EntityKind.PLAYER || player.hp <= 0) continue;
-      const res = this.streamer.ensureAround(
-        this.state.map,
-        player.gridX,
-        player.gridY,
-        STREAM_GEN_CHUNK_RADIUS,
-      );
-      if (res.changed.length > 0) {
-        if (!this.state.changedTiles) this.state.changedTiles = new Set();
-        for (const i of res.changed) this.state.changedTiles.add(i);
-      }
-      for (const [cx, cy] of res.newChunks) this.spawnInChunk(cx, cy);
-    }
-  }
-
-  /** Scatter a few monsters/items into a freshly generated chunk. */
-  private spawnInChunk(cx: number, cy: number): void {
-    const startChunkX = Math.floor(this.state.playerStart[0] / CHUNK_SIZE);
-    const startChunkY = Math.floor(this.state.playerStart[1] / CHUNK_SIZE);
-    if (cx === startChunkX && cy === startChunkY) return; // keep the entry safe
-
-    const baseX = cx * CHUNK_SIZE;
-    const baseY = cy * CHUNK_SIZE;
-    const floors: [number, number][] = [];
-    for (let ly = 0; ly < CHUNK_SIZE; ly++) {
-      for (let lx = 0; lx < CHUNK_SIZE; lx++) {
-        const x = baseX + lx;
-        const y = baseY + ly;
-        if (!this.state.tiles.passable(x, y)) continue;
-        const nearPlayer = this.state.players.some(
-          (p) => p.hp > 0 && Math.abs(p.gridX - x) + Math.abs(p.gridY - y) < 6,
-        );
-        if (!nearPlayer) floors.push([x, y]);
-      }
-    }
-    if (floors.length === 0) return;
-
-    const depth = this.state.depth;
-    const monsterCount = RNG.int(3); // 0..2
-    for (let i = 0; i < monsterCount; i++) {
-      const [x, y] = floors[RNG.int(floors.length)];
-      const roll = RNG.int(10);
-      const type =
-        roll < 3
-          ? MonsterType.RAT
-          : roll < 5
-            ? MonsterType.SKULKER
-            : MonsterType.MUTANT;
-      this.state.entityManager.spawn(new MonsterEntity(x, y, type, depth));
-    }
-    if (RNG.chance(0.5)) {
-      const [x, y] = floors[RNG.int(floors.length)];
-      const roll = RNG.int(10);
-      const itemType =
-        roll < 5
-          ? ItemType.AMMO
-          : roll < 7
-            ? ItemType.MEDKIT
-            : roll < 9
-              ? ItemType.GRENADE
-              : ItemType.KEYCARD;
-      this.state.entityManager.spawn(new ItemEntity(x, y, itemType));
-    }
   }
 
   private spawnLevelEntities(
@@ -1184,7 +1052,6 @@ export class Game {
       wallDamage: this.state.wallDamage.slice(),
       stairsDown: this.state.stairsDown,
       stairsUp: this.state.stairsUp,
-      levelSeed: this.state.levelSeed,
       player: this.stripRuntimeEntityState(this.state.player) as Player,
       players: this.state.players.map(
         (player) => this.stripRuntimeEntityState(player) as Player,
@@ -1280,7 +1147,6 @@ export class Game {
         (data as { stairs?: [number, number] }).stairs ?? [0, 0],
       stairsUp: data.stairsUp ?? null,
       playerStart: data.stairsUp ?? data.stairsDown ?? [0, 0],
-      levelSeed: data.levelSeed,
       visible: new Set(),
       explored: new Set(exploredTiles),
       accessible: new Set(),
@@ -1338,27 +1204,6 @@ export class Game {
         entities: this.hydrateEntities(level.entities, level.depth),
         enhancedVision: level.enhancedVision ?? false,
       });
-    }
-
-    // Rebuild the lazy generator for an offline load so the world keeps filling
-    // in. Online clients never stream (the server is authoritative), so they
-    // leave it null and just render the tiles they're sent.
-    if (
-      this.multiplayerMode !== "online" &&
-      this.state.levelSeed !== undefined &&
-      this.state.levelKind === "dungeon"
-    ) {
-      const streamer = new LevelStreamer(
-        this.state.levelSeed,
-        this.state.mapWidth,
-        this.state.mapHeight,
-        this.state.stairsUp,
-        this.state.stairsDown,
-      );
-      streamer.markGeneratedFromMap(this.state.map);
-      this.streamer = streamer;
-    } else {
-      this.streamer = null;
     }
 
     this.isDead = false;
@@ -1586,11 +1431,6 @@ export class Game {
     explored: Set<number>,
   ): boolean {
     if (this.state.enhancedVision) {
-      return false;
-    }
-    // Streamed dungeons are never "fully explored" — they keep generating as you
-    // go, so exploring the currently-revealed region shouldn't reveal the level.
-    if (this.streamer) {
       return false;
     }
 

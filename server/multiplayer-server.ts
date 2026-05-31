@@ -640,10 +640,6 @@ class RoomSession {
     const dt = SIM_DT_MS / 1000;
     state.sim.mode = "REALTIME";
 
-    // Stream in dungeon chunks around players before simulating; carved tiles go
-    // into changedTiles and have their colliders reconciled below.
-    game.streamAroundPlayers();
-
     // Multiplayer runs at a fixed, slightly-relaxed real-time pace — no CTDM
     // time dilation, just a touch under full speed so combat is readable.
     state.sim.timeScale = ONLINE_TIME_SCALE;

@@ -387,10 +387,6 @@ export interface GameState {
   // Where a fresh player enters this level (same tile single-player starts on).
   // Network players spawn here so multiplayer matches single-player placement.
   playerStart: [number, number];
-  // Seed of the streamed dungeon generator for this level (absent for the
-  // outside level / non-streamed levels). Lets a loaded game rebuild the lazy
-  // generator and keep filling in the world.
-  levelSeed?: number;
   story: string[];
   options: {
     fov: boolean;
@@ -425,7 +421,6 @@ export interface SerializedState {
   wallDamage?: number[];
   stairsDown: [number, number];
   stairsUp?: [number, number] | null;
-  levelSeed?: number;
   player: Player;
   players?: Player[];
   entities: Entity[];
