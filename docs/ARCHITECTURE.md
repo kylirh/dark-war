@@ -7,19 +7,19 @@ Electron app never breaks.
 
 ## The four variants
 
-| # | Variant | What it is | Can host? | Can join? |
-|---|---------|-----------|-----------|-----------|
-| 1 | **Electron client** | Installable desktop app (mac/win/linux) | LAN (embedded server child process) | LAN games, Internet/dedicated servers |
-| 2 | **Headless server** | Node process you run on a box; hosts game(s) | yes (authoritative) | n/a |
-| 3 | **Web client** | Static files served over HTTP, played in any modern browser | no | single-player always; Internet servers (ws/wss); LAN servers *if given the address* |
-| 4 | **Arcade cabinet** | Tailored build for a stand-up cabinet (joystick + buttons), different pacing | TBD | TBD (likely single-player/attract first) |
+| #   | Variant             | What it is                                                                   | Can host?                           | Can join?                                                                           |
+| --- | ------------------- | ---------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------- |
+| 1   | **Electron client** | Installable desktop app (mac/win/linux)                                      | LAN (embedded server child process) | LAN games, Internet/dedicated servers                                               |
+| 2   | **Headless server** | Node process you run on a box; hosts game(s)                                 | yes (authoritative)                 | n/a                                                                                 |
+| 3   | **Web client**      | Static files served over HTTP, played in any modern browser                  | no                                  | single-player always; Internet servers (ws/wss); LAN servers _if given the address_ |
+| 4   | **Arcade cabinet**  | Tailored build for a stand-up cabinet (joystick + buttons), different pacing | TBD                                 | TBD (likely single-player/attract first)                                            |
 
 ### Can the web client join LAN / Internet multiplayer? (answering the brief)
 
 - **Internet / dedicated server: yes.** A browser can open a `WebSocket` to any
   reachable server. Use `wss://` (TLS) for public servers; browsers block mixed
   content, so a page served over `https://` must talk to a `wss://` server.
-- **LAN: yes, with a caveat.** A browser *can* connect to `ws://192.168.x.x:7777`
+- **LAN: yes, with a caveat.** A browser _can_ connect to `ws://192.168.x.x:7777`
   on the LAN — WebSocket is just TCP. What it **cannot** do is **auto-discover**
   LAN games: our discovery uses **UDP broadcast** (`DiscoveryManager`), and
   browsers have no UDP API. So a web player must **type the host:port** (or scan a
@@ -35,7 +35,7 @@ Electron app never breaks.
 The shared engine MUST be platform-agnostic: **no `import` of Pixi, the DOM,
 Electron, `ws`, `node:*`, or browser/Node globals** inside engine code. It deals in
 plain data (`GameState`, commands, events) and deterministic logic. This is what
-lets the *same* simulation run in the browser, in Electron, and on the headless
+lets the _same_ simulation run in the browser, in Electron, and on the headless
 server, and is already mostly true today (the `core` / `systems/simulation` /
 `physics` / `fov` / `entities` / `utils` code is pure; `renderer`, `sound`,
 `mouse-tracker`, `game-menu`, etc. are presentation).
@@ -102,14 +102,14 @@ dark-war/
 
 ## How today maps onto the target
 
-| Today | Target |
-|-------|--------|
-| `src/types.ts`, `src/core/*` (game, game-loop, generators, tile-source), `src/entities/*`, `src/systems/{simulation,physics,fov}`, `src/utils/*`, `src/config/sprites.ts` | `packages/engine` (sprites coords are data → engine `content/`; the PNG stays in `assets/`) |
-| `src/net/*` | `packages/net` |
-| `src/systems/{renderer,sound,mouse-tracker,input,*-modal,*-menu,inventory-bar,intro-story,title-screen,…}`, `src/main.ts` | `packages/client` (+ `apps/*` entry points) |
-| `server/multiplayer-server.ts` | split: hosting lib → `packages/server-core`; executable → `apps/server`; Electron embed → `apps/electron` |
-| `electron/*` | `apps/electron` |
-| `app/` (built output + index.html + assets) | `apps/electron` shell + `apps/web`; assets → top-level `assets/` |
+| Today                                                                                                                                                                     | Target                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `src/types.ts`, `src/core/*` (game, game-loop, generators, tile-source), `src/entities/*`, `src/systems/{simulation,physics,fov}`, `src/utils/*`, `src/config/sprites.ts` | `packages/engine` (sprites coords are data → engine `content/`; the PNG stays in `assets/`)               |
+| `src/net/*`                                                                                                                                                               | `packages/net`                                                                                            |
+| `src/systems/{renderer,sound,mouse-tracker,input,*-modal,*-menu,inventory-bar,intro-story,title-screen,…}`, `src/main.ts`                                                 | `packages/client` (+ `apps/*` entry points)                                                               |
+| `server/multiplayer-server.ts`                                                                                                                                            | split: hosting lib → `packages/server-core`; executable → `apps/server`; Electron embed → `apps/electron` |
+| `electron/*`                                                                                                                                                              | `apps/electron`                                                                                           |
+| `app/` (built output + index.html + assets)                                                                                                                               | `apps/electron` shell + `apps/web`; assets → top-level `assets/`                                          |
 
 ## Migration is staged, not big-bang
 

@@ -179,7 +179,10 @@ export class Renderer {
    */
   private resizeToViewport(): void {
     const { width, height } = this.computeViewportPixels();
-    if (this.app.renderer.width === width && this.app.renderer.height === height) {
+    if (
+      this.app.renderer.width === width &&
+      this.app.renderer.height === height
+    ) {
       return;
     }
     this.app.renderer.resize(width, height);
@@ -379,7 +382,9 @@ export class Renderer {
         }
 
         const tileIndex = mapX + mapY * state.mapWidth;
-        const isRevealed = usingShadowFov ? state.explored.has(tileIndex) : true;
+        const isRevealed = usingShadowFov
+          ? state.explored.has(tileIndex)
+          : true;
         if (!isRevealed) continue;
 
         const isVisible = usingShadowFov
@@ -405,7 +410,10 @@ export class Renderer {
     }
 
     const sortedEntities = state.entities
-      .filter((entity) => entity.kind !== EntityKind.PLAYER || entity.id !== player.id)
+      .filter(
+        (entity) =>
+          entity.kind !== EntityKind.PLAYER || entity.id !== player.id,
+      )
       .sort((a, b) => {
         const aIsItem = a.kind === EntityKind.ITEM ? 1 : 0;
         const bIsItem = b.kind === EntityKind.ITEM ? 1 : 0;
@@ -514,9 +522,12 @@ export class Renderer {
       tileCoord = SPRITE_COORDS[tileType];
     }
 
-    if (baseCoord) this.drawPreviewSprite(context, baseCoord, screenX, screenY, alpha);
-    if (overlayCoord) this.drawPreviewSprite(context, overlayCoord, screenX, screenY, alpha);
-    if (tileCoord) this.drawPreviewSprite(context, tileCoord, screenX, screenY, alpha);
+    if (baseCoord)
+      this.drawPreviewSprite(context, baseCoord, screenX, screenY, alpha);
+    if (overlayCoord)
+      this.drawPreviewSprite(context, overlayCoord, screenX, screenY, alpha);
+    if (tileCoord)
+      this.drawPreviewSprite(context, tileCoord, screenX, screenY, alpha);
   }
 
   private getPreviewEntitySpriteCoord(entity: GameState["entities"][number]): {
@@ -1078,16 +1089,20 @@ export class Renderer {
           ),
         );
         const frame = EXPLOSION_FRAMES[frameIndex];
-        const screenX = offsetX + this.wrapImage(effect.worldX, camCenterX, worldW, wraps);
-        const screenY = offsetY + this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
+        const screenX =
+          offsetX + this.wrapImage(effect.worldX, camCenterX, worldW, wraps);
+        const screenY =
+          offsetY + this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
         const sprite = this.createSprite(frame.x, frame.y, screenX, screenY);
         if (sprite) {
           sprite.anchor.set(0.5, 0.5);
           this.entityContainer.addChild(sprite);
         }
       } else if (effect.type === "spark") {
-        const screenX = offsetX + this.wrapImage(effect.worldX, camCenterX, worldW, wraps);
-        const screenY = offsetY + this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
+        const screenX =
+          offsetX + this.wrapImage(effect.worldX, camCenterX, worldW, wraps);
+        const screenY =
+          offsetY + this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
         const sprite = this.createSprite(
           SPRITE_COORDS.bullet.x,
           SPRITE_COORDS.bullet.y,
@@ -1107,8 +1122,12 @@ export class Renderer {
     // Render player last
     let playerX: number, playerY: number;
     if ("worldX" in player) {
-      playerX = offsetX + this.wrapImage((player as any).worldX, camCenterX, worldW, wraps);
-      playerY = offsetY + this.wrapImage((player as any).worldY, camCenterY, worldH, wraps);
+      playerX =
+        offsetX +
+        this.wrapImage((player as any).worldX, camCenterX, worldW, wraps);
+      playerY =
+        offsetY +
+        this.wrapImage((player as any).worldY, camCenterY, worldH, wraps);
     } else {
       playerX = offsetX + (player as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
       playerY = offsetY + (player as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;

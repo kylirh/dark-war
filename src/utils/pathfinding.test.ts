@@ -26,7 +26,12 @@ function fullyExplored(): Set<number> {
 }
 
 function monsterAt(x: number, y: number): Entity {
-  return { id: `m${x}-${y}`, kind: EntityKind.MONSTER, gridX: x, gridY: y } as unknown as Entity;
+  return {
+    id: `m${x}-${y}`,
+    kind: EntityKind.MONSTER,
+    gridX: x,
+    gridY: y,
+  } as unknown as Entity;
 }
 
 describe("findPath", () => {
@@ -43,13 +48,25 @@ describe("findPath", () => {
   });
 
   it("returns null when the destination is a wall", () => {
-    expect(findPath(1, 1, 0, 0, openMap(), fullyExplored(), [], W, H)).toBeNull();
+    expect(
+      findPath(1, 1, 0, 0, openMap(), fullyExplored(), [], W, H),
+    ).toBeNull();
   });
 });
 
 describe("findPathToClosestReachable", () => {
   it("reaches an open target", () => {
-    const path = findPathToClosestReachable(1, 1, 6, 6, openMap(), fullyExplored(), [], W, H);
+    const path = findPathToClosestReachable(
+      1,
+      1,
+      6,
+      6,
+      openMap(),
+      fullyExplored(),
+      [],
+      W,
+      H,
+    );
     expect(path).not.toBeNull();
     expect(path![path!.length - 1]).toEqual([6, 6]);
   });
@@ -60,7 +77,17 @@ describe("findPathToClosestReachable", () => {
     map[idxFor(5, 6, W)] = TileType.WALL;
     map[idxFor(6, 5, W)] = TileType.WALL;
     map[idxFor(5, 5, W)] = TileType.WALL;
-    const path = findPathToClosestReachable(1, 1, 6, 6, map, fullyExplored(), [], W, H);
+    const path = findPathToClosestReachable(
+      1,
+      1,
+      6,
+      6,
+      map,
+      fullyExplored(),
+      [],
+      W,
+      H,
+    );
     // A path is still returned, ending somewhere other than the blocked target.
     expect(path).not.toBeNull();
     expect(path![path!.length - 1]).not.toEqual([6, 6]);
@@ -71,7 +98,17 @@ describe("findPathToClosestReachable", () => {
     const map = openMap();
     // Column x=3 (rows 1..6) walled except where monsters stand, forcing detour.
     for (let y = 4; y <= 6; y++) map[idxFor(3, y, W)] = TileType.WALL;
-    const path = findPathToClosestReachable(1, 1, 6, 1, map, fullyExplored(), blockers, W, H);
+    const path = findPathToClosestReachable(
+      1,
+      1,
+      6,
+      1,
+      map,
+      fullyExplored(),
+      blockers,
+      W,
+      H,
+    );
     expect(path).not.toBeNull();
     // The path must not step onto a monster tile.
     for (const [x, y] of path!) {

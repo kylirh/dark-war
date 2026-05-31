@@ -134,14 +134,27 @@ describe("Physics.updateBullets (anti-tunnel)", () => {
 
     // Bullet starts left of it, moving right fast enough to leap clear past it
     // in a single 0.2s tick (600px/s * 0.2s = 120px, monster is mid-path).
-    const bullet = new BulletEntity(120, 176, 600, 0, 5, "shooter", 640, 2, 0, 0);
+    const bullet = new BulletEntity(
+      120,
+      176,
+      600,
+      0,
+      5,
+      "shooter",
+      640,
+      2,
+      0,
+      0,
+    );
     state.entityManager.spawn(bullet);
 
     physics.rebuildAll(state);
     physics.updateBullets(state, 0.2);
 
     const damage = state.eventQueue.find(
-      (e) => e.type === EventType.DAMAGE && (e.data as { targetId: string }).targetId === monster.id,
+      (e) =>
+        e.type === EventType.DAMAGE &&
+        (e.data as { targetId: string }).targetId === monster.id,
     );
     expect(damage).toBeDefined(); // no tunnelling — the hit registered
     expect(state.entities.some((e) => e.id === bullet.id)).toBe(false); // bullet consumed

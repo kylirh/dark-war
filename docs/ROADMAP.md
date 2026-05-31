@@ -9,10 +9,12 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 ---
 
 ## Phase 0 — Planning & docs
+
 - [x] `docs/ARCHITECTURE.md` (4-variant vision, ideal folder layout, LAN/web answers)
 - [x] `docs/ROADMAP.md` (this file)
 
 ## Phase 1 — Tooling & hygiene
+
 - [ ] Prettier config matching the existing style; `npm run format` / `format:check`
 - [ ] Format-on-commit (pre-commit hook formats staged files like VS Code autosave)
 - [ ] Pin/freeze dependency versions (exact, no `^`/`~`) to reduce supply-chain risk
@@ -20,6 +22,7 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - [ ] (later) lint pass — no linter configured yet; Prettier only for now
 
 ## Phase 2 — Asset generation pipeline
+
 - [ ] `tools/png.mjs` — dependency-free PNG decode/encode (zlib only)
 - [ ] `tools/gen-spritesheet.mjs` — extend `sprites.png` with new item/monster rows
 - [ ] `tools/gen-sounds.mjs` — synthesize new effect sounds (WAV)
@@ -27,6 +30,7 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - Note: art is intentionally simple/procedural placeholder; refine later.
 
 ## Phase 3 — Content: data layer
+
 - [ ] Extend `ItemType`, `WeaponType`, `MonsterType` enums
 - [ ] `content/items.ts` registry (display name, sprite key, category, stack, effects)
 - [ ] `content/monsters.ts` registry (hp, speed, damage, sight, loot, flags, spawn depth)
@@ -34,6 +38,7 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - [ ] Wire sprite coords for every new item/monster
 
 ## Phase 4 — Content: item mechanics
+
 - [ ] Death loot **spread** (scatter drops so they're individually visible)
 - [ ] **Magnetic auto-pickup** (radius; items drift to player & are collected)
 - [ ] Items **fall through holes** to the level below
@@ -51,9 +56,10 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - [ ] Utility bot cleans rubble/rocks/scraps/trash
 - [ ] Panic button (warp to a level closer to entrance; charges via power cells)
 - [ ] Holowall (place → spawns a wall tile)
-- [ ] Vending machine (sells random items)  — placed entity + buy interaction
+- [ ] Vending machine (sells random items) — placed entity + buy interaction
 
 ## Phase 5 — Content: monsters
+
 - [ ] Giant Spider (melee; chance to stun/slow on hit)
 - [ ] Icky Lump (slow, weak, breeds/multiplies, may drop coin, won't fight own kind)
 - [ ] Flutterbang (fast suicide bomber bat; bites then may explode)
@@ -68,6 +74,7 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - [ ] Depth-scaled spawn tables (minibosses & horrors on lower levels)
 
 ## Phase R — Restructure toward 4 variants (staged)
+
 - [ ] Scaffold workspace skeleton dirs + READMEs (`packages/*`, `apps/*`) — documented target
 - [ ] R1: extract `packages/engine` (pure core) behind `@dark-war/engine`
 - [ ] R2: extract `packages/net`
@@ -82,12 +89,14 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 > mechanical.
 
 ## Deferred / future (captured so nothing is lost)
+
 - Jaunt Troopers (panic-button call-in); Cybercop jail level; full dog naming UI.
 - Snagglepuss/Moppet inventory-theft UX polish; vending-machine economy balancing.
-- Cross-seam A* pathfinding on the toroidal outside world.
+- Cross-seam A\* pathfinding on the toroidal outside world.
 - Web client mixed-content guidance / QR LAN-join helper.
 
 ## Conventions reminder
+
 - TypeScript strict; kebab-case files; named exports; no barrels.
 - Commit messages end with the Co-Authored-By trailer.
 - Keep `npm run type-check`, `npm test`, and `npm run build:ts` green per commit.

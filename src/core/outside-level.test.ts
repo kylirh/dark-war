@@ -24,7 +24,13 @@ describe("createOutsideLevel", () => {
   it("places the facility entrance (down-stairs) tile", () => {
     const lvl = createOutsideLevel();
     expect(
-      tileAtFor(lvl.map, lvl.stairsDown[0], lvl.stairsDown[1], lvl.width, lvl.height),
+      tileAtFor(
+        lvl.map,
+        lvl.stairsDown[0],
+        lvl.stairsDown[1],
+        lvl.width,
+        lvl.height,
+      ),
     ).toBe(TileType.STAIRS_DOWN);
   });
 

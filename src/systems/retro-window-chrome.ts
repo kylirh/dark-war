@@ -22,14 +22,12 @@ const MIN_WINDOW_HEIGHT = 640;
  * Connects the custom retro window chrome to Electron window controls.
  */
 export class RetroWindowChrome {
-  private activeResize:
-    | {
-        edge: ResizeEdge;
-        startScreenX: number;
-        startScreenY: number;
-        startBounds: WindowBounds;
-      }
-    | null = null;
+  private activeResize: {
+    edge: ResizeEdge;
+    startScreenX: number;
+    startScreenY: number;
+    startBounds: WindowBounds;
+  } | null = null;
   private suppressNextClick = false;
 
   constructor() {

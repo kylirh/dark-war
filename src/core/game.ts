@@ -29,7 +29,12 @@ import { ItemEntity } from "../entities/item-entity";
 import { ExplosiveEntity } from "../entities/explosive-entity";
 import { BulletEntity } from "../entities/bullet-entity";
 import { RNG, RandomNumberGenerator } from "../utils/rng";
-import { dist, passableFor, setPositionFromGrid, setTileFor } from "../utils/helpers";
+import {
+  dist,
+  passableFor,
+  setPositionFromGrid,
+  setTileFor,
+} from "../utils/helpers";
 import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { Sound, SoundEffect } from "../systems/sound";

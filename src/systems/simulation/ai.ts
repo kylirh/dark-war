@@ -60,7 +60,10 @@ function botNextStep(
   // If target is impassable (or a hole), find the closest adjacent passable tile
   let goalX = toX,
     goalY = toY;
-  if (!passableFor(map, toX, toY, w, h) || map[idxFor(toX, toY, w)] === TileType.HOLE) {
+  if (
+    !passableFor(map, toX, toY, w, h) ||
+    map[idxFor(toX, toY, w)] === TileType.HOLE
+  ) {
     let bestDsq = Infinity;
     for (const [dx, dy] of [
       [-1, 0],
@@ -142,7 +145,13 @@ function botSteerToward(
   toGridX: number,
   toGridY: number,
 ): void {
-  const step = botNextStep(state, monster.gridX, monster.gridY, toGridX, toGridY);
+  const step = botNextStep(
+    state,
+    monster.gridX,
+    monster.gridY,
+    toGridX,
+    toGridY,
+  );
   if (!step) {
     m.velocityX = 0;
     m.velocityY = 0;
@@ -216,10 +225,7 @@ function findNearestReachableRepairTarget(
       if (isRepairable(nIdx)) return [nx, ny];
 
       // Traverse through passable, non-hole floor tiles only
-      if (
-        passableFor(map, nx, ny, w, h) &&
-        map[nIdx] !== TileType.HOLE
-      ) {
+      if (passableFor(map, nx, ny, w, h) && map[nIdx] !== TileType.HOLE) {
         queue.push(nIdx);
       }
     }
@@ -236,7 +242,9 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
     m.alertLevel = Math.max(0, m.alertLevel - MONSTER_ALERT_DECAY);
 
     // Refresh last known position if attacker still exists
-    const attacker = state.entities.find((e) => e.id === m.lastAttackerId) as any;
+    const attacker = state.entities.find(
+      (e) => e.id === m.lastAttackerId,
+    ) as any;
     if (attacker) {
       m.lastKnownPlayerX = attacker.worldX;
       m.lastKnownPlayerY = attacker.worldY;
@@ -285,7 +293,11 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
 
     // Find a new target only if we don't have one
     if (!m.currentRepairTarget) {
-      m.currentRepairTarget = findNearestReachableRepairTarget(state, monster.gridX, monster.gridY);
+      m.currentRepairTarget = findNearestReachableRepairTarget(
+        state,
+        monster.gridX,
+        monster.gridY,
+      );
     }
 
     const target = m.currentRepairTarget as [number, number] | null;
@@ -386,13 +398,7 @@ export function updateMonsterSteering(state: GameState): void {
       (monster.gridX - player.gridX) ** 2 + (monster.gridY - player.gridY) ** 2;
     const canSeePlayer =
       gridDistSq <= 15 * 15 &&
-      hasClearLineOfSight(
-        state.tiles,
-        m.worldX,
-        m.worldY,
-        p.worldX,
-        p.worldY,
-      );
+      hasClearLineOfSight(state.tiles, m.worldX, m.worldY, p.worldX, p.worldY);
 
     if (!canSeePlayer) {
       m.alertLevel = Math.max(0, (m.alertLevel ?? 0) - MONSTER_ALERT_DECAY);
@@ -602,7 +608,11 @@ function decideUtilityBotCommand(
       m.lastNuzzleTick = tick;
       const bwx = m.worldX ?? monster.gridX * CELL_CONFIG.w;
       const bwy = m.worldY ?? monster.gridY * CELL_CONFIG.h;
-      state.pendingSounds.push({ effect: SoundEffect.BEEP, worldX: bwx, worldY: bwy });
+      state.pendingSounds.push({
+        effect: SoundEffect.BEEP,
+        worldX: bwx,
+        worldY: bwy,
+      });
       const nuzzleMessages = [
         "The utility bot nuggles up to you.",
         "The utility bot purrs and nuzzles into you.",
@@ -612,7 +622,8 @@ function decideUtilityBotCommand(
         type: EventType.MESSAGE,
         data: {
           type: "MESSAGE",
-          message: nuzzleMessages[Math.floor(Math.random() * nuzzleMessages.length)],
+          message:
+            nuzzleMessages[Math.floor(Math.random() * nuzzleMessages.length)],
         },
       });
     }
@@ -718,7 +729,7 @@ function decideMonsterCommand(
   const playerWorldX = player.worldX;
   const playerWorldY = player.worldY;
   const hasGrenadeLOS = hasClearLineOfSight(
-        state.tiles,
+    state.tiles,
     monsterWorldX,
     monsterWorldY,
     playerWorldX,
@@ -745,7 +756,12 @@ function decideMonsterCommand(
   }
 
   // Lay land mine — skulkers skip this (they prefer distance)
-  if (!isSkulker && monster.landMines > 0 && distance <= 3 && RNG.chance(0.25)) {
+  if (
+    !isSkulker &&
+    monster.landMines > 0 &&
+    distance <= 3 &&
+    RNG.chance(0.25)
+  ) {
     return {
       id: crypto.randomUUID(),
       tick,
@@ -762,7 +778,7 @@ function decideMonsterCommand(
   const canSeePlayer =
     aiGridDistSq <= 15 * 15 &&
     hasClearLineOfSight(
-        state.tiles,
+      state.tiles,
       monster.worldX,
       monster.worldY,
       player.worldX,

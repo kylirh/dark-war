@@ -42,7 +42,12 @@ describe("tile read/write", () => {
 });
 
 describe("passability", () => {
-  const map = [TileType.FLOOR, TileType.WALL, TileType.DOOR_OPEN, TileType.DOOR_CLOSED];
+  const map = [
+    TileType.FLOOR,
+    TileType.WALL,
+    TileType.DOOR_OPEN,
+    TileType.DOOR_CLOSED,
+  ];
   it("passableFor reflects tile blocking and bounds", () => {
     expect(passableFor(map, 0, 0, 2, 2)).toBe(true); // floor
     expect(passableFor(map, 1, 0, 2, 2)).toBe(false); // wall
@@ -61,7 +66,12 @@ describe("dist", () => {
 
 describe("setPositionFromGrid", () => {
   it("centers the entity in the cell and resets interpolation", () => {
-    const entity = { worldX: 0, worldY: 0, prevWorldX: 0, prevWorldY: 0 } as Entity;
+    const entity = {
+      worldX: 0,
+      worldY: 0,
+      prevWorldX: 0,
+      prevWorldY: 0,
+    } as Entity;
     setPositionFromGrid(entity, 2, 3);
     expect(entity.worldX).toBe(2 * 32 + 16);
     expect(entity.worldY).toBe(3 * 32 + 16);

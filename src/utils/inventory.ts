@@ -148,11 +148,7 @@ export function getSlotKeyLabel(slotIndex: number): string {
   return labels[slotIndex] ?? "";
 }
 
-export function swapInventorySlots(
-  player: Player,
-  a: number,
-  b: number,
-): void {
+export function swapInventorySlots(player: Player, a: number, b: number): void {
   if (a < 0 || a >= INVENTORY_TOTAL_SLOTS) return;
   if (b < 0 || b >= INVENTORY_TOTAL_SLOTS) return;
   const tmp = player.inventorySlots[a];
@@ -183,10 +179,7 @@ export function moveInventorySlot(
   }
 
   // If the selected bar slot was involved, keep weapon in sync
-  if (
-    fromIndex < INVENTORY_BAR_SIZE ||
-    toIndex < INVENTORY_BAR_SIZE
-  ) {
+  if (fromIndex < INVENTORY_BAR_SIZE || toIndex < INVENTORY_BAR_SIZE) {
     // Caller is responsible for updating player.weapon after this
   }
 }

@@ -67,7 +67,7 @@ class SoundManager {
             },
             {
               once: true,
-            }
+            },
           );
           audio.addEventListener(
             "error",
@@ -77,7 +77,7 @@ class SoundManager {
             },
             {
               once: true,
-            }
+            },
           );
         });
 
@@ -104,10 +104,13 @@ class SoundManager {
 
     // Clone the audio node to allow overlapping plays
     const clone = audio.cloneNode() as HTMLAudioElement;
-    clone.volume = volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.volume;
+    clone.volume =
+      volume !== undefined ? Math.max(0, Math.min(1, volume)) : this.volume;
 
     // Clean up clone after it finishes or errors to prevent memory leak
-    const cleanup = (): void => { clone.src = ""; };
+    const cleanup = (): void => {
+      clone.src = "";
+    };
     clone.addEventListener("ended", cleanup, { once: true });
     clone.addEventListener("error", cleanup, { once: true });
 

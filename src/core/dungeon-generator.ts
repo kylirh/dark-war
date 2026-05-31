@@ -60,7 +60,8 @@ export function generateDungeon(
     const x = 2 + rng.int(Math.max(1, width - w - 4));
     const y = 2 + rng.int(Math.max(1, height - h - 4));
     const rect: Rect = { x, y, w, h };
-    if (rooms.some((other) => rectsOverlap(rect, other, ROOM_PADDING))) continue;
+    if (rooms.some((other) => rectsOverlap(rect, other, ROOM_PADDING)))
+      continue;
     rooms.push(rect);
     fillRect(set, rect, TileType.FLOOR);
   }
@@ -199,8 +200,7 @@ function caveifyRoom(
             walls += wallAt(x + dx, y + dy);
           }
         }
-        map[idxFor(x, y, width)] =
-          walls >= 5 ? TileType.WALL : TileType.FLOOR;
+        map[idxFor(x, y, width)] = walls >= 5 ? TileType.WALL : TileType.FLOOR;
       }
     }
   }

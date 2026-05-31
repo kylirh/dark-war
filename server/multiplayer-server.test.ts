@@ -16,9 +16,16 @@ function connect(port: number, name: string): WebSocket {
 }
 
 /** Resolve with the first message whose `type` matches. */
-function waitFor(socket: WebSocket, type: string, timeoutMs = 2000): Promise<any> {
+function waitFor(
+  socket: WebSocket,
+  type: string,
+  timeoutMs = 2000,
+): Promise<any> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`timeout waiting for ${type}`)), timeoutMs);
+    const timer = setTimeout(
+      () => reject(new Error(`timeout waiting for ${type}`)),
+      timeoutMs,
+    );
     socket.on("message", (raw) => {
       const msg = JSON.parse(raw.toString());
       if (msg.type === type) {

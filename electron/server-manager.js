@@ -47,7 +47,9 @@ class ServerManager {
     // Synchronously kill the child when this process exits (covers crashes/Ctrl+C).
     process.on("exit", () => {
       if (this._child) {
-        try { this._child.kill("SIGKILL"); } catch {}
+        try {
+          this._child.kill("SIGKILL");
+        } catch {}
       }
     });
   }
@@ -63,7 +65,9 @@ class ServerManager {
     return new Promise((resolve, reject) => {
       const bundlePath = this._findBundle();
       if (!bundlePath) {
-        return reject(new Error("Server bundle not found. Run npm run build:server."));
+        return reject(
+          new Error("Server bundle not found. Run npm run build:server."),
+        );
       }
 
       const child = fork(bundlePath, [`--port=${port}`], {
@@ -116,7 +120,9 @@ class ServerManager {
         if (!started) {
           this._child = null;
           this._port = null;
-          try { child.kill("SIGKILL"); } catch {}
+          try {
+            child.kill("SIGKILL");
+          } catch {}
           reject(new Error("Server start timeout"));
         }
       }, 5000);
@@ -209,7 +215,10 @@ class DiscoveryManager {
         // May fail on some systems — try anyway
       }
       this._sendBroadcast(socket, info);
-      this._broadcastTimer = setInterval(() => this._sendBroadcast(socket, info), DISCOVERY_INTERVAL_MS);
+      this._broadcastTimer = setInterval(
+        () => this._sendBroadcast(socket, info),
+        DISCOVERY_INTERVAL_MS,
+      );
     });
 
     this._broadcastSocket = socket;
@@ -228,7 +237,9 @@ class DiscoveryManager {
       this._broadcastTimer = null;
     }
     if (this._broadcastSocket) {
-      try { this._broadcastSocket.close(); } catch {}
+      try {
+        this._broadcastSocket.close();
+      } catch {}
       this._broadcastSocket = null;
     }
     this._broadcastInfo = null;
@@ -268,8 +279,12 @@ class DiscoveryManager {
     });
 
     socket.bind(DISCOVERY_PORT, "0.0.0.0", () => {
-      try { socket.setBroadcast(true); } catch {}
-      try { socket.addMembership("224.0.0.251"); } catch {}
+      try {
+        socket.setBroadcast(true);
+      } catch {}
+      try {
+        socket.addMembership("224.0.0.251");
+      } catch {}
     });
 
     this._listenSocket = socket;
@@ -282,7 +297,9 @@ class DiscoveryManager {
       this._pruneTimer = null;
     }
     if (this._listenSocket) {
-      try { this._listenSocket.close(); } catch {}
+      try {
+        this._listenSocket.close();
+      } catch {}
       this._listenSocket = null;
     }
     this._discoveredServers.clear();
@@ -297,19 +314,29 @@ class DiscoveryManager {
   }
 
   _sendBroadcast(socket, info) {
-    const payload = Buffer.from(JSON.stringify({
-      app: APP_ID,
-      name: info.name,
-      host: info.host,
-      wsPort: info.wsPort,
-      players: info.players ?? 0,
-      maxPlayers: info.maxPlayers ?? 4,
-      phase: info.phase ?? "lobby",
-    }), "utf8");
+    const payload = Buffer.from(
+      JSON.stringify({
+        app: APP_ID,
+        name: info.name,
+        host: info.host,
+        wsPort: info.wsPort,
+        players: info.players ?? 0,
+        maxPlayers: info.maxPlayers ?? 4,
+        phase: info.phase ?? "lobby",
+      }),
+      "utf8",
+    );
 
-    socket.send(payload, 0, payload.length, DISCOVERY_PORT, DISCOVERY_BROADCAST, (err) => {
-      if (err) console.error("[discovery] Send error:", err.message);
-    });
+    socket.send(
+      payload,
+      0,
+      payload.length,
+      DISCOVERY_PORT,
+      DISCOVERY_BROADCAST,
+      (err) => {
+        if (err) console.error("[discovery] Send error:", err.message);
+      },
+    );
   }
 
   _pruneStale() {

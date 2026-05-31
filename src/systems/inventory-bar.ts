@@ -1,8 +1,4 @@
-import {
-  INVENTORY_BAR_SIZE,
-  ItemType,
-  Player,
-} from "../types";
+import { INVENTORY_BAR_SIZE, ItemType, Player } from "../types";
 import { SPRITE_COORDS, SPRITE_SIZE } from "../config/sprites";
 import {
   getSlotActions,
@@ -134,7 +130,9 @@ export class InventoryBar {
     slotEl.classList.toggle("selected", isSelected);
     slotEl.classList.toggle("empty", !slot?.type);
 
-    const iconCanvas = slotEl.querySelector(".inv-slot-icon") as HTMLCanvasElement;
+    const iconCanvas = slotEl.querySelector(
+      ".inv-slot-icon",
+    ) as HTMLCanvasElement;
     const ctx = iconCanvas.getContext("2d");
     if (!ctx) return;
 
@@ -158,7 +156,10 @@ export class InventoryBar {
     // Charge / health bar
     const barFill = slotEl.querySelector(".inv-slot-bar-fill") as HTMLElement;
     if (slot?.type === ItemType.CTDM && player.hasCTDM) {
-      const pct = Math.max(0, Math.min(1, player.ctdmCharge / player.ctdmChargeMax));
+      const pct = Math.max(
+        0,
+        Math.min(1, player.ctdmCharge / player.ctdmChargeMax),
+      );
       barFill.style.width = `${pct * 100}%`;
       barFill.style.setProperty("--bar-color", this.ctdmBarColor(pct));
       barFill.parentElement!.style.display = "";
@@ -240,7 +241,9 @@ export class InventoryBar {
       html += `<div class="inv-tip-count">Count: ${count}</div>`;
     }
     if (slot.type === ItemType.CTDM) {
-      const pct = Math.round((this._lastPlayer.ctdmCharge / this._lastPlayer.ctdmChargeMax) * 100);
+      const pct = Math.round(
+        (this._lastPlayer.ctdmCharge / this._lastPlayer.ctdmChargeMax) * 100,
+      );
       const status = this._lastPlayer.ctdmEnabled ? "ON" : "OFF";
       html += `<div class="inv-tip-count">Charge: ${pct}% (${status})</div>`;
     }

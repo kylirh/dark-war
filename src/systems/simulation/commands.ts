@@ -77,7 +77,10 @@ export function clearCommandsForTick(state: GameState, tick: number): void {
 /**
  * Clean up old commands that are in the past and will never execute
  */
-export function cleanupOldCommands(state: GameState, currentTick: number): void {
+export function cleanupOldCommands(
+  state: GameState,
+  currentTick: number,
+): void {
   const keysToDelete: number[] = [];
 
   for (const tick of state.commandsByTick.keys()) {
@@ -329,7 +332,13 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           const targetX = player.gridX + dx;
           const targetY = player.gridY + dy;
           const hitWall = applyWallDamageAt(state, targetX, targetY, 2);
-          const targetTile = tileAtFor(state.map, targetX, targetY, state.mapWidth, state.mapHeight);
+          const targetTile = tileAtFor(
+            state.map,
+            targetX,
+            targetY,
+            state.mapWidth,
+            state.mapHeight,
+          );
           const isPerimeterWall =
             targetTile === TileType.WALL &&
             (targetX <= 0 ||
@@ -384,7 +393,10 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         }
 
         player.ammo--;
-        state.pendingSounds.push({ effect: SoundEffect.SHOOT, sourceId: player.id });
+        state.pendingSounds.push({
+          effect: SoundEffect.SHOOT,
+          sourceId: player.id,
+        });
 
         const BULLET_SPEED = 600; // pixels per second
         // Spawn at the muzzle: just in front of the player along the aim, outside
@@ -698,7 +710,13 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
   if (!actor) return;
 
   const data = cmd.data as { type: "INTERACT"; x: number; y: number };
-  const tile = tileAtFor(state.map, data.x, data.y, state.mapWidth, state.mapHeight);
+  const tile = tileAtFor(
+    state.map,
+    data.x,
+    data.y,
+    state.mapWidth,
+    state.mapHeight,
+  );
 
   if (tile === TileType.DOOR_CLOSED || tile === TileType.DOOR_OPEN) {
     // Toggle door open/closed

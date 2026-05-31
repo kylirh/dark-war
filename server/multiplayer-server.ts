@@ -8,7 +8,15 @@ import { SIM_DT_MS } from "../src/systems/simulation/constants";
 import { PROTOCOL_VERSION } from "../src/net/protocol";
 import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
 import { Sound } from "../src/systems/sound";
-import { CommandType, EntityKind, HOLE_FALL_DAMAGE, INVENTORY_BAR_SIZE, ONLINE_TIME_SCALE, SerializedState, TileType } from "../src/types";
+import {
+  CommandType,
+  EntityKind,
+  HOLE_FALL_DAMAGE,
+  INVENTORY_BAR_SIZE,
+  ONLINE_TIME_SCALE,
+  SerializedState,
+  TileType,
+} from "../src/types";
 import { getWeaponForSlot, swapInventorySlots } from "../src/utils/inventory";
 
 // Force a fresh keyframe at least this often (in broadcasts) so a client that
@@ -29,7 +37,14 @@ export interface LobbyPlayer {
 type RoomPhase = "lobby" | "playing";
 
 type IncomingAction =
-  | { type: "FIRE"; dx: number; dy: number; facingAngle?: number; targetWorldX?: number; targetWorldY?: number }
+  | {
+      type: "FIRE";
+      dx: number;
+      dy: number;
+      facingAngle?: number;
+      targetWorldX?: number;
+      targetWorldY?: number;
+    }
   | { type: "INTERACT"; dx: number; dy: number }
   | { type: "PICKUP" }
   | { type: "RELOAD" }
@@ -229,7 +244,12 @@ class RoomSession {
 
   // ── Public API ───────────────────────────────────────────────────────────────
 
-  public getInfo(): { roomId: string; phase: RoomPhase; players: LobbyPlayer[]; version: number } {
+  public getInfo(): {
+    roomId: string;
+    phase: RoomPhase;
+    players: LobbyPlayer[];
+    version: number;
+  } {
     return {
       roomId: this.id,
       phase: this.phase,
@@ -300,7 +320,9 @@ class RoomSession {
       }
     }
 
-    this.getOrCreateWorld(0).game.addStory(`${client.name} left room ${this.id}.`);
+    this.getOrCreateWorld(0).game.addStory(
+      `${client.name} left room ${this.id}.`,
+    );
 
     if (this.clients.size === 0) {
       if (this.tickHandle) {
@@ -379,7 +401,10 @@ class RoomSession {
     }
     if (message.type === "new_game") {
       if (client.playerId !== this.hostPlayerId) {
-        this.send(socket, { type: "error", message: "Only the host can start a new game." });
+        this.send(socket, {
+          type: "error",
+          message: "Only the host can start a new game.",
+        });
         return;
       }
       this.resetRoomState();
@@ -406,7 +431,10 @@ class RoomSession {
 
   // ── Private: velocity / actions ─────────────────────────────────────────────
 
-  private recordProcessedSeq(client: RoomClient, seq: number | undefined): void {
+  private recordProcessedSeq(
+    client: RoomClient,
+    seq: number | undefined,
+  ): void {
     const value = toFiniteNumber(seq);
     if (value !== null && value > client.lastProcessedSeq) {
       client.lastProcessedSeq = value;
@@ -457,9 +485,18 @@ class RoomSession {
       const facingAngle = toFiniteNumber(action.facingAngle);
       if (facingAngle !== null) player.facingAngle = facingAngle;
       enqueueCommand(state, {
-        tick, actorId: playerId, type: CommandType.FIRE,
-        data: { type: "FIRE", dx, dy, targetWorldX: toFiniteNumber(action.targetWorldX) ?? undefined, targetWorldY: toFiniteNumber(action.targetWorldY) ?? undefined },
-        priority: 0, source: "PLAYER",
+        tick,
+        actorId: playerId,
+        type: CommandType.FIRE,
+        data: {
+          type: "FIRE",
+          dx,
+          dy,
+          targetWorldX: toFiniteNumber(action.targetWorldX) ?? undefined,
+          targetWorldY: toFiniteNumber(action.targetWorldY) ?? undefined,
+        },
+        priority: 0,
+        source: "PLAYER",
       });
       return;
     }
@@ -470,9 +507,12 @@ class RoomSession {
       if (dx === null || dy === null) return;
       if (Math.abs(dx) + Math.abs(dy) !== 1) return;
       enqueueCommand(state, {
-        tick, actorId: playerId, type: CommandType.INTERACT,
+        tick,
+        actorId: playerId,
+        type: CommandType.INTERACT,
         data: { type: "INTERACT", x: player.gridX + dx, y: player.gridY + dy },
-        priority: 0, source: "PLAYER",
+        priority: 0,
+        source: "PLAYER",
       });
       return;
     }
@@ -490,9 +530,15 @@ class RoomSession {
     const commandType = commandTypeByAction[action.type];
     if (!commandType) return;
     enqueueCommand(state, {
-      tick, actorId: playerId, type: commandType,
-      data: { type: action.type } as { type: "WAIT" } | { type: "PICKUP" } | { type: "RELOAD" },
-      priority: 0, source: "PLAYER",
+      tick,
+      actorId: playerId,
+      type: commandType,
+      data: { type: action.type } as
+        | { type: "WAIT" }
+        | { type: "PICKUP" }
+        | { type: "RELOAD" },
+      priority: 0,
+      source: "PLAYER",
     });
   }
 
@@ -501,7 +547,8 @@ class RoomSession {
     if (!player) return;
     // `slot` is a 0-based inventory-bar index; the weapon is whatever item sits
     // there (authoritative, so it always matches the player's real inventory).
-    if (!Number.isInteger(slot) || slot < 0 || slot >= INVENTORY_BAR_SIZE) return;
+    if (!Number.isInteger(slot) || slot < 0 || slot >= INVENTORY_BAR_SIZE)
+      return;
     player.selectedBarSlot = slot;
     player.weapon = getWeaponForSlot(player.inventorySlots[slot] ?? null);
   }
@@ -514,7 +561,9 @@ class RoomSession {
     if (from < 0 || from >= total || to < 0 || to >= total) return;
     swapInventorySlots(player, from, to);
     // Keep the equipped weapon consistent with whatever now sits in the bar slot.
-    player.weapon = getWeaponForSlot(player.inventorySlots[player.selectedBarSlot] ?? null);
+    player.weapon = getWeaponForSlot(
+      player.inventorySlots[player.selectedBarSlot] ?? null,
+    );
   }
 
   private resetRoomState(): void {
@@ -532,7 +581,10 @@ class RoomSession {
 
   // ── Private: level transitions ───────────────────────────────────────────────
 
-  private tileUnderPlayer(world: LevelWorld, playerId: string): TileType | null {
+  private tileUnderPlayer(
+    world: LevelWorld,
+    playerId: string,
+  ): TileType | null {
     const player = world.game.getPlayerById(playerId);
     if (!player) return null;
     return world.game.getState().tiles.getTile(player.gridX, player.gridY);
@@ -734,7 +786,12 @@ class RoomSession {
         client.lastKeyframeSeq = seq;
         client.needsKeyframe = false;
       } else {
-        const delta = computeStateDelta(client.baseline!, next, seq, client.baselineSeq);
+        const delta = computeStateDelta(
+          client.baseline!,
+          next,
+          seq,
+          client.baselineSeq,
+        );
         this.send(client.socket, {
           type: "state_delta",
           delta,
@@ -747,7 +804,8 @@ class RoomSession {
     }
     // Sounds are consumed per broadcast; clear each active world's queue.
     for (const world of this.worlds.values()) {
-      if (world.players.size > 0) world.game.getState().pendingSounds.length = 0;
+      if (world.players.size > 0)
+        world.game.getState().pendingSounds.length = 0;
     }
   }
 
@@ -761,8 +819,10 @@ class RoomSession {
 
 function rawMessageToString(rawMessage: RawData): string {
   if (typeof rawMessage === "string") return rawMessage;
-  if (Array.isArray(rawMessage)) return Buffer.concat(rawMessage).toString("utf8");
-  if (rawMessage instanceof ArrayBuffer) return Buffer.from(rawMessage).toString("utf8");
+  if (Array.isArray(rawMessage))
+    return Buffer.concat(rawMessage).toString("utf8");
+  if (rawMessage instanceof ArrayBuffer)
+    return Buffer.from(rawMessage).toString("utf8");
   return rawMessage.toString("utf8");
 }
 
@@ -802,27 +862,47 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
 
   const rooms = new Map<string, RoomSession>();
 
-  const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
-    const url = new URL(req.url ?? "/", `http://localhost:${port}`);
+  const httpServer = createServer(
+    (req: IncomingMessage, res: ServerResponse) => {
+      const url = new URL(req.url ?? "/", `http://localhost:${port}`);
 
-    if (url.pathname === "/info") {
-      const roomId = sanitizeRoomId(url.searchParams.get("room"));
-      const room = rooms.get(roomId);
-      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-      res.end(JSON.stringify(room?.getInfo() ?? { roomId, phase: "lobby", players: [], version: 1 }));
-      return;
-    }
+      if (url.pathname === "/info") {
+        const roomId = sanitizeRoomId(url.searchParams.get("room"));
+        const room = rooms.get(roomId);
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(
+          JSON.stringify(
+            room?.getInfo() ?? {
+              roomId,
+              phase: "lobby",
+              players: [],
+              version: 1,
+            },
+          ),
+        );
+        return;
+      }
 
-    if (url.pathname === "/rooms") {
-      const list = Array.from(rooms.entries()).map(([id, room]) => ({ ...room.getInfo(), roomId: id }));
-      res.writeHead(200, { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" });
-      res.end(JSON.stringify(list));
-      return;
-    }
+      if (url.pathname === "/rooms") {
+        const list = Array.from(rooms.entries()).map(([id, room]) => ({
+          ...room.getInfo(),
+          roomId: id,
+        }));
+        res.writeHead(200, {
+          "Content-Type": "application/json",
+          "Access-Control-Allow-Origin": "*",
+        });
+        res.end(JSON.stringify(list));
+        return;
+      }
 
-    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("Dark War multiplayer server is running.\n");
-  });
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Dark War multiplayer server is running.\n");
+    },
+  );
 
   const wss = new WebSocketServer({ server: httpServer });
 
@@ -833,13 +913,17 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
 
     let room = rooms.get(roomId);
     if (!room) {
-      room = new RoomSession(roomId, (closedRoomId) => rooms.delete(closedRoomId));
+      room = new RoomSession(roomId, (closedRoomId) =>
+        rooms.delete(closedRoomId),
+      );
       rooms.set(roomId, room);
     }
 
     room.addClient(socket, playerName);
 
-    socket.on("message", (rawMessage) => room?.handleMessage(socket, rawMessage));
+    socket.on("message", (rawMessage) =>
+      room?.handleMessage(socket, rawMessage),
+    );
     socket.on("close", () => room?.removeClient(socket));
     socket.on("error", () => room?.removeClient(socket));
   });
@@ -848,8 +932,11 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
     httpServer.once("error", reject);
     httpServer.listen(port, () => {
       const address = httpServer.address();
-      const actualPort = typeof address === "object" && address ? address.port : port;
-      console.log(`[dark-war-server] Listening on ws://localhost:${actualPort}`);
+      const actualPort =
+        typeof address === "object" && address ? address.port : port;
+      console.log(
+        `[dark-war-server] Listening on ws://localhost:${actualPort}`,
+      );
       resolve({
         port: actualPort,
         close(): Promise<void> {
@@ -866,16 +953,22 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
 
 if (require.main === module) {
   const port = parsePort(process.argv.slice(2));
-  startMultiplayerServer(port).then(() => {
-    console.log(`[dark-war-server] Ready on port ${port}`);
-  }).catch((err) => {
-    console.error("[dark-war-server] Failed to start:", err);
-    process.exit(1);
-  });
+  startMultiplayerServer(port)
+    .then(() => {
+      console.log(`[dark-war-server] Ready on port ${port}`);
+    })
+    .catch((err) => {
+      console.error("[dark-war-server] Failed to start:", err);
+      process.exit(1);
+    });
 
   // IPC from parent process (when forked by Electron main)
   process.on("message", (msg: unknown) => {
-    if (typeof msg === "object" && msg !== null && (msg as Record<string, unknown>).type === "shutdown") {
+    if (
+      typeof msg === "object" &&
+      msg !== null &&
+      (msg as Record<string, unknown>).type === "shutdown"
+    ) {
       process.exit(0);
     }
   });

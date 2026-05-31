@@ -2,10 +2,21 @@ const { app, BrowserWindow, ipcMain, Menu, nativeImage } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const packageJson = require("../package.json");
-const { ServerManager, DiscoveryManager, getLocalIps } = require("./server-manager");
+const {
+  ServerManager,
+  DiscoveryManager,
+  getLocalIps,
+} = require("./server-manager");
 
 const APP_NAME = packageJson.productName || "Dark War";
-const APP_ICON = path.join(__dirname, "..", "app", "assets", "img", "app-icon.png");
+const APP_ICON = path.join(
+  __dirname,
+  "..",
+  "app",
+  "assets",
+  "img",
+  "app-icon.png",
+);
 
 app.setName(APP_NAME);
 app.setAppUserModelId(packageJson.build?.appId || "com.kylir.darkwar");
@@ -35,12 +46,20 @@ function parseGameQueryFromArgs(argv) {
     } else {
       rawKey = arg.slice(2);
       const next = argv[i + 1];
-      if (next && !next.startsWith("--")) { value = next; i++; }
+      if (next && !next.startsWith("--")) {
+        value = next;
+        i++;
+      }
     }
     if (!rawKey) continue;
     value = value.trim();
     if (!value) continue;
-    if (rawKey === "mode" || rawKey === "server" || rawKey === "room" || rawKey === "name") {
+    if (
+      rawKey === "mode" ||
+      rawKey === "server" ||
+      rawKey === "room" ||
+      rawKey === "name"
+    ) {
       query[rawKey] = value;
     }
   }
@@ -64,7 +83,9 @@ function sendToCommandWindow(channel, ...args) {
 }
 
 function sendFullscreenState(win, isFullscreen) {
-  win.webContents.send(isFullscreen ? "window:fullscreen-entered" : "window:fullscreen-left");
+  win.webContents.send(
+    isFullscreen ? "window:fullscreen-entered" : "window:fullscreen-left",
+  );
 }
 
 function isWindowFullscreen(win) {
@@ -77,7 +98,10 @@ function toggleWindowFullscreen(win) {
 
 function toggleWindowMaximize(win) {
   if (isWindowFullscreen(win)) return;
-  if (win.isMaximized()) { win.unmaximize(); return; }
+  if (win.isMaximized()) {
+    win.unmaximize();
+    return;
+  }
   win.maximize();
 }
 
@@ -113,7 +137,9 @@ function createWindow(options = {}) {
 
   win.on("enter-full-screen", () => sendFullscreenState(win, true));
   win.on("leave-full-screen", () => sendFullscreenState(win, false));
-  win.on("closed", () => { if (mainWindow === win) mainWindow = null; });
+  win.on("closed", () => {
+    if (mainWindow === win) mainWindow = null;
+  });
 
   win.loadFile(path.join(__dirname, "..", "app", "index.html"), { query });
   return win;
@@ -124,42 +150,77 @@ function createWindow(options = {}) {
 function createMenu() {
   const isMac = process.platform === "darwin";
   const template = [
-    ...(isMac ? [{
-      label: "Dark War",
-      submenu: [
-        { label: `About ${APP_NAME}`, click: () => sendToCommandWindow("game:about") },
-        { type: "separator" },
-        { role: "services" },
-        { type: "separator" },
-        { role: "hide" }, { role: "hideOthers" }, { role: "unhide" },
-        { type: "separator" },
-        { role: "quit" },
-      ],
-    }] : []),
+    ...(isMac
+      ? [
+          {
+            label: "Dark War",
+            submenu: [
+              {
+                label: `About ${APP_NAME}`,
+                click: () => sendToCommandWindow("game:about"),
+              },
+              { type: "separator" },
+              { role: "services" },
+              { type: "separator" },
+              { role: "hide" },
+              { role: "hideOthers" },
+              { role: "unhide" },
+              { type: "separator" },
+              { role: "quit" },
+            ],
+          },
+        ]
+      : []),
     {
       label: "Game",
       submenu: [
-        { label: "New Game", accelerator: "CmdOrCtrl+N", click: () => sendToCommandWindow("game:new") },
-        { label: "Save", accelerator: "CmdOrCtrl+S", click: () => sendToCommandWindow("game:save") },
-        { label: "Load", accelerator: "CmdOrCtrl+O", click: () => sendToCommandWindow("game:load") },
+        {
+          label: "New Game",
+          accelerator: "CmdOrCtrl+N",
+          click: () => sendToCommandWindow("game:new"),
+        },
+        {
+          label: "Save",
+          accelerator: "CmdOrCtrl+S",
+          click: () => sendToCommandWindow("game:save"),
+        },
+        {
+          label: "Load",
+          accelerator: "CmdOrCtrl+O",
+          click: () => sendToCommandWindow("game:load"),
+        },
         { type: "separator" },
         { label: "Quit", accelerator: "CmdOrCtrl+Q", role: "quit" },
       ],
     },
     {
       label: "Sound",
-      submenu: [{ label: "Sound Settings...", click: () => sendToCommandWindow("sound:settings") }],
+      submenu: [
+        {
+          label: "Sound Settings...",
+          click: () => sendToCommandWindow("sound:settings"),
+        },
+      ],
     },
     {
       label: "Help",
-      submenu: [{ label: "About Dark War...", click: () => sendToCommandWindow("game:about") }],
+      submenu: [
+        {
+          label: "About Dark War...",
+          click: () => sendToCommandWindow("game:about"),
+        },
+      ],
     },
     {
       label: "View",
       submenu: [
-        { role: "reload" }, { role: "forceReload" }, { role: "toggleDevTools" },
+        { role: "reload" },
+        { role: "forceReload" },
+        { role: "toggleDevTools" },
         { type: "separator" },
-        { role: "resetZoom" }, { role: "zoomIn" }, { role: "zoomOut" },
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
         { type: "separator" },
         {
           label: "Toggle Full Screen",
@@ -190,19 +251,34 @@ ipcMain.on("window:toggle-fullscreen", (event) => {
 ipcMain.handle("window:set-devtools-enabled", (event, enabled) => {
   const win = getEventWindow(event);
   if (!win) return false;
-  if (enabled) { if (!win.webContents.isDevToolsOpened()) win.webContents.openDevTools({ mode: "detach" }); }
-  else if (win.webContents.isDevToolsOpened()) win.webContents.closeDevTools();
+  if (enabled) {
+    if (!win.webContents.isDevToolsOpened())
+      win.webContents.openDevTools({ mode: "detach" });
+  } else if (win.webContents.isDevToolsOpened())
+    win.webContents.closeDevTools();
   return true;
 });
-ipcMain.handle("window:get-bounds", (event) => getEventWindow(event)?.getBounds() ?? null);
+ipcMain.handle(
+  "window:get-bounds",
+  (event) => getEventWindow(event)?.getBounds() ?? null,
+);
 ipcMain.on("window:set-bounds", (event, nextBounds) => {
   const win = getEventWindow(event);
   if (!win || isWindowFullscreen(win)) return;
-  if (!nextBounds || !Number.isFinite(nextBounds.width) || !Number.isFinite(nextBounds.height)) return;
+  if (
+    !nextBounds ||
+    !Number.isFinite(nextBounds.width) ||
+    !Number.isFinite(nextBounds.height)
+  )
+    return;
   const currentBounds = win.getBounds();
   win.setBounds({
-    x: Number.isFinite(nextBounds.x) ? Math.round(nextBounds.x) : currentBounds.x,
-    y: Number.isFinite(nextBounds.y) ? Math.round(nextBounds.y) : currentBounds.y,
+    x: Number.isFinite(nextBounds.x)
+      ? Math.round(nextBounds.x)
+      : currentBounds.x,
+    y: Number.isFinite(nextBounds.y)
+      ? Math.round(nextBounds.y)
+      : currentBounds.y,
     width: Math.max(MIN_WINDOW_WIDTH, Math.round(nextBounds.width)),
     height: Math.max(MIN_WINDOW_HEIGHT, Math.round(nextBounds.height)),
   });
@@ -212,8 +288,14 @@ ipcMain.handle("window:game-ready", async (event) => {
   if (!win) return false;
   const bounds = win.getBounds();
   const nextQuery = { ...initialGameQuery, skipTitle: "1", showMenu: "1" };
-  const gameWindow = createWindow({ ...bounds, query: nextQuery, transparentIntro: false });
-  gameWindow.webContents.once("did-finish-load", () => { if (!win.isDestroyed()) win.destroy(); });
+  const gameWindow = createWindow({
+    ...bounds,
+    query: nextQuery,
+    transparentIntro: false,
+  });
+  gameWindow.webContents.once("did-finish-load", () => {
+    if (!win.isDestroyed()) win.destroy();
+  });
   return true;
 });
 
@@ -404,7 +486,9 @@ app.whenReady().then(() => {
 
   createMenu();
   createWindow({ query: initialGameQuery, transparentIntro: true });
-  app.on("activate", () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
 });
 
 app.on("window-all-closed", async () => {

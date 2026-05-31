@@ -63,19 +63,43 @@ describe("hasClearLineOfSight", () => {
 
   it("is clear across open floor", () => {
     const map = openRow();
-    expect(hasClearLineOfSight(source(map), center(1), center(1), center(6), center(1))).toBe(true);
+    expect(
+      hasClearLineOfSight(
+        source(map),
+        center(1),
+        center(1),
+        center(6),
+        center(1),
+      ),
+    ).toBe(true);
   });
 
   it("is blocked by an opaque wall between the endpoints", () => {
     const map = openRow();
     map[3 + 1 * W] = TileType.WALL; // opaque tile in the path
-    expect(hasClearLineOfSight(source(map), center(1), center(1), center(6), center(1))).toBe(false);
+    expect(
+      hasClearLineOfSight(
+        source(map),
+        center(1),
+        center(1),
+        center(6),
+        center(1),
+      ),
+    ).toBe(false);
   });
 
   it("ignores opaque tiles exactly at the endpoints", () => {
     const map = openRow();
     map[1 + 1 * W] = TileType.WALL; // start cell
     map[6 + 1 * W] = TileType.WALL; // end cell
-    expect(hasClearLineOfSight(source(map), center(1), center(1), center(6), center(1))).toBe(true);
+    expect(
+      hasClearLineOfSight(
+        source(map),
+        center(1),
+        center(1),
+        center(6),
+        center(1),
+      ),
+    ).toBe(true);
   });
 });

@@ -120,7 +120,10 @@ export function loadPreferences(): UserPreferences {
     const legacyTheme = localStorage.getItem(LEGACY_THEME_KEY);
     return {
       sfxVolume: clampUnit(parsed.sfxVolume, DEFAULT_PREFERENCES.sfxVolume),
-      musicVolume: clampUnit(parsed.musicVolume, DEFAULT_PREFERENCES.musicVolume),
+      musicVolume: clampUnit(
+        parsed.musicVolume,
+        DEFAULT_PREFERENCES.musicVolume,
+      ),
       theme: normalizeTheme(parsed.theme ?? legacyTheme),
       zoom: normalizeZoom(parsed.zoom),
       devTools: parsed.devTools === true,

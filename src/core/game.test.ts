@@ -68,12 +68,16 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(state.mapWidth).toBe(128);
     expect(state.mapHeight).toBe(96);
     // The player spawns on floor (up-stairs at the entry).
-    expect(state.tiles.passable(state.player.gridX, state.player.gridY)).toBe(true);
+    expect(state.tiles.passable(state.player.gridX, state.player.gridY)).toBe(
+      true,
+    );
     expect(state.tiles.getTile(state.player.gridX, state.player.gridY)).toBe(
       TileType.STAIRS_UP,
     );
     // The whole level exists up front, with plenty of floor.
-    expect(state.map.filter((t) => t === TileType.FLOOR).length).toBeGreaterThan(800);
+    expect(
+      state.map.filter((t) => t === TileType.FLOOR).length,
+    ).toBeGreaterThan(800);
   });
 
   it("descends from the outside into a bounded dungeon with down-stairs", () => {
@@ -143,8 +147,12 @@ describe("Game multiplayer player management", () => {
     expect(game.getState().players.length).toBe(startCount + 1);
 
     game.removeNetworkPlayer("remote-1");
-    expect(game.getState().players.some((p) => p.id === "remote-1")).toBe(false);
-    expect(game.getState().entities.some((e) => e.id === "remote-1")).toBe(false);
+    expect(game.getState().players.some((p) => p.id === "remote-1")).toBe(
+      false,
+    );
+    expect(game.getState().entities.some((e) => e.id === "remote-1")).toBe(
+      false,
+    );
   });
 
   it("suppresses a shooter's own shoot-sound echo but not for other players", () => {
@@ -153,9 +161,13 @@ describe("Game multiplayer player management", () => {
     game.addNetworkPlayer("p1");
     game.addNetworkPlayer("p2");
     // SoundEffect.SHOOT === "gyrojet-pistol"; p1 fired (predicts it locally).
-    game.getState().pendingSounds.push({ effect: "gyrojet-pistol", sourceId: "p1" });
+    game
+      .getState()
+      .pendingSounds.push({ effect: "gyrojet-pistol", sourceId: "p1" });
 
-    expect(game.serializeForPlayer("p1").sounds).not.toContain("gyrojet-pistol");
+    expect(game.serializeForPlayer("p1").sounds).not.toContain(
+      "gyrojet-pistol",
+    );
     expect(game.serializeForPlayer("p2").sounds).toContain("gyrojet-pistol");
   });
 
@@ -180,8 +192,12 @@ describe("Game multiplayer player management", () => {
 
     const detached = from.detachPlayer("traveler");
     expect(detached).toBe(player);
-    expect(from.getState().players.some((p) => p.id === "traveler")).toBe(false);
-    expect(from.getState().entities.some((e) => e.id === "traveler")).toBe(false);
+    expect(from.getState().players.some((p) => p.id === "traveler")).toBe(
+      false,
+    );
+    expect(from.getState().entities.some((e) => e.id === "traveler")).toBe(
+      false,
+    );
 
     to.attachExistingPlayer(detached!, to.getState().stairsUp ?? [1, 1]);
     const moved = to.getState().players.find((p) => p.id === "traveler");

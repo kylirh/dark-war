@@ -118,7 +118,8 @@ export interface InventorySlot {
 
 export const INVENTORY_BAR_SIZE = 12;
 export const INVENTORY_EXTENDED_ROWS = 2;
-export const INVENTORY_TOTAL_SLOTS = INVENTORY_BAR_SIZE * (1 + INVENTORY_EXTENDED_ROWS); // 36
+export const INVENTORY_TOTAL_SLOTS =
+  INVENTORY_BAR_SIZE * (1 + INVENTORY_EXTENDED_ROWS); // 36
 
 export const STACKABLE_ITEMS: ItemType[] = [
   ItemType.AMMO,
@@ -403,7 +404,12 @@ export interface GameState {
   descendTarget?: [number, number];
   changedTiles?: Set<number>; // Track tiles that changed for physics updates
   holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
-  pendingSounds: Array<{ effect: string; worldX?: number; worldY?: number; sourceId?: string }>; // Sound effects queued during simulation for playback (sourceId = actor that caused it)
+  pendingSounds: Array<{
+    effect: string;
+    worldX?: number;
+    worldY?: number;
+    sourceId?: string;
+  }>; // Sound effects queued during simulation for playback (sourceId = actor that caused it)
 }
 
 // ========================================
@@ -574,7 +580,7 @@ export const TILE_DEFINITIONS: Record<TileType, TileDefinition> = {
     opaque: false,
   },
   [TileType.WEEDS]: {
-    ch: "\"",
+    ch: '"',
     color: "#6f9b4f",
     bg: "#21321f",
     block: false,

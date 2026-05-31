@@ -23,7 +23,10 @@ import {
 import { MonsterType, WeaponType } from "../../types";
 
 /** Coerce an optional amount to a positive integer, or use the fallback. */
-export function positiveAmount(value: number | undefined, fallback: number): number {
+export function positiveAmount(
+  value: number | undefined,
+  fallback: number,
+): number {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
     return Math.max(1, Math.floor(value));
   }
@@ -144,7 +147,11 @@ export function getEventDepth(state: GameState, causeId: string): number {
   return causeEvent ? causeEvent.depth : 0;
 }
 
-export function canActorAct(state: GameState, actorId: string, tick: number): boolean {
+export function canActorAct(
+  state: GameState,
+  actorId: string,
+  tick: number,
+): boolean {
   const entity = state.entities.find((e) => e.id === actorId);
   if (!entity) return false;
 
@@ -160,7 +167,11 @@ export function canActorAct(state: GameState, actorId: string, tick: number): bo
   return tick >= nextAct;
 }
 
-export function getActionCost(state: GameState, cmd: Command, actor: Entity): number {
+export function getActionCost(
+  state: GameState,
+  cmd: Command,
+  actor: Entity,
+): number {
   // In planning mode, everyone acts at same rate (turn-based)
   if (state.sim.mode === "PLANNING") {
     return 1;

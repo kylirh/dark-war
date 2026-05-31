@@ -1,10 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  ItemType,
-  WeaponType,
-  Player,
-  INVENTORY_TOTAL_SLOTS,
-} from "../types";
+import { ItemType, WeaponType, Player, INVENTORY_TOTAL_SLOTS } from "../types";
 import {
   isInventoryFull,
   canAddToInventory,
@@ -20,7 +15,9 @@ import {
 
 function makePlayer(overrides: Partial<Player> = {}): Player {
   return {
-    inventorySlots: Array.from({ length: INVENTORY_TOTAL_SLOTS }, () => ({ type: null })),
+    inventorySlots: Array.from({ length: INVENTORY_TOTAL_SLOTS }, () => ({
+      type: null,
+    })),
     ammo: 0,
     ammoReserve: 0,
     grenades: 0,
@@ -49,7 +46,9 @@ describe("inventory add/remove", () => {
     addToInventory(player, ItemType.PISTOL);
     expect(canAddToInventory(player, ItemType.PISTOL)).toBe(false);
     addToInventory(player, ItemType.PISTOL);
-    const pistolSlots = player.inventorySlots.filter((s) => s.type === ItemType.PISTOL);
+    const pistolSlots = player.inventorySlots.filter(
+      (s) => s.type === ItemType.PISTOL,
+    );
     expect(pistolSlots).toHaveLength(1);
   });
 
@@ -57,7 +56,9 @@ describe("inventory add/remove", () => {
     const player = makePlayer();
     addToInventory(player, ItemType.AMMO);
     addToInventory(player, ItemType.AMMO);
-    const ammoSlots = player.inventorySlots.filter((s) => s.type === ItemType.AMMO);
+    const ammoSlots = player.inventorySlots.filter(
+      (s) => s.type === ItemType.AMMO,
+    );
     expect(ammoSlots).toHaveLength(1);
   });
 
@@ -72,21 +73,31 @@ describe("inventory add/remove", () => {
     const player = makePlayer();
     addToInventory(player, ItemType.PISTOL);
     removeFromInventory(player, ItemType.PISTOL);
-    expect(player.inventorySlots.some((s) => s.type === ItemType.PISTOL)).toBe(false);
+    expect(player.inventorySlots.some((s) => s.type === ItemType.PISTOL)).toBe(
+      false,
+    );
   });
 });
 
 describe("slot queries", () => {
   it("maps weapon-bearing slots to their weapon and others to melee", () => {
     expect(getWeaponForSlot({ type: ItemType.PISTOL })).toBe(WeaponType.PISTOL);
-    expect(getWeaponForSlot({ type: ItemType.GRENADE })).toBe(WeaponType.GRENADE);
-    expect(getWeaponForSlot({ type: ItemType.LAND_MINE })).toBe(WeaponType.LAND_MINE);
+    expect(getWeaponForSlot({ type: ItemType.GRENADE })).toBe(
+      WeaponType.GRENADE,
+    );
+    expect(getWeaponForSlot({ type: ItemType.LAND_MINE })).toBe(
+      WeaponType.LAND_MINE,
+    );
     expect(getWeaponForSlot({ type: ItemType.MEDKIT })).toBe(WeaponType.MELEE);
     expect(getWeaponForSlot(null)).toBe(WeaponType.MELEE);
   });
 
   it("shows the relevant counter per slot type", () => {
-    const player = makePlayer({ ammo: 6, grenades: 3, keys: 2 } as Partial<Player>);
+    const player = makePlayer({
+      ammo: 6,
+      grenades: 3,
+      keys: 2,
+    } as Partial<Player>);
     player.inventorySlots[0].type = ItemType.PISTOL;
     player.inventorySlots[1].type = ItemType.GRENADE;
     player.inventorySlots[2].type = ItemType.KEYCARD;

@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { GameState, TileType, WALL_MAX_DAMAGE, FLOOR_MAX_DAMAGE } from "../types";
+import {
+  GameState,
+  TileType,
+  WALL_MAX_DAMAGE,
+  FLOOR_MAX_DAMAGE,
+} from "../types";
 import { applyWallDamageAt, applyWallDamageAtIndex } from "./walls";
 import { idxFor } from "./helpers";
 

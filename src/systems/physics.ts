@@ -292,16 +292,32 @@ export class Physics {
 
       if (state.levelKind === "outside") {
         // Toroidal world: fall off one edge, reappear on the other.
-        entity.worldX = wrapValue(entity.worldX, state.mapWidth * CELL_CONFIG.w);
-        entity.worldY = wrapValue(entity.worldY, state.mapHeight * CELL_CONFIG.h);
+        entity.worldX = wrapValue(
+          entity.worldX,
+          state.mapWidth * CELL_CONFIG.w,
+        );
+        entity.worldY = wrapValue(
+          entity.worldY,
+          state.mapHeight * CELL_CONFIG.h,
+        );
       } else {
         const minBound = CELL_CONFIG.w + PLAYER_RADIUS;
         const maxBoundX = (state.mapWidth - 1) * CELL_CONFIG.w - PLAYER_RADIUS;
         const maxBoundY = (state.mapHeight - 1) * CELL_CONFIG.h - PLAYER_RADIUS;
-        if (entity.worldX < minBound) { entity.worldX = minBound; entity.velocityX = 0; }
-        else if (entity.worldX > maxBoundX) { entity.worldX = maxBoundX; entity.velocityX = 0; }
-        if (entity.worldY < minBound) { entity.worldY = minBound; entity.velocityY = 0; }
-        else if (entity.worldY > maxBoundY) { entity.worldY = maxBoundY; entity.velocityY = 0; }
+        if (entity.worldX < minBound) {
+          entity.worldX = minBound;
+          entity.velocityX = 0;
+        } else if (entity.worldX > maxBoundX) {
+          entity.worldX = maxBoundX;
+          entity.velocityX = 0;
+        }
+        if (entity.worldY < minBound) {
+          entity.worldY = minBound;
+          entity.velocityY = 0;
+        } else if (entity.worldY > maxBoundY) {
+          entity.worldY = maxBoundY;
+          entity.velocityY = 0;
+        }
       }
     }
 
@@ -404,15 +420,25 @@ export class Physics {
 
       if (state.levelKind === "outside") {
         // Toroidal world: wrap entities around the seam instead of clamping.
-        entity.worldX = wrapValue(entity.worldX, state.mapWidth * CELL_CONFIG.w);
-        entity.worldY = wrapValue(entity.worldY, state.mapHeight * CELL_CONFIG.h);
+        entity.worldX = wrapValue(
+          entity.worldX,
+          state.mapWidth * CELL_CONFIG.w,
+        );
+        entity.worldY = wrapValue(
+          entity.worldY,
+          state.mapHeight * CELL_CONFIG.h,
+        );
       } else {
         // Clamp to world bounds to prevent entities escaping the map.
         // (Bullets are handled in updateBullets and skipped above.)
-        const entityRadius = entity.kind === EntityKind.PLAYER ? PLAYER_RADIUS
-          : entity.kind === EntityKind.MONSTER ? MONSTER_RADIUS
-          : entity.kind === EntityKind.EXPLOSIVE ? EXPLOSIVE_RADIUS
-          : 8;
+        const entityRadius =
+          entity.kind === EntityKind.PLAYER
+            ? PLAYER_RADIUS
+            : entity.kind === EntityKind.MONSTER
+              ? MONSTER_RADIUS
+              : entity.kind === EntityKind.EXPLOSIVE
+                ? EXPLOSIVE_RADIUS
+                : 8;
         const minBound = CELL_CONFIG.w + entityRadius;
         const maxBoundX = (state.mapWidth - 1) * CELL_CONFIG.w - entityRadius;
         const maxBoundY = (state.mapHeight - 1) * CELL_CONFIG.h - entityRadius;
@@ -656,7 +682,9 @@ export class Physics {
    * wall impacts in their own update passes so they can expire or ricochet.
    */
   private usesActorWallResolution(entity: GameEntity): boolean {
-    return entity.kind === EntityKind.PLAYER || entity.kind === EntityKind.MONSTER;
+    return (
+      entity.kind === EntityKind.PLAYER || entity.kind === EntityKind.MONSTER
+    );
   }
 
   /**
@@ -689,7 +717,8 @@ export class Physics {
     const bullets: BulletEntity[] = [];
     for (const e of state.entities) {
       if (e instanceof GameEntity) entityMap.set(e.id, e);
-      if (e.kind === EntityKind.BULLET && e instanceof BulletEntity) bullets.push(e);
+      if (e.kind === EntityKind.BULLET && e instanceof BulletEntity)
+        bullets.push(e);
     }
 
     for (const bullet of bullets) {
@@ -708,7 +737,10 @@ export class Physics {
 
       // Sub-step the movement so a fast bullet can't skip over (tunnel through)
       // an enemy between frames — the root cause of "bullets pass through".
-      const substeps = Math.max(1, Math.ceil(frameDistance / BULLET_SUBSTEP_PX));
+      const substeps = Math.max(
+        1,
+        Math.ceil(frameDistance / BULLET_SUBSTEP_PX),
+      );
       const stepDt = dt / substeps;
 
       // prevWorld marks the whole frame's start (used for render interpolation).
@@ -767,7 +799,8 @@ export class Physics {
           applyWallDamageAtIndex(state, tileIndex, bullet.damage);
         }
         if (!ricocheted) {
-          const baseAngle = Math.atan2(bullet.velocityY, bullet.velocityX) + Math.PI;
+          const baseAngle =
+            Math.atan2(bullet.velocityY, bullet.velocityX) + Math.PI;
           for (let s = 0; s < 7; s++) {
             const angle = baseAngle + (Math.random() - 0.5) * 1.8;
             const sparkSpeed = 60 + Math.random() * 120;
@@ -789,7 +822,10 @@ export class Physics {
       }
 
       // Hit actor
-      const targetEntity = this.getEntityFromBody(entityMap, other as Circle | Box);
+      const targetEntity = this.getEntityFromBody(
+        entityMap,
+        other as Circle | Box,
+      );
       if (
         targetEntity &&
         (targetEntity.kind === EntityKind.MONSTER ||
@@ -891,7 +927,8 @@ export class Physics {
     const explosives: ExplosiveEntity[] = [];
     for (const e of state.entities) {
       if (e instanceof GameEntity) entityMap.set(e.id, e);
-      if (e.kind === EntityKind.EXPLOSIVE && e instanceof ExplosiveEntity) explosives.push(e);
+      if (e.kind === EntityKind.EXPLOSIVE && e instanceof ExplosiveEntity)
+        explosives.push(e);
     }
 
     for (const explosive of explosives) {

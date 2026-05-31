@@ -28,10 +28,13 @@ describe("generateDungeon", () => {
   it("places the start and far-away down-stairs on reachable floor", () => {
     const d = gen(2);
     expect(passableFor(d.map, d.start[0], d.start[1], W, H)).toBe(true);
-    expect(d.map[d.stairsDown[0] + d.stairsDown[1] * W]).toBe(TileType.STAIRS_DOWN);
+    expect(d.map[d.stairsDown[0] + d.stairsDown[1] * W]).toBe(
+      TileType.STAIRS_DOWN,
+    );
     // Stairs should be a meaningful distance from the start.
     const dist =
-      Math.abs(d.stairsDown[0] - d.start[0]) + Math.abs(d.stairsDown[1] - d.start[1]);
+      Math.abs(d.stairsDown[0] - d.start[0]) +
+      Math.abs(d.stairsDown[1] - d.start[1]);
     expect(dist).toBeGreaterThan(20);
   });
 
@@ -44,7 +47,12 @@ describe("generateDungeon", () => {
       reachable.add(d.start[0] + d.start[1] * W);
       while (queue.length > 0) {
         const [x, y] = queue.pop()!;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as Array<[number, number]>) {
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ] as Array<[number, number]>) {
           const nx = x + dx;
           const ny = y + dy;
           if (!passableFor(d.map, nx, ny, W, H)) continue;

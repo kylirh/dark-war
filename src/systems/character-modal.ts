@@ -45,8 +45,10 @@ export interface CharacterModalOptions {
 
 function escapeHtml(str: string): string {
   return str
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 export class CharacterModal {
@@ -158,12 +160,16 @@ export class CharacterModal {
     bar.className = "imb-dialog-titlebar char-modal-titlebar-drag";
 
     const closeBtn = document.createElement("button");
-    closeBtn.className = "imb-dialog-close retro-window-button retro-window-button-close";
+    closeBtn.className =
+      "imb-dialog-close retro-window-button retro-window-button-close";
     closeBtn.type = "button";
     closeBtn.title = "Close";
     closeBtn.setAttribute("aria-label", "Close");
     closeBtn.innerHTML = "<span>✕</span>";
-    closeBtn.addEventListener("click", (e) => { e.stopPropagation(); this.close(); });
+    closeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.close();
+    });
 
     const stripes1 = document.createElement("div");
     stripes1.className = "imb-dialog-stripes";
@@ -259,7 +265,8 @@ export class CharacterModal {
 
     const keyLabel = document.createElement("span");
     keyLabel.className = "char-inv-key";
-    keyLabel.textContent = index < INVENTORY_BAR_SIZE ? getSlotKeyLabel(index) : "";
+    keyLabel.textContent =
+      index < INVENTORY_BAR_SIZE ? getSlotKeyLabel(index) : "";
 
     const icon = document.createElement("canvas");
     icon.className = "char-inv-icon";
@@ -280,8 +287,13 @@ export class CharacterModal {
     slot.appendChild(count);
     slot.appendChild(bar);
 
-    slot.addEventListener("mousedown", (e) => { e.preventDefault(); this.handleSlotMouseDown(index, e); });
-    slot.addEventListener("mouseenter", (e) => this.showSlotTooltip(slot, index, e));
+    slot.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      this.handleSlotMouseDown(index, e);
+    });
+    slot.addEventListener("mouseenter", (e) =>
+      this.showSlotTooltip(slot, index, e),
+    );
     slot.addEventListener("mouseleave", () => this.hideSlotTooltip());
 
     return slot;
@@ -362,7 +374,10 @@ export class CharacterModal {
     const themeToggle = document.createElement("div");
     themeToggle.className = "imb-theme-toggle";
     themeToggle.setAttribute("role", "group");
-    for (const [value, text] of [["dark", "Dark"], ["light", "Light"]] as const) {
+    for (const [value, text] of [
+      ["dark", "Dark"],
+      ["light", "Light"],
+    ] as const) {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "imb-theme-option";
@@ -553,8 +568,15 @@ export class CharacterModal {
     btnGroup.appendChild(makeBtn("Resume Game", () => this.close()));
     btnGroup.appendChild(makeBtn("Save Game", () => this.onSave?.()));
     btnGroup.appendChild(makeBtn("Load Game", () => this.onLoad?.()));
-    btnGroup.appendChild(makeBtn("New Game", () => { this.close(); this.onNewGame?.(); }));
-    btnGroup.appendChild(makeBtn("Multiplayer", () => this.setGameView("multiplayer")));
+    btnGroup.appendChild(
+      makeBtn("New Game", () => {
+        this.close();
+        this.onNewGame?.();
+      }),
+    );
+    btnGroup.appendChild(
+      makeBtn("Multiplayer", () => this.setGameView("multiplayer")),
+    );
     btnGroup.appendChild(makeBtn("Quit", () => this.onQuit?.()));
 
     mainView.appendChild(btnGroup);
@@ -565,16 +587,23 @@ export class CharacterModal {
     const mpView = document.createElement("div");
     mpView.className = "char-game-view";
     mpView.style.display = "none";
-    mpView.appendChild(this.buildGameSubHeader("Multiplayer", () => this.setGameView("main")));
+    mpView.appendChild(
+      this.buildGameSubHeader("Multiplayer", () => this.setGameView("main")),
+    );
     const mpBtns = document.createElement("div");
     mpBtns.className = "char-game-buttons";
     mpBtns.appendChild(makeBtn("Host a Game", () => this.setGameView("host")));
-    mpBtns.appendChild(makeBtn("Find Games on LAN", () => this.openBrowseGames()));
-    mpBtns.appendChild(makeBtn("Join by IP Address", () => this.setGameView("join")));
+    mpBtns.appendChild(
+      makeBtn("Find Games on LAN", () => this.openBrowseGames()),
+    );
+    mpBtns.appendChild(
+      makeBtn("Join by IP Address", () => this.setGameView("join")),
+    );
     mpView.appendChild(mpBtns);
     const mpHint = document.createElement("p");
     mpHint.className = "char-mp-hint";
-    mpHint.textContent = "Play with others on your local network — no internet required.";
+    mpHint.textContent =
+      "Play with others on your local network — no internet required.";
     mpView.appendChild(mpHint);
     this.gameViewEls.set("multiplayer", mpView);
     wrap.appendChild(mpView);
@@ -583,10 +612,24 @@ export class CharacterModal {
     const hostView = document.createElement("div");
     hostView.className = "char-game-view";
     hostView.style.display = "none";
-    hostView.appendChild(this.buildGameSubHeader("Host a Game", () => this.setGameView("multiplayer")));
+    hostView.appendChild(
+      this.buildGameSubHeader("Host a Game", () =>
+        this.setGameView("multiplayer"),
+      ),
+    );
     const hostForm = this.buildInputStack([
-      { id: "char-mp-game-name", label: "Game Name", placeholder: "Dark War", maxlength: 32 },
-      { id: "char-mp-host-name", label: "Your Name", placeholder: "Player", maxlength: 24 },
+      {
+        id: "char-mp-game-name",
+        label: "Game Name",
+        placeholder: "Dark War",
+        maxlength: 32,
+      },
+      {
+        id: "char-mp-host-name",
+        label: "Your Name",
+        placeholder: "Player",
+        maxlength: 24,
+      },
     ]);
     const hostStatus = document.createElement("div");
     hostStatus.id = "char-mp-host-status";
@@ -606,14 +649,24 @@ export class CharacterModal {
     const browseView = document.createElement("div");
     browseView.className = "char-game-view";
     browseView.style.display = "none";
-    browseView.appendChild(this.buildGameSubHeader("Find Games on LAN", () => this.closeBrowseGames()));
+    browseView.appendChild(
+      this.buildGameSubHeader("Find Games on LAN", () =>
+        this.closeBrowseGames(),
+      ),
+    );
     const browseForm = this.buildInputStack([
-      { id: "char-mp-browse-name", label: "Your Name", placeholder: "Player", maxlength: 24 },
+      {
+        id: "char-mp-browse-name",
+        label: "Your Name",
+        placeholder: "Player",
+        maxlength: 24,
+      },
     ]);
     const serverList = document.createElement("div");
     serverList.id = "char-mp-server-list";
     serverList.className = "char-mp-server-list";
-    serverList.innerHTML = '<div class="char-mp-searching">Searching for games…</div>';
+    serverList.innerHTML =
+      '<div class="char-mp-searching">Searching for games…</div>';
     const browseStatus = document.createElement("div");
     browseStatus.id = "char-mp-browse-status";
     browseStatus.className = "char-mp-status hidden";
@@ -633,11 +686,30 @@ export class CharacterModal {
     const joinView = document.createElement("div");
     joinView.className = "char-game-view";
     joinView.style.display = "none";
-    joinView.appendChild(this.buildGameSubHeader("Join by IP Address", () => this.setGameView("multiplayer")));
+    joinView.appendChild(
+      this.buildGameSubHeader("Join by IP Address", () =>
+        this.setGameView("multiplayer"),
+      ),
+    );
     const joinForm = this.buildInputStack([
-      { id: "char-mp-join-name", label: "Your Name", placeholder: "Player", maxlength: 24 },
-      { id: "char-mp-join-ip", label: "Host IP", placeholder: "192.168.1.x", maxlength: 64 },
-      { id: "char-mp-join-port", label: "Port", placeholder: "7777", maxlength: 6 },
+      {
+        id: "char-mp-join-name",
+        label: "Your Name",
+        placeholder: "Player",
+        maxlength: 24,
+      },
+      {
+        id: "char-mp-join-ip",
+        label: "Host IP",
+        placeholder: "192.168.1.x",
+        maxlength: 64,
+      },
+      {
+        id: "char-mp-join-port",
+        label: "Port",
+        placeholder: "7777",
+        maxlength: 6,
+      },
     ]);
     const joinStatus = document.createElement("div");
     joinStatus.id = "char-mp-join-status";
@@ -657,8 +729,12 @@ export class CharacterModal {
     const lobbyView = document.createElement("div");
     lobbyView.className = "char-game-view";
     lobbyView.style.display = "none";
-    const lobbyHeader = this.buildGameSubHeader("Lobby", () => this.doLeaveLobby());
-    const lobbyTitle = lobbyHeader.querySelector(".char-sub-title") as HTMLElement;
+    const lobbyHeader = this.buildGameSubHeader("Lobby", () =>
+      this.doLeaveLobby(),
+    );
+    const lobbyTitle = lobbyHeader.querySelector(
+      ".char-sub-title",
+    ) as HTMLElement;
     if (lobbyTitle) lobbyTitle.id = "char-mp-lobby-title";
     const leaveBtn = lobbyHeader.querySelector("button") as HTMLButtonElement;
     if (leaveBtn) leaveBtn.textContent = "Leave";
@@ -677,7 +753,9 @@ export class CharacterModal {
     startBtn.className = "char-modal-game-btn";
     startBtn.textContent = "Start Game";
     startBtn.style.display = "none";
-    startBtn.addEventListener("click", () => this._opts.onMultiplayerStartGame?.());
+    startBtn.addEventListener("click", () =>
+      this._opts.onMultiplayerStartGame?.(),
+    );
     lobbyActions.appendChild(startBtn);
     const lobbyHint = document.createElement("p");
     lobbyHint.id = "char-mp-lobby-hint";
@@ -709,7 +787,12 @@ export class CharacterModal {
   }
 
   private buildInputStack(
-    fields: { id: string; label: string; placeholder: string; maxlength: number }[],
+    fields: {
+      id: string;
+      label: string;
+      placeholder: string;
+      maxlength: number;
+    }[],
   ): HTMLElement {
     const stack = document.createElement("div");
     stack.className = "char-mp-form";
@@ -748,8 +831,14 @@ export class CharacterModal {
 
   private handleDragMove(e: MouseEvent): void {
     if (!this.isDragging) return;
-    const maxLeft = Math.max(8, window.innerWidth - this.window.offsetWidth - 8);
-    const maxTop = Math.max(8, window.innerHeight - this.window.offsetHeight - 8);
+    const maxLeft = Math.max(
+      8,
+      window.innerWidth - this.window.offsetWidth - 8,
+    );
+    const maxTop = Math.max(
+      8,
+      window.innerHeight - this.window.offsetHeight - 8,
+    );
     this.window.style.left = `${Math.min(Math.max(8, e.clientX - this.dragOffsetX), maxLeft)}px`;
     this.window.style.top = `${Math.min(Math.max(8, e.clientY - this.dragOffsetY), maxTop)}px`;
     this.window.style.transform = "none";
@@ -797,7 +886,10 @@ export class CharacterModal {
     this.setGameView("browse");
     this.refreshServerList();
     if (this.mpRefreshTimer !== null) clearInterval(this.mpRefreshTimer);
-    this.mpRefreshTimer = window.setInterval(() => this.refreshServerList(), 3000);
+    this.mpRefreshTimer = window.setInterval(
+      () => this.refreshServerList(),
+      3000,
+    );
   }
 
   private closeBrowseGames(): void {
@@ -817,42 +909,63 @@ export class CharacterModal {
     const list = this.window.querySelector("#char-mp-server-list");
     if (!list) return;
     try {
-      const servers = await (this._opts.onMultiplayerGetServers?.() ?? Promise.resolve([]));
-      const key = servers.map((s) => `${s.ip}:${s.port}:${s.players}:${s.phase}`).join("|");
+      const servers = await (this._opts.onMultiplayerGetServers?.() ??
+        Promise.resolve([]));
+      const key = servers
+        .map((s) => `${s.ip}:${s.port}:${s.players}:${s.phase}`)
+        .join("|");
       if (key === this.mpLastServerKey) return;
       this.mpLastServerKey = key;
       if (!servers.length) {
-        list.innerHTML = '<div class="char-mp-searching">No games found — make sure your host is running.</div>';
+        list.innerHTML =
+          '<div class="char-mp-searching">No games found — make sure your host is running.</div>';
         return;
       }
-      list.innerHTML = servers.map((s, i) => `
+      list.innerHTML = servers
+        .map(
+          (s, i) => `
         <div class="char-mp-server-entry">
           <div class="char-mp-server-info">
             <span class="char-mp-server-name">${escapeHtml(s.name)}</span>
             <span class="char-mp-server-meta">${escapeHtml(s.host)} · ${s.players}/${s.maxPlayers} · ${s.phase}</span>
           </div>
           <button class="imb-btn" data-char-server-index="${i}" type="button">Join</button>
-        </div>`).join("");
-      list.querySelectorAll<HTMLElement>("[data-char-server-index]").forEach((btn) => {
-        btn.addEventListener("click", () => {
-          const idx = Number.parseInt(btn.dataset.charServerIndex ?? "0", 10);
-          const server = servers[idx];
-          if (!server) return;
-          const nameInput = this.window.querySelector<HTMLInputElement>("#char-mp-browse-name");
-          const name = (nameInput?.value.trim() || "Player").slice(0, 24);
-          this.mpPlayerName = name;
-          this.setMpStatus("browse", "Connecting…");
-          this._opts.onMultiplayerJoin?.(server.ip, server.port, name);
+        </div>`,
+        )
+        .join("");
+      list
+        .querySelectorAll<HTMLElement>("[data-char-server-index]")
+        .forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const idx = Number.parseInt(btn.dataset.charServerIndex ?? "0", 10);
+            const server = servers[idx];
+            if (!server) return;
+            const nameInput = this.window.querySelector<HTMLInputElement>(
+              "#char-mp-browse-name",
+            );
+            const name = (nameInput?.value.trim() || "Player").slice(0, 24);
+            this.mpPlayerName = name;
+            this.setMpStatus("browse", "Connecting…");
+            this._opts.onMultiplayerJoin?.(server.ip, server.port, name);
+          });
         });
-      });
     } catch {
-      list.innerHTML = '<div class="char-mp-searching">Error scanning network.</div>';
+      list.innerHTML =
+        '<div class="char-mp-searching">Error scanning network.</div>';
     }
   }
 
   private doHost(): void {
-    const gameName = (this.window.querySelector<HTMLInputElement>("#char-mp-game-name")?.value.trim() || "Dark War").slice(0, 32);
-    const playerName = (this.window.querySelector<HTMLInputElement>("#char-mp-host-name")?.value.trim() || "Player").slice(0, 24);
+    const gameName = (
+      this.window
+        .querySelector<HTMLInputElement>("#char-mp-game-name")
+        ?.value.trim() || "Dark War"
+    ).slice(0, 32);
+    const playerName = (
+      this.window
+        .querySelector<HTMLInputElement>("#char-mp-host-name")
+        ?.value.trim() || "Player"
+    ).slice(0, 24);
     this.mpGameName = gameName;
     this.mpPlayerName = playerName;
     this.setMpStatus("host", "Starting server…");
@@ -860,12 +973,28 @@ export class CharacterModal {
   }
 
   private doJoin(): void {
-    const playerName = (this.window.querySelector<HTMLInputElement>("#char-mp-join-name")?.value.trim() || "Player").slice(0, 24);
-    const ip = this.window.querySelector<HTMLInputElement>("#char-mp-join-ip")?.value.trim() ?? "";
-    const portStr = this.window.querySelector<HTMLInputElement>("#char-mp-join-port")?.value.trim() ?? "7777";
+    const playerName = (
+      this.window
+        .querySelector<HTMLInputElement>("#char-mp-join-name")
+        ?.value.trim() || "Player"
+    ).slice(0, 24);
+    const ip =
+      this.window
+        .querySelector<HTMLInputElement>("#char-mp-join-ip")
+        ?.value.trim() ?? "";
+    const portStr =
+      this.window
+        .querySelector<HTMLInputElement>("#char-mp-join-port")
+        ?.value.trim() ?? "7777";
     const port = Number.parseInt(portStr, 10);
-    if (!ip) { this.setMpStatus("join", "Please enter a host IP address."); return; }
-    if (!Number.isFinite(port) || port < 1 || port > 65535) { this.setMpStatus("join", "Invalid port."); return; }
+    if (!ip) {
+      this.setMpStatus("join", "Please enter a host IP address.");
+      return;
+    }
+    if (!Number.isFinite(port) || port < 1 || port > 65535) {
+      this.setMpStatus("join", "Invalid port.");
+      return;
+    }
     this.mpPlayerName = playerName;
     this.setMpStatus("join", "Connecting…");
     this._opts.onMultiplayerJoin?.(ip, port, playerName);
@@ -878,40 +1007,72 @@ export class CharacterModal {
   }
 
   private setMpStatus(which: "host" | "browse" | "join", msg: string): void {
-    const id = which === "host" ? "char-mp-host-status" : which === "browse" ? "char-mp-browse-status" : "char-mp-join-status";
+    const id =
+      which === "host"
+        ? "char-mp-host-status"
+        : which === "browse"
+          ? "char-mp-browse-status"
+          : "char-mp-join-status";
     const el = this.window.querySelector<HTMLElement>(`#${id}`);
     if (!el) return;
     el.textContent = msg;
     el.classList.toggle("hidden", !msg);
   }
 
-  private syncLobbyView(players?: { name: string; isHost: boolean }[], isHost?: boolean): void {
-    const title = this.window.querySelector<HTMLElement>("#char-mp-lobby-title");
-    const status = this.window.querySelector<HTMLElement>("#char-mp-lobby-status");
-    const playersEl = this.window.querySelector<HTMLElement>("#char-mp-lobby-players");
-    const startBtn = this.window.querySelector<HTMLButtonElement>("#char-mp-start-btn");
+  private syncLobbyView(
+    players?: { name: string; isHost: boolean }[],
+    isHost?: boolean,
+  ): void {
+    const title = this.window.querySelector<HTMLElement>(
+      "#char-mp-lobby-title",
+    );
+    const status = this.window.querySelector<HTMLElement>(
+      "#char-mp-lobby-status",
+    );
+    const playersEl = this.window.querySelector<HTMLElement>(
+      "#char-mp-lobby-players",
+    );
+    const startBtn =
+      this.window.querySelector<HTMLButtonElement>("#char-mp-start-btn");
     const hint = this.window.querySelector<HTMLElement>("#char-mp-lobby-hint");
 
     if (players !== undefined && isHost !== undefined) {
-      if (title) title.textContent = isHost ? `${this.mpGameName} — Lobby` : "Lobby";
-      if (status) status.textContent = isHost ? (players.length === 1 ? "Waiting for others…" : `${players.length} players connected`) : "Waiting for host to start…";
+      if (title)
+        title.textContent = isHost ? `${this.mpGameName} — Lobby` : "Lobby";
+      if (status)
+        status.textContent = isHost
+          ? players.length === 1
+            ? "Waiting for others…"
+            : `${players.length} players connected`
+          : "Waiting for host to start…";
       if (playersEl) {
-        playersEl.innerHTML = players.map((p) =>
-          `<div class="char-mp-lobby-player${p.isHost ? " is-host" : ""}">
+        playersEl.innerHTML = players
+          .map(
+            (p) =>
+              `<div class="char-mp-lobby-player${p.isHost ? " is-host" : ""}">
             <span>${escapeHtml(p.name)}</span>
             ${p.isHost ? '<span class="char-mp-host-badge">HOST</span>' : ""}
-          </div>`).join("");
+          </div>`,
+          )
+          .join("");
       }
-      if (startBtn) { startBtn.style.display = isHost ? "" : "none"; }
+      if (startBtn) {
+        startBtn.style.display = isHost ? "" : "none";
+      }
     }
     void hint; // populated by DarkWarApp
   }
 
   // ── Multiplayer public API (called by DarkWarApp) ─────────────────────────────
 
-  public setMultiplayerConnectionState(state: "disconnected" | "connecting" | "lobby" | "playing"): void {
+  public setMultiplayerConnectionState(
+    state: "disconnected" | "connecting" | "lobby" | "playing",
+  ): void {
     if (state === "lobby") {
-      if (this.mpRefreshTimer !== null) { clearInterval(this.mpRefreshTimer); this.mpRefreshTimer = null; }
+      if (this.mpRefreshTimer !== null) {
+        clearInterval(this.mpRefreshTimer);
+        this.mpRefreshTimer = null;
+      }
       if (this._currentTab === "game") this.setGameView("lobby");
     } else if (state === "playing") {
       this.close();
@@ -922,8 +1083,15 @@ export class CharacterModal {
     }
   }
 
-  public updateLobbyState(players: { name: string; isHost: boolean }[], isHost: boolean, phase: "lobby" | "playing"): void {
-    if (phase === "playing") { this.close(); return; }
+  public updateLobbyState(
+    players: { name: string; isHost: boolean }[],
+    isHost: boolean,
+    phase: "lobby" | "playing",
+  ): void {
+    if (phase === "playing") {
+      this.close();
+      return;
+    }
     if (this.gameView === "lobby") this.syncLobbyView(players, isHost);
   }
 
@@ -953,7 +1121,8 @@ export class CharacterModal {
     if (this.listeningForKey) {
       e.preventDefault();
       e.stopPropagation();
-      if (e.key !== "Escape") this.assignKeyBinding(this.listeningForKey, e.code);
+      if (e.key !== "Escape")
+        this.assignKeyBinding(this.listeningForKey, e.code);
       this.listeningForKey = null;
       this.syncKeybindingControls();
       return;
@@ -962,8 +1131,17 @@ export class CharacterModal {
     // Escape navigation
     if (e.key === "Escape") {
       e.preventDefault();
-      if (this._grabbedItemType !== null) { this.cancelGrab(); return; }
-      if (this._currentTab === "settings" && this.settingsView === "keybindings") { this.setSettingsView("main"); return; }
+      if (this._grabbedItemType !== null) {
+        this.cancelGrab();
+        return;
+      }
+      if (
+        this._currentTab === "settings" &&
+        this.settingsView === "keybindings"
+      ) {
+        this.setSettingsView("main");
+        return;
+      }
       if (this._currentTab === "game" && this.gameView !== "main") {
         if (this.gameView === "multiplayer") this.setGameView("main");
         else if (this.gameView === "browse") this.closeBrowseGames();
@@ -976,9 +1154,18 @@ export class CharacterModal {
     }
 
     // Tab switching
-    if (e.key === "1" && e.altKey) { this.switchTab("inventory"); return; }
-    if (e.key === "2" && e.altKey) { this.switchTab("settings"); return; }
-    if (e.key === "3" && e.altKey) { this.switchTab("game"); return; }
+    if (e.key === "1" && e.altKey) {
+      this.switchTab("inventory");
+      return;
+    }
+    if (e.key === "2" && e.altKey) {
+      this.switchTab("settings");
+      return;
+    }
+    if (e.key === "3" && e.altKey) {
+      this.switchTab("game");
+      return;
+    }
   };
 
   private onMouseMove = (e: MouseEvent): void => {
@@ -994,11 +1181,17 @@ export class CharacterModal {
     const targetSlotEl = target?.closest("[data-index]") as HTMLElement | null;
     if (targetSlotEl && this._player) {
       const toIndex = parseInt(targetSlotEl.dataset.index ?? "-1", 10);
-      if (toIndex >= 0 && toIndex < INVENTORY_TOTAL_SLOTS && toIndex !== this._grabbedIndex) {
+      if (
+        toIndex >= 0 &&
+        toIndex < INVENTORY_TOTAL_SLOTS &&
+        toIndex !== this._grabbedIndex
+      ) {
         const fromIndex = this._grabbedIndex;
         swapInventorySlots(this._player, fromIndex, toIndex);
         const selSlot = this._player.selectedBarSlot;
-        this._player.weapon = getWeaponForSlot(this._player.inventorySlots[selSlot]);
+        this._player.weapon = getWeaponForSlot(
+          this._player.inventorySlots[selSlot],
+        );
         this.onWeaponChanged?.(selSlot);
         this.onInventorySwap?.(fromIndex, toIndex);
         this.renderInventory(this._player);
@@ -1018,7 +1211,8 @@ export class CharacterModal {
     this._cursorGhost = document.createElement("div");
     this._cursorGhost.className = "inv-cursor-ghost";
     const canvas = document.createElement("canvas");
-    canvas.width = 32; canvas.height = 32;
+    canvas.width = 32;
+    canvas.height = 32;
     this.drawSpriteOnCanvas(canvas, slot.type, this._player);
     this._cursorGhost.appendChild(canvas);
     this._cursorGhost.style.left = `${e.clientX + 12}px`;
@@ -1029,10 +1223,17 @@ export class CharacterModal {
   private cancelGrab(): void {
     this._grabbedIndex = null;
     this._grabbedItemType = null;
-    if (this._cursorGhost) { this._cursorGhost.remove(); this._cursorGhost = null; }
+    if (this._cursorGhost) {
+      this._cursorGhost.remove();
+      this._cursorGhost = null;
+    }
   }
 
-  private showSlotTooltip(slotEl: HTMLElement, index: number, _e: MouseEvent): void {
+  private showSlotTooltip(
+    slotEl: HTMLElement,
+    index: number,
+    _e: MouseEvent,
+  ): void {
     if (!this._player) return;
     const slot = this._player.inventorySlots[index];
     if (!slot?.type) return;
@@ -1040,12 +1241,16 @@ export class CharacterModal {
     const actions = getSlotActions(slot.type);
     const count = getSlotDisplayCount(this._player, index);
     let html = `<div class="inv-tip-name">${label}</div>`;
-    if (count !== null && count !== undefined) html += `<div class="inv-tip-count">Count: ${count}</div>`;
+    if (count !== null && count !== undefined)
+      html += `<div class="inv-tip-count">Count: ${count}</div>`;
     if (slot.type === ItemType.CTDM) {
-      const pct = Math.round((this._player.ctdmCharge / this._player.ctdmChargeMax) * 100);
+      const pct = Math.round(
+        (this._player.ctdmCharge / this._player.ctdmChargeMax) * 100,
+      );
       html += `<div class="inv-tip-count">Charge: ${pct}% (${this._player.ctdmEnabled ? "ON" : "OFF"})</div>`;
     }
-    if (actions.length > 0) html += `<div class="inv-tip-actions">${actions.join("<br>")}</div>`;
+    if (actions.length > 0)
+      html += `<div class="inv-tip-actions">${actions.join("<br>")}</div>`;
     this.tooltipEl.innerHTML = html;
     this.tooltipEl.style.display = "";
     const rect = slotEl.getBoundingClientRect();
@@ -1070,41 +1275,84 @@ export class CharacterModal {
   }
 
   private syncSoundLabels(): void {
-    if (this._sfxSlider) this._sfxSlider.value = String(Math.round(this.preferences.sfxVolume * 100));
-    if (this._sfxLabel) this._sfxLabel.textContent = `${Math.round(this.preferences.sfxVolume * 100)}%`;
-    if (this._musicSlider) this._musicSlider.value = String(Math.round(this.preferences.musicVolume * 100));
-    if (this._musicLabel) this._musicLabel.textContent = `${Math.round(this.preferences.musicVolume * 100)}%`;
+    if (this._sfxSlider)
+      this._sfxSlider.value = String(
+        Math.round(this.preferences.sfxVolume * 100),
+      );
+    if (this._sfxLabel)
+      this._sfxLabel.textContent = `${Math.round(this.preferences.sfxVolume * 100)}%`;
+    if (this._musicSlider)
+      this._musicSlider.value = String(
+        Math.round(this.preferences.musicVolume * 100),
+      );
+    if (this._musicLabel)
+      this._musicLabel.textContent = `${Math.round(this.preferences.musicVolume * 100)}%`;
   }
 
   private syncAppearanceControls(): void {
-    this.window.querySelectorAll<HTMLElement>("[data-theme-value]").forEach((btn) => {
-      btn.classList.toggle("selected", btn.dataset.themeValue === this.preferences.theme);
-    });
-    this.window.querySelectorAll<HTMLElement>("[data-zoom-value]").forEach((btn) => {
-      btn.classList.toggle("selected", Number.parseInt(btn.dataset.zoomValue ?? "1") === this.preferences.zoom);
-    });
+    this.window
+      .querySelectorAll<HTMLElement>("[data-theme-value]")
+      .forEach((btn) => {
+        btn.classList.toggle(
+          "selected",
+          btn.dataset.themeValue === this.preferences.theme,
+        );
+      });
+    this.window
+      .querySelectorAll<HTMLElement>("[data-zoom-value]")
+      .forEach((btn) => {
+        btn.classList.toggle(
+          "selected",
+          Number.parseInt(btn.dataset.zoomValue ?? "1") ===
+            this.preferences.zoom,
+        );
+      });
   }
 
   private syncDevToolsControls(): void {
-    const toggle = this.window.querySelector<HTMLInputElement>("#char-dev-tools-toggle");
+    const toggle = this.window.querySelector<HTMLInputElement>(
+      "#char-dev-tools-toggle",
+    );
     if (toggle) toggle.checked = this.preferences.devTools;
-    this.window.querySelectorAll<HTMLElement>("[data-dev-panel]").forEach((el) => el.classList.toggle("hidden", !this.preferences.devTools));
-    this.window.querySelectorAll<HTMLElement>(".dev-only").forEach((el) => el.classList.toggle("hidden", !this.preferences.devTools));
+    this.window
+      .querySelectorAll<HTMLElement>("[data-dev-panel]")
+      .forEach((el) =>
+        el.classList.toggle("hidden", !this.preferences.devTools),
+      );
+    this.window
+      .querySelectorAll<HTMLElement>(".dev-only")
+      .forEach((el) =>
+        el.classList.toggle("hidden", !this.preferences.devTools),
+      );
   }
 
   private syncKeybindingControls(): void {
-    this.window.querySelectorAll<HTMLElement>(".imb-keybinding-row").forEach((row) => {
-      const action = row.dataset.keybindingRow as KeyBindingAction | undefined;
-      if (!action) return;
-      const def = KEY_BINDING_DEFINITIONS.find((d) => d.action === action);
-      row.classList.toggle("hidden", Boolean(def?.devOnly && !this.preferences.devTools));
-    });
-    this.window.querySelectorAll<HTMLButtonElement>("[data-keybinding-action]").forEach((btn) => {
-      const action = btn.dataset.keybindingAction as KeyBindingAction | undefined;
-      if (!action) return;
-      btn.textContent = this.listeningForKey === action ? "Press a key…" : keyCodeToLabel(this.preferences.keyBindings[action] ?? "");
-      btn.classList.toggle("listening", this.listeningForKey === action);
-    });
+    this.window
+      .querySelectorAll<HTMLElement>(".imb-keybinding-row")
+      .forEach((row) => {
+        const action = row.dataset.keybindingRow as
+          | KeyBindingAction
+          | undefined;
+        if (!action) return;
+        const def = KEY_BINDING_DEFINITIONS.find((d) => d.action === action);
+        row.classList.toggle(
+          "hidden",
+          Boolean(def?.devOnly && !this.preferences.devTools),
+        );
+      });
+    this.window
+      .querySelectorAll<HTMLButtonElement>("[data-keybinding-action]")
+      .forEach((btn) => {
+        const action = btn.dataset.keybindingAction as
+          | KeyBindingAction
+          | undefined;
+        if (!action) return;
+        btn.textContent =
+          this.listeningForKey === action
+            ? "Press a key…"
+            : keyCodeToLabel(this.preferences.keyBindings[action] ?? "");
+        btn.classList.toggle("listening", this.listeningForKey === action);
+      });
   }
 
   // ── Preferences management ───────────────────────────────────────────────────
@@ -1113,9 +1361,14 @@ export class CharacterModal {
     this.preferences = {
       ...this.preferences,
       ...next,
-      keyBindings: next.keyBindings ? { ...next.keyBindings } : { ...this.preferences.keyBindings },
+      keyBindings: next.keyBindings
+        ? { ...next.keyBindings }
+        : { ...this.preferences.keyBindings },
     };
-    this._onPreferencesChange({ ...this.preferences, keyBindings: { ...this.preferences.keyBindings } });
+    this._onPreferencesChange({
+      ...this.preferences,
+      keyBindings: { ...this.preferences.keyBindings },
+    });
   }
 
   private assignKeyBinding(action: KeyBindingAction, code: string): void {
@@ -1131,20 +1384,30 @@ export class CharacterModal {
 
   public setPreferences(prefs: UserPreferences): void {
     this.preferences = { ...prefs, keyBindings: { ...prefs.keyBindings } };
-    if (this._isOpen && this._currentTab === "settings") this.syncSettingsControls();
-    if (this._isOpen && this._currentTab === "settings" && this.settingsView === "keybindings") this.syncKeybindingControls();
+    if (this._isOpen && this._currentTab === "settings")
+      this.syncSettingsControls();
+    if (
+      this._isOpen &&
+      this._currentTab === "settings" &&
+      this.settingsView === "keybindings"
+    )
+      this.syncKeybindingControls();
   }
 
   // ── Tab management ───────────────────────────────────────────────────────────
 
-  public get currentTab(): ModalTab { return this._currentTab; }
+  public get currentTab(): ModalTab {
+    return this._currentTab;
+  }
 
   public switchTab(tab: ModalTab): void {
     this._currentTab = tab;
     this.listeningForKey = null;
 
-    for (const [id, btn] of this.tabButtons) btn.classList.toggle("active", id === tab);
-    for (const [id, panel] of this.tabPanels) panel.style.display = id === tab ? "" : "none";
+    for (const [id, btn] of this.tabButtons)
+      btn.classList.toggle("active", id === tab);
+    for (const [id, panel] of this.tabPanels)
+      panel.style.display = id === tab ? "" : "none";
 
     if (tab === "settings") {
       this.setSettingsView(this.settingsView);
@@ -1185,19 +1448,23 @@ export class CharacterModal {
     this.onClose?.();
   }
 
-  public isOpen(): boolean { return this._isOpen; }
+  public isOpen(): boolean {
+    return this._isOpen;
+  }
 
   public renderInventory(player: Player): void {
     this._player = player;
     if (!this._isOpen) return;
-    for (let i = 0; i < INVENTORY_TOTAL_SLOTS; i++) this.renderInvSlot(player, i);
+    for (let i = 0; i < INVENTORY_TOTAL_SLOTS; i++)
+      this.renderInvSlot(player, i);
   }
 
   private renderInvSlot(player: Player, index: number): void {
     const slotEl = this.invSlotEls[index];
     if (!slotEl) return;
     const slot = player.inventorySlots[index];
-    const isSelected = index < INVENTORY_BAR_SIZE && player.selectedBarSlot === index;
+    const isSelected =
+      index < INVENTORY_BAR_SIZE && player.selectedBarSlot === index;
     slotEl.classList.toggle("selected", isSelected);
     slotEl.classList.toggle("empty", !slot?.type);
     const icon = slotEl.querySelector(".char-inv-icon") as HTMLCanvasElement;
@@ -1207,13 +1474,21 @@ export class CharacterModal {
     if (slot?.type) this.drawSpriteOnCanvas(icon, slot.type, player);
     const countEl = slotEl.querySelector(".char-inv-count") as HTMLElement;
     const count = slot?.type ? getSlotDisplayCount(player, index) : null;
-    if (count !== null && count !== undefined) { countEl.textContent = String(count); countEl.style.display = ""; }
-    else countEl.style.display = "none";
+    if (count !== null && count !== undefined) {
+      countEl.textContent = String(count);
+      countEl.style.display = "";
+    } else countEl.style.display = "none";
     const fill = slotEl.querySelector(".char-inv-bar-fill") as HTMLElement;
     if (slot?.type === ItemType.CTDM && player.hasCTDM) {
-      const pct = Math.max(0, Math.min(1, player.ctdmCharge / player.ctdmChargeMax));
+      const pct = Math.max(
+        0,
+        Math.min(1, player.ctdmCharge / player.ctdmChargeMax),
+      );
       fill.style.width = `${pct * 100}%`;
-      fill.style.setProperty("--bar-color", pct > 0.5 ? "#44ff88" : pct > 0.2 ? "#ffcc00" : "#ff4422");
+      fill.style.setProperty(
+        "--bar-color",
+        pct > 0.5 ? "#44ff88" : pct > 0.2 ? "#ffcc00" : "#ff4422",
+      );
       fill.parentElement!.style.display = "";
     } else if (slot?.type === ItemType.PISTOL) {
       const pct = Math.max(0, Math.min(1, player.ammo / 12));
@@ -1225,7 +1500,11 @@ export class CharacterModal {
     }
   }
 
-  private drawSpriteOnCanvas(canvas: HTMLCanvasElement, itemType: ItemType, player: Player): void {
+  private drawSpriteOnCanvas(
+    canvas: HTMLCanvasElement,
+    itemType: ItemType,
+    player: Player,
+  ): void {
     if (!this.spriteSheet) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -1234,9 +1513,21 @@ export class CharacterModal {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     if (itemType === ItemType.CTDM) {
-      ctx.filter = player.ctdmEnabled ? "brightness(1.1) saturate(1.4) hue-rotate(120deg)" : "brightness(0.4) saturate(0.2)";
+      ctx.filter = player.ctdmEnabled
+        ? "brightness(1.1) saturate(1.4) hue-rotate(120deg)"
+        : "brightness(0.4) saturate(0.2)";
     }
-    ctx.drawImage(this.spriteSheet, coords.x * SPRITE_SIZE, coords.y * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(
+      this.spriteSheet,
+      coords.x * SPRITE_SIZE,
+      coords.y * SPRITE_SIZE,
+      SPRITE_SIZE,
+      SPRITE_SIZE,
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+    );
     ctx.restore();
   }
 

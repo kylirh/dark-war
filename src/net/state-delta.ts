@@ -90,13 +90,16 @@ export function computeStateDelta(
 
   if (base.depth !== next.depth) delta.depth = next.depth;
   if (base.levelKind !== next.levelKind) delta.levelKind = next.levelKind;
-  if (base.floorVariant !== next.floorVariant) delta.floorVariant = next.floorVariant;
+  if (base.floorVariant !== next.floorVariant)
+    delta.floorVariant = next.floorVariant;
   if (base.wallSet !== next.wallSet) delta.wallSet = next.wallSet;
-  if (!pairEqual(base.stairsDown, next.stairsDown)) delta.stairsDown = next.stairsDown;
+  if (!pairEqual(base.stairsDown, next.stairsDown))
+    delta.stairsDown = next.stairsDown;
   if (!pairEqual(base.stairsUp ?? null, next.stairsUp ?? null)) {
     delta.stairsUp = next.stairsUp ?? null;
   }
-  if (base.enhancedVision !== next.enhancedVision) delta.enhancedVision = next.enhancedVision;
+  if (base.enhancedVision !== next.enhancedVision)
+    delta.enhancedVision = next.enhancedVision;
   if (base.godMode !== next.godMode) delta.godMode = next.godMode;
   if (!shallowJsonEqual(base.player, next.player)) delta.player = next.player;
   if (!arraysEqual(base.story, next.story)) delta.story = next.story;
@@ -105,19 +108,23 @@ export function computeStateDelta(
   }
 
   const entityDiff = diffById(base.entities ?? [], next.entities ?? []);
-  if (entityDiff.upserted.length > 0) delta.entitiesUpserted = entityDiff.upserted;
+  if (entityDiff.upserted.length > 0)
+    delta.entitiesUpserted = entityDiff.upserted;
   if (entityDiff.removed.length > 0) delta.entitiesRemoved = entityDiff.removed;
 
   const playerDiff = diffById(base.players ?? [], next.players ?? []);
-  if (playerDiff.upserted.length > 0) delta.playersUpserted = playerDiff.upserted as Player[];
+  if (playerDiff.upserted.length > 0)
+    delta.playersUpserted = playerDiff.upserted as Player[];
   if (playerDiff.removed.length > 0) delta.playersRemoved = playerDiff.removed;
 
   const exploredDiff = diffExplored(base.explored ?? [], next.explored ?? []);
   if (exploredDiff.full) delta.exploredFull = next.explored ?? [];
-  else if (exploredDiff.added.length > 0) delta.exploredAdded = exploredDiff.added;
+  else if (exploredDiff.added.length > 0)
+    delta.exploredAdded = exploredDiff.added;
 
   const mapChanges = diffIndexed(base.map, next.map);
-  if (mapChanges.length > 0) delta.mapChanges = mapChanges as Array<[number, TileType]>;
+  if (mapChanges.length > 0)
+    delta.mapChanges = mapChanges as Array<[number, TileType]>;
 
   if (base.wallDamage && next.wallDamage) {
     const wallChanges = diffIndexed(base.wallDamage, next.wallDamage);
@@ -144,7 +151,8 @@ export function applyStateDelta(
   if (delta.wallSet !== undefined) next.wallSet = delta.wallSet;
   if (delta.stairsDown !== undefined) next.stairsDown = delta.stairsDown;
   if (delta.stairsUp !== undefined) next.stairsUp = delta.stairsUp;
-  if (delta.enhancedVision !== undefined) next.enhancedVision = delta.enhancedVision;
+  if (delta.enhancedVision !== undefined)
+    next.enhancedVision = delta.enhancedVision;
   if (delta.godMode !== undefined) next.godMode = delta.godMode;
   if (delta.player !== undefined) next.player = delta.player;
   if (delta.story !== undefined) next.story = delta.story;
@@ -177,9 +185,14 @@ export function applyStateDelta(
     next.map = map;
   }
 
-  if (delta.wallDamageChanges && delta.wallDamageChanges.length > 0 && base.wallDamage) {
+  if (
+    delta.wallDamageChanges &&
+    delta.wallDamageChanges.length > 0 &&
+    base.wallDamage
+  ) {
     const wallDamage = base.wallDamage.slice();
-    for (const [index, value] of delta.wallDamageChanges) wallDamage[index] = value;
+    for (const [index, value] of delta.wallDamageChanges)
+      wallDamage[index] = value;
     next.wallDamage = wallDamage;
   }
 
@@ -238,10 +251,7 @@ function diffExplored(
   return { added, full };
 }
 
-function diffIndexed(
-  base: number[],
-  next: number[],
-): Array<[number, number]> {
+function diffIndexed(base: number[], next: number[]): Array<[number, number]> {
   const changes: Array<[number, number]> = [];
   for (let i = 0; i < next.length; i++) {
     if (next[i] !== base[i]) changes.push([i, next[i]]);

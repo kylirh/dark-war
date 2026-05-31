@@ -48,7 +48,10 @@ function storageKeyForSlot(slot: number): string {
   return `${SAVE_SLOT_STORAGE_PREFIX}${slot + 1}`;
 }
 
-function parseSaveRecord(data: string, fallbackSlot: number): SaveSlotRecord | null {
+function parseSaveRecord(
+  data: string,
+  fallbackSlot: number,
+): SaveSlotRecord | null {
   try {
     const record = JSON.parse(data) as Partial<SaveSlotRecord>;
     if (!record || record.version !== 1 || !record.state) return null;
@@ -136,7 +139,9 @@ export async function readMostRecentSaveSlot(): Promise<SaveSlotRecord | null> {
   return newest ? readSaveSlot(newest.slot) : null;
 }
 
-export async function readSaveSlot(slot: number): Promise<SaveSlotRecord | null> {
+export async function readSaveSlot(
+  slot: number,
+): Promise<SaveSlotRecord | null> {
   assertValidSlot(slot);
 
   if (window.native?.saveReadSlot) {
@@ -152,7 +157,10 @@ export async function readSaveSlot(slot: number): Promise<SaveSlotRecord | null>
   return readLocalSaveSlot(slot);
 }
 
-export async function writeSaveSlot(slot: number, record: SaveSlotRecord): Promise<void> {
+export async function writeSaveSlot(
+  slot: number,
+  record: SaveSlotRecord,
+): Promise<void> {
   assertValidSlot(slot);
   const data = JSON.stringify(record);
 
@@ -269,7 +277,11 @@ export class SaveSlotDialog {
     try {
       this.slots = await listSaveSlots();
       this.render();
-      this.setStatus(this.mode === "save" ? "Choose a slot to save." : "Choose a saved game to load.");
+      this.setStatus(
+        this.mode === "save"
+          ? "Choose a slot to save."
+          : "Choose a saved game to load.",
+      );
     } catch {
       this.slots = [];
       this.render();
@@ -279,7 +291,8 @@ export class SaveSlotDialog {
 
   private render(): void {
     const title = this.modal.element.querySelector(".imb-dialog-title");
-    if (title) title.textContent = this.mode === "save" ? "Save Game" : "Load Game";
+    if (title)
+      title.textContent = this.mode === "save" ? "Save Game" : "Load Game";
 
     const grid = this.modal.element.querySelector("#save-slot-grid");
     if (!grid) return;
@@ -294,9 +307,10 @@ export class SaveSlotDialog {
     const background = slot.screenshotDataUrl
       ? ` style="--save-preview: url('${escapeAttribute(slot.screenshotDataUrl)}')"`
       : "";
-    const actionLabel = this.mode === "save"
-      ? `${slot.isEmpty ? "Save to" : "Overwrite"} ${slotLabel}`
-      : `Load ${slotLabel}`;
+    const actionLabel =
+      this.mode === "save"
+        ? `${slot.isEmpty ? "Save to" : "Overwrite"} ${slotLabel}`
+        : `Load ${slotLabel}`;
     const disabled = this.mode === "load" && slot.isEmpty ? " disabled" : "";
 
     return `
@@ -312,7 +326,10 @@ export class SaveSlotDialog {
           <span class="save-slot-number">${slotLabel}</span>
           ${slot.isEmpty ? this.renderEmptySlot() : this.renderOccupiedSlot(slot)}
         </button>
-        ${slot.isEmpty ? "" : `
+        ${
+          slot.isEmpty
+            ? ""
+            : `
           <button
             class="save-slot-delete"
             data-delete-save-slot="${slot.slot}"
@@ -320,7 +337,8 @@ export class SaveSlotDialog {
             title="Delete ${slotLabel}"
             aria-label="Delete ${slotLabel}"
           >X</button>
-        `}
+        `
+        }
       </div>
     `;
   }
@@ -344,16 +362,23 @@ export class SaveSlotDialog {
 
   private async handleClick(event: MouseEvent): Promise<void> {
     const target = event.target as HTMLElement;
-    const deleteButton = target.closest("[data-delete-save-slot]") as HTMLElement | null;
+    const deleteButton = target.closest(
+      "[data-delete-save-slot]",
+    ) as HTMLElement | null;
     if (deleteButton) {
       event.preventDefault();
       event.stopPropagation();
-      const slot = Number.parseInt(deleteButton.dataset.deleteSaveSlot ?? "-1", 10);
+      const slot = Number.parseInt(
+        deleteButton.dataset.deleteSaveSlot ?? "-1",
+        10,
+      );
       await this.deleteSlot(slot);
       return;
     }
 
-    const slotButton = target.closest("[data-save-slot]") as HTMLButtonElement | null;
+    const slotButton = target.closest(
+      "[data-save-slot]",
+    ) as HTMLButtonElement | null;
     if (!slotButton || slotButton.disabled) return;
     const slot = Number.parseInt(slotButton.dataset.saveSlot ?? "-1", 10);
     await this.activateSlot(slot);
@@ -368,11 +393,15 @@ export class SaveSlotDialog {
 
     const key = event.key.toLowerCase();
     const delta =
-      key === "arrowright" || key === "d" ? 1 :
-        key === "arrowleft" || key === "a" ? -1 :
-          key === "arrowdown" || key === "s" ? 2 :
-            key === "arrowup" || key === "w" ? -2 :
-              0;
+      key === "arrowright" || key === "d"
+        ? 1
+        : key === "arrowleft" || key === "a"
+          ? -1
+          : key === "arrowdown" || key === "s"
+            ? 2
+            : key === "arrowup" || key === "w"
+              ? -2
+              : 0;
 
     if (delta !== 0) {
       event.preventDefault();
@@ -381,7 +410,9 @@ export class SaveSlotDialog {
     }
 
     if (key === "delete" || key === "backspace") {
-      const slot = this.slots.find((candidate) => candidate.slot === this.selectedSlot);
+      const slot = this.slots.find(
+        (candidate) => candidate.slot === this.selectedSlot,
+      );
       if (!slot?.isEmpty) {
         event.preventDefault();
         this.deleteSlot(this.selectedSlot).catch(() => {});
@@ -390,21 +421,26 @@ export class SaveSlotDialog {
   }
 
   private moveSelection(delta: number): void {
-    const nextSlot = (this.selectedSlot + delta + SAVE_SLOT_COUNT) % SAVE_SLOT_COUNT;
+    const nextSlot =
+      (this.selectedSlot + delta + SAVE_SLOT_COUNT) % SAVE_SLOT_COUNT;
     this.selectedSlot = nextSlot;
     this.syncSelection();
     this.focusSelectedSlot();
   }
 
   private syncSelection(): void {
-    this.modal.element.querySelectorAll<HTMLElement>("[data-save-shell]").forEach((shell) => {
-      const slot = Number.parseInt(shell.dataset.saveShell ?? "-1", 10);
-      shell.classList.toggle("selected", slot === this.selectedSlot);
-    });
+    this.modal.element
+      .querySelectorAll<HTMLElement>("[data-save-shell]")
+      .forEach((shell) => {
+        const slot = Number.parseInt(shell.dataset.saveShell ?? "-1", 10);
+        shell.classList.toggle("selected", slot === this.selectedSlot);
+      });
   }
 
   private focusSelectedSlot(): void {
-    const button = this.modal.element.querySelector<HTMLButtonElement>(`[data-save-slot="${this.selectedSlot}"]`);
+    const button = this.modal.element.querySelector<HTMLButtonElement>(
+      `[data-save-slot="${this.selectedSlot}"]`,
+    );
     button?.focus();
   }
 
@@ -419,7 +455,8 @@ export class SaveSlotDialog {
       if (summary.isEmpty) return;
       this.isBusy = true;
       this.setStatus(`Loading slot ${slot + 1}...`);
-      const didLoad = await (this.options.onLoadSlot?.(slot) ?? Promise.resolve(false));
+      const didLoad = await (this.options.onLoadSlot?.(slot) ??
+        Promise.resolve(false));
       this.isBusy = false;
       if (didLoad) this.close();
       else this.setStatus("Unable to load that saved game.");
@@ -427,13 +464,16 @@ export class SaveSlotDialog {
     }
 
     if (!summary.isEmpty) {
-      const shouldOverwrite = window.confirm(`Overwrite saved game in slot ${slot + 1}?`);
+      const shouldOverwrite = window.confirm(
+        `Overwrite saved game in slot ${slot + 1}?`,
+      );
       if (!shouldOverwrite) return;
     }
 
     this.isBusy = true;
     this.setStatus(`Saving to slot ${slot + 1}...`);
-    const didSave = await (this.options.onSaveSlot?.(slot) ?? Promise.resolve(false));
+    const didSave = await (this.options.onSaveSlot?.(slot) ??
+      Promise.resolve(false));
     this.isBusy = false;
     if (didSave) this.close();
     else this.setStatus("Unable to save the game.");
@@ -444,12 +484,15 @@ export class SaveSlotDialog {
     assertValidSlot(slot);
     const summary = this.slots.find((candidate) => candidate.slot === slot);
     if (!summary || summary.isEmpty) return;
-    const shouldDelete = window.confirm(`Delete saved game in slot ${slot + 1}?`);
+    const shouldDelete = window.confirm(
+      `Delete saved game in slot ${slot + 1}?`,
+    );
     if (!shouldDelete) return;
 
     this.isBusy = true;
     this.setStatus(`Deleting slot ${slot + 1}...`);
-    const didDelete = await (this.options.onDeleteSlot?.(slot) ?? Promise.resolve(false));
+    const didDelete = await (this.options.onDeleteSlot?.(slot) ??
+      Promise.resolve(false));
     this.isBusy = false;
     if (didDelete) {
       await this.refreshSlots();
