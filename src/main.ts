@@ -1210,10 +1210,11 @@ class DarkWar {
     const state = this.game.getState();
     const isDead = this.isLocalPlayerDead();
 
-    // Keep the mouse tracker's scale in sync with the renderer so canvas→world
-    // conversion stays accurate. (The canvas spans the full map and is positioned
-    // by DOM scroll, so no separate camera offset is needed.)
+    // Keep the mouse tracker in sync with the renderer's windowed camera so
+    // canvas→world conversion (used for aiming) stays accurate as it follows.
     this.mouseTracker.setScale(this.renderer.getScale());
+    const camTopLeft = this.renderer.getCameraTopLeft();
+    this.mouseTracker.setCameraTopLeft(camTopLeft.x, camTopLeft.y);
 
     if (this.isOnlineMode()) {
       if (!this.onlineConnected) {

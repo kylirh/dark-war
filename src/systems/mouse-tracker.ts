@@ -1,16 +1,20 @@
 /**
- * Mouse input tracking for combat and interaction
+ * Mouse input tracking for combat and interaction.
+ *
+ * With windowed rendering the canvas shows a window of the world whose top-left
+ * sits at the camera origin (world px). So canvas → world is simply:
+ *   world = camera_top_left + canvas_pixel / zoom
+ * The camera moves every frame, so world coordinates are derived live from the
+ * stored canvas position rather than cached at mousemove time.
  */
-
-import { CELL_CONFIG } from "../types";
 
 export class MouseTracker {
   private canvasElement: HTMLCanvasElement;
-  private mouseWorldX: number = 0;
-  private mouseWorldY: number = 0;
   private mouseCanvasX: number = 0;
   private mouseCanvasY: number = 0;
-  private scale: number = 2.0; // Renderer scale factor
+  private scale: number = 2.0; // Renderer zoom factor
+  private cameraLeft: number = 0; // Camera window top-left in world px
+  private cameraTop: number = 0;
 
   constructor(canvasId: string) {
     const canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -19,27 +23,19 @@ export class MouseTracker {
     }
     this.canvasElement = canvas;
 
-    // Track mouse movement
     canvas.addEventListener("mousemove", this.handleMouseMove);
     canvas.addEventListener("mouseleave", this.handleMouseLeave);
   }
 
   private handleMouseMove = (event: MouseEvent): void => {
     const rect = this.canvasElement.getBoundingClientRect();
-
-    // Get mouse position relative to canvas
-    this.mouseCanvasX = event.clientX - rect.left;
-    this.mouseCanvasY = event.clientY - rect.top;
-
-    // Convert to world coordinates
-    // The Pixi stage is scaled, so divide by scale to get unscaled canvas coordinates
-    // Then subtract padding to get world coordinates
-    const canvasUnscaledX = this.mouseCanvasX / this.scale;
-    const canvasUnscaledY = this.mouseCanvasY / this.scale;
-
-    // Convert to world coordinates by removing padding
-    this.mouseWorldX = canvasUnscaledX - CELL_CONFIG.padX;
-    this.mouseWorldY = canvasUnscaledY - CELL_CONFIG.padY;
+    // Canvas pixels can be a different size than the CSS box; scale accordingly.
+    const pixelScaleX =
+      rect.width > 0 ? this.canvasElement.width / rect.width : 1;
+    const pixelScaleY =
+      rect.height > 0 ? this.canvasElement.height / rect.height : 1;
+    this.mouseCanvasX = (event.clientX - rect.left) * pixelScaleX;
+    this.mouseCanvasY = (event.clientY - rect.top) * pixelScaleY;
   };
 
   private handleMouseLeave = (): void => {
@@ -47,10 +43,13 @@ export class MouseTracker {
   };
 
   /**
-   * Get mouse position in world coordinates
+   * Get mouse position in world coordinates (derived from the live camera).
    */
   public getWorldPosition(): { x: number; y: number } {
-    return { x: this.mouseWorldX, y: this.mouseWorldY };
+    return {
+      x: this.cameraLeft + this.mouseCanvasX / this.scale,
+      y: this.cameraTop + this.mouseCanvasY / this.scale,
+    };
   }
 
   /**
@@ -64,25 +63,34 @@ export class MouseTracker {
    * Calculate angle from a point to the mouse cursor
    */
   public getAngleFrom(worldX: number, worldY: number): number {
-    const dx = this.mouseWorldX - worldX;
-    const dy = this.mouseWorldY - worldY;
-    return Math.atan2(dy, dx);
+    const mouse = this.getWorldPosition();
+    return Math.atan2(mouse.y - worldY, mouse.x - worldX);
   }
 
   /**
    * Calculate distance from a point to the mouse cursor
    */
   public getDistanceFrom(worldX: number, worldY: number): number {
-    const dx = this.mouseWorldX - worldX;
-    const dy = this.mouseWorldY - worldY;
+    const mouse = this.getWorldPosition();
+    const dx = mouse.x - worldX;
+    const dy = mouse.y - worldY;
     return Math.sqrt(dx * dx + dy * dy);
   }
 
   /**
-   * Set the scale factor from the renderer
+   * Set the zoom factor from the renderer
    */
   public setScale(scale: number): void {
     this.scale = scale;
+  }
+
+  /**
+   * Update the camera window's top-left (world px) so canvas → world stays
+   * accurate as the camera follows the player.
+   */
+  public setCameraTopLeft(worldX: number, worldY: number): void {
+    this.cameraLeft = worldX;
+    this.cameraTop = worldY;
   }
 
   /**

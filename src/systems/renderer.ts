@@ -10,8 +10,6 @@ import {
   GameState,
   EntityKind,
   ItemType,
-  MAP_WIDTH,
-  MAP_HEIGHT,
   CELL_CONFIG,
   TileType,
   MonsterType,
@@ -29,6 +27,7 @@ import {
   MONSTER_IDLE_FRAMES,
   FacingDirection,
 } from "../config/sprites";
+import { wrapValue, nearestWrappedImage } from "../utils/wrap";
 
 /**
  * Handles rendering the game using Pixi.js
@@ -45,12 +44,12 @@ export class Renderer {
   private pendingRender?: { state: GameState; isDead: boolean };
   private viewportElement?: HTMLElement;
   private scale: number = 1.0; // Configurable scale factor
-  private cameraWorldX: number = 0; // Camera position for smooth following
+  private cameraWorldX: number = 0; // Camera center (world px), smooth-followed
   private cameraWorldY: number = 0;
+  private camLeftWorld: number = 0; // Window top-left (world px), after clamping
+  private camTopWorld: number = 0;
   private playerFacing: FacingDirection = "down";
   private shakeIntensity: number = 0;
-  private canvasMapWidth: number = MAP_WIDTH;
-  private canvasMapHeight: number = MAP_HEIGHT;
 
   constructor(canvasId: string, initialScale: number = 1.0) {
     this.scale = initialScale;
@@ -78,13 +77,12 @@ export class Renderer {
    * Initialize Pixi.js application and load sprite sheet
    */
   private async initAsync(canvas: HTMLCanvasElement): Promise<void> {
-    // Render at configured scale for fixed size display
-    const canvasWidth =
-      (this.canvasMapWidth * CELL_CONFIG.w + CELL_CONFIG.padX * 2) *
-      this.scale;
-    const canvasHeight =
-      (this.canvasMapHeight * CELL_CONFIG.h + CELL_CONFIG.padY * 2) *
-      this.scale;
+    // Windowed rendering: the canvas is sized to the visible viewport (not the
+    // whole map). Each frame we draw only the tiles in a window around the
+    // camera, so the world can be arbitrarily large — and can wrap (level 0)
+    // — without a giant canvas or DOM scrolling.
+    const { width: canvasWidth, height: canvasHeight } =
+      this.computeViewportPixels();
 
     // Initialize Pixi application
     await this.app.init({
@@ -133,34 +131,70 @@ export class Renderer {
   }
 
   /**
-   * Set the scale factor and update canvas size
+   * Set the zoom factor. The canvas stays sized to the viewport; a larger scale
+   * just shows fewer (bigger) world tiles in the same window.
    */
   public setScale(newScale: number): void {
     this.scale = newScale;
-
-    // Update canvas size
-    const canvasWidth =
-      (this.canvasMapWidth * CELL_CONFIG.w + CELL_CONFIG.padX * 2) *
-      this.scale;
-    const canvasHeight =
-      (this.canvasMapHeight * CELL_CONFIG.h + CELL_CONFIG.padY * 2) *
-      this.scale;
-
-    this.app.renderer.resize(canvasWidth, canvasHeight);
     this.app.stage.scale.set(this.scale);
+    this.resizeToViewport();
   }
 
-  private syncCanvasSize(state: GameState): void {
-    if (
-      state.mapWidth === this.canvasMapWidth &&
-      state.mapHeight === this.canvasMapHeight
-    ) {
+  /**
+   * The canvas's pixel dimensions, matched to the visible viewport element.
+   * Falls back to a reasonable default before the DOM has laid out.
+   */
+  private computeViewportPixels(): { width: number; height: number } {
+    const el = this.viewportElement;
+    const cssWidth = el && el.clientWidth > 0 ? el.clientWidth : 960;
+    const cssHeight = el && el.clientHeight > 0 ? el.clientHeight : 640;
+    return {
+      width: Math.max(1, Math.floor(cssWidth)),
+      height: Math.max(1, Math.floor(cssHeight)),
+    };
+  }
+
+  /**
+   * Resize the Pixi canvas to fill the viewport if its size has changed
+   * (window resize, panel toggles). Cheap no-op when nothing moved.
+   */
+  private resizeToViewport(): void {
+    const { width, height } = this.computeViewportPixels();
+    if (this.app.renderer.width === width && this.app.renderer.height === height) {
       return;
     }
+    this.app.renderer.resize(width, height);
+  }
 
-    this.canvasMapWidth = state.mapWidth;
-    this.canvasMapHeight = state.mapHeight;
-    this.setScale(this.scale);
+  /** The visible window size in world pixels (canvas pixels / zoom). */
+  private getViewWorldSize(): { viewW: number; viewH: number } {
+    return {
+      viewW: this.app.renderer.width / this.scale,
+      viewH: this.app.renderer.height / this.scale,
+    };
+  }
+
+  /**
+   * Clamp a camera window's top-left so it never reveals past a bounded map's
+   * edge. If the map is smaller than the window, centre it instead.
+   */
+  private clampCamera(topLeft: number, world: number, view: number): number {
+    if (world <= view) return (world - view) / 2;
+    return Math.max(0, Math.min(topLeft, world - view));
+  }
+
+  /**
+   * On a wrapping world, pick the image of a world coordinate nearest the camera
+   * centre so entities/effects near the seam draw on the side the camera faces.
+   * On bounded worlds this is the identity.
+   */
+  private wrapImage(
+    value: number,
+    center: number,
+    span: number,
+    wraps: boolean,
+  ): number {
+    return wraps ? nearestWrappedImage(value, center, span) : value;
   }
 
   /**
@@ -662,7 +696,7 @@ export class Renderer {
       return;
     }
 
-    this.syncCanvasSize(state);
+    this.resizeToViewport();
 
     const {
       visible,
@@ -694,43 +728,101 @@ export class Renderer {
         ? (Math.random() - 0.5) * this.shakeIntensity * this.scale
         : 0;
 
-    // Update camera position for smooth following (real-time mode only)
-    if (state.sim.mode === "REALTIME" && "worldX" in player) {
+    // ----- Camera (windowed; wrap-aware on the toroidal outside world) -----
+    const wraps = state.levelKind === "outside";
+    const worldW = state.mapWidth * CELL_CONFIG.w;
+    const worldH = state.mapHeight * CELL_CONFIG.h;
+
+    if ("worldX" in player) {
       const targetX = (player as any).worldX;
       const targetY = (player as any).worldY;
-
-      // Smooth camera interpolation (15% per frame)
-      this.cameraWorldX += (targetX - this.cameraWorldX) * 0.15;
-      this.cameraWorldY += (targetY - this.cameraWorldY) * 0.15;
-    } else if ("worldX" in player) {
-      // Planning mode: snap camera to player
-      this.cameraWorldX = (player as any).worldX;
-      this.cameraWorldY = (player as any).worldY;
+      if (state.sim.mode === "REALTIME") {
+        // Smooth follow (15%/frame). On a wrapping world, lerp toward the
+        // nearest wrapped image of the player so the camera takes the short way
+        // across the seam instead of sweeping the whole map, then re-wrap.
+        if (wraps) {
+          const imgX = nearestWrappedImage(targetX, this.cameraWorldX, worldW);
+          const imgY = nearestWrappedImage(targetY, this.cameraWorldY, worldH);
+          this.cameraWorldX = wrapValue(
+            this.cameraWorldX + (imgX - this.cameraWorldX) * 0.15,
+            worldW,
+          );
+          this.cameraWorldY = wrapValue(
+            this.cameraWorldY + (imgY - this.cameraWorldY) * 0.15,
+            worldH,
+          );
+        } else {
+          this.cameraWorldX += (targetX - this.cameraWorldX) * 0.15;
+          this.cameraWorldY += (targetY - this.cameraWorldY) * 0.15;
+        }
+      } else {
+        // Planning mode: snap camera to the player.
+        this.cameraWorldX = targetX;
+        this.cameraWorldY = targetY;
+      }
     }
 
     // Clear previous frame
     this.mapContainer.removeChildren();
     this.entityContainer.removeChildren();
 
-    const offsetX = CELL_CONFIG.padX;
-    const offsetY = CELL_CONFIG.padY;
+    // Window top-left in world pixels. Bounded levels clamp so the camera never
+    // shows past the map edge; the wrapping world is free (the seam is hidden by
+    // wrapped tile lookups below).
+    const { viewW, viewH } = this.getViewWorldSize();
+    let camLeft = this.cameraWorldX - viewW / 2;
+    let camTop = this.cameraWorldY - viewH / 2;
+    if (!wraps) {
+      camLeft = this.clampCamera(camLeft, worldW, viewW);
+      camTop = this.clampCamera(camTop, worldH, viewH);
+    }
+    // Remember the window origin so the mouse tracker can map canvas → world.
+    this.camLeftWorld = camLeft;
+    this.camTopWorld = camTop;
+    // A world position X maps to screen position (offsetX + X). Entities and
+    // effects reuse these offsets directly below.
+    const offsetX = -camLeft;
+    const offsetY = -camTop;
+    const camCenterX = this.cameraWorldX;
+    const camCenterY = this.cameraWorldY;
 
-    // Render tiles
-    for (let y = 0; y < state.mapHeight; y++) {
-      for (let x = 0; x < state.mapWidth; x++) {
-        const tileIndex = x + y * state.mapWidth;
+    // ----- Tiles: only the cells inside the camera window -----
+    const startCol = Math.floor(camLeft / CELL_CONFIG.w) - 1;
+    const endCol = Math.floor((camLeft + viewW) / CELL_CONFIG.w) + 1;
+    const startRow = Math.floor(camTop / CELL_CONFIG.h) - 1;
+    const endRow = Math.floor((camTop + viewH) / CELL_CONFIG.h) + 1;
+
+    for (let tileY = startRow; tileY <= endRow; tileY++) {
+      for (let tileX = startCol; tileX <= endCol; tileX++) {
+        // Map coords (wrapped on the torus); screen coords use the unwrapped
+        // window coords so the row/column stays contiguous on screen.
+        let mx = tileX;
+        let my = tileY;
+        if (wraps) {
+          mx = wrapValue(tileX, state.mapWidth);
+          my = wrapValue(tileY, state.mapHeight);
+        } else if (
+          tileX < 0 ||
+          tileY < 0 ||
+          tileX >= state.mapWidth ||
+          tileY >= state.mapHeight
+        ) {
+          continue;
+        }
+
+        const tileIndex = mx + my * state.mapWidth;
         const isRevealed = usingShadowFov ? explored.has(tileIndex) : true;
         const isVisible = usingShadowFov
           ? enhancedVision
             ? explored.has(tileIndex)
             : visible.has(tileIndex)
           : true;
-        const tileType = state.tiles.getTile(x, y);
+        const tileType = state.tiles.getTile(mx, my);
 
         if (!isRevealed) continue;
 
-        const screenX = offsetX + x * CELL_CONFIG.w;
-        const screenY = offsetY + y * CELL_CONFIG.h;
+        const screenX = offsetX + tileX * CELL_CONFIG.w;
+        const screenY = offsetY + tileY * CELL_CONFIG.h;
 
         const floorVariant = state.floorVariant ?? 0;
         const floorCoord =
@@ -852,8 +944,12 @@ export class Renderer {
       // Use current world position (no interpolation for instant movement)
       let screenX: number, screenY: number;
       if ("worldX" in entity) {
-        screenX = offsetX + (entity as any).worldX;
-        screenY = offsetY + (entity as any).worldY;
+        screenX =
+          offsetX +
+          this.wrapImage((entity as any).worldX, camCenterX, worldW, wraps);
+        screenY =
+          offsetY +
+          this.wrapImage((entity as any).worldY, camCenterY, worldH, wraps);
       } else {
         // Fall back to grid-based positioning
         screenX =
@@ -965,16 +1061,16 @@ export class Renderer {
           ),
         );
         const frame = EXPLOSION_FRAMES[frameIndex];
-        const screenX = offsetX + effect.worldX;
-        const screenY = offsetY + effect.worldY;
+        const screenX = offsetX + this.wrapImage(effect.worldX, camCenterX, worldW, wraps);
+        const screenY = offsetY + this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
         const sprite = this.createSprite(frame.x, frame.y, screenX, screenY);
         if (sprite) {
           sprite.anchor.set(0.5, 0.5);
           this.entityContainer.addChild(sprite);
         }
       } else if (effect.type === "spark") {
-        const screenX = offsetX + effect.worldX;
-        const screenY = offsetY + effect.worldY;
+        const screenX = offsetX + this.wrapImage(effect.worldX, camCenterX, worldW, wraps);
+        const screenY = offsetY + this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
         const sprite = this.createSprite(
           SPRITE_COORDS.bullet.x,
           SPRITE_COORDS.bullet.y,
@@ -994,8 +1090,8 @@ export class Renderer {
     // Render player last
     let playerX: number, playerY: number;
     if ("worldX" in player) {
-      playerX = offsetX + (player as any).worldX;
-      playerY = offsetY + (player as any).worldY;
+      playerX = offsetX + this.wrapImage((player as any).worldX, camCenterX, worldW, wraps);
+      playerY = offsetY + this.wrapImage((player as any).worldY, camCenterY, worldH, wraps);
     } else {
       playerX = offsetX + (player as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
       playerY = offsetY + (player as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
@@ -1047,18 +1143,16 @@ export class Renderer {
   }
 
   /**
-   * Center viewport on player position with smart scrolling
+   * Snap (or, when smoothing, leave) the windowed camera on the player. With
+   * windowed rendering the camera follows the player every frame inside
+   * `render()`, so this is only used on level transitions / new games to jump
+   * the camera instantly rather than panning across the level. The `smooth`
+   * flag is kept for call-site compatibility; smoothing happens in `render()`.
    */
   public centerOnPlayer(
     player: { gridX: number; gridY: number; worldX?: number; worldY?: number },
     smooth: boolean = true,
   ): void {
-    if (!this.viewportElement) return;
-
-    const offsetX = CELL_CONFIG.padX;
-    const offsetY = CELL_CONFIG.padY;
-
-    // Calculate player's screen position (at configured scale)
     const playerWorldX =
       typeof player.worldX === "number"
         ? player.worldX
@@ -1067,26 +1161,19 @@ export class Renderer {
       typeof player.worldY === "number"
         ? player.worldY
         : player.gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
-    const playerScreenX = (offsetX + playerWorldX) * this.scale;
-    const playerScreenY = (offsetY + playerWorldY) * this.scale;
 
-    // Calculate scroll position to center player in viewport
-    const targetScrollX = playerScreenX - this.viewportElement.clientWidth / 2;
-    const targetScrollY = playerScreenY - this.viewportElement.clientHeight / 2;
-
-    const currentScrollX = this.viewportElement.scrollLeft;
-    const currentScrollY = this.viewportElement.scrollTop;
-
-    if (smooth) {
-      const nextScrollX =
-        currentScrollX + (targetScrollX - currentScrollX) * 0.2;
-      const nextScrollY =
-        currentScrollY + (targetScrollY - currentScrollY) * 0.2;
-      this.viewportElement.scrollLeft = nextScrollX;
-      this.viewportElement.scrollTop = nextScrollY;
-    } else {
-      this.viewportElement.scrollLeft = targetScrollX;
-      this.viewportElement.scrollTop = targetScrollY;
+    if (!smooth) {
+      // Hard snap (level change / respawn) so the camera doesn't sweep.
+      this.cameraWorldX = playerWorldX;
+      this.cameraWorldY = playerWorldY;
     }
+  }
+
+  /**
+   * The world-pixel coordinate of the camera window's top-left corner, so the
+   * mouse tracker can convert canvas pixels to world coordinates.
+   */
+  public getCameraTopLeft(): { x: number; y: number } {
+    return { x: this.camLeftWorld, y: this.camTopWorld };
   }
 }

@@ -1513,8 +1513,9 @@ body {
 
 .viewport {
   flex: 1;
-  overflow: auto;
-  scroll-behavior: auto; /* Disable smooth scrolling for instant response */
+  /* Windowed renderer: the canvas is sized to this element and the camera
+     follows the player in-engine, so there is nothing to scroll. */
+  overflow: hidden;
   position: relative; /* anchor for floating inventory bar */
 }
 

@@ -30,6 +30,7 @@ import { BulletEntity } from "../entities/bullet-entity";
 import { ExplosiveEntity } from "../entities/explosive-entity";
 import { TileSource } from "../core/tile-source";
 import { idxFor, tileAtFor } from "../utils/helpers";
+import { wrapValue } from "../utils/wrap";
 import { applyWallDamageAtIndex } from "../utils/walls";
 
 import { pushEvent } from "./simulation/sim-helpers";
@@ -289,13 +290,19 @@ export class Physics {
       entity.worldX += entity.velocityX * dt;
       entity.worldY += entity.velocityY * dt;
 
-      const minBound = CELL_CONFIG.w + PLAYER_RADIUS;
-      const maxBoundX = (state.mapWidth - 1) * CELL_CONFIG.w - PLAYER_RADIUS;
-      const maxBoundY = (state.mapHeight - 1) * CELL_CONFIG.h - PLAYER_RADIUS;
-      if (entity.worldX < minBound) { entity.worldX = minBound; entity.velocityX = 0; }
-      else if (entity.worldX > maxBoundX) { entity.worldX = maxBoundX; entity.velocityX = 0; }
-      if (entity.worldY < minBound) { entity.worldY = minBound; entity.velocityY = 0; }
-      else if (entity.worldY > maxBoundY) { entity.worldY = maxBoundY; entity.velocityY = 0; }
+      if (state.levelKind === "outside") {
+        // Toroidal world: fall off one edge, reappear on the other.
+        entity.worldX = wrapValue(entity.worldX, state.mapWidth * CELL_CONFIG.w);
+        entity.worldY = wrapValue(entity.worldY, state.mapHeight * CELL_CONFIG.h);
+      } else {
+        const minBound = CELL_CONFIG.w + PLAYER_RADIUS;
+        const maxBoundX = (state.mapWidth - 1) * CELL_CONFIG.w - PLAYER_RADIUS;
+        const maxBoundY = (state.mapHeight - 1) * CELL_CONFIG.h - PLAYER_RADIUS;
+        if (entity.worldX < minBound) { entity.worldX = minBound; entity.velocityX = 0; }
+        else if (entity.worldX > maxBoundX) { entity.worldX = maxBoundX; entity.velocityX = 0; }
+        if (entity.worldY < minBound) { entity.worldY = minBound; entity.velocityY = 0; }
+        else if (entity.worldY > maxBoundY) { entity.worldY = maxBoundY; entity.velocityY = 0; }
+      }
     }
 
     body.setPosition(entity.worldX, entity.worldY);
@@ -395,29 +402,35 @@ export class Physics {
       entity.worldX += entity.velocityX * dt;
       entity.worldY += entity.velocityY * dt;
 
-      // Clamp to world bounds to prevent entities escaping the map.
-      // (Bullets are handled in updateBullets and skipped above.)
-      const entityRadius = entity.kind === EntityKind.PLAYER ? PLAYER_RADIUS
-        : entity.kind === EntityKind.MONSTER ? MONSTER_RADIUS
-        : entity.kind === EntityKind.EXPLOSIVE ? EXPLOSIVE_RADIUS
-        : 8;
-      const minBound = CELL_CONFIG.w + entityRadius;
-      const maxBoundX = (state.mapWidth - 1) * CELL_CONFIG.w - entityRadius;
-      const maxBoundY = (state.mapHeight - 1) * CELL_CONFIG.h - entityRadius;
+      if (state.levelKind === "outside") {
+        // Toroidal world: wrap entities around the seam instead of clamping.
+        entity.worldX = wrapValue(entity.worldX, state.mapWidth * CELL_CONFIG.w);
+        entity.worldY = wrapValue(entity.worldY, state.mapHeight * CELL_CONFIG.h);
+      } else {
+        // Clamp to world bounds to prevent entities escaping the map.
+        // (Bullets are handled in updateBullets and skipped above.)
+        const entityRadius = entity.kind === EntityKind.PLAYER ? PLAYER_RADIUS
+          : entity.kind === EntityKind.MONSTER ? MONSTER_RADIUS
+          : entity.kind === EntityKind.EXPLOSIVE ? EXPLOSIVE_RADIUS
+          : 8;
+        const minBound = CELL_CONFIG.w + entityRadius;
+        const maxBoundX = (state.mapWidth - 1) * CELL_CONFIG.w - entityRadius;
+        const maxBoundY = (state.mapHeight - 1) * CELL_CONFIG.h - entityRadius;
 
-      if (entity.worldX < minBound) {
-        entity.worldX = minBound;
-        entity.velocityX = 0;
-      } else if (entity.worldX > maxBoundX) {
-        entity.worldX = maxBoundX;
-        entity.velocityX = 0;
-      }
-      if (entity.worldY < minBound) {
-        entity.worldY = minBound;
-        entity.velocityY = 0;
-      } else if (entity.worldY > maxBoundY) {
-        entity.worldY = maxBoundY;
-        entity.velocityY = 0;
+        if (entity.worldX < minBound) {
+          entity.worldX = minBound;
+          entity.velocityX = 0;
+        } else if (entity.worldX > maxBoundX) {
+          entity.worldX = maxBoundX;
+          entity.velocityX = 0;
+        }
+        if (entity.worldY < minBound) {
+          entity.worldY = minBound;
+          entity.velocityY = 0;
+        } else if (entity.worldY > maxBoundY) {
+          entity.worldY = maxBoundY;
+          entity.velocityY = 0;
+        }
       }
 
       // Update physics body position
@@ -702,6 +715,10 @@ export class Physics {
       bullet.prevWorldX = bullet.worldX;
       bullet.prevWorldY = bullet.worldY;
 
+      const wraps = state.levelKind === "outside";
+      const worldW = state.mapWidth * CELL_CONFIG.w;
+      const worldH = state.mapHeight * CELL_CONFIG.h;
+
       for (let s = 0; s < substeps; s++) {
         bullet.worldX += bullet.velocityX * stepDt;
         bullet.worldY += bullet.velocityY * stepDt;
@@ -710,6 +727,12 @@ export class Physics {
         if (bullet.traveledDistance >= bullet.maxDistance) {
           this.removeStateEntity(state, bullet);
           break;
+        }
+
+        if (wraps) {
+          // Bullets cross the toroidal seam so shots can hit the far edge.
+          bullet.worldX = wrapValue(bullet.worldX, worldW);
+          bullet.worldY = wrapValue(bullet.worldY, worldH);
         }
 
         bullet.physicsBody.setPosition(bullet.worldX, bullet.worldY);

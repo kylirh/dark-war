@@ -27,6 +27,20 @@ describe("computeFOVFrom", () => {
     expect(visible.has(idxFor(9, 5, W))).toBe(false);
   });
 
+  it("does not wrap sight across the seam when wraps is false", () => {
+    const visible = computeFOVFrom(openSource(), 0, 0, 4, false);
+    expect(visible.has(idxFor(W - 1, 0, W))).toBe(false);
+    expect(visible.has(idxFor(0, H - 1, W))).toBe(false);
+  });
+
+  it("wraps sight across the seam when wraps is true", () => {
+    // Standing in the top-left corner of the torus, the right and bottom edges
+    // are each one step away across the seam and should light up.
+    const visible = computeFOVFrom(openSource(), 0, 0, 4, true);
+    expect(visible.has(idxFor(W - 1, 0, W))).toBe(true); // one step left, wrapped
+    expect(visible.has(idxFor(0, H - 1, W))).toBe(true); // one step up, wrapped
+  });
+
   it("respects the radius", () => {
     const visible = computeFOVFrom(openSource(), 5, 5, 2);
     expect(visible.has(idxFor(5, 5, W))).toBe(true);

@@ -44,6 +44,31 @@ describe("Physics.predictLocalMovement", () => {
     expect(player.worldX).toBeGreaterThan(110);
   });
 
+  it("wraps a player around the seam on the toroidal outside world", () => {
+    const physics = new Physics();
+    const map = new Array(W * H).fill(TileType.FLOOR); // open world, no border
+    physics.initializeMap(new FlatTileSource(map, W, H));
+    const outside = {
+      map,
+      mapWidth: W,
+      mapHeight: H,
+      levelKind: "outside",
+    } as unknown as GameState;
+
+    // Grid 8 → worldX 272; worldW = W*32 = 320. Drive right past the seam.
+    const player = new PlayerEntity(8, 5);
+    player.velocityX = 300; // +5px per 1/60s step
+    for (let i = 0; i < 20; i++) {
+      physics.predictLocalMovement(outside, player, 1 / 60);
+    }
+
+    // Crossed x=320 and reappeared near the left edge, still moving (not clamped).
+    expect(player.worldX).toBeGreaterThanOrEqual(0);
+    expect(player.worldX).toBeLessThan(W * 32);
+    expect(player.worldX).toBeLessThan(100);
+    expect(player.velocityX).toBe(300);
+  });
+
   it("slides along a wall when moving diagonally into it", () => {
     const physics = new Physics();
     const map = makeMap();
