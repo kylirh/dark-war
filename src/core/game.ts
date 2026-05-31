@@ -743,9 +743,13 @@ export class Game {
   ): Entity[] {
     const entities: Entity[] = [];
     const freeTiles = this.getFreeTilesOptimized(map, width, height);
+    // Density scales with the amount of open floor so big levels feel populated
+    // rather than empty. (~one monster per 70 floor tiles, plus a depth bump.)
+    const floorTiles = freeTiles.length;
+    const per = (n: number) => Math.max(1, Math.round(floorTiles / n));
 
     // Spawn monsters
-    const monsterCount = depth === 1 ? 30 : 8 + depth;
+    const monsterCount = per(70) + depth;
     let ratCount = 0;
     let mutantCount = 0;
     for (let i = 0; i < monsterCount && freeTiles.length > 0; i++) {
@@ -784,11 +788,11 @@ export class Game {
       }
     };
 
-    spawnItems(10, ItemType.AMMO);
-    spawnItems(6, ItemType.MEDKIT);
-    spawnItems(3, ItemType.KEYCARD);
-    spawnItems(4, ItemType.GRENADE);
-    spawnItems(3, ItemType.LAND_MINE);
+    spawnItems(per(260), ItemType.AMMO);
+    spawnItems(per(450), ItemType.MEDKIT);
+    spawnItems(per(900), ItemType.KEYCARD);
+    spawnItems(per(650), ItemType.GRENADE);
+    spawnItems(per(900), ItemType.LAND_MINE);
     spawnItems(2 + Math.floor(depth / 4), ItemType.POWERCELL);
 
     // Spawn utility bot: 0 or 1 per floor (50% chance), far from start
