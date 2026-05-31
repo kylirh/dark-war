@@ -323,6 +323,27 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
     const angle = player.facingAngle;
     const weapon = weaponOverride ?? player.weapon;
 
+    // Launch a bullet from the muzzle (in front of the player, outside its body).
+    const launchBullet = (
+      aim: number,
+      damage: number,
+      speed = 600,
+      maxDistance = 640,
+    ): void => {
+      const MUZZLE_OFFSET = 16;
+      state.entityManager.spawn(
+        new BulletEntity(
+          player.worldX + Math.cos(aim) * MUZZLE_OFFSET,
+          player.worldY + Math.sin(aim) * MUZZLE_OFFSET,
+          Math.cos(aim) * speed,
+          Math.sin(aim) * speed,
+          damage,
+          player.id,
+          maxDistance,
+        ),
+      );
+    };
+
     switch (weapon) {
       case WeaponType.MELEE: {
         const target = findMeleeTarget(state, player, angle);
@@ -420,6 +441,74 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         pushEvent(state, {
           type: EventType.MESSAGE,
           data: { type: "MESSAGE", message: "Fired!" },
+        });
+        return;
+      }
+      case WeaponType.SMG: {
+        // Spray and pray: fast (client auto-repeats), light, with a little spread.
+        if (player.ammo <= 0) {
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "*click* Out of ammo!" },
+          });
+          return;
+        }
+        player.ammo--;
+        state.pendingSounds.push({
+          effect: SoundEffect.SHOOT,
+          sourceId: player.id,
+        });
+        const spread = (RNG.int(11) - 5) * 0.012; // ±~0.06 rad
+        launchBullet(angle + spread, 2, 640, 560);
+        return;
+      }
+      case WeaponType.SHOTGUN: {
+        // One loud blast of pellets; eats ammo fast and has shorter range.
+        if (player.ammo <= 0) {
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "*click* Out of shells!" },
+          });
+          return;
+        }
+        const PELLETS = 6;
+        const SPREAD = 0.42; // total cone width (rad)
+        player.ammo = Math.max(0, player.ammo - 4); // heavy ammo use
+        state.pendingSounds.push({
+          effect: SoundEffect.SHOOT,
+          sourceId: player.id,
+        });
+        for (let i = 0; i < PELLETS; i++) {
+          const t = i / (PELLETS - 1) - 0.5; // -0.5 .. +0.5 across the cone
+          launchBullet(angle + t * SPREAD, 2, 560, 360);
+        }
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "BOOM!" },
+        });
+        return;
+      }
+      case WeaponType.LASER: {
+        // Charge-powered: drains laserCharge instead of ammo; recharge with cells.
+        if (player.laserCharge <= 0) {
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: {
+              type: "MESSAGE",
+              message: "Laser depleted — insert a power cell.",
+            },
+          });
+          return;
+        }
+        player.laserCharge = Math.max(0, player.laserCharge - 5);
+        state.pendingSounds.push({
+          effect: SoundEffect.SHOOT,
+          sourceId: player.id,
+        });
+        launchBullet(angle, 3, 760, 720); // fast, hits a bit harder
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: "Zap!" },
         });
         return;
       }

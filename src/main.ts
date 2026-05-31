@@ -1694,7 +1694,15 @@ class DarkWar {
       // Predict the shot's audio locally so firing feels instant; the server
       // suppresses its echo of our own shoot sound to avoid doubling. The bullet
       // and hit resolution stay server-authoritative.
-      if (player.weapon === WeaponType.PISTOL && player.ammo > 0) {
+      const usesAmmo =
+        player.weapon === WeaponType.PISTOL ||
+        player.weapon === WeaponType.SMG ||
+        player.weapon === WeaponType.SHOTGUN;
+      const usesLaser = player.weapon === WeaponType.LASER;
+      if (
+        (usesAmmo && player.ammo > 0) ||
+        (usesLaser && player.laserCharge > 0)
+      ) {
         Sound.play(SoundEffect.SHOOT);
       }
       this.dispatchOnlineAction({
