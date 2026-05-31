@@ -636,7 +636,6 @@ function decideMonsterCommand(
   }
 
   const isSkulker = monster.type === MonsterType.SKULKER;
-  const hpMax = monster.hpMax ?? monster.hp;
 
   const waitCmd = (): Command => makeWaitCommand(monster, tick);
 

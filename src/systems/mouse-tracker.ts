@@ -10,8 +10,6 @@ export class MouseTracker {
   private mouseWorldY: number = 0;
   private mouseCanvasX: number = 0;
   private mouseCanvasY: number = 0;
-  private cameraWorldX: number = 0;
-  private cameraWorldY: number = 0;
   private scale: number = 2.0; // Renderer scale factor
 
   constructor(canvasId: string) {
@@ -78,14 +76,6 @@ export class MouseTracker {
     const dx = this.mouseWorldX - worldX;
     const dy = this.mouseWorldY - worldY;
     return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  /**
-   * Update camera position for accurate world coordinate conversion
-   */
-  public setCameraPosition(worldX: number, worldY: number): void {
-    this.cameraWorldX = worldX;
-    this.cameraWorldY = worldY;
   }
 
   /**

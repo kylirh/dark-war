@@ -518,13 +518,6 @@ export class Renderer {
   }
 
   /**
-   * Get current camera position in world coordinates
-   */
-  public getCameraPosition(): { x: number; y: number } {
-    return { x: this.cameraWorldX, y: this.cameraWorldY };
-  }
-
-  /**
    * Textures are cached to prevent memory leaks
    */
   private getTexture(x: number, y: number): Texture | null {

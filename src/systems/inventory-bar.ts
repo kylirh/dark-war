@@ -3,7 +3,7 @@ import {
   ItemType,
   Player,
 } from "../types";
-import { SPRITE_COORDS, SPRITE_SIZE, SPRITES_PER_ROW } from "../config/sprites";
+import { SPRITE_COORDS, SPRITE_SIZE } from "../config/sprites";
 import {
   getSlotActions,
   getSlotDisplayCount,
@@ -13,9 +13,7 @@ import {
 
 const SLOT_SIZE = 44; // Slot outer size including border and padding
 const ICON_SIZE = 32;
-const ICON_OFFSET = (SLOT_SIZE - ICON_SIZE) / 2;
 const SPRITESHEET_URL = "assets/img/sprites.png";
-const SPRITESHEET_COLS = SPRITES_PER_ROW;
 
 export class InventoryBar {
   private container: HTMLElement;
