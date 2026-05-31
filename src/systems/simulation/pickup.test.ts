@@ -5,6 +5,7 @@ import { EntityKind, ItemType, WeaponType, EventType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { processEventQueue } from "./events";
+import { pushEvent } from "./sim-helpers";
 import { stepSimulationTick } from "./tick";
 import { CommandType } from "../../types";
 
@@ -74,8 +75,7 @@ describe("picking up new items lands them in the inventory", () => {
     expect(player.armor).toBeGreaterThan(0);
 
     const hpBefore = player.hp;
-    state.eventQueue.push({
-      id: "dmg",
+    pushEvent(state, {
       type: EventType.DAMAGE,
       data: { type: "DAMAGE", targetId: player.id, amount: 5 },
     });
