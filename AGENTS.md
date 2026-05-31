@@ -189,6 +189,21 @@ if (entity.kind === EntityKind.MONSTER) {
 - **Check passable:** `passableFor(map, x, y, width, height)`
 - **Set tile:** `setTileFor(map, x, y, width, TileType.FLOOR)`
 
+### Rendering, Camera & Wrap-Around
+
+- **Windowed rendering:** `renderer.ts` sizes the canvas to the viewport and
+  draws only the tiles in a window around the camera each frame — no DOM
+  scrolling. The camera (`cameraWorldX/Y`) smooth-follows the player and is
+  clamped to the map edge on bounded levels.
+- **Toroidal outside world:** level 0 (`levelKind === "outside"`) wraps — walk
+  off one edge, reappear on the other. The wrap math lives in `src/utils/wrap.ts`
+  (`wrapValue`, `wrapDelta`, `nearestWrappedImage`) and is applied in the
+  renderer (window lookups, camera, entity images), physics (position/bullet
+  wrap instead of clamp), and FOV (`computeFOVFrom(..., wraps)`). Dungeons are
+  sealed so they never hit a seam.
+- **Mouse → world:** `MouseTracker` adds the camera window origin
+  (`renderer.getCameraTopLeft()`) to the canvas pixel / zoom.
+
 ### CTDM Time Dilation
 
 - **CTDM is an in-game item** the player finds (not active from the start)
