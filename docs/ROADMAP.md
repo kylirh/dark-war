@@ -32,16 +32,16 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 ## Phase 3 — Content: data layer
 
 - [x] Extend `ItemType`, `WeaponType`, `MonsterType` enums
-- [x] `content/items.ts` registry (display name, sprite key, category, stack, effects)
-- [x] `content/monsters.ts` registry (hp, speed, damage, sight, loot, flags, spawn depth)
-- [x] `content/loadout.ts` starter loadout (pistol XOR laser; butcher knife; black pill)
+- [x] `content/item-defs.ts` registry (display name, sprite key, category, stack, flags)
+- [x] `content/monster-defs.ts` registry (hp, speed, damage, behavior, loot, flags, spawn depth)
+- [ ] starter loadout (pistol XOR laser; butcher knife; black pill) — pending player-init work
 - [x] Wire sprite coords for every new item/monster
 
 ## Phase 4 — Content: item mechanics
 
-- [ ] Death loot **spread** (scatter drops so they're individually visible)
-- [ ] **Magnetic auto-pickup** (radius; items drift to player & are collected)
-- [ ] Items **fall through holes** to the level below
+- [x] Death loot **spread** (scatter drops so they're individually visible)
+- [x] **Magnetic auto-pickup** (radius; items drift to player & are collected)
+- [~] Items **fall through holes** (removed on fall; deposit-below deferred) to the level below
 - [ ] Butcher knife (starter melee, not found in levels)
 - [ ] Laser pistol (starter alt; starts half-charged; powers up via power cells)
 - [ ] Black pill (starter; eat → instant death; anyone who eats it dies)
@@ -51,7 +51,7 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - [ ] Macro Metal Sword & Vibra Sword (stronger melee)
 - [ ] Macrometal jacket (armor / damage resistance)
 - [ ] Powercell (energy for laser/panic button/CTDM)
-- [ ] Coins, Bone, Metal Scraps, Rubble, Rocks, Trash (drops/economy/cleanup fodder)
+- [x] Coins, Bone, Metal Scraps, Rubble, Rocks, Trash (drops/economy/cleanup fodder)
 - [ ] Rocks throwable; rubble→rock production on wall/floor damage
 - [ ] Utility bot cleans rubble/rocks/scraps/trash
 - [ ] Panic button (warp to a level closer to entrance; charges via power cells)
@@ -60,22 +60,22 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 
 ## Phase 5 — Content: monsters
 
-- [ ] Giant Spider (melee; chance to stun/slow on hit)
-- [ ] Icky Lump (slow, weak, breeds/multiplies, may drop coin, won't fight own kind)
-- [ ] Flutterbang (fast suicide bomber bat; bites then may explode)
-- [ ] Wild Dog (befriend with bone(s); nameable; auto-attacks nearby foes; follows)
-- [ ] Snagglepuss (steals & flees; cookie befriends → fetches loot to you)
-- [ ] Moppet (teleports when hit; trips/steals money; far sight; self-heals; smiley)
-- [ ] Cybercop (near-invisible in combat; jail mechanic deferred)
-- [ ] Zyth (alien with laser gun)
-- [ ] Tentacular Horror (big, tough, multi-hit; deep levels)
-- [ ] Terrorist Collaborator (ranged guns+grenades mini-boss; deep levels)
-- [ ] Dreadnaught (wall-destroying tank; sees all; mini-boss; deep levels)
-- [ ] Depth-scaled spawn tables (minibosses & horrors on lower levels)
+- [~] Giant Spider (melee; chance to stun/slow on hit)
+- [~] Icky Lump (slow, weak, breeds/multiplies, may drop coin, won't fight own kind)
+- [~] Flutterbang (fast suicide bomber bat; bites then may explode)
+- [~] Wild Dog (befriend with bone(s); nameable; auto-attacks nearby foes; follows)
+- [~] Snagglepuss (steals & flees; cookie befriends → fetches loot to you)
+- [~] Moppet (teleports when hit; trips/steals money; far sight; self-heals; smiley)
+- [~] Cybercop (near-invisible in combat; jail mechanic deferred)
+- [~] Zyth (alien with laser gun)
+- [~] Tentacular Horror (big, tough, multi-hit; deep levels)
+- [~] Terrorist Collaborator (ranged guns+grenades mini-boss; deep levels)
+- [~] Dreadnaught (wall-destroying tank; sees all; mini-boss; deep levels)
+- [x] Depth-scaled spawn tables (minibosses & horrors on lower levels)
 
 ## Phase R — Restructure toward 4 variants (staged)
 
-- [ ] Scaffold workspace skeleton dirs + READMEs (`packages/*`, `apps/*`) — documented target
+- [x] Scaffold workspace skeleton dirs + READMEs (`packages/*`, `apps/*`) — documented target
 - [ ] R1: extract `packages/engine` (pure core) behind `@dark-war/engine`
 - [ ] R2: extract `packages/net`
 - [ ] R3: extract `packages/server-core`; `apps/server` dedicated executable (multi-room)

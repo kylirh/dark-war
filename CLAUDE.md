@@ -37,6 +37,7 @@ Vite bundles `src/main.ts` into `app/game.js` (IIFE format). Electron loads `app
 ### Core Loop
 
 `DarkWar` class in `src/main.ts` orchestrates everything:
+
 - **GameLoop** (`src/core/game-loop.ts`): Fixed 60Hz timestep with accumulator pattern. Calls `update(dt)` at fixed rate and `render(alpha)` at variable framerate with interpolation.
 - **Simulation** (`src/systems/simulation/`): Tick-based command/event system running at 20 ticks/sec (`SIM_DT_MS = 50`). Split into domain modules: `constants`, `sim-helpers`, `ai`, `commands`, `explosives`, `events`, `tick` (entry point with `stepSimulationTick`). Player actions become Commands, resolved into Events (damage, death, pickup, etc.). AI commands generated after player commands each tick.
 - **Physics** (`src/systems/physics.ts`): Uses `detect-collisions` library for continuous collision detection. Wall sliding, bullet movement, explosive physics.
@@ -89,6 +90,28 @@ Every level is a **bounded** flat `TileType[]`, so serialization, `explored`/`wa
 
 **Tile access** (`src/core/tile-source.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). For every level it is a `FlatTileSource` over `state.map`. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors).
 
+### Content & Assets
+
+- **Content registries** (`src/content/`): data-driven definitions decoupled from
+  behavior. `monster-defs.ts` (`MONSTER_DEFS`) holds per-monster stats, the AI
+  `behavior` archetype (`melee`/`ranged`/`bot`), spawn weight/`minDepth`/`miniboss`,
+  ability `flags`, and loot; `MonsterEntity` and the spawner read it. `item-defs.ts`
+  (`ITEM_DEFS`) holds per-item name/category/flags. Add new items/monsters here.
+- **Asset pipeline** (`tools/`, run `npm run gen:assets`): art and sound are
+  generated deterministically from code so they're reproducible and reviewable.
+  `gen-spritesheet.mjs` composites procedural placeholder sprites onto a pristine
+  base (`tools/sprites.base.png`) → `app/assets/img/sprites.png`; new cells must
+  match `SPRITE_COORDS` in `src/config/sprites.ts`. `gen-sounds.mjs` synthesizes
+  WAV effects. `tools/png.mjs` is a dependency-free PNG codec (zlib only).
+
+### Build Variants (roadmap)
+
+The long-term plan is one shared engine consumed by four variants (Electron
+client, headless server, static web client, arcade cabinet). See
+`docs/ARCHITECTURE.md` for the target monorepo layout and the engine-purity rule,
+and `docs/ROADMAP.md` for staged progress. **New engine code must not import
+DOM/Pixi/Electron/ws/node** so the eventual extraction stays mechanical.
+
 ### Key Utilities
 
 - `src/utils/helpers.ts`: `idxFor()`, `inBoundsFor()`, `passableFor()`, `tileAtFor()`, `setTileFor()`, `dist()`, `setPositionFromGrid()`
@@ -96,7 +119,7 @@ Every level is a **bounded** flat `TileType[]`, so serialization, `explored`/`wa
 - `src/utils/walls.ts`: `applyWallDamageAt()` for destructible walls
 - `src/utils/repair.ts`: `applyRepairAt()`, `findNearestRepairTarget()`, `hasAnyRepairTarget()` — used by utility bot
 - `src/utils/rng.ts`: Deterministic RNG — `RNG.int(n)`, `RNG.choose(arr)`, `RNG.chance(p)`. The `RandomNumberGenerator` class is exported for independent seeded instances (e.g. per-level dungeon generation).
-- `src/utils/pathfinding.ts`: A* pathfinding for click-to-move
+- `src/utils/pathfinding.ts`: A\* pathfinding for click-to-move
 
 ### State & Commands Pattern
 
