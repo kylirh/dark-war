@@ -7,6 +7,27 @@ import {
   STACKABLE_ITEMS,
   WeaponType,
 } from "../types";
+import { itemName } from "../content/item-defs";
+
+/** Map an item to the WeaponType it equips (MELEE for non-weapons/melee gear). */
+export function weaponTypeForItem(itemType: ItemType | null): WeaponType {
+  switch (itemType) {
+    case ItemType.PISTOL:
+      return WeaponType.PISTOL;
+    case ItemType.LASER_PISTOL:
+      return WeaponType.LASER;
+    case ItemType.GYROJET_SMG:
+      return WeaponType.SMG;
+    case ItemType.GYROJET_SHOTGUN:
+      return WeaponType.SHOTGUN;
+    case ItemType.GRENADE:
+      return WeaponType.GRENADE;
+    case ItemType.LAND_MINE:
+      return WeaponType.LAND_MINE;
+    default:
+      return WeaponType.MELEE;
+  }
+}
 
 export function isInventoryFull(player: Player): boolean {
   return player.inventorySlots.every((s) => s.type !== null);
@@ -74,24 +95,18 @@ export function getSlotDisplayCount(
     case ItemType.CTDM:
       return null; // shown as bar instead
     case ItemType.POWERCELL:
-      return null;
+      return player.itemCounts[ItemType.POWERCELL] ?? null;
     default:
+      // Misc stackable collectibles track their count in itemCounts.
+      if (STACKABLE_ITEMS.includes(slot.type)) {
+        return player.itemCounts[slot.type] ?? 0;
+      }
       return null;
   }
 }
 
 export function getWeaponForSlot(slot: InventorySlot | null): WeaponType {
-  if (!slot?.type) return WeaponType.MELEE;
-  switch (slot.type) {
-    case ItemType.PISTOL:
-      return WeaponType.PISTOL;
-    case ItemType.GRENADE:
-      return WeaponType.GRENADE;
-    case ItemType.LAND_MINE:
-      return WeaponType.LAND_MINE;
-    default:
-      return WeaponType.MELEE;
-  }
+  return weaponTypeForItem(slot?.type ?? null);
 }
 
 export function getSlotLabel(itemType: ItemType | null): string {
@@ -114,7 +129,7 @@ export function getSlotLabel(itemType: ItemType | null): string {
     case ItemType.POWERCELL:
       return "Powercell";
     default:
-      return itemType;
+      return itemName(itemType);
   }
 }
 

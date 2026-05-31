@@ -12,13 +12,20 @@ import {
   TileType,
   WeaponType,
   CELL_CONFIG,
+  STACKABLE_ITEMS,
+  INVENTORY_BAR_SIZE,
 } from "../../types";
 import { ItemEntity } from "../../entities/item-entity";
 import { MONSTER_DEFS } from "../../content/monster-defs";
+import { ITEM_DEFS, itemName } from "../../content/item-defs";
 import { idxFor } from "../../utils/helpers";
+import { weaponTypeForItem } from "../../utils/inventory";
 import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../sound";
+
+/** Flat damage reduction granted by a macrometal jacket. */
+const ARMOR_PER_JACKET = 3;
 import {
   MAX_EVENTS_PER_TICK,
   EXPLOSION_KNOCKBACK_MAX_DISTANCE,
@@ -110,6 +117,14 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
 
     // Don't damage or play sounds if already dead
     if (player.hp <= 0) return;
+
+    // Armor (e.g. macrometal jacket) softens the blow, always leaving ≥1.
+    const armor = (player as Player & { armor?: number }).armor ?? 0;
+    const incoming =
+      armor > 0 && !data.fromExplosion
+        ? Math.max(1, data.amount - armor)
+        : data.amount;
+    data.amount = incoming;
 
     player.hp -= data.amount;
 
@@ -719,6 +734,18 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
         player.ctdmChargeMax,
         player.ctdmCharge + recharge,
       );
+      // Power cells also recharge laser/panic gear and bank as a carried item.
+      player.laserCharge = Math.min(
+        player.laserChargeMax,
+        player.laserCharge + recharge,
+      );
+      player.panicCharge = Math.min(
+        player.panicChargeMax,
+        player.panicCharge + recharge,
+      );
+      player.itemCounts[ItemType.POWERCELL] =
+        (player.itemCounts[ItemType.POWERCELL] ?? 0) + 1;
+      addToInventory(player, ItemType.POWERCELL);
       if (!player.ctdmEnabled && player.ctdmCharge > 0 && player.hasCTDM) {
         player.ctdmEnabled = true;
       }
@@ -726,8 +753,64 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
         type: EventType.MESSAGE,
         data: {
           type: "MESSAGE",
-          message: `Powercell absorbed. CTDM +${recharge} charge.`,
+          message: `Powercell absorbed. +${recharge} charge.`,
         },
+        cause: event.id,
+      });
+      break;
+    }
+    default: {
+      // Generic collection for every other item (weapons, gear, consumables,
+      // currency, junk). This is what makes new items actually land in the
+      // inventory instead of vanishing.
+      const def = ITEM_DEFS[item.type];
+      const name = itemName(item.type);
+
+      if (STACKABLE_ITEMS.includes(item.type)) {
+        const amt = positiveAmount(item.amount, 1);
+        player.itemCounts[item.type] =
+          (player.itemCounts[item.type] ?? 0) + amt;
+      }
+
+      const added = addToInventory(player, item.type);
+      if (!added) {
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: {
+            type: "MESSAGE",
+            message: `Your pack is full — you leave the ${name}.`,
+          },
+          cause: event.id,
+        });
+        return; // leave the item on the ground (don't destroy)
+      }
+
+      // Equip weapons on pickup and select them on the hot bar.
+      if (
+        def?.category === "weapon-ranged" ||
+        def?.category === "weapon-melee"
+      ) {
+        player.weapon = weaponTypeForItem(item.type);
+        const slotIdx = player.inventorySlots.findIndex(
+          (s) => s.type === item.type,
+        );
+        if (slotIdx >= 0 && slotIdx < INVENTORY_BAR_SIZE) {
+          player.selectedBarSlot = slotIdx;
+        }
+        if (item.type === ItemType.LASER_PISTOL && player.laserCharge <= 0) {
+          // Laser pistols are found half-drained.
+          player.laserCharge = Math.floor(player.laserChargeMax * 0.5);
+        }
+      }
+
+      // Armor stacks up to the best jacket worn.
+      if (def?.category === "armor") {
+        player.armor = Math.max(player.armor, ARMOR_PER_JACKET);
+      }
+
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: `You pick up the ${name}.` },
         cause: event.id,
       });
       break;

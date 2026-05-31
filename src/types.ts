@@ -162,6 +162,15 @@ export const STACKABLE_ITEMS: ItemType[] = [
   ItemType.LAND_MINE,
   ItemType.KEYCARD,
   ItemType.POWERCELL,
+  // New stackable collectibles (counts tracked in Player.itemCounts).
+  ItemType.BONE,
+  ItemType.COOKIE,
+  ItemType.COIN,
+  ItemType.ROCK,
+  ItemType.RUBBLE_CHUNK,
+  ItemType.TRASH,
+  ItemType.METAL_SCRAPS,
+  ItemType.HOLOWALL,
 ];
 
 export interface Player extends BaseEntity {
@@ -182,6 +191,16 @@ export interface Player extends BaseEntity {
   ctdmChargeMax: number;
   inventorySlots: InventorySlot[];
   selectedBarSlot: number;
+  /** Counts for miscellaneous stackable items (coins, bones, rocks, ...). */
+  itemCounts: Partial<Record<ItemType, number>>;
+  /** Flat damage reduction from armor (e.g. macrometal jacket). */
+  armor: number;
+  /** Laser weapon charge (drains per shot, refilled by power cells). */
+  laserCharge: number;
+  laserChargeMax: number;
+  /** Panic-button charge (consumed on warp, refilled by power cells). */
+  panicCharge: number;
+  panicChargeMax: number;
 }
 
 export interface Monster extends BaseEntity {

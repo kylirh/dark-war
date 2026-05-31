@@ -62,6 +62,20 @@ export class PlayerEntity extends GameEntity {
   /** Index (0–11) of the selected hot-bar slot */
   public selectedBarSlot: number;
 
+  /** Counts for miscellaneous stackable items (coins, bones, rocks, ...). */
+  public itemCounts: Partial<Record<ItemType, number>>;
+
+  /** Flat damage reduction from armor. */
+  public armor: number;
+
+  /** Laser weapon charge (drains per shot, refilled by power cells). */
+  public laserCharge: number;
+  public laserChargeMax: number;
+
+  /** Panic-button charge (consumed on warp, refilled by power cells). */
+  public panicCharge: number;
+  public panicChargeMax: number;
+
   constructor(gridX: number, gridY: number) {
     super(gridX, gridY);
 
@@ -80,6 +94,13 @@ export class PlayerEntity extends GameEntity {
     this.score = 0;
     this.sight = 9;
     this.weapon = WeaponType.PISTOL;
+
+    this.itemCounts = {};
+    this.armor = 0;
+    this.laserCharge = 0;
+    this.laserChargeMax = 100;
+    this.panicCharge = 0;
+    this.panicChargeMax = 100;
 
     this.inventorySlots = Array.from({ length: INVENTORY_TOTAL_SLOTS }, () => ({
       type: null,
