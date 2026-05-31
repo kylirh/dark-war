@@ -24,6 +24,14 @@ import {
 } from "./constants";
 import { MonsterType, WeaponType } from "../../types";
 
+/** Coerce an optional amount to a positive integer, or use the fallback. */
+export function positiveAmount(value: number | undefined, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.max(1, Math.floor(value));
+  }
+  return fallback;
+}
+
 export function getAlivePlayers(state: GameState): Player[] {
   return state.entities.filter(
     (entity): entity is Player =>

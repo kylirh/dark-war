@@ -5,7 +5,22 @@ import {
   directionFromAngle,
   normalizeAngle,
   hasClearLineOfSight,
+  positiveAmount,
 } from "./sim-helpers";
+
+describe("positiveAmount", () => {
+  it("floors a positive value to a positive integer", () => {
+    expect(positiveAmount(3.9, 1)).toBe(3);
+    expect(positiveAmount(0.4, 5)).toBe(1); // clamped to at least 1
+  });
+
+  it("uses the fallback for undefined / non-positive / non-finite", () => {
+    expect(positiveAmount(undefined, 8)).toBe(8);
+    expect(positiveAmount(0, 8)).toBe(8);
+    expect(positiveAmount(-3, 8)).toBe(8);
+    expect(positiveAmount(NaN, 8)).toBe(8);
+  });
+});
 
 describe("directionFromAngle", () => {
   it("maps cardinal angles to unit steps", () => {

@@ -24,6 +24,7 @@ import {
   getAlivePlayers,
   canActorAct,
   pushEvent,
+  positiveAmount,
 } from "./sim-helpers";
 import { updateMonsterSteering, generateAICommands } from "./ai";
 import { updateExplosives, updateEffects } from "./explosives";
@@ -34,13 +35,6 @@ import {
   cleanupOldCommands,
   resolveCommand,
 } from "./commands";
-
-function positiveAmount(value: number | undefined, fallback: number): number {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-    return Math.max(1, Math.floor(value));
-  }
-  return fallback;
-}
 
 // ========================================
 // Main Simulation Tick

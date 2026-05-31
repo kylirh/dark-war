@@ -23,16 +23,9 @@ import {
   EXPLOSION_KNOCKBACK_MAX_DISTANCE,
   EXPLOSION_KNOCKBACK_MIN_DISTANCE,
 } from "./constants";
-import { pushEvent, getEventDepth, getClosestPlayer } from "./sim-helpers";
+import { pushEvent, getEventDepth, getClosestPlayer, positiveAmount } from "./sim-helpers";
 import { triggerExplosion } from "./explosives";
 import { addToInventory } from "../../utils/inventory";
-
-function positiveAmount(value: number | undefined, fallback: number): number {
-  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-    return Math.max(1, Math.floor(value));
-  }
-  return fallback;
-}
 
 export function processEventQueue(state: GameState): void {
   let processed = 0;
