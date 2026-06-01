@@ -11,7 +11,12 @@ import {
   WeaponType,
   CELL_CONFIG,
 } from "../../types";
-import { passableFor, tileAtFor } from "../../utils/helpers";
+import {
+  passableFor,
+  tileAtFor,
+  inBoundsFor,
+  setTileFor,
+} from "../../utils/helpers";
 import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
 import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
@@ -355,6 +360,17 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       );
     };
 
+    // Melee damage scales with the equipped blade.
+    const meleeWeapon = player.inventorySlots[player.selectedBarSlot]?.type;
+    const meleeDamage =
+      meleeWeapon === ItemType.VIBRA_SWORD
+        ? 7
+        : meleeWeapon === ItemType.MACRO_METAL_SWORD
+          ? 5
+          : meleeWeapon === ItemType.BUTCHER_KNIFE
+            ? 3
+            : 2;
+
     switch (weapon) {
       case WeaponType.MELEE: {
         const target = findMeleeTarget(state, player, angle);
@@ -406,7 +422,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           data: {
             type: "DAMAGE",
             targetId: target.id,
-            amount: 2,
+            amount: meleeDamage,
             sourceId: player.id,
             knockbackX: target.worldX - player.worldX,
             knockbackY: target.worldY - player.worldY,
@@ -828,10 +844,45 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       );
       return;
     }
+    case ItemType.HOLOWALL: {
+      if ((player.itemCounts[ItemType.HOLOWALL] ?? 0) <= 0) {
+        msg(state, "No holowalls left.");
+        return;
+      }
+      const angle = player.facingAngle;
+      const tx = player.gridX + Math.round(Math.cos(angle));
+      const ty = player.gridY + Math.round(Math.sin(angle));
+      if (!inBoundsFor(tx, ty, state.mapWidth, state.mapHeight)) {
+        msg(state, "You can't place that there.");
+        return;
+      }
+      if (
+        tileAtFor(state.map, tx, ty, state.mapWidth, state.mapHeight) !==
+        TileType.FLOOR
+      ) {
+        msg(state, "The holowall needs open floor.");
+        return;
+      }
+      const occupied = state.entities.some(
+        (e) =>
+          (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) &&
+          e.gridX === tx &&
+          e.gridY === ty,
+      );
+      if (occupied) {
+        msg(state, "Something's in the way.");
+        return;
+      }
+      setTileFor(state.map, tx, ty, state.mapWidth, TileType.WALL);
+      state.mapDirty = true;
+      consumeOne(player, ItemType.HOLOWALL);
+      state.pendingSounds.push({ effect: SoundEffect.REPAIR });
+      msg(state, "You deploy a holowall.", cmd.id);
+      return;
+    }
     case ItemType.PANIC_BUTTON:
-    case ItemType.HOLOWALL:
-      // Implemented in follow-up commits (panic warp / holowall placement).
-      msg(state, "Nothing happens... yet.");
+      // Warp-to-safety implemented as a follow-up (needs level transition).
+      msg(state, "The panic button needs more juice... (coming soon)");
       return;
     default:
       // Weapons, grenades, mines, melee, or empty hands → fire/attack.

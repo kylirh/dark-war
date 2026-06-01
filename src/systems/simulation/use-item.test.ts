@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "../../core/game";
-import { ItemType, WeaponType, CommandType } from "../../types";
+import { ItemType, WeaponType, CommandType, TileType } from "../../types";
+import { MonsterEntity } from "../../entities/monster-entity";
+import { MonsterType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
@@ -120,5 +122,54 @@ describe("reloading the active weapon", () => {
     reload(game);
     expect(player.laserCharge).toBe(player.laserChargeMax);
     expect(player.itemCounts[ItemType.POWERCELL] ?? 0).toBe(0);
+  });
+});
+
+describe("holowall placement", () => {
+  beforeEach(() => RNG.reseed(3));
+
+  it("turns the floor tile in front of the player into a wall", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.facingAngle = 0; // face +x
+    const tx = player.gridX + 1;
+    const ty = player.gridY;
+    state.map[tx + ty * state.mapWidth] = TileType.FLOOR; // ensure open floor
+    player.itemCounts[ItemType.HOLOWALL] = 1;
+    setActive(game, ItemType.HOLOWALL);
+
+    use(game);
+    expect(state.map[tx + ty * state.mapWidth]).toBe(TileType.WALL);
+    expect(player.itemCounts[ItemType.HOLOWALL] ?? 0).toBe(0);
+    expect(state.mapDirty).toBe(true);
+  });
+});
+
+describe("melee weapon damage tiers", () => {
+  beforeEach(() => RNG.reseed(3));
+
+  it("a vibra sword hits harder than fists", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.weapon = WeaponType.MELEE;
+    player.facingAngle = 0;
+    setActive(game, ItemType.VIBRA_SWORD);
+
+    const foe = new MonsterEntity(
+      player.gridX + 1,
+      player.gridY,
+      MonsterType.MUTANT,
+      1,
+    );
+    foe.hpMax = 100;
+    foe.hp = 100;
+    state.entityManager.spawn(foe);
+
+    use(game);
+    expect(foe.hp).toBe(93); // 100 - 7 (vibra sword)
   });
 });
