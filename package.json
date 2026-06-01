@@ -3,11 +3,19 @@
   "name": "dark-war",
   "private": true,
   "productName": "Dark War",
+  "description": "A roguelike remake of Mission Thunderbolt with continuous movement, the CTDM combat system, destructible levels, and LAN multiplayer.",
+  "author": {
+    "name": "Kylir Horton",
+    "email": "kylirh@gmail.com"
+  },
   "type": "commonjs",
   "version": "0.1.0",
   "scripts": {
     "prepare": "node scripts/setup-git-hooks.mjs",
     "build": "npm run build:ts && electron-builder -mwl",
+    "build:mac": "npm run build:ts && electron-builder -m",
+    "build:win": "npm run build:ts && electron-builder -w",
+    "build:linux": "npm run build:ts && electron-builder -l",
     "build:server": "esbuild server/multiplayer-server.ts --bundle --platform=node --format=cjs --outfile=app/server-bundle.js --log-level=warning",
     "build:ts": "npm run build:server && tsc && node scripts/build-web.mjs",
     "dev": "npm run build:ts && node scripts/launch-electron.js",
@@ -65,9 +73,10 @@
     },
     "linux": {
       "icon": "build/icon.png",
+      "category": "Game",
+      "maintainer": "Kylir Horton <kylirh@gmail.com>",
       "target": [
-        "AppImage",
-        "deb"
+        "AppImage"
       ]
     }
   },

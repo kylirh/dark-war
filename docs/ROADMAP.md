@@ -102,6 +102,17 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - Cross-seam A\* pathfinding on the toroidal outside world.
 - Web client mixed-content guidance / QR LAN-join helper.
 
+## Distributable build (electron-builder)
+
+- `npm run build` produces signed-less installers for **mac (dmg/zip)**,
+  **win (nsis/zip)**, and **linux (AppImage)** — verified building green.
+- Per-platform: `npm run build:mac` / `build:win` / `build:linux`.
+- Requires `description` + `author{name,email}` in package.json (deb/maintainer).
+- **Linux `.deb` is dropped from the default targets**: cross-building a real
+  `.deb` from Apple Silicon macOS yields a broken `ar` stub (fpm/dpkg limitation).
+  AppImage is the universal Linux artifact; add `deb` back when building on a
+  Linux runner/CI (the `linux.maintainer` field is already set).
+
 ## Conventions reminder
 
 - TypeScript strict; kebab-case files; named exports; no barrels.
