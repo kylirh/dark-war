@@ -40,24 +40,27 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 ## Phase 4 — Content: item mechanics
 
 - [x] Picked-up items land in the inventory (generic collection + counts + equip/armor)
+- [x] Active-item USE system (left-click uses selected item); context-aware reload (R)
+- [x] Medkits & power cells are carried + used on demand (not auto-applied)
+- [x] Rocks & bones are throwable (bounce/friction/rest/drop; hit creatures)
 
 - [x] Death loot **spread** (scatter drops so they're individually visible)
 - [x] **Magnetic auto-pickup** (radius; items drift to player & are collected)
 - [~] Items **fall through holes** (removed on fall; deposit-below deferred) to the level below
 - [x] Butcher knife (starter melee, not found in levels)
 - [x] Laser pistol (equip on pickup, half-charged; drains/refills via power cells)
-- [ ] Black pill (starter; eat → instant death; anyone who eats it dies)
-- [ ] Cookie (eat → heal; befriends Snagglepuss)
+- [x] Black pill (starter; eat → instant death). Monster-eats-pill deferred.
+- [x] Cookie (eat → heal). Snagglepuss befriend deferred.
 - [x] Gyrojet SMG (light/fast spray)
 - [x] Gyrojet Shotgun (6-pellet cone, short range, 4 ammo/blast)
-- [~] Macro Metal Sword & Vibra Sword (collect/equip as melee; damage tier pending)
+- [x] Macro Metal Sword & Vibra Sword (melee damage tiers 5/7)
 - [x] Macrometal jacket (flat armor / damage resistance)
 - [x] Powercell (recharges CTDM + laser + panic; banked as item)
 - [x] Coins, Bone, Metal Scraps, Rubble, Rocks, Trash (drops/economy/cleanup fodder)
 - [ ] Rocks throwable; rubble→rock production on wall/floor damage
 - [ ] Utility bot cleans rubble/rocks/scraps/trash
-- [~] Panic button (collected + charged; warp action pending)
-- [~] Holowall (collected; placement action pending)
+- [~] Panic button (collected/charged; warp-to-safety action still pending)
+- [x] Holowall (deploys a wall on the faced floor tile)
 - [ ] Vending machine (sells random items) — placed entity + buy interaction
 
 ## Phase 5 — Content: monsters
@@ -65,7 +68,7 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - [~] Giant Spider (melee; chance to stun/slow on hit)
 - [x] Icky Lump (slow; breeds with a cap; drops coins)
 - [x] Flutterbang (explodes like a grenade on death)
-- [~] Wild Dog (befriend with bone(s); nameable; auto-attacks nearby foes; follows)
+- [x] Wild Dog (bone befriends; nameable; attacks foes + follows owner)
 - [~] Snagglepuss (steals & flees; cookie befriends → fetches loot to you)
 - [~] Moppet (self-heals + far sight done; steal/teleport pending)
 - [x] Cybercop (near-invisible render; jail deferred)
