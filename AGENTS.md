@@ -113,14 +113,14 @@ entity.gridX = 5;
 entity.gridY = 10;
 
 // ✅ CORRECT — use worldX/worldY (pixels, source of truth)
-entity.worldX = 5 * 32 + 16;  // grid position * tile size + half tile
+entity.worldX = 5 * 32 + 16; // grid position * tile size + half tile
 entity.worldY = 10 * 32 + 16;
 
 // ✅ CORRECT — helper function
 setPositionFromGrid(entity, 5, 10);
 
 // ✅ CORRECT — for movement, set velocity
-entity.velocityX = 225;  // pixels per second
+entity.velocityX = 225; // pixels per second
 entity.velocityY = 0;
 ```
 
@@ -135,28 +135,29 @@ Tile helpers take explicit `width`/`height` (the `For` suffix). There are no
 global-width variants — always pass the level's `mapWidth`/`mapHeight`:
 
 ```typescript
-idxFor(x, y, width)
-inBoundsFor(x, y, width, height)
-tileAtFor(map, x, y, width, height)
-setTileFor(map, x, y, width, tile)
-passableFor(map, x, y, width, height)
+idxFor(x, y, width);
+inBoundsFor(x, y, width, height);
+tileAtFor(map, x, y, width, height);
+setTileFor(map, x, y, width, tile);
+passableFor(map, x, y, width, height);
 ```
 
 ### Entity System
 
 All entities extend `GameEntity` which provides continuous movement:
+
 ```typescript
 export abstract class GameEntity {
-  worldX: number;           // Pixel position
+  worldX: number; // Pixel position
   worldY: number;
-  prevWorldX: number;       // For interpolation
+  prevWorldX: number; // For interpolation
   prevWorldY: number;
-  velocityX: number = 0;    // Pixels per second
+  velocityX: number = 0; // Pixels per second
   velocityY: number = 0;
-  facingAngle: number = 0;  // Radians (0 = right, PI/2 = down)
-  get gridX(): number { }   // READ-ONLY
-  get gridY(): number { }   // READ-ONLY
-  physicsBody?: Body;       // Set by Physics system
+  facingAngle: number = 0; // Radians (0 = right, PI/2 = down)
+  get gridX(): number {} // READ-ONLY
+  get gridY(): number {} // READ-ONLY
+  physicsBody?: Body; // Set by Physics system
 }
 ```
 
@@ -165,6 +166,7 @@ Entity types: `PlayerEntity`, `MonsterEntity`, `ItemEntity`, `BulletEntity`, `Ex
 Monster types: `MonsterType.MUTANT`, `MonsterType.RAT`, `MonsterType.SKULKER` (ranged), `MonsterType.UTILITY_BOT` (repairs walls)
 
 Discriminate by `EntityKind` enum:
+
 ```typescript
 if (entity.kind === EntityKind.MONSTER) {
   const monster = entity as Monster;
@@ -232,12 +234,13 @@ enqueueCommand(state, {
 ### RNG Usage
 
 **Always use deterministic RNG for gameplay logic:**
+
 ```typescript
 import { RNG } from "../utils/rng";
 
-RNG.int(10);           // Random integer 0–9
-RNG.choose(array);     // Random element from non-empty array
-RNG.chance(0.5);       // 50% chance, returns true
+RNG.int(10); // Random integer 0–9
+RNG.choose(array); // Random element from non-empty array
+RNG.chance(0.5); // 50% chance, returns true
 ```
 
 ### Entity Lifecycle
@@ -247,6 +250,7 @@ Add/remove entities only through `state.entityManager` (`src/core/entity-manager
 ### Simulation Modules
 
 The simulation is split into domain modules under `src/systems/simulation/` (no barrel — import the specific file):
+
 - `tick.ts` — `stepSimulationTick` (entry point), hole-fall and item-pickup processing
 - `commands.ts` — `enqueueCommand` + all `resolve*Command` handlers
 - `events.ts` — all `process*Event` handlers + `processEventQueue`
@@ -271,8 +275,24 @@ The simulation is split into domain modules under `src/systems/simulation/` (no 
 
 ## Project Structure
 
+The source tree is split by future-package boundary (see `docs/ARCHITECTURE.md`):
+
 ```
 src/
+├── engine/   # platform-agnostic core — NO DOM/Pixi/Electron/ws/node
+│             # (types, config/sprites, core, entities, content, utils,
+│             #  systems/{simulation,physics,fov}); guarded by engine-purity.test.ts
+├── client/   # presentation — main.ts entry + systems/ (renderer, sound, input, UI)
+├── net/      # wire protocol + WebSocket client + delta codec
+server/       # headless multiplayer server
+```
+
+The subtrees below are shown relative to `src/engine/` unless noted (e.g.
+`engine/core/game.ts`, `client/systems/renderer.ts`). Vite bundles
+`src/client/main.ts` → `app/game.js`.
+
+```
+engine/
 ├── config/
 │   └── sprites.ts            # Sprite sheet configuration
 ├── core/
