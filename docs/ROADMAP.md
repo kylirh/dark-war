@@ -57,25 +57,25 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - [x] Macrometal jacket (flat armor / damage resistance)
 - [x] Powercell (recharges CTDM + laser + panic; banked as item)
 - [x] Coins, Bone, Metal Scraps, Rubble, Rocks, Trash (drops/economy/cleanup fodder)
-- [ ] Rocks throwable; rubble→rock production on wall/floor damage
-- [ ] Utility bot cleans rubble/rocks/scraps/trash
-- [~] Panic button (collected/charged; warp-to-safety action still pending)
+- [x] Rocks throwable; rubble→rock production when walls are destroyed
+- [x] Utility bot cleans rubble/rocks/scraps/trash
+- [x] Panic button (warps one level toward the surface; offline)
 - [x] Holowall (deploys a wall on the faced floor tile)
-- [ ] Vending machine (sells random items) — placed entity + buy interaction
+- [x] Vending machine (spawns in dungeons; interact to buy for coins)
 
 ## Phase 5 — Content: monsters
 
-- [~] Giant Spider (melee; chance to stun/slow on hit)
+- [x] Giant Spider (chance to envenom → movement slow on hit)
 - [x] Icky Lump (slow; breeds with a cap; drops coins)
 - [x] Flutterbang (explodes like a grenade on death)
 - [x] Wild Dog (bone befriends; nameable; attacks foes + follows owner)
-- [~] Snagglepuss (steals & flees; cookie befriends → fetches loot to you)
-- [~] Moppet (self-heals + far sight done; steal/teleport pending)
+- [~] Snagglepuss (steals an item & flees; cookie-befriend/fetch deferred)
+- [x] Moppet (steals coins, teleports when hit, self-heals, far sight)
 - [x] Cybercop (near-invisible render; jail deferred)
-- [~] Zyth (alien with laser gun)
-- [~] Tentacular Horror (big, tough, multi-hit; deep levels)
-- [~] Terrorist Collaborator (ranged guns+grenades mini-boss; deep levels)
-- [~] Dreadnaught (wall-destroying tank; sees all; mini-boss; deep levels)
+- [x] Zyth (ranged alien; fights at range)
+- [x] Tentacular Horror (multi-hit strikes; deep levels)
+- [x] Terrorist Collaborator (ranged mini-boss; deep levels)
+- [x] Dreadnaught (smashes walls toward the player; mini-boss; deep levels)
 - [x] Depth-scaled spawn tables (minibosses & horrors on lower levels)
 
 ## Phase R — Restructure toward 4 variants (staged)
