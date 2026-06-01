@@ -23,6 +23,14 @@ export type NetworkAction =
       targetWorldX?: number;
       targetWorldY?: number;
     }
+  | {
+      type: "USE_ITEM";
+      dx: number;
+      dy: number;
+      facingAngle?: number;
+      targetWorldX?: number;
+      targetWorldY?: number;
+    }
   | { type: "INTERACT"; dx: number; dy: number }
   | { type: "PICKUP" }
   | { type: "RELOAD" }

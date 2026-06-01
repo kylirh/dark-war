@@ -1706,7 +1706,7 @@ class DarkWar {
         Sound.play(SoundEffect.SHOOT);
       }
       this.dispatchOnlineAction({
-        type: "FIRE",
+        type: "USE_ITEM",
         dx,
         dy,
         facingAngle,
@@ -1720,8 +1720,8 @@ class DarkWar {
     const angle = this.mouseTracker.getAngleFrom(player.worldX, player.worldY);
     player.facingAngle = angle;
 
-    this.runOfflinePlayerCommand(CommandType.FIRE, {
-      type: "FIRE",
+    this.runOfflinePlayerCommand(CommandType.USE_ITEM, {
+      type: "USE_ITEM",
       dx,
       dy,
       targetWorldX: this.mouseTracker.getWorldPosition().x,

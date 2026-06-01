@@ -14,7 +14,7 @@ import {
 import { passableFor, tileAtFor } from "../../utils/helpers";
 import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
-import { canAddToInventory } from "../../utils/inventory";
+import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../sound";
 import { BulletEntity } from "../../entities/bullet-entity";
@@ -119,6 +119,9 @@ export function resolveCommand(state: GameState, cmd: Command): void {
       break;
     case CommandType.FIRE:
       resolveFireCommand(state, cmd);
+      break;
+    case CommandType.USE_ITEM:
+      resolveUseItemCommand(state, cmd);
       break;
     case CommandType.RELOAD:
       resolveReloadCommand(state, cmd);
@@ -705,31 +708,173 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
 // Reload Command
 // ========================================
 
+/** Consume one of a counted item; clear the inventory slot when it hits zero. */
+function consumeOne(player: Player, type: ItemType): void {
+  const remaining = (player.itemCounts[type] ?? 0) - 1;
+  if (remaining <= 0) {
+    delete player.itemCounts[type];
+    removeFromInventory(player, type);
+  } else {
+    player.itemCounts[type] = remaining;
+  }
+}
+
+function msg(state: GameState, message: string, cause?: string): void {
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: { type: "MESSAGE", message },
+    cause,
+  });
+}
+
+/**
+ * Left-click "use the active item". Weapons/grenades/mines/melee fall through to
+ * the firing logic; consumables and gear have bespoke effects.
+ */
+function resolveUseItemCommand(state: GameState, cmd: Command): void {
+  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  if (!actor || actor.kind !== EntityKind.PLAYER) return;
+  const player = actor as Player;
+  const active = player.inventorySlots[player.selectedBarSlot]?.type ?? null;
+
+  switch (active) {
+    case ItemType.MEDKIT: {
+      if ((player.itemCounts[ItemType.MEDKIT] ?? 0) <= 0) {
+        msg(state, "No medkits left.");
+        return;
+      }
+      if (player.hp >= player.hpMax) {
+        msg(state, "You're already at full health.");
+        return;
+      }
+      const heal = 15;
+      player.hp = Math.min(player.hpMax, player.hp + heal);
+      consumeOne(player, ItemType.MEDKIT);
+      state.pendingSounds.push({ effect: SoundEffect.BEEP });
+      msg(state, `You patch yourself up. +${heal} HP`, cmd.id);
+      return;
+    }
+    case ItemType.COOKIE: {
+      if ((player.itemCounts[ItemType.COOKIE] ?? 0) <= 0) {
+        msg(state, "No cookies left.");
+        return;
+      }
+      const heal = 6;
+      player.hp = Math.min(player.hpMax, player.hp + heal);
+      consumeOne(player, ItemType.COOKIE);
+      msg(state, `You eat a cookie. +${heal} HP`, cmd.id);
+      return;
+    }
+    case ItemType.BLACK_PILL: {
+      removeFromInventory(player, ItemType.BLACK_PILL);
+      player.hp = 0;
+      msg(state, "You swallow the black pill. Everything goes dark...", cmd.id);
+      pushEvent(state, {
+        type: EventType.PLAYER_DEATH,
+        data: { type: "PLAYER_DEATH", playerId: player.id },
+        cause: cmd.id,
+      });
+      return;
+    }
+    case ItemType.POWERCELL: {
+      if ((player.itemCounts[ItemType.POWERCELL] ?? 0) <= 0) {
+        msg(state, "No power cells left.");
+        return;
+      }
+      consumeOne(player, ItemType.POWERCELL);
+      // A cell is spent entirely to top off your energy gear.
+      player.laserCharge = player.laserChargeMax;
+      if (player.hasCTDM) player.ctdmCharge = player.ctdmChargeMax;
+      player.panicCharge = player.panicChargeMax;
+      state.pendingSounds.push({ effect: SoundEffect.RELOAD });
+      msg(state, "Power cell spent — energy gear fully charged.", cmd.id);
+      return;
+    }
+    case ItemType.BONE:
+    case ItemType.ROCK:
+    case ItemType.PANIC_BUTTON:
+    case ItemType.HOLOWALL:
+      // Implemented in follow-up commits (throwables / panic warp / holowall).
+      msg(state, "Nothing happens... yet.");
+      return;
+    default:
+      // Weapons, grenades, mines, melee, or empty hands → fire/attack.
+      resolveFireCommand(state, {
+        ...cmd,
+        type: CommandType.FIRE,
+        data: {
+          type: "FIRE",
+          dx: (cmd.data as { dx?: number }).dx ?? 0,
+          dy: (cmd.data as { dy?: number }).dy ?? 0,
+          targetWorldX: (cmd.data as { targetWorldX?: number }).targetWorldX,
+          targetWorldY: (cmd.data as { targetWorldY?: number }).targetWorldY,
+        },
+      });
+      return;
+  }
+}
+
 function resolveReloadCommand(state: GameState, cmd: Command): void {
   const actor = state.entities.find((e) => e.id === cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
   const player = actor as Player;
-  if (player.ammoReserve === 0) {
-    pushEvent(state, {
-      type: EventType.MESSAGE,
-      data: { type: "MESSAGE", message: "You're out of ammo!" },
-    });
+  const active = player.inventorySlots[player.selectedBarSlot]?.type ?? null;
+
+  // Laser pistol: reload with a power cell.
+  if (active === ItemType.LASER_PISTOL || player.weapon === WeaponType.LASER) {
+    if ((player.itemCounts[ItemType.POWERCELL] ?? 0) <= 0) {
+      msg(state, "No power cells to charge the laser.");
+      return;
+    }
+    consumeOne(player, ItemType.POWERCELL);
+    player.laserCharge = player.laserChargeMax;
+    state.pendingSounds.push({ effect: SoundEffect.RELOAD });
+    msg(state, "Laser fully charged.");
     return;
   }
 
-  const needed = 12 - player.ammo;
+  // CTDM (when it's the active slot): reload with a power cell.
+  if (active === ItemType.CTDM) {
+    if (!player.hasCTDM) return;
+    if ((player.itemCounts[ItemType.POWERCELL] ?? 0) <= 0) {
+      msg(state, "No power cells to charge the CTDM.");
+      return;
+    }
+    consumeOne(player, ItemType.POWERCELL);
+    player.ctdmCharge = player.ctdmChargeMax;
+    state.pendingSounds.push({ effect: SoundEffect.RELOAD });
+    msg(state, "CTDM fully charged.");
+    return;
+  }
+
+  // Gyrojet firearms: refill the magazine from reserve ammo.
+  const usesAmmo =
+    player.weapon === WeaponType.PISTOL ||
+    player.weapon === WeaponType.SMG ||
+    player.weapon === WeaponType.SHOTGUN;
+  if (!usesAmmo) {
+    msg(state, "Nothing to reload.");
+    return;
+  }
+  if (player.ammoReserve === 0) {
+    msg(state, "You're out of ammo!");
+    return;
+  }
+
+  const magSize =
+    player.weapon === WeaponType.SMG
+      ? 30
+      : player.weapon === WeaponType.SHOTGUN
+        ? 8
+        : 12;
+  const needed = Math.max(0, magSize - player.ammo);
   const take = Math.min(needed, player.ammoReserve);
   player.ammo += take;
   player.ammoReserve -= take;
 
-  // Play reload sound
   state.pendingSounds.push({ effect: SoundEffect.RELOAD });
-
-  pushEvent(state, {
-    type: EventType.MESSAGE,
-    data: { type: "MESSAGE", message: '"RELOAD!!"' },
-  });
+  msg(state, '"RELOAD!!"');
 }
 
 // ========================================

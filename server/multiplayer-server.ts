@@ -45,6 +45,14 @@ type IncomingAction =
       targetWorldX?: number;
       targetWorldY?: number;
     }
+  | {
+      type: "USE_ITEM";
+      dx: number;
+      dy: number;
+      facingAngle?: number;
+      targetWorldX?: number;
+      targetWorldY?: number;
+    }
   | { type: "INTERACT"; dx: number; dy: number }
   | { type: "PICKUP" }
   | { type: "RELOAD" }
@@ -102,6 +110,7 @@ function isIncomingAction(value: unknown): value is IncomingAction {
   if (!isRecord(value) || typeof value.type !== "string") return false;
   return (
     value.type === "FIRE" ||
+    value.type === "USE_ITEM" ||
     value.type === "INTERACT" ||
     value.type === "PICKUP" ||
     value.type === "RELOAD" ||
@@ -478,26 +487,34 @@ class RoomSession {
 
     const tick = state.sim.nowTick;
 
-    if (action.type === "FIRE") {
+    if (action.type === "FIRE" || action.type === "USE_ITEM") {
       const dx = toFiniteNumber(action.dx);
       const dy = toFiniteNumber(action.dy);
       if (dx === null || dy === null) return;
       const facingAngle = toFiniteNumber(action.facingAngle);
       if (facingAngle !== null) player.facingAngle = facingAngle;
-      enqueueCommand(state, {
-        tick,
-        actorId: playerId,
-        type: CommandType.FIRE,
-        data: {
-          type: "FIRE",
-          dx,
-          dy,
-          targetWorldX: toFiniteNumber(action.targetWorldX) ?? undefined,
-          targetWorldY: toFiniteNumber(action.targetWorldY) ?? undefined,
-        },
-        priority: 0,
-        source: "PLAYER",
-      });
+      const targetWorldX = toFiniteNumber(action.targetWorldX) ?? undefined;
+      const targetWorldY = toFiniteNumber(action.targetWorldY) ?? undefined;
+      enqueueCommand(
+        state,
+        action.type === "USE_ITEM"
+          ? {
+              tick,
+              actorId: playerId,
+              type: CommandType.USE_ITEM,
+              data: { type: "USE_ITEM", dx, dy, targetWorldX, targetWorldY },
+              priority: 0,
+              source: "PLAYER",
+            }
+          : {
+              tick,
+              actorId: playerId,
+              type: CommandType.FIRE,
+              data: { type: "FIRE", dx, dy, targetWorldX, targetWorldY },
+              priority: 0,
+              source: "PLAYER",
+            },
+      );
       return;
     }
 

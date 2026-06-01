@@ -162,6 +162,7 @@ export const STACKABLE_ITEMS: ItemType[] = [
   ItemType.LAND_MINE,
   ItemType.KEYCARD,
   ItemType.POWERCELL,
+  ItemType.MEDKIT,
   // New stackable collectibles (counts tracked in Player.itemCounts).
   ItemType.BONE,
   ItemType.COOKIE,
@@ -307,6 +308,8 @@ export enum CommandType {
   DESCEND = "DESCEND",
   ASCEND = "ASCEND",
   REPAIR = "REPAIR",
+  /** Left-click: use whatever item is active (fire, eat, throw, place, ...). */
+  USE_ITEM = "USE_ITEM",
 }
 
 export interface Command {
@@ -336,7 +339,14 @@ export type CommandData =
   | { type: "RELOAD" }
   | { type: "DESCEND" }
   | { type: "ASCEND" }
-  | { type: "REPAIR"; x: number; y: number };
+  | { type: "REPAIR"; x: number; y: number }
+  | {
+      type: "USE_ITEM";
+      dx: number;
+      dy: number;
+      targetWorldX?: number;
+      targetWorldY?: number;
+    };
 
 export enum EventType {
   DAMAGE = "DAMAGE",

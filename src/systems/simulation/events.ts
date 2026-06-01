@@ -640,11 +640,13 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
 
   switch (item.type) {
     case ItemType.MEDKIT: {
-      const heal = positiveAmount(item.heal, 20);
-      player.hp = Math.min(player.hpMax, player.hp + heal);
+      // Medkits are carried now (used on demand by selecting + clicking).
+      player.itemCounts[ItemType.MEDKIT] =
+        (player.itemCounts[ItemType.MEDKIT] ?? 0) + 1;
+      addToInventory(player, ItemType.MEDKIT);
       pushEvent(state, {
         type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: `You use the medkit. +${heal} HP` },
+        data: { type: "MESSAGE", message: "You pick up a medkit." },
         cause: event.id,
       });
       break;
@@ -741,32 +743,14 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       }
       break;
     case ItemType.POWERCELL: {
-      const recharge = positiveAmount(item.amount, 25);
-      player.ctdmCharge = Math.min(
-        player.ctdmChargeMax,
-        player.ctdmCharge + recharge,
-      );
-      // Power cells also recharge laser/panic gear and bank as a carried item.
-      player.laserCharge = Math.min(
-        player.laserChargeMax,
-        player.laserCharge + recharge,
-      );
-      player.panicCharge = Math.min(
-        player.panicChargeMax,
-        player.panicCharge + recharge,
-      );
+      // Power cells are carried now; using one (or reloading laser/CTDM)
+      // spends it for a full charge.
       player.itemCounts[ItemType.POWERCELL] =
         (player.itemCounts[ItemType.POWERCELL] ?? 0) + 1;
       addToInventory(player, ItemType.POWERCELL);
-      if (!player.ctdmEnabled && player.ctdmCharge > 0 && player.hasCTDM) {
-        player.ctdmEnabled = true;
-      }
       pushEvent(state, {
         type: EventType.MESSAGE,
-        data: {
-          type: "MESSAGE",
-          message: `Powercell absorbed. +${recharge} charge.`,
-        },
+        data: { type: "MESSAGE", message: "You pick up a power cell." },
         cause: event.id,
       });
       break;
