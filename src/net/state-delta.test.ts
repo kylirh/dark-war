@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SerializedState, TileType, EntityKind } from "../types";
+import { SerializedState, TileType, EntityKind } from "../engine/types";
 import {
   computeStateDelta,
   applyStateDelta,

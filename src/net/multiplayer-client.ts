@@ -1,4 +1,4 @@
-import { SerializedState } from "../types";
+import { SerializedState } from "../engine/types";
 import { PROTOCOL_VERSION } from "./protocol";
 import { StateDelta, applyStateDelta } from "./state-delta";
 

@@ -26,7 +26,7 @@ import {
   LevelKind,
   WallSet,
   TileType,
-} from "../types";
+} from "../engine/types";
 
 export interface StateDelta {
   /** Monotonic id of this delta (per client). */

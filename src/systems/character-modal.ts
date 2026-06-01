@@ -3,16 +3,16 @@ import {
   INVENTORY_TOTAL_SLOTS,
   ItemType,
   Player,
-} from "../types";
-import { SPRITE_COORDS, SPRITE_SIZE } from "../config/sprites";
+} from "../engine/types";
+import { SPRITE_COORDS, SPRITE_SIZE } from "../engine/config/sprites";
 import {
   getSlotActions,
   getSlotDisplayCount,
   getSlotKeyLabel,
   getSlotLabel,
   swapInventorySlots,
-} from "../utils/inventory";
-import { getWeaponForSlot } from "../utils/inventory";
+} from "../engine/utils/inventory";
+import { getWeaponForSlot } from "../engine/utils/inventory";
 import {
   DEFAULT_KEY_BINDINGS,
   KEY_BINDING_DEFINITIONS,

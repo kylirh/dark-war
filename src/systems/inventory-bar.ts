@@ -1,11 +1,11 @@
-import { INVENTORY_BAR_SIZE, ItemType, Player } from "../types";
-import { SPRITE_COORDS, SPRITE_SIZE } from "../config/sprites";
+import { INVENTORY_BAR_SIZE, ItemType, Player } from "../engine/types";
+import { SPRITE_COORDS, SPRITE_SIZE } from "../engine/config/sprites";
 import {
   getSlotActions,
   getSlotDisplayCount,
   getSlotKeyLabel,
   getSlotLabel,
-} from "../utils/inventory";
+} from "../engine/utils/inventory";
 
 const SLOT_SIZE = 44; // Slot outer size including border and padding
 const ICON_SIZE = 32;

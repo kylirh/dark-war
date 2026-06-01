@@ -5,7 +5,7 @@
  * melody fragments, radio chatter, ambient stems, and enemy leitmotifs.
  */
 
-import { EntityKind, GameState, MonsterType } from "../types";
+import { EntityKind, GameState, MonsterType } from "../engine/types";
 
 export type MusicScene =
   | "title"

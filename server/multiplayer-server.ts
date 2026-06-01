@@ -1,10 +1,10 @@
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { RawData, WebSocket, WebSocketServer } from "ws";
-import { Game } from "../src/core/game";
-import { Physics } from "../src/systems/physics";
-import { stepSimulationTick } from "../src/systems/simulation/tick";
-import { enqueueCommand } from "../src/systems/simulation/commands";
-import { SIM_DT_MS } from "../src/systems/simulation/constants";
+import { Game } from "../src/engine/core/game";
+import { Physics } from "../src/engine/systems/physics";
+import { stepSimulationTick } from "../src/engine/systems/simulation/tick";
+import { enqueueCommand } from "../src/engine/systems/simulation/commands";
+import { SIM_DT_MS } from "../src/engine/systems/simulation/constants";
 import { PROTOCOL_VERSION } from "../src/net/protocol";
 import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
 import { Sound } from "../src/systems/sound";
@@ -16,8 +16,11 @@ import {
   ONLINE_TIME_SCALE,
   SerializedState,
   TileType,
-} from "../src/types";
-import { getWeaponForSlot, swapInventorySlots } from "../src/utils/inventory";
+} from "../src/engine/types";
+import {
+  getWeaponForSlot,
+  swapInventorySlots,
+} from "../src/engine/utils/inventory";
 
 // Force a fresh keyframe at least this often (in broadcasts) so a client that
 // somehow drifted re-baselines within a few seconds. ~5s at 20 broadcasts/sec.

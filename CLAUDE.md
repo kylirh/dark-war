@@ -109,13 +109,16 @@ Every level is a **bounded** flat `TileType[]`, so serialization, `explored`/`wa
 The long-term plan is one shared engine consumed by four variants (Electron
 client, headless server, static web client, arcade cabinet). See
 `docs/ARCHITECTURE.md` for the target monorepo layout and the engine-purity rule,
-and `docs/ROADMAP.md` for staged progress. **New engine code must not import
-DOM/Pixi/Electron/ws/node** so the eventual extraction stays mechanical — this is
-enforced by `src/engine-purity.test.ts`, which scans the engine modules (core,
-entities, systems/simulation, physics, fov, utils, content, types, sprites) and
-fails on any forbidden import. Sound IDs live in `src/content/sound-effects.ts`
+and `docs/ROADMAP.md` for staged progress. The platform-agnostic engine now lives entirely under **`src/engine/`** (types,
+config/sprites, core, entities, content, utils, systems/{simulation,physics,fov}).
+`src/systems/` holds the client/presentation layer (renderer, sound, input, UI),
+`src/net/` the wire protocol/client, `src/main.ts` the client entry, and `server/`
+the headless server. **New engine code must not import DOM/Pixi/Electron/ws/node**
+— enforced by `src/engine-purity.test.ts`, which scans `src/engine` and fails on
+any forbidden import. Sound IDs live in `src/engine/content/sound-effects.ts`
 (pure data); `src/systems/sound.ts` is the DOM playback layer that re-exports
-them.
+them. Lifting `src/engine` into a `packages/engine` workspace later is a
+mechanical move.
 
 ### Key Utilities
 

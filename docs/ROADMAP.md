@@ -81,9 +81,11 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 ## Phase R — Restructure toward 4 variants (staged)
 
 - [x] Scaffold workspace skeleton dirs + READMEs (`packages/*`, `apps/*`) — documented target
-- [~] R1: engine purity **enforced** (src/engine-purity.test.ts); SoundEffect moved to
-  content/ so engine imports no DOM. Physical git-mv into packages/engine remains
-  (mechanical now; verify with electron-builder)
+- [x] R1: engine physically isolated under `src/engine/` (pure core: types, config,
+      core, entities, content, utils, systems/{simulation,physics,fov}); purity enforced
+      by src/engine-purity.test.ts; client/net/server type-check + full build green.
+      Lifting `src/engine` → `packages/engine` (+ package.json, @dark-war/engine) is now
+      a trivial move
 - [ ] R2: extract `packages/net`
 - [ ] R3: extract `packages/server-core`; `apps/server` dedicated executable (multi-room)
 - [ ] R4: extract `packages/client` + `PlatformBridge`; `apps/electron` provides Electron bridge

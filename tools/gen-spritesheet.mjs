@@ -6,7 +6,7 @@
  *
  * Idempotent: always regenerates from the base, so re-running is safe. The art
  * is intentionally simple/iconographic — refine in art passes later. The cell
- * coordinates here MUST match NEW_SPRITE_CELLS in src/config/sprites.ts.
+ * coordinates here MUST match NEW_SPRITE_CELLS in src/engine/config/sprites.ts.
  *
  *   node tools/gen-spritesheet.mjs
  */

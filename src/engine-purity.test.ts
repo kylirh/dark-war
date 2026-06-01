@@ -12,18 +12,8 @@ import { join } from "node:path";
  * `packages/engine` non-mechanical.
  */
 
-// Directories/files that make up the platform-agnostic engine today.
-const ENGINE_ROOTS = [
-  "src/types.ts",
-  "src/config/sprites.ts",
-  "src/core",
-  "src/entities",
-  "src/systems/simulation",
-  "src/systems/physics.ts",
-  "src/systems/fov.ts",
-  "src/utils",
-  "src/content",
-];
+// The platform-agnostic engine now lives entirely under src/engine.
+const ENGINE_ROOTS = ["src/engine"];
 
 const FORBIDDEN_PACKAGES = new Set(["pixi.js", "electron", "ws"]);
 const NODE_BUILTINS = new Set([

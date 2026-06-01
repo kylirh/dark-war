@@ -1,6 +1,6 @@
 // The SoundEffect enum lives in the engine (pure data) so engine code can queue
 // sounds without importing this DOM module. Re-exported here for convenience.
-import { SoundEffect } from "../content/sound-effects";
+import { SoundEffect } from "../engine/content/sound-effects";
 export { SoundEffect };
 
 /**
