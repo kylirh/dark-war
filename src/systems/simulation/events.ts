@@ -22,7 +22,7 @@ import { idxFor, passableFor, setPositionFromGrid } from "../../utils/helpers";
 import { weaponTypeForItem, removeFromInventory } from "../../utils/inventory";
 import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
-import { SoundEffect } from "../sound";
+import { SoundEffect } from "../../content/sound-effects";
 
 /** Flat damage reduction granted by a macrometal jacket. */
 const ARMOR_PER_JACKET = 3;

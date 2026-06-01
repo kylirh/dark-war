@@ -26,7 +26,7 @@ import { MONSTER_DEFS } from "../../content/monster-defs";
 import { itemName } from "../../content/item-defs";
 import { ItemEntity } from "../../entities/item-entity";
 import { RNG } from "../../utils/rng";
-import { SoundEffect } from "../sound";
+import { SoundEffect } from "../../content/sound-effects";
 import { BulletEntity } from "../../entities/bullet-entity";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
 import {

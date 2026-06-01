@@ -38,7 +38,7 @@ import {
 } from "../utils/helpers";
 import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
-import { Sound, SoundEffect } from "../systems/sound";
+import { SoundEffect } from "../content/sound-effects";
 
 const EXPLORATION_COMPLETION_THRESHOLD = 0.9;
 const MIN_COMPLETION_REACHABLE_TILES = 50;
@@ -1549,7 +1549,7 @@ export class Game {
 
     this.state.enhancedVision = true;
     this.addStory("Level successfully explored!");
-    Sound.play(SoundEffect.LEVEL_EXPLORED);
+    this.state.pendingSounds.push({ effect: SoundEffect.LEVEL_EXPLORED });
     return true;
   }
 

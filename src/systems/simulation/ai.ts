@@ -25,7 +25,7 @@ import { RNG } from "../../utils/rng";
 import { isRangedMonster, MONSTER_DEFS } from "../../content/monster-defs";
 import { isJunk, ITEM_DEFS } from "../../content/item-defs";
 import { ItemEntity } from "../../entities/item-entity";
-import { SoundEffect } from "../sound";
+import { SoundEffect } from "../../content/sound-effects";
 import {
   MONSTER_SPEED,
   MONSTER_ARRIVAL_RADIUS,
