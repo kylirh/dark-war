@@ -13,9 +13,17 @@ import {
   WeaponType,
   CELL_CONFIG,
 } from "../../types";
-import { idxFor, inBoundsFor, passableFor } from "../../utils/helpers";
+import {
+  idxFor,
+  inBoundsFor,
+  passableFor,
+  tileAtFor,
+} from "../../utils/helpers";
+import { applyWallDamageAt } from "../../utils/walls";
+import { TILE_DEFINITIONS } from "../../types";
 import { RNG } from "../../utils/rng";
-import { isRangedMonster } from "../../content/monster-defs";
+import { isRangedMonster, MONSTER_DEFS } from "../../content/monster-defs";
+import { isJunk } from "../../content/item-defs";
 import { SoundEffect } from "../sound";
 import {
   MONSTER_SPEED,
@@ -236,6 +244,27 @@ function findNearestReachableRepairTarget(
   return null;
 }
 
+const BOT_JUNK_RANGE_PX = CELL_CONFIG.w * 12;
+
+/** Nearest floor junk (rubble/rock/scraps/trash) the utility bot should clean. */
+function nearestJunkItem(state: GameState, bot: Monster): Item | null {
+  let best: Item | null = null;
+  let bestSq = BOT_JUNK_RANGE_PX * BOT_JUNK_RANGE_PX;
+  for (const entity of state.entities) {
+    if (entity.kind !== EntityKind.ITEM) continue;
+    const item = entity as Item;
+    if (!isJunk(item.type)) continue;
+    const dx = item.worldX - (bot as any).worldX;
+    const dy = item.worldY - (bot as any).worldY;
+    const sq = dx * dx + dy * dy;
+    if (sq < bestSq) {
+      bestSq = sq;
+      best = item;
+    }
+  }
+  return best;
+}
+
 function steerUtilityBot(state: GameState, monster: Monster): void {
   const m = monster as any;
 
@@ -313,6 +342,24 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
         m.velocityY = 0;
       } else {
         botSteerToward(m, state, monster, tx, ty);
+      }
+      return;
+    }
+  }
+
+  // No repairs to do — tidy up nearby junk (rubble/rocks/scraps/trash).
+  {
+    const junk = nearestJunkItem(state, monster);
+    if (junk) {
+      const jdx = (junk as any).worldX - m.worldX;
+      const jdy = (junk as any).worldY - m.worldY;
+      const jd = Math.hypot(jdx, jdy);
+      if (jd <= CELL_CONFIG.w * 0.8) {
+        state.entityManager.destroy(junk.id); // vacuumed up
+        m.velocityX = 0;
+        m.velocityY = 0;
+      } else {
+        botSteerToward(m, state, monster, junk.gridX, junk.gridY);
       }
       return;
     }
@@ -461,6 +508,36 @@ function decideFriendlyPetCommand(
   return makeWaitCommand(monster, tick);
 }
 
+/** Dreadnaught: chip the wall tile in the player's direction to break through. */
+function smashWallTowardPlayer(state: GameState, monster: Monster): void {
+  const player = getClosestPlayer(state, monster);
+  if (!player) return;
+  const sx = Math.sign(player.gridX - monster.gridX);
+  const sy = Math.sign(player.gridY - monster.gridY);
+  // Prefer the axis with the larger gap so it advances toward the player.
+  const axes: Array<[number, number]> =
+    Math.abs(player.gridX - monster.gridX) >=
+    Math.abs(player.gridY - monster.gridY)
+      ? [
+          [sx, 0],
+          [0, sy],
+        ]
+      : [
+          [0, sy],
+          [sx, 0],
+        ];
+  for (const [dx, dy] of axes) {
+    if (dx === 0 && dy === 0) continue;
+    const tx = monster.gridX + dx;
+    const ty = monster.gridY + dy;
+    const tile = tileAtFor(state.map, tx, ty, state.mapWidth, state.mapHeight);
+    if (TILE_DEFINITIONS[tile]?.block && tile === TileType.WALL) {
+      applyWallDamageAt(state, tx, ty, monster.dmg);
+      return;
+    }
+  }
+}
+
 export function updateMonsterSteering(state: GameState): void {
   for (const entity of state.entities) {
     if (entity.kind !== EntityKind.MONSTER) continue;
@@ -490,6 +567,11 @@ export function updateMonsterSteering(state: GameState): void {
         fm.facingAngle = Math.atan2(fy, fx);
       }
       continue;
+    }
+
+    // Dreadnaughts smash through any wall standing between them and the player.
+    if (MONSTER_DEFS[monster.type]?.flags?.destroysWalls) {
+      smashWallTowardPlayer(state, monster);
     }
 
     const player = getClosestPlayer(state, monster);

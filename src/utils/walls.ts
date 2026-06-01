@@ -1,11 +1,24 @@
 import {
   FLOOR_MAX_DAMAGE,
   GameState,
+  ItemType,
   TileType,
   WALL_MAX_DAMAGE,
 } from "../types";
 import { isWallLikeTile } from "../core/tile-source";
+import { ItemEntity } from "../entities/item-entity";
+import { RNG } from "./rng";
 import { idxFor, inBoundsFor } from "./helpers";
+
+/** A destroyed wall leaves rubble behind (and sometimes a throwable rock). */
+function spawnRubble(state: GameState, x: number, y: number): void {
+  // Some headless/test states have no entity manager — nothing to drop into.
+  if (typeof state.entityManager?.spawn !== "function") return;
+  state.entityManager.spawn(new ItemEntity(x, y, ItemType.RUBBLE_CHUNK));
+  if (RNG.chance(0.35)) {
+    state.entityManager.spawn(new ItemEntity(x, y, ItemType.ROCK));
+  }
+}
 
 export function applyWallDamageAtIndex(
   state: GameState,
@@ -50,6 +63,7 @@ export function applyWallDamageAtIndex(
     wallDamage[tileIndex] = 0;
     if (isWallLike) {
       state.mapDirty = true;
+      spawnRubble(state, x, y);
     }
     return true;
   }
