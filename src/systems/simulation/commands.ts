@@ -6,6 +6,7 @@ import {
   EntityKind,
   Monster,
   Player,
+  Item,
   TileType,
   ItemType,
   WeaponType,
@@ -21,6 +22,8 @@ import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
 import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
 import { MONSTER_DEFS } from "../../content/monster-defs";
+import { itemName } from "../../content/item-defs";
+import { ItemEntity } from "../../entities/item-entity";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../sound";
 import { BulletEntity } from "../../entities/bullet-entity";
@@ -885,10 +888,28 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       msg(state, "You deploy a holowall.", cmd.id);
       return;
     }
-    case ItemType.PANIC_BUTTON:
-      // Warp-to-safety implemented as a follow-up (needs level transition).
-      msg(state, "The panic button needs more juice... (coming soon)");
+    case ItemType.PANIC_BUTTON: {
+      if (player.panicCharge < player.panicChargeMax) {
+        msg(
+          state,
+          "The panic button is still charging — feed it a power cell.",
+        );
+        return;
+      }
+      if (state.multiplayer?.mode === "online") {
+        msg(state, "The teleporter sparks but co-op warp isn't wired yet.");
+        return;
+      }
+      if (state.depth <= 0) {
+        msg(state, "You're already at the surface.");
+        return;
+      }
+      player.panicCharge = 0;
+      state.shouldAscend = true; // warp one level toward the entrance
+      state.pendingSounds.push({ effect: SoundEffect.RELOAD });
+      msg(state, "PANIC! The teleporter yanks you toward safety!", cmd.id);
       return;
+    }
     default:
       // Weapons, grenades, mines, melee, or empty hands → fire/attack.
       resolveFireCommand(state, {
@@ -1068,6 +1089,52 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
       });
     }
   }
+
+  // Interacting toward a vending machine buys a random item for coins.
+  if (actor.kind === EntityKind.PLAYER) {
+    const machine = state.entities.find(
+      (e) =>
+        e.kind === EntityKind.ITEM &&
+        (e as Item).type === ItemType.VENDING_MACHINE &&
+        e.gridX === data.x &&
+        e.gridY === data.y,
+    );
+    if (machine) buyFromVending(state, actor as Player);
+  }
+}
+
+const VENDING_COST = 5;
+const VENDING_STOCK: ItemType[] = [
+  ItemType.AMMO,
+  ItemType.MEDKIT,
+  ItemType.GRENADE,
+  ItemType.COOKIE,
+  ItemType.POWERCELL,
+  ItemType.KEYCARD,
+  ItemType.ROCK,
+];
+
+/** Spend coins for a random item; the drop is auto-collected by the magnet. */
+function buyFromVending(state: GameState, player: Player): void {
+  const coins = player.itemCounts[ItemType.COIN] ?? 0;
+  if (coins < VENDING_COST) {
+    msg(state, `The vending machine wants ${VENDING_COST} coins.`);
+    return;
+  }
+  const left = coins - VENDING_COST;
+  if (left <= 0) {
+    delete player.itemCounts[ItemType.COIN];
+    removeFromInventory(player, ItemType.COIN);
+  } else {
+    player.itemCounts[ItemType.COIN] = left;
+  }
+  const type = VENDING_STOCK[RNG.int(VENDING_STOCK.length)];
+  // Dispense at the player's feet; the magnetic pickup collects it next tick.
+  const item = new ItemEntity(player.gridX, player.gridY, type);
+  item.worldX = player.worldX;
+  item.worldY = player.worldY;
+  state.entityManager.spawn(item);
+  msg(state, `The machine dispenses a ${itemName(type)}.`);
 }
 
 // ========================================

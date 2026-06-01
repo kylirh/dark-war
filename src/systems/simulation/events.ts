@@ -759,6 +759,9 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
 
   if (!actor || !item || actor.kind !== EntityKind.PLAYER) return;
 
+  // Machines (vending machines) are fixtures — never picked up.
+  if (ITEM_DEFS[item.type]?.category === "machine") return;
+
   const player = actor as Player;
 
   switch (item.type) {

@@ -829,6 +829,9 @@ export class Game {
     spawnItems(per(1200), ItemType.TRASH);
     spawnItems(per(1400), ItemType.ROCK, 3);
 
+    // A vending machine or two per floor (sells random items for coins).
+    spawnItems(RNG.chance(0.6) ? 1 : 0, ItemType.VENDING_MACHINE);
+
     // New gear, found rarely.
     spawnItems(per(1600), ItemType.GYROJET_SMG);
     spawnItems(per(1800), ItemType.GYROJET_SHOTGUN);
