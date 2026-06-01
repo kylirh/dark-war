@@ -39,8 +39,7 @@ const NODE_BUILTINS = new Set([
 ]);
 // Client/presentation modules the engine must not reach into. `/sound$` matches
 // the DOM audio module but not the pure `content/sound-effects` enum.
-const CLIENT_MODULE_RE =
-  /\/(renderer|sound|mouse-tracker|game-menu|character-modal|inventory-bar|title-screen|intro-story|music|preferences|input|retro-window-chrome)$|\/main$|\/net\//;
+const CLIENT_MODULE_RE = /\/client\/|\/net\/|\/main$/;
 
 function isForbidden(spec: string): boolean {
   if (FORBIDDEN_PACKAGES.has(spec)) return true;

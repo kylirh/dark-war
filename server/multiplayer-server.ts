@@ -7,7 +7,7 @@ import { enqueueCommand } from "../src/engine/systems/simulation/commands";
 import { SIM_DT_MS } from "../src/engine/systems/simulation/constants";
 import { PROTOCOL_VERSION } from "../src/net/protocol";
 import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
-import { Sound } from "../src/systems/sound";
+import { Sound } from "../src/client/systems/sound";
 import {
   CommandType,
   EntityKind,

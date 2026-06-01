@@ -11,7 +11,7 @@ import {
   keyCodeToLabel,
 } from "./preferences";
 import { Sound } from "./sound";
-import { LobbyPlayer } from "../net/multiplayer-client";
+import { LobbyPlayer } from "../../net/multiplayer-client";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 

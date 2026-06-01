@@ -109,11 +109,12 @@ Every level is a **bounded** flat `TileType[]`, so serialization, `explored`/`wa
 The long-term plan is one shared engine consumed by four variants (Electron
 client, headless server, static web client, arcade cabinet). See
 `docs/ARCHITECTURE.md` for the target monorepo layout and the engine-purity rule,
-and `docs/ROADMAP.md` for staged progress. The platform-agnostic engine now lives entirely under **`src/engine/`** (types,
-config/sprites, core, entities, content, utils, systems/{simulation,physics,fov}).
-`src/systems/` holds the client/presentation layer (renderer, sound, input, UI),
-`src/net/` the wire protocol/client, `src/main.ts` the client entry, and `server/`
-the headless server. **New engine code must not import DOM/Pixi/Electron/ws/node**
+and `docs/ROADMAP.md` for staged progress. The source tree is split by the future-package boundaries: **`src/engine/`** is
+the platform-agnostic core (types, config/sprites, core, entities, content, utils,
+systems/{simulation,physics,fov}); **`src/client/`** is the presentation layer
+(`main.ts` entry + `systems/` renderer/sound/input/UI); **`src/net/`** is the wire
+protocol/client; and **`server/`** is the headless server. The Vite bundle entry
+is `src/client/main.ts`. **New engine code must not import DOM/Pixi/Electron/ws/node**
 — enforced by `src/engine-purity.test.ts`, which scans `src/engine` and fails on
 any forbidden import. Sound IDs live in `src/engine/content/sound-effects.ts`
 (pure data); `src/systems/sound.ts` is the DOM playback layer that re-exports

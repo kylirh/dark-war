@@ -2,7 +2,7 @@
  * Slot-based saved game storage and picker UI.
  */
 import { RetroModal } from "./retro-modal";
-import { SerializedState } from "../engine/types";
+import { SerializedState } from "../../engine/types";
 
 export const SAVE_SLOT_COUNT = 8;
 export const SAVE_CHARACTER_NAME = "Captain Hazard";

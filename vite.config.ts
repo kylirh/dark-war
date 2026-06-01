@@ -33,7 +33,7 @@ export default defineConfig(({ command }) => ({
     outDir: "app",
     emptyOutDir: false,
     lib: {
-      entry: resolve(__dirname, "src/main.ts"),
+      entry: resolve(__dirname, "src/client/main.ts"),
       name: "DarkWar",
       formats: ["iife"],
       fileName: () => "game.js",

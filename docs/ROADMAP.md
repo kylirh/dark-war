@@ -86,9 +86,9 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
       by src/engine-purity.test.ts; client/net/server type-check + full build green.
       Lifting `src/engine` → `packages/engine` (+ package.json, @dark-war/engine) is now
       a trivial move
-- [ ] R2: extract `packages/net`
+- [~] R2: net isolated at `src/net/` (lift to `packages/net` remains)
 - [ ] R3: extract `packages/server-core`; `apps/server` dedicated executable (multi-room)
-- [ ] R4: extract `packages/client` + `PlatformBridge`; `apps/electron` provides Electron bridge
+- [~] R4: client isolated at `src/client/` (Vite entry src/client/main.ts); PlatformBridge + lift to packages/client + apps/electron remain
 - [ ] R5: `apps/web` static single-player build + manual server-join (no host/discovery)
 - [ ] R6: `apps/arcade` (input map, attract mode, pacing) — last, per owner
 

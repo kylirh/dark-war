@@ -1,20 +1,20 @@
-import { Game } from "./engine/core/game";
-import { GameLoop } from "./engine/core/game-loop";
-import { GameEntity } from "./engine/entities/game-entity";
+import { Game } from "../engine/core/game";
+import { GameLoop } from "../engine/core/game-loop";
+import { GameEntity } from "../engine/entities/game-entity";
 import { InputCallbacks, InputHandler, MOVEMENT_SPEED } from "./systems/input";
 import { MouseTracker } from "./systems/mouse-tracker";
 import { Music } from "./systems/music";
-import { Physics } from "./engine/systems/physics";
-import { TileSource } from "./engine/core/tile-source";
+import { Physics } from "../engine/systems/physics";
+import { TileSource } from "../engine/core/tile-source";
 import {
   UserPreferences,
   loadPreferences,
   savePreferences,
 } from "./systems/preferences";
 import { Renderer } from "./systems/renderer";
-import { stepSimulationTick } from "./engine/systems/simulation/tick";
-import { enqueueCommand } from "./engine/systems/simulation/commands";
-import { SIM_DT_MS } from "./engine/systems/simulation/constants";
+import { stepSimulationTick } from "../engine/systems/simulation/tick";
+import { enqueueCommand } from "../engine/systems/simulation/commands";
+import { SIM_DT_MS } from "../engine/systems/simulation/constants";
 import { Sound, SoundEffect } from "./systems/sound";
 import { TitleScreen } from "./systems/title-screen";
 import { IntroStory } from "./systems/intro-story";
@@ -46,9 +46,9 @@ import {
   TileType,
   TIME_SCALE_TRANSITION_SPEED,
   WeaponType,
-} from "./engine/types";
-import { getWeaponForSlot } from "./engine/utils/inventory";
-import { idxFor, inBoundsFor } from "./engine/utils/helpers";
+} from "../engine/types";
+import { getWeaponForSlot } from "../engine/utils/inventory";
+import { idxFor, inBoundsFor } from "../engine/utils/helpers";
 
 function weaponToItemType(weapon: WeaponType): ItemType | null {
   switch (weapon) {
@@ -65,9 +65,9 @@ function weaponToItemType(weapon: WeaponType): ItemType | null {
 import {
   MultiplayerConfig,
   getMultiplayerConfigFromUrl,
-} from "./engine/utils/multiplayer";
-import { findPathToClosestReachable } from "./engine/utils/pathfinding";
-import { MultiplayerClient, NetworkAction } from "./net/multiplayer-client";
+} from "../engine/utils/multiplayer";
+import { findPathToClosestReachable } from "../engine/utils/pathfinding";
+import { MultiplayerClient, NetworkAction } from "../net/multiplayer-client";
 
 /**
  * Dark War - Main Entry Point

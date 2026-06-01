@@ -15,7 +15,7 @@ import {
   MonsterType,
   FLOOR_DAMAGE_THRESHOLDS,
   WALL_DAMAGE_THRESHOLDS,
-} from "../engine/types";
+} from "../../engine/types";
 import {
   SPRITE_SIZE,
   SPRITE_COORDS,
@@ -26,8 +26,8 @@ import {
   MONSTER_WALK_FRAMES,
   MONSTER_IDLE_FRAMES,
   FacingDirection,
-} from "../engine/config/sprites";
-import { wrapValue, nearestWrappedImage } from "../engine/utils/wrap";
+} from "../../engine/config/sprites";
+import { wrapValue, nearestWrappedImage } from "../../engine/utils/wrap";
 
 /**
  * Handles rendering the game using Pixi.js

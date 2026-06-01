@@ -1,4 +1,4 @@
-import { Player, SimulationState } from "../engine/types";
+import { Player, SimulationState } from "../../engine/types";
 
 export class UI {
   private storyElement: HTMLElement;
