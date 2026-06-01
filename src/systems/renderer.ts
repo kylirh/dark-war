@@ -1037,7 +1037,11 @@ export class Renderer {
           coord = SPRITE_COORDS[entity.type];
         }
       } else if (entity.kind === EntityKind.BULLET) {
-        coord = SPRITE_COORDS["bullet"];
+        // Thrown items (bone/rock) render as themselves; bullets as a bullet.
+        const thrown = (entity as { thrownItem?: ItemType }).thrownItem;
+        coord = thrown
+          ? (SPRITE_COORDS[thrown] ?? SPRITE_COORDS["bullet"])
+          : SPRITE_COORDS["bullet"];
       }
 
       if (coord) {

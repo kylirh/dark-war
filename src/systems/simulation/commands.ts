@@ -791,10 +791,38 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       return;
     }
     case ItemType.BONE:
-    case ItemType.ROCK:
+    case ItemType.ROCK: {
+      if ((player.itemCounts[active] ?? 0) <= 0) {
+        msg(state, "Nothing left to throw.");
+        return;
+      }
+      const THROW_SPEED = 340;
+      const MUZZLE = 16;
+      const angle = player.facingAngle;
+      const thrown = new BulletEntity(
+        player.worldX + Math.cos(angle) * MUZZLE,
+        player.worldY + Math.sin(angle) * MUZZLE,
+        Math.cos(angle) * THROW_SPEED,
+        Math.sin(angle) * THROW_SPEED,
+        active === ItemType.ROCK ? 3 : 2, // rocks hit a little harder
+        player.id,
+        2000, // generous max range; friction stops it first
+        6, // fuse seconds
+        0, // no ricochet count; thrown items bounce in physics
+      );
+      thrown.thrownItem = active;
+      state.entityManager.spawn(thrown);
+      consumeOne(player, active);
+      msg(
+        state,
+        `You hurl the ${active === ItemType.ROCK ? "rock" : "bone"}.`,
+        cmd.id,
+      );
+      return;
+    }
     case ItemType.PANIC_BUTTON:
     case ItemType.HOLOWALL:
-      // Implemented in follow-up commits (throwables / panic warp / holowall).
+      // Implemented in follow-up commits (panic warp / holowall placement).
       msg(state, "Nothing happens... yet.");
       return;
     default:

@@ -1,4 +1,4 @@
-import { EntityKind } from "../types";
+import { EntityKind, ItemType } from "../types";
 import { GameEntity } from "./game-entity";
 
 /**
@@ -10,6 +10,13 @@ export class BulletEntity extends GameEntity {
 
   /** Damage dealt on impact */
   public damage: number;
+
+  /**
+   * If set, this is a *thrown item* (bone/rock), not a bullet: it bounces off
+   * walls, slows to a stop via friction, and drops back as this item type when
+   * it comes to rest or strikes a creature. Never damages walls.
+   */
+  public thrownItem?: ItemType;
 
   /** Maximum distance bullet can travel in pixels */
   public maxDistance: number;

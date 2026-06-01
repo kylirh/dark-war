@@ -27,6 +27,7 @@ import {
 } from "../types";
 import { GameEntity } from "../entities/game-entity";
 import { BulletEntity } from "../entities/bullet-entity";
+import { ItemEntity } from "../entities/item-entity";
 import { ExplosiveEntity } from "../entities/explosive-entity";
 import { TileSource } from "../core/tile-source";
 import { idxFor, tileAtFor } from "../utils/helpers";
@@ -45,6 +46,11 @@ const BULLET_RADIUS = 4;
 // bullet+actor overlap radius so fast bullets can't tunnel through enemies.
 const BULLET_SUBSTEP_PX = 6;
 const EXPLOSIVE_RADIUS = 6;
+// Thrown-item (bone/rock) physics: speed decay per frame, rest threshold, and
+// energy kept after a wall bounce.
+const THROWN_FRICTION = 0.92;
+const THROWN_REST_SPEED = 35;
+const THROWN_BOUNCE_DAMP = 0.6;
 const COLLISION_RESOLUTION_ITERATIONS = 3;
 const VELOCITY_EPSILON = 0.01;
 const BULLET_RICOCHET_DOT_THRESHOLD = 0.38;
@@ -727,10 +733,27 @@ export class Physics {
         bullet.ownerGraceSeconds = Math.max(0, bullet.ownerGraceSeconds - dt);
       }
       if (bullet.fuseSeconds <= 0) {
-        this.removeStateEntity(state, bullet);
+        if (bullet.thrownItem) {
+          this.dropThrownItem(state, bullet);
+        } else {
+          this.removeStateEntity(state, bullet);
+        }
         continue;
       }
       if (!bullet.physicsBody) continue;
+
+      // Thrown items (bones/rocks) lose speed to friction and drop once they
+      // come to rest, rather than flying forever / vanishing.
+      if (bullet.thrownItem) {
+        bullet.velocityX *= THROWN_FRICTION;
+        bullet.velocityY *= THROWN_FRICTION;
+        if (
+          Math.hypot(bullet.velocityX, bullet.velocityY) < THROWN_REST_SPEED
+        ) {
+          this.dropThrownItem(state, bullet);
+          continue;
+        }
+      }
 
       const speed = Math.hypot(bullet.velocityX, bullet.velocityY);
       const frameDistance = speed * dt;
@@ -793,6 +816,12 @@ export class Physics {
 
       // Hit wall
       if ((other as any).isWall) {
+        // Thrown items bounce off walls (no wall damage) and keep going.
+        if (bullet.thrownItem) {
+          this.bounceThrownItem(bullet, response);
+          stop = true;
+          return;
+        }
         const tileIndex = (other as any).tileIndex;
         const ricocheted = this.tryRicochetBullet(bullet, response);
         if (!ricocheted && typeof tileIndex === "number") {
@@ -848,7 +877,12 @@ export class Physics {
             knockbackDistance: 6,
           },
         });
-        this.removeStateEntity(state, bullet);
+        // A thrown bone/rock drops where it struck instead of vanishing.
+        if (bullet.thrownItem) {
+          this.dropThrownItem(state, bullet);
+        } else {
+          this.removeStateEntity(state, bullet);
+        }
         stop = true;
       }
     });
@@ -909,6 +943,49 @@ export class Physics {
     const length = Math.sqrt(normalX * normalX + normalY * normalY);
     if (length <= VELOCITY_EPSILON) return null;
     return { x: normalX / length, y: normalY / length };
+  }
+
+  /**
+   * Reflect a thrown item's velocity off a wall and nudge it clear, losing a
+   * little energy each bounce. No wall damage.
+   */
+  private bounceThrownItem(bullet: BulletEntity, response: Response): void {
+    const normal = this.normalFromWallImpact(response);
+    if (!normal) {
+      bullet.velocityX = 0;
+      bullet.velocityY = 0;
+      return;
+    }
+    const dot = bullet.velocityX * normal.x + bullet.velocityY * normal.y;
+    bullet.velocityX =
+      (bullet.velocityX - 2 * dot * normal.x) * THROWN_BOUNCE_DAMP;
+    bullet.velocityY =
+      (bullet.velocityY - 2 * dot * normal.y) * THROWN_BOUNCE_DAMP;
+    // Push out of the wall so it doesn't re-trigger the same collision.
+    bullet.worldX += normal.x * (BULLET_RADIUS + 1);
+    bullet.worldY += normal.y * (BULLET_RADIUS + 1);
+    bullet.physicsBody?.setPosition(bullet.worldX, bullet.worldY);
+    bullet.facingAngle = Math.atan2(bullet.velocityY, bullet.velocityX);
+  }
+
+  /**
+   * Convert a thrown item that has come to rest (or struck something) back into
+   * a pickable item on the floor at its current position.
+   */
+  private dropThrownItem(state: GameState, bullet: BulletEntity): void {
+    if (bullet.thrownItem) {
+      const item = new ItemEntity(
+        bullet.gridX,
+        bullet.gridY,
+        bullet.thrownItem,
+      );
+      item.worldX = bullet.worldX;
+      item.worldY = bullet.worldY;
+      item.prevWorldX = bullet.worldX;
+      item.prevWorldY = bullet.worldY;
+      state.entityManager.spawn(item);
+    }
+    this.removeStateEntity(state, bullet);
   }
 
   /**
