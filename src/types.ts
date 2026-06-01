@@ -218,6 +218,12 @@ export interface Monster extends BaseEntity {
   lastKnownPlayerX?: number;
   lastKnownPlayerY?: number;
   lastAttackerId?: string;
+  /** Befriended (e.g. a dog given a bone): fights for and follows its owner. */
+  friendly?: boolean;
+  /** Player id this creature is loyal to (when friendly). */
+  ownerId?: string;
+  /** Player-given name (shown in the log for a friendly pet's actions). */
+  name?: string;
 }
 
 export interface CarriedItem {
@@ -474,6 +480,12 @@ export interface GameState {
     worldY?: number;
     sourceId?: string;
   }>; // Sound effects queued during simulation for playback (sourceId = actor that caused it)
+  /**
+   * Transient: id of a pet that just became friendly and is awaiting a name.
+   * The client shows a naming modal (and pauses) when this is set, then clears
+   * it. Not serialized.
+   */
+  pendingDogNaming?: string;
 }
 
 // ========================================

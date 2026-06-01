@@ -205,6 +205,14 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
   }
 
   if (blocker) {
+    // Don't attack your own friendly pets by walking into them.
+    if (
+      actor.kind === EntityKind.PLAYER &&
+      blocker.kind === EntityKind.MONSTER &&
+      (blocker as Monster).friendly
+    ) {
+      return false;
+    }
     // If player trying to move into monster, convert to melee attack
     if (
       actor.kind === EntityKind.PLAYER &&

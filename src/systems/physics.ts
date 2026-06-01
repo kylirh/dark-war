@@ -19,12 +19,15 @@ import {
   EntityKind,
   TileType,
   ItemType,
+  MonsterType,
+  Monster,
   EventType,
   CELL_CONFIG,
   MAP_WIDTH,
   MAP_HEIGHT,
   TILE_DEFINITIONS,
 } from "../types";
+import { RNG } from "../utils/rng";
 import { GameEntity } from "../entities/game-entity";
 import { BulletEntity } from "../entities/bullet-entity";
 import { ItemEntity } from "../entities/item-entity";
@@ -864,23 +867,22 @@ export class Physics {
           bullet.ownerGraceSeconds <= 0 ||
           bullet.ricochetCount > 0)
       ) {
-        pushEvent(state, {
-          type: EventType.DAMAGE,
-          data: {
-            type: "DAMAGE",
-            targetId: targetEntity.id,
-            amount: bullet.damage,
-            sourceId: bullet.ownerId,
-            suppressHitSound: true,
-            knockbackX: bullet.velocityX,
-            knockbackY: bullet.velocityY,
-            knockbackDistance: 6,
-          },
-        });
-        // A thrown bone/rock drops where it struck instead of vanishing.
         if (bullet.thrownItem) {
-          this.dropThrownItem(state, bullet);
+          this.resolveThrownActorHit(state, bullet, targetEntity);
         } else {
+          pushEvent(state, {
+            type: EventType.DAMAGE,
+            data: {
+              type: "DAMAGE",
+              targetId: targetEntity.id,
+              amount: bullet.damage,
+              sourceId: bullet.ownerId,
+              suppressHitSound: true,
+              knockbackX: bullet.velocityX,
+              knockbackY: bullet.velocityY,
+              knockbackDistance: 6,
+            },
+          });
           this.removeStateEntity(state, bullet);
         }
         stop = true;
@@ -966,6 +968,68 @@ export class Physics {
     bullet.worldY += normal.y * (BULLET_RADIUS + 1);
     bullet.physicsBody?.setPosition(bullet.worldX, bullet.worldY);
     bullet.facingAngle = Math.atan2(bullet.velocityY, bullet.velocityX);
+  }
+
+  /**
+   * A thrown bone/rock hit a creature. A bone may befriend a wild dog (no
+   * damage, consumed); otherwise it deals light damage and drops to the floor.
+   */
+  private resolveThrownActorHit(
+    state: GameState,
+    bullet: BulletEntity,
+    target: GameEntity,
+  ): void {
+    const monster = target as Monster;
+    const isBone = bullet.thrownItem === ItemType.BONE;
+    const isWildDog =
+      target.kind === EntityKind.MONSTER &&
+      monster.type === MonsterType.WILD_DOG;
+
+    if (isBone && isWildDog && !monster.friendly) {
+      if (RNG.chance(0.6)) {
+        monster.friendly = true;
+        monster.ownerId = bullet.ownerId;
+        monster.alertLevel = 0;
+        monster.name = monster.name ?? "Dog";
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: {
+            type: "MESSAGE",
+            message:
+              "The wild dog gobbles the bone and wags its tail — a new friend!",
+          },
+        });
+        // Ask the client to name the new pet.
+        state.pendingDogNaming = monster.id;
+        // The dog eats the bone — nothing to drop.
+        this.removeStateEntity(state, bullet);
+        return;
+      }
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: {
+          type: "MESSAGE",
+          message: "The wild dog sniffs the bone but stays wary.",
+        },
+      });
+      this.dropThrownItem(state, bullet);
+      return;
+    }
+
+    pushEvent(state, {
+      type: EventType.DAMAGE,
+      data: {
+        type: "DAMAGE",
+        targetId: target.id,
+        amount: bullet.damage,
+        sourceId: bullet.ownerId,
+        suppressHitSound: true,
+        knockbackX: bullet.velocityX,
+        knockbackY: bullet.velocityY,
+        knockbackDistance: 6,
+      },
+    });
+    this.dropThrownItem(state, bullet);
   }
 
   /**

@@ -1208,11 +1208,40 @@ class DarkWar {
   }
 
   /**
+   * When a pet becomes friendly (offline), pop a modal to name it and record the
+   * name on the creature. Online keeps the default name (the prompt would need a
+   * server round-trip). The native prompt pauses the loop while open.
+   */
+  private handlePendingDogNaming(state: ReturnType<Game["getState"]>): void {
+    const id = state.pendingDogNaming;
+    if (!id) return;
+    state.pendingDogNaming = undefined; // clear first to avoid re-prompting
+    if (this.isOnlineMode()) return;
+    const dog = state.entities.find((e) => e.id === id) as
+      | { name?: string }
+      | undefined;
+    if (!dog) return;
+    if (typeof window === "undefined" || typeof window.prompt !== "function") {
+      return;
+    }
+    const entered = window.prompt("Your new dog! What's its name?", "Rex");
+    const name = entered?.trim().slice(0, 20);
+    if (name) {
+      dog.name = name;
+      this.game.addStory(`You name your new dog ${name}.`);
+    }
+  }
+
+  /**
    * Update game logic at fixed timestep (called by GameLoop)
    */
   private update(dt: number): void {
     const state = this.game.getState();
     const isDead = this.isLocalPlayerDead();
+
+    // A newly befriended pet awaits a name (offline): prompt for one. The native
+    // prompt blocks the loop, which naturally pauses the game while it's open.
+    this.handlePendingDogNaming(state);
 
     // Keep the mouse tracker in sync with the renderer's windowed camera so
     // canvas→world conversion (used for aiming) stays accurate as it follows.

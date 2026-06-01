@@ -6,6 +6,7 @@ import {
   EntityKind,
   Monster,
   MonsterType,
+  Player,
   Item,
   ItemType,
   TileType,
@@ -359,6 +360,107 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
  * Update monster velocities using steering behaviors
  * Called every MONSTER_AI_UPDATE_INTERVAL ticks
  */
+const PET_SPEED = 215; // px/s for friendly pets chasing/following
+const PET_HOSTILE_RANGE_PX = CELL_CONFIG.w * 8;
+const PET_FOLLOW_DIST_PX = CELL_CONFIG.w * 2.5;
+const PET_MELEE_RANGE_PX = CELL_CONFIG.w * 1.5;
+
+/** Nearest hostile (non-friendly) monster to a pet, within range. */
+function nearestHostileMonster(
+  state: GameState,
+  pet: Monster,
+  rangePx: number,
+): Monster | null {
+  let best: Monster | null = null;
+  let bestSq = rangePx * rangePx;
+  for (const entity of state.entities) {
+    if (entity.kind !== EntityKind.MONSTER) continue;
+    const other = entity as Monster;
+    if (other.id === pet.id || other.friendly || other.hp <= 0) continue;
+    const dx = other.worldX - pet.worldX;
+    const dy = other.worldY - pet.worldY;
+    const sq = dx * dx + dy * dy;
+    if (sq < bestSq) {
+      bestSq = sq;
+      best = other;
+    }
+  }
+  return best;
+}
+
+function petOwner(state: GameState, pet: Monster): Player | null {
+  const owner = state.entities.find(
+    (e) => e.kind === EntityKind.PLAYER && e.id === pet.ownerId,
+  ) as Player | undefined;
+  return owner ?? getClosestPlayer(state, pet);
+}
+
+/** Friendly pets chase the nearest enemy, else trot back to their owner. */
+function steerFriendlyPet(state: GameState, monster: Monster): void {
+  const m = monster as any;
+  const enemy = nearestHostileMonster(state, monster, PET_HOSTILE_RANGE_PX);
+  let targetX: number | null = null;
+  let targetY: number | null = null;
+
+  if (enemy) {
+    targetX = (enemy as any).worldX;
+    targetY = (enemy as any).worldY;
+  } else {
+    const owner = petOwner(state, monster);
+    if (owner && "worldX" in owner) {
+      const dx = (owner as any).worldX - m.worldX;
+      const dy = (owner as any).worldY - m.worldY;
+      if (Math.hypot(dx, dy) > PET_FOLLOW_DIST_PX) {
+        targetX = (owner as any).worldX;
+        targetY = (owner as any).worldY;
+      }
+    }
+  }
+
+  if (targetX === null || targetY === null) {
+    m.velocityX = 0;
+    m.velocityY = 0;
+    return;
+  }
+  const dx = targetX - m.worldX;
+  const dy = targetY - m.worldY;
+  const d = Math.hypot(dx, dy);
+  if (d < 1) {
+    m.velocityX = 0;
+    m.velocityY = 0;
+    return;
+  }
+  m.velocityX = (dx / d) * PET_SPEED;
+  m.velocityY = (dy / d) * PET_SPEED;
+  m.facingAngle = Math.atan2(dy, dx);
+}
+
+/** A pet bites a hostile in range; otherwise waits (movement is steering). */
+function decideFriendlyPetCommand(
+  state: GameState,
+  monster: Monster,
+  tick: number,
+): Command | null {
+  const enemy = nearestHostileMonster(state, monster, PET_MELEE_RANGE_PX);
+  if (enemy) {
+    const name = monster.name ?? "Your pet";
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: `${name} bites the ${enemy.type}!` },
+    });
+    return {
+      id: "",
+      tick,
+      actorId: monster.id,
+      type: CommandType.MELEE,
+      data: { type: "MELEE", targetId: enemy.id },
+      priority: 0,
+      source: "AI",
+    };
+  }
+  return makeWaitCommand(monster, tick);
+}
+
 export function updateMonsterSteering(state: GameState): void {
   for (const entity of state.entities) {
     if (entity.kind !== EntityKind.MONSTER) continue;
@@ -367,6 +469,11 @@ export function updateMonsterSteering(state: GameState): void {
 
     if (monster.type === MonsterType.UTILITY_BOT) {
       steerUtilityBot(state, monster);
+      continue;
+    }
+
+    if (monster.friendly) {
+      steerFriendlyPet(state, monster);
       continue;
     }
 
@@ -640,6 +747,10 @@ function decideMonsterCommand(
 ): Command | null {
   if (monster.type === MonsterType.UTILITY_BOT) {
     return decideUtilityBotCommand(state, monster, tick);
+  }
+
+  if (monster.friendly) {
+    return decideFriendlyPetCommand(state, monster, tick);
   }
 
   const player = getClosestPlayer(state, monster);

@@ -45,6 +45,11 @@ export class MonsterEntity extends GameEntity {
   public lastKnownPlayerX: number = 0;
   public lastKnownPlayerY: number = 0;
 
+  /** Befriended pet state (e.g. a dog given a bone). */
+  public friendly?: boolean;
+  public ownerId?: string;
+  public name?: string;
+
   constructor(gridX: number, gridY: number, type: MonsterType, depth: number) {
     super(gridX, gridY);
 
