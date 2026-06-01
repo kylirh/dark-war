@@ -31,6 +31,8 @@
     "format:check": "prettier --check \"{src,server,electron,tools,scripts}/**/*.{ts,js,mjs,json,css}\" \"*.{ts,js,json}\"",
     "gen:assets": "node tools/gen-spritesheet.mjs && node tools/gen-sounds.mjs",
     "dev:web": "vite",
+    "build:web": "node scripts/build-web-static.mjs",
+    "server:start": "tsx server/multiplayer-server.ts",
     "watch": "vite build --watch"
   },
   "devDependencies": {
