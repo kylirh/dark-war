@@ -23,7 +23,8 @@ import { applyWallDamageAt } from "../../utils/walls";
 import { TILE_DEFINITIONS } from "../../types";
 import { RNG } from "../../utils/rng";
 import { isRangedMonster, MONSTER_DEFS } from "../../content/monster-defs";
-import { isJunk } from "../../content/item-defs";
+import { isJunk, ITEM_DEFS } from "../../content/item-defs";
+import { ItemEntity } from "../../entities/item-entity";
 import { SoundEffect } from "../sound";
 import {
   MONSTER_SPEED,
@@ -442,8 +443,118 @@ function petOwner(state: GameState, pet: Monster): Player | null {
   return owner ?? getClosestPlayer(state, pet);
 }
 
+/** Nearest floor item worth fetching, ignoring machines and loot already at the owner's feet. */
+function nearestFetchableItem(
+  state: GameState,
+  pet: Monster,
+  owner: Player | null,
+): Item | null {
+  let best: Item | null = null;
+  let bestSq = (CELL_CONFIG.w * 10) ** 2;
+  for (const entity of state.entities) {
+    if (entity.kind !== EntityKind.ITEM) continue;
+    const item = entity as Item;
+    if (ITEM_DEFS[item.type]?.category === "machine") continue;
+    // Skip loot the fetcher just dropped right next to the owner.
+    if (owner && "worldX" in owner) {
+      const ox = item.worldX - (owner as any).worldX;
+      const oy = item.worldY - (owner as any).worldY;
+      if (ox * ox + oy * oy < (CELL_CONFIG.w * 2) ** 2) continue;
+    }
+    const dx = item.worldX - (pet as any).worldX;
+    const dy = item.worldY - (pet as any).worldY;
+    const sq = dx * dx + dy * dy;
+    if (sq < bestSq) {
+      bestSq = sq;
+      best = item;
+    }
+  }
+  return best;
+}
+
+/** A friendly snagglepuss gathers loose loot and carries it back to its owner. */
+function steerFetcherPet(state: GameState, monster: Monster): void {
+  const m = monster as any;
+  const owner = petOwner(state, monster);
+  const steerToward = (tx: number, ty: number): void => {
+    const dx = tx - m.worldX;
+    const dy = ty - m.worldY;
+    const d = Math.hypot(dx, dy) || 1;
+    m.velocityX = (dx / d) * PET_SPEED;
+    m.velocityY = (dy / d) * PET_SPEED;
+    m.facingAngle = Math.atan2(dy, dx);
+  };
+
+  const carrying = (monster.carriedItems?.length ?? 0) > 0;
+  if (carrying && owner && "worldX" in owner) {
+    const dist = Math.hypot(
+      (owner as any).worldX - m.worldX,
+      (owner as any).worldY - m.worldY,
+    );
+    if (dist <= CELL_CONFIG.w * 1.2) {
+      for (const carried of monster.carriedItems) {
+        const drop = new ItemEntity(monster.gridX, monster.gridY, carried.type);
+        if (typeof carried.amount === "number") drop.amount = carried.amount;
+        if (typeof carried.heal === "number") drop.heal = carried.heal;
+        drop.worldX = m.worldX;
+        drop.worldY = m.worldY;
+        state.entityManager.spawn(drop);
+      }
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: {
+          type: "MESSAGE",
+          message: `${monster.name ?? "Snagglepuss"} drops some loot at your feet!`,
+        },
+      });
+      monster.carriedItems = [];
+      m.velocityX = 0;
+      m.velocityY = 0;
+    } else {
+      steerToward((owner as any).worldX, (owner as any).worldY);
+    }
+    return;
+  }
+
+  const loot = nearestFetchableItem(state, monster, owner);
+  if (loot) {
+    const dist = Math.hypot(loot.worldX - m.worldX, loot.worldY - m.worldY);
+    if (dist <= CELL_CONFIG.w * 0.8) {
+      if (!monster.carriedItems) monster.carriedItems = [];
+      monster.carriedItems.push({
+        type: loot.type,
+        amount: (loot as any).amount,
+        heal: (loot as any).heal,
+      });
+      state.entityManager.destroy(loot.id);
+      m.velocityX = 0;
+      m.velocityY = 0;
+    } else {
+      steerToward(loot.worldX, loot.worldY);
+    }
+    return;
+  }
+
+  // Nothing to fetch — stick near the owner.
+  if (owner && "worldX" in owner) {
+    const dx = (owner as any).worldX - m.worldX;
+    const dy = (owner as any).worldY - m.worldY;
+    if (Math.hypot(dx, dy) > PET_FOLLOW_DIST_PX) {
+      steerToward((owner as any).worldX, (owner as any).worldY);
+      return;
+    }
+  }
+  m.velocityX = 0;
+  m.velocityY = 0;
+}
+
 /** Friendly pets chase the nearest enemy, else trot back to their owner. */
 function steerFriendlyPet(state: GameState, monster: Monster): void {
+  // Snagglepuss-type pets fetch loot instead of fighting.
+  if (MONSTER_DEFS[monster.type]?.flags?.steals) {
+    steerFetcherPet(state, monster);
+    return;
+  }
   const m = monster as any;
   const enemy = nearestHostileMonster(state, monster, PET_HOSTILE_RANGE_PX);
   let targetX: number | null = null;
@@ -488,6 +599,10 @@ function decideFriendlyPetCommand(
   monster: Monster,
   tick: number,
 ): Command | null {
+  // Fetchers (snagglepuss) don't fight — movement/fetching is all in steering.
+  if (MONSTER_DEFS[monster.type]?.flags?.steals) {
+    return makeWaitCommand(monster, tick);
+  }
   const enemy = nearestHostileMonster(state, monster, PET_MELEE_RANGE_PX);
   if (enemy) {
     const name = monster.name ?? "Your pet";

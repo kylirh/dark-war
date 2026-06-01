@@ -5,6 +5,7 @@ import {
   EventType,
   EntityKind,
   Monster,
+  MonsterType,
   Player,
   Item,
   TileType,
@@ -760,6 +761,32 @@ function msg(state: GameState, message: string, cause?: string): void {
 }
 
 /**
+ * Eating a cookie near a wild snagglepuss can win it over: it becomes a friendly
+ * fetcher that gathers loose loot and brings it to you.
+ */
+function befriendNearbySnagglepuss(state: GameState, player: Player): void {
+  const RANGE = CELL_CONFIG.w * 4;
+  for (const entity of state.entities) {
+    if (entity.kind !== EntityKind.MONSTER) continue;
+    const monster = entity as Monster;
+    if (monster.type !== MonsterType.SNAGGLEPUSS || monster.friendly) continue;
+    const dx = (monster as unknown as Player).worldX - player.worldX;
+    const dy = (monster as unknown as Player).worldY - player.worldY;
+    if (dx * dx + dy * dy > RANGE * RANGE) continue;
+    if (!RNG.chance(0.5)) continue;
+    monster.friendly = true;
+    monster.fleeing = false;
+    monster.ownerId = player.id;
+    monster.name = monster.name ?? "Snagglepuss";
+    msg(
+      state,
+      "A snagglepuss creeps over for a crumb — and decides to tag along!",
+    );
+    return;
+  }
+}
+
+/**
  * Left-click "use the active item". Weapons/grenades/mines/melee fall through to
  * the firing logic; consumables and gear have bespoke effects.
  */
@@ -795,6 +822,8 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       player.hp = Math.min(player.hpMax, player.hp + heal);
       consumeOne(player, ItemType.COOKIE);
       msg(state, `You eat a cookie. +${heal} HP`, cmd.id);
+      // The aroma can win over a nearby snagglepuss.
+      befriendNearbySnagglepuss(state, player);
       return;
     }
     case ItemType.BLACK_PILL: {
