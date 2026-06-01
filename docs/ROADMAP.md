@@ -46,7 +46,7 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 
 - [x] Death loot **spread** (scatter drops so they're individually visible)
 - [x] **Magnetic auto-pickup** (radius; items drift to player & are collected)
-- [~] Items **fall through holes** (removed on fall; deposit-below deferred) to the level below
+- [x] Items **fall through holes** and are deposited onto the level below (offline)
 - [x] Butcher knife (starter melee, not found in levels)
 - [x] Laser pistol (equip on pickup, half-charged; drains/refills via power cells)
 - [x] Black pill (starter; eat → instant death). Monster-eats-pill deferred.
@@ -69,7 +69,7 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - [x] Icky Lump (slow; breeds with a cap; drops coins)
 - [x] Flutterbang (explodes like a grenade on death)
 - [x] Wild Dog (bone befriends; nameable; attacks foes + follows owner)
-- [~] Snagglepuss (steals an item & flees; cookie-befriend/fetch deferred)
+- [x] Snagglepuss (steals & flees; cookie befriends → fetches loot to you)
 - [x] Moppet (steals coins, teleports when hit, self-heals, far sight)
 - [x] Cybercop (near-invisible render; jail deferred)
 - [x] Zyth (ranged alien; fights at range)

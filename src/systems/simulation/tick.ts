@@ -426,9 +426,10 @@ function processHoleFalls(state: GameState): void {
     }
   }
 
-  // Loose items resting on a hole fall through to the depths below.
-  // (Depositing them onto the level below is a future refinement — for now they
-  // drop out of reach; see docs/ROADMAP.md.)
+  // Loose items resting on a hole fall through to the level below. Offline, the
+  // Game harvests `itemsFellThrough` after the tick and deposits them on the next
+  // depth. (Online's per-depth worlds don't share state, so items just drop.)
+  const offline = state.multiplayer?.mode !== "online";
   const fallenItemIds = new Set<string>();
   for (const entity of state.entities) {
     if (entity.kind !== EntityKind.ITEM) continue;
@@ -439,7 +440,17 @@ function processHoleFalls(state: GameState): void {
       state.mapWidth,
       state.mapHeight,
     );
-    if (tile === TileType.HOLE) fallenItemIds.add(entity.id);
+    if (tile !== TileType.HOLE) continue;
+    fallenItemIds.add(entity.id);
+    if (offline) {
+      const item = entity as Item;
+      if (!state.itemsFellThrough) state.itemsFellThrough = [];
+      state.itemsFellThrough.push({
+        type: item.type,
+        amount: item.amount,
+        heal: item.heal,
+      });
+    }
   }
   if (fallenItemIds.size > 0) {
     state.entityManager.destroyByIds(fallenItemIds);

@@ -72,4 +72,33 @@ describe("items fall through holes", () => {
       state.entities.some((e) => e.id === itemId && e.kind === EntityKind.ITEM),
     ).toBe(false);
   });
+
+  it("deposits a fallen item onto the level below", () => {
+    RNG.reseed(11);
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+
+    // A hole a few tiles from the player, with a uniquely-tagged item on it.
+    const hx = state.player.gridX + 3;
+    const hy = state.player.gridY;
+    state.map[hx + hy * state.mapWidth] = TileType.HOLE;
+    const item = new ItemEntity(hx, hy, ItemType.AMMO, 777);
+    state.entityManager.spawn(item);
+
+    stepSimulationTick(state); // item falls → queued for the level below
+    game.harvestFallenItems();
+    game.descend(); // → depth 2
+
+    const below = game.getState();
+    expect(below.depth).toBe(2);
+    expect(
+      below.entities.some(
+        (e) =>
+          e.kind === EntityKind.ITEM &&
+          (e as { type?: ItemType }).type === ItemType.AMMO &&
+          (e as { amount?: number }).amount === 777,
+      ),
+    ).toBe(true);
+  });
 });

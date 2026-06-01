@@ -74,6 +74,11 @@ export class Game {
   private levels = new Map<number, LevelSnapshot>();
   private multiplayerMode: MultiplayerMode;
   private localPlayerId?: string;
+  /** Items that fell through holes, awaiting deposit onto a deeper level. */
+  private pendingDropsByDepth = new Map<
+    number,
+    Array<{ type: ItemType; amount?: number; heal?: number }>
+  >();
 
   constructor(options?: { mode?: MultiplayerMode; localPlayerId?: string }) {
     this.multiplayerMode = options?.mode ?? "offline";
@@ -887,6 +892,41 @@ export class Game {
   /**
    * Descend to next level (called after tick completes with descend flag)
    */
+  /**
+   * Drain items that fell through holes this tick into the pending-drops queue
+   * for the level below. Called after each offline simulation step.
+   */
+  public harvestFallenItems(): void {
+    const fell = this.state.itemsFellThrough;
+    if (!fell || fell.length === 0) return;
+    const targetDepth = this.state.depth + 1;
+    const list = this.pendingDropsByDepth.get(targetDepth) ?? [];
+    for (const drop of fell) list.push(drop);
+    this.pendingDropsByDepth.set(targetDepth, list);
+    this.state.itemsFellThrough = [];
+  }
+
+  /** Scatter any pending fallen-items onto a level snapshot's open floor. */
+  private injectPendingDrops(snapshot: LevelSnapshot, depth: number): void {
+    const pending = this.pendingDropsByDepth.get(depth);
+    if (!pending || pending.length === 0) return;
+    const freeTiles = this.getFreeTilesOptimized(
+      snapshot.map,
+      snapshot.mapWidth,
+      snapshot.mapHeight,
+    );
+    for (const drop of pending) {
+      if (freeTiles.length === 0) break;
+      const i = RNG.int(freeTiles.length);
+      const [x, y] = freeTiles[i];
+      const item = new ItemEntity(x, y, drop.type, drop.amount);
+      if (typeof drop.heal === "number") item.heal = drop.heal;
+      snapshot.entities.push(item);
+      freeTiles.splice(i, 1);
+    }
+    this.pendingDropsByDepth.delete(depth);
+  }
+
   public descend(): void {
     const nextDepth = this.state.depth + 1;
     const fallPosition = this.state.descendTarget;
@@ -898,6 +938,8 @@ export class Game {
 
     const existingLevel = this.levels.get(nextDepth);
     const snapshot = existingLevel ?? this.buildNewLevel(nextDepth);
+    // Deposit anything that fell through a hole onto this depth.
+    this.injectPendingDrops(snapshot, nextDepth);
 
     // If falling through a hole, land at nearest passable tile to fall position
     // Otherwise, land at stairs (normal stair descent)

@@ -490,6 +490,11 @@ export interface GameState {
    * it. Not serialized.
    */
   pendingDogNaming?: string;
+  /**
+   * Transient: items that fell through a hole this tick. The Game harvests these
+   * and deposits them onto the level below. Not serialized.
+   */
+  itemsFellThrough?: Array<{ type: ItemType; amount?: number; heal?: number }>;
 }
 
 // ========================================

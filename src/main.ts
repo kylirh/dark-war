@@ -1313,6 +1313,7 @@ class DarkWar {
     state.sim.accumulatorMs += scaledDt * 1000;
     while (state.sim.accumulatorMs >= SIM_DT_MS) {
       stepSimulationTick(state);
+      this.game.harvestFallenItems();
       this.playPendingSounds(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
       this.game.updateFOV();
