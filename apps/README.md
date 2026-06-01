@@ -1,17 +1,19 @@
-# apps/ — build variants (planned monorepo)
+# apps/ — build variants
 
-Target homes for the four build variants (see
-[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)). Code lives under `../src`,
-`../server`, and `../electron` today; migration is staged
-([`../docs/ROADMAP.md`](../docs/ROADMAP.md) → Phase R).
+The four build variants (see
+[`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)). All share the same core under
+`../src` (`engine`/`client`/`net`) plus the headless host in `../server`.
 
-- **`electron/`** — Variant 1. Installable desktop app: BrowserWindow shell,
-  embedded-server child process, UDP LAN discovery, Electron `PlatformBridge`.
-  Today: `../electron` + `../app/index.html`.
-- **`server/`** — Variant 2. Dedicated headless server executable wrapping
-  `packages/server-core` (port/rooms/max-games config). Today: `../server`.
-- **`web/`** — Variant 3. Static Vite build for the browser: single-player always;
+- **`electron/`** — Variant 1. **Shipping.** Installable desktop app: BrowserWindow
+  shell, embedded-server child process, UDP LAN discovery. Code: `../electron` +
+  `../app/index.html`; build with `npm run build`.
+- **`server/`** — Variant 2. **Shipping.** Dedicated headless server. Code:
+  `../server/multiplayer-server.ts`; run with `npm run server:start`. See
+  [`server/README.md`](server/README.md).
+- **`web/`** — Variant 3. **Shipping.** Static browser build: single-player always;
   join remote/Internet servers (ws/wss) and LAN servers given an address (no UDP
-  discovery, no hosting). Provides a limited web `PlatformBridge`.
-- **`arcade/`** — Variant 4 (last). Cabinet build: joystick/button input map,
-  attract/demo mode, coin-up flow, and its own pacing constants.
+  discovery, no hosting). Build with `npm run build:web`. See
+  [`web/README.md`](web/README.md).
+- **`arcade/`** — Variant 4. **Scaffolded** (built last). Cabinet build:
+  joystick/button input map, attract/demo mode, coin-up flow, pacing constants. See
+  [`arcade/README.md`](arcade/README.md).

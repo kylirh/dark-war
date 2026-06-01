@@ -104,12 +104,16 @@ Every level is a **bounded** flat `TileType[]`, so serialization, `explored`/`wa
   match `SPRITE_COORDS` in `src/config/sprites.ts`. `gen-sounds.mjs` synthesizes
   WAV effects. `tools/png.mjs` is a dependency-free PNG codec (zlib only).
 
-### Build Variants (roadmap)
+### Build Variants
 
-The long-term plan is one shared engine consumed by four variants (Electron
-client, headless server, static web client, arcade cabinet). See
-`docs/ARCHITECTURE.md` for the target monorepo layout and the engine-purity rule,
-and `docs/ROADMAP.md` for staged progress. The source tree is split by the future-package boundaries: **`src/engine/`** is
+One shared engine is consumed by four variants: **① Electron client** (`npm run
+build`), **② headless server** (`server/multiplayer-server.ts`, `npm run
+server:start`, `apps/server/`), **③ static web client** (`npm run build:web`,
+`apps/web/` — single-player + join-by-address; can't host or LAN-discover), and
+**④ arcade cabinet** (`apps/arcade/`, scaffolded, built last). See
+`docs/ARCHITECTURE.md` for the variant matrix, the engine-purity rule, and the
+optional npm-workspaces lift. The source tree is split by those package
+boundaries: **`src/engine/`** is
 the platform-agnostic core (types, config/sprites, core, entities, content, utils,
 systems/{simulation,physics,fov}); **`src/client/`** is the presentation layer
 (`main.ts` entry + `systems/` renderer/sound/input/UI); **`src/net/`** is the wire

@@ -1,9 +1,17 @@
 # Dark War — Target Architecture (4 Variants)
 
-This document describes where Dark War is going: **one shared game engine** consumed
-by **four distinct build variants**. It is the north star for the folder
-reorganization. The migration is **staged** (see `ROADMAP.md`) so the working
-Electron app never breaks.
+This document describes Dark War's architecture: **one shared game engine** consumed
+by **distinct build variants**. The shared core and its platform boundaries are
+**realized today in the `src/` tree** (`src/engine` / `src/client` / `src/net`,
+with the headless host under `server/`), enforced by `src/engine-purity.test.ts`.
+Lifting those directories into formal npm-**workspaces** packages (the layout
+sketched below) is an optional, mechanical follow-up — the hard part, clean
+separation, is done.
+
+**Variant status:** ① Electron client — shipping (`npm run build`). ② Headless
+server — shipping (`server/multiplayer-server.ts`, `npm run server:start`,
+`apps/server/`). ③ Web client — shipping (`npm run build:web`, `apps/web/`,
+verified in a browser). ④ Arcade cabinet — scaffolded (`apps/arcade/`), built last.
 
 ## The four variants
 
@@ -40,10 +48,13 @@ server, and is already mostly true today (the `core` / `systems/simulation` /
 `physics` / `fov` / `entities` / `utils` code is pure; `renderer`, `sound`,
 `mouse-tracker`, `game-menu`, etc. are presentation).
 
-## Target folder layout
+## Target folder layout (optional workspaces lift)
 
-A pnpm/npm **workspaces** monorepo. Names are stable import targets
-(`@dark-war/engine`, etc.).
+The boundaries below are **already realized** in `src/engine`, `src/client`,
+`src/net`, and `server/`. This is the npm-**workspaces** shape they would lift into
+if/when packaging benefits (independent versioning, stable `@dark-war/*` import
+targets) outweigh the build complexity. It is not a prerequisite for any variant —
+all four already share the same `src/` core.
 
 ```
 dark-war/
@@ -111,10 +122,10 @@ dark-war/
 | `electron/*`                                                                                                                                                              | `apps/electron`                                                                                           |
 | `app/` (built output + index.html + assets)                                                                                                                               | `apps/electron` shell + `apps/web`; assets → top-level `assets/`                                          |
 
-## Migration is staged, not big-bang
+## How the boundary is held
 
-Moving ~60 files at once is risky to do without an interactive playtest loop, so the
-reorg proceeds in verifiable phases (each keeps `type-check`, `test`, and the
-Electron `build` green). See `ROADMAP.md` → "Phase R (Restructure)". Until those land,
-new code is written **respecting the engine-purity boundary** so the eventual move is
-mechanical.
+The split was done in verifiable stages (each keeping `type-check`, `test`, and the
+Electron `build` green) rather than one big-bang move, and the result is enforced
+continuously: `src/engine-purity.test.ts` scans `src/engine` and fails the suite on
+any import of Pixi, the DOM, Electron, `ws`, or `node:*`. New engine code must
+respect that boundary, which keeps the optional workspaces lift above mechanical.
