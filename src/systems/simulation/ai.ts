@@ -477,6 +477,21 @@ export function updateMonsterSteering(state: GameState): void {
       continue;
     }
 
+    if (monster.fleeing) {
+      // A thief that grabbed loot sprints directly away from the player.
+      const fleeFrom = getClosestPlayer(state, monster);
+      const fm = monster as any;
+      if (fleeFrom && "worldX" in fleeFrom) {
+        const fx = fm.worldX - (fleeFrom as any).worldX;
+        const fy = fm.worldY - (fleeFrom as any).worldY;
+        const fd = Math.hypot(fx, fy) || 1;
+        fm.velocityX = (fx / fd) * PET_SPEED;
+        fm.velocityY = (fy / fd) * PET_SPEED;
+        fm.facingAngle = Math.atan2(fy, fx);
+      }
+      continue;
+    }
+
     const player = getClosestPlayer(state, monster);
     if (!player) {
       const direction = chooseIdleWanderDirection(state, monster);
@@ -751,6 +766,11 @@ function decideMonsterCommand(
 
   if (monster.friendly) {
     return decideFriendlyPetCommand(state, monster, tick);
+  }
+
+  // A fleeing thief just runs (steering handles movement) — no attacks.
+  if (monster.fleeing) {
+    return makeWaitCommand(monster, tick);
   }
 
   const player = getClosestPlayer(state, monster);

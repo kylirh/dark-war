@@ -77,6 +77,9 @@ export class PlayerEntity extends GameEntity {
   public panicCharge: number;
   public panicChargeMax: number;
 
+  /** While `sim.nowTick < slowUntilTick`, the player moves at reduced speed. */
+  public slowUntilTick?: number;
+
   constructor(gridX: number, gridY: number) {
     super(gridX, gridY);
 

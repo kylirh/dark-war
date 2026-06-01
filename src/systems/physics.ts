@@ -296,8 +296,9 @@ export class Physics {
     entity.prevWorldY = entity.worldY;
 
     if (entity.velocityX !== 0 || entity.velocityY !== 0) {
-      entity.worldX += entity.velocityX * dt;
-      entity.worldY += entity.velocityY * dt;
+      const moveScale = this.entitySpeedScale(state, entity);
+      entity.worldX += entity.velocityX * dt * moveScale;
+      entity.worldY += entity.velocityY * dt * moveScale;
 
       if (state.levelKind === "outside") {
         // Toroidal world: fall off one edge, reappear on the other.
@@ -423,9 +424,11 @@ export class Physics {
       entity.prevWorldX = entity.worldX;
       entity.prevWorldY = entity.worldY;
 
-      // Apply velocity directly (continuous movement, no targets)
-      entity.worldX += entity.velocityX * dt;
-      entity.worldY += entity.velocityY * dt;
+      // Apply velocity directly (continuous movement, no targets). A slowed
+      // player (e.g. spider venom) covers less ground per step.
+      const moveScale = this.entitySpeedScale(state, entity);
+      entity.worldX += entity.velocityX * dt * moveScale;
+      entity.worldY += entity.velocityY * dt * moveScale;
 
       if (state.levelKind === "outside") {
         // Toroidal world: wrap entities around the seam instead of clamping.
@@ -1050,6 +1053,21 @@ export class Physics {
       state.entityManager.spawn(item);
     }
     this.removeStateEntity(state, bullet);
+  }
+
+  /**
+   * Movement-speed multiplier for an entity this tick (1 = normal). A player
+   * under a slow effect (e.g. spider venom) moves at a reduced fraction.
+   */
+  private entitySpeedScale(state: GameState, entity: GameEntity): number {
+    if (entity.kind === EntityKind.PLAYER) {
+      const slowUntil = (entity as unknown as { slowUntilTick?: number })
+        .slowUntilTick;
+      if (slowUntil !== undefined && state.sim.nowTick < slowUntil) {
+        return 0.35;
+      }
+    }
+    return 1;
   }
 
   /**

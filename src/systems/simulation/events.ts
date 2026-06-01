@@ -18,8 +18,8 @@ import {
 import { ItemEntity } from "../../entities/item-entity";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { ITEM_DEFS, itemName } from "../../content/item-defs";
-import { idxFor } from "../../utils/helpers";
-import { weaponTypeForItem } from "../../utils/inventory";
+import { idxFor, passableFor, setPositionFromGrid } from "../../utils/helpers";
+import { weaponTypeForItem, removeFromInventory } from "../../utils/inventory";
 import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../sound";
@@ -133,6 +133,25 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
 
     if (player.hp > 0) {
       applyDamageKnockback(state, player, data);
+      // On-hit attacker abilities: stun/slow (spider) and theft (snagglepuss/moppet).
+      const attacker = data.sourceId
+        ? state.entities.find((e) => e.id === data.sourceId)
+        : null;
+      if (attacker && attacker.kind === EntityKind.MONSTER) {
+        const flags = MONSTER_DEFS[(attacker as Monster).type]?.flags;
+        if (flags) {
+          if (flags.stunsOnHit && RNG.chance(0.5)) {
+            player.slowUntilTick = state.sim.nowTick + 40; // ~2s sluggish
+            pushEvent(state, {
+              type: EventType.MESSAGE,
+              data: { type: "MESSAGE", message: "Venom slows your movements!" },
+            });
+          }
+          if (flags.steals) {
+            stealFromPlayer(state, attacker as Monster, player, flags.steals);
+          }
+        }
+      }
     }
 
     // Queue random player hit sound (using Math.random to avoid desyncing RNG)
@@ -170,6 +189,13 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
 
     if (monster.hp > 0) {
       applyDamageKnockback(state, monster, data);
+      // Moppets blink away when struck.
+      if (
+        MONSTER_DEFS[monster.type]?.flags?.teleportsOnHit &&
+        RNG.chance(0.6)
+      ) {
+        teleportMonsterNearby(state, monster);
+      }
     }
 
     if (!data.suppressHitSound) {
@@ -582,6 +608,103 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
 
     // Remove from entity list
     state.entityManager.destroy(entity.id);
+  }
+}
+
+/** Remove one of a counted item from a player; clear the slot when empty. */
+function takePlayerItem(player: Player, type: ItemType): void {
+  const remaining = (player.itemCounts[type] ?? 0) - 1;
+  if (remaining <= 0) {
+    delete player.itemCounts[type];
+    removeFromInventory(player, type);
+  } else {
+    player.itemCounts[type] = remaining;
+  }
+}
+
+/**
+ * A thief monster snatches money (moppet) or an item (snagglepuss) from the
+ * player, stashes it, and turns to flee. Stolen loot drops when the thief dies.
+ */
+function stealFromPlayer(
+  state: GameState,
+  monster: Monster,
+  player: Player,
+  kind: "item" | "money",
+): void {
+  if (monster.fleeing) return; // one heist per encounter
+  if (!monster.carriedItems) monster.carriedItems = [];
+
+  if (kind === "money") {
+    const coins = player.itemCounts[ItemType.COIN] ?? 0;
+    if (coins <= 0) return;
+    const taken = Math.min(coins, 1 + RNG.int(5));
+    const left = coins - taken;
+    if (left <= 0) {
+      delete player.itemCounts[ItemType.COIN];
+      removeFromInventory(player, ItemType.COIN);
+    } else {
+      player.itemCounts[ItemType.COIN] = left;
+    }
+    monster.carriedItems.push({ type: ItemType.COIN, amount: taken });
+    monster.fleeing = true;
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: {
+        type: "MESSAGE",
+        message: `The ${monster.type} grabs ${taken} coins and bolts!`,
+      },
+    });
+    return;
+  }
+
+  // Steal a random carried item that isn't the equipped weapon or a starter.
+  const candidates = player.inventorySlots
+    .map((slot, index) => ({ slot, index }))
+    .filter(
+      ({ slot, index }) =>
+        slot.type &&
+        index !== player.selectedBarSlot &&
+        slot.type !== ItemType.BLACK_PILL &&
+        slot.type !== ItemType.BUTCHER_KNIFE,
+    );
+  if (candidates.length === 0) return;
+  const pick = candidates[RNG.int(candidates.length)];
+  const type = pick.slot.type as ItemType;
+  takePlayerItem(player, type);
+  monster.carriedItems.push({ type });
+  monster.fleeing = true;
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: {
+      type: "MESSAGE",
+      message: `The ${monster.type} snatches your ${itemName(type)} and scampers off!`,
+    },
+  });
+}
+
+/** Blink a monster to a random nearby passable, unoccupied tile. */
+function teleportMonsterNearby(state: GameState, monster: Monster): void {
+  for (let attempt = 0; attempt < 16; attempt++) {
+    const dx = RNG.int(11) - 5; // -5..+5 tiles
+    const dy = RNG.int(11) - 5;
+    if (Math.abs(dx) + Math.abs(dy) < 3) continue;
+    const nx = monster.gridX + dx;
+    const ny = monster.gridY + dy;
+    if (!passableFor(state.map, nx, ny, state.mapWidth, state.mapHeight)) {
+      continue;
+    }
+    const occupied = state.entities.some(
+      (e) =>
+        (e.kind === EntityKind.MONSTER || e.kind === EntityKind.PLAYER) &&
+        e.gridX === nx &&
+        e.gridY === ny,
+    );
+    if (occupied) continue;
+    setPositionFromGrid(monster, nx, ny);
+    monster.velocityX = 0;
+    monster.velocityY = 0;
+    return;
   }
 }
 

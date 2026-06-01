@@ -50,6 +50,9 @@ export class MonsterEntity extends GameEntity {
   public ownerId?: string;
   public name?: string;
 
+  /** A thief that grabbed loot and is now running away. */
+  public fleeing?: boolean;
+
   constructor(gridX: number, gridY: number, type: MonsterType, depth: number) {
     super(gridX, gridY);
 

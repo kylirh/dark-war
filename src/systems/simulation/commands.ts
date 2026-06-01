@@ -20,6 +20,7 @@ import {
 import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
 import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
+import { MONSTER_DEFS } from "../../content/monster-defs";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../sound";
 import { BulletEntity } from "../../entities/bullet-entity";
@@ -297,7 +298,11 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
   // Determine damage
   let damage = 1;
   if (attacker.kind === EntityKind.MONSTER) {
-    damage = (attacker as Monster).dmg;
+    const monster = attacker as Monster;
+    damage = monster.dmg;
+    // Multi-hit creatures (tentacular horror) strike several times at once.
+    const multiHit = MONSTER_DEFS[monster.type]?.flags?.multiHit ?? 1;
+    if (multiHit > 1) damage *= multiHit;
   }
 
   pushEvent(state, {

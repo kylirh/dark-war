@@ -202,6 +202,8 @@ export interface Player extends BaseEntity {
   /** Panic-button charge (consumed on warp, refilled by power cells). */
   panicCharge: number;
   panicChargeMax: number;
+  /** While `sim.nowTick < slowUntilTick`, the player moves at reduced speed. */
+  slowUntilTick?: number;
 }
 
 export interface Monster extends BaseEntity {
@@ -224,6 +226,8 @@ export interface Monster extends BaseEntity {
   ownerId?: string;
   /** Player-given name (shown in the log for a friendly pet's actions). */
   name?: string;
+  /** A thief (snagglepuss/moppet) that grabbed loot is now running away. */
+  fleeing?: boolean;
 }
 
 export interface CarriedItem {
