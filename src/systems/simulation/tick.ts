@@ -140,6 +140,8 @@ function processMonsterItemPickups(state: GameState): void {
   const pickedItemIds = new Set<string>();
 
   for (const monster of monsters) {
+    // Some creatures (wild dog, icky lump) never pick anything up.
+    if (MONSTER_DEFS[monster.type]?.flags?.cannotCarryItems) continue;
     if (!monster.carriedItems) {
       monster.carriedItems = [];
     }

@@ -57,13 +57,16 @@ export class MonsterEntity extends GameEntity {
     this.landMines = 0;
     this.bullets = 0;
 
-    if (def.behavior === "ranged") {
-      const [lo, hi] = def.flags?.rangedBullets ?? [3, 8];
-      this.bullets = lo + RNG.int(Math.max(1, hi - lo + 1));
-      this.grenades = RNG.chance(0.45) ? 1 : 0;
-    } else if (def.behavior === "melee") {
-      this.grenades = RNG.chance(0.12) ? 1 : 0;
-      this.landMines = this.grenades === 0 && RNG.chance(0.08) ? 1 : 0;
+    // Some creatures (wild dog, icky lump) never carry weapons or items.
+    if (!def.flags?.cannotCarryItems) {
+      if (def.behavior === "ranged") {
+        const [lo, hi] = def.flags?.rangedBullets ?? [3, 8];
+        this.bullets = lo + RNG.int(Math.max(1, hi - lo + 1));
+        this.grenades = RNG.chance(0.45) ? 1 : 0;
+      } else if (def.behavior === "melee") {
+        this.grenades = RNG.chance(0.12) ? 1 : 0;
+        this.landMines = this.grenades === 0 && RNG.chance(0.08) ? 1 : 0;
+      }
     }
 
     this.hp = this.hpMax;

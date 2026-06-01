@@ -34,7 +34,7 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - [x] Extend `ItemType`, `WeaponType`, `MonsterType` enums
 - [x] `content/item-defs.ts` registry (display name, sprite key, category, stack, flags)
 - [x] `content/monster-defs.ts` registry (hp, speed, damage, behavior, loot, flags, spawn depth)
-- [ ] starter loadout (pistol XOR laser; butcher knife; black pill) — pending player-init work
+- [x] starter loadout (pistol+ammo XOR half-charged laser; always butcher knife + black pill; no grenades/mines)
 - [x] Wire sprite coords for every new item/monster
 
 ## Phase 4 — Content: item mechanics
@@ -44,7 +44,7 @@ Status key: `[ ]` todo · `[~]` in progress / partial · `[x]` done
 - [x] Death loot **spread** (scatter drops so they're individually visible)
 - [x] **Magnetic auto-pickup** (radius; items drift to player & are collected)
 - [~] Items **fall through holes** (removed on fall; deposit-below deferred) to the level below
-- [ ] Butcher knife (starter melee, not found in levels)
+- [x] Butcher knife (starter melee, not found in levels)
 - [x] Laser pistol (equip on pickup, half-charged; drains/refills via power cells)
 - [ ] Black pill (starter; eat → instant death; anyone who eats it dies)
 - [ ] Cookie (eat → heal; befriends Snagglepuss)

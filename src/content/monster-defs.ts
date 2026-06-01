@@ -44,6 +44,8 @@ export interface MonsterFlags {
   multiHit?: number;
   /** Won't fight others of its own kind (icky lump). */
   pacifistToOwnKind?: boolean;
+  /** Never spawns with or picks up weapons/items (wild dog, icky lump). */
+  cannotCarryItems?: boolean;
 }
 
 export interface MonsterDef {
@@ -131,7 +133,7 @@ export const MONSTER_DEFS: Record<MonsterType, MonsterDef> = {
     speed: 1.25,
     minDepth: 1,
     weight: 4,
-    flags: { allyItem: ItemType.BONE },
+    flags: { allyItem: ItemType.BONE, cannotCarryItems: true },
     loot: [{ type: ItemType.BONE, chance: 0.15 }],
   },
   [MonsterType.ICKY_LUMP]: {
@@ -143,7 +145,7 @@ export const MONSTER_DEFS: Record<MonsterType, MonsterDef> = {
     speed: 0.55,
     minDepth: 1,
     weight: 4,
-    flags: { breeds: true, pacifistToOwnKind: true },
+    flags: { breeds: true, pacifistToOwnKind: true, cannotCarryItems: true },
     loot: [{ type: ItemType.COIN, chance: 0.35 }],
   },
   [MonsterType.SNAGGLEPUSS]: {

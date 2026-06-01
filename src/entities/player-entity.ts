@@ -6,6 +6,7 @@ import {
   WeaponType,
 } from "../types";
 import { GameEntity } from "./game-entity";
+import { RNG } from "../utils/rng";
 
 /**
  * Represents the player
@@ -79,13 +80,13 @@ export class PlayerEntity extends GameEntity {
   constructor(gridX: number, gridY: number) {
     super(gridX, gridY);
 
-    this.ammo = 12;
-    this.ammoReserve = 24;
-    this.grenades = 2;
+    this.ammo = 0;
+    this.ammoReserve = 0;
+    this.grenades = 0; // no grenades/mines at the start
     this.hp = 20;
     this.hpMax = 20;
     this.keys = 0;
-    this.landMines = 1;
+    this.landMines = 0;
     this.hasCTDM = false;
     this.ctdmEnabled = false;
     this.ctdmCharge = 0;
@@ -107,10 +108,36 @@ export class PlayerEntity extends GameEntity {
     }));
     this.selectedBarSlot = 0;
 
-    // Place starting items into the hot bar
-    this.inventorySlots[0] = { type: ItemType.PISTOL };
-    this.inventorySlots[1] = { type: ItemType.AMMO };
-    this.inventorySlots[2] = { type: ItemType.GRENADE };
-    this.inventorySlots[3] = { type: ItemType.LAND_MINE };
+    this.applyStarterLoadout();
+  }
+
+  /**
+   * Starter kit: a butcher knife and a black pill always, plus exactly one
+   * primary firearm — either a Gyrojet pistol with ammo, or a half-charged
+   * laser pistol with no ammo (50/50). No grenades or land mines.
+   */
+  private applyStarterLoadout(): void {
+    const startWithLaser = RNG.chance(0.5);
+
+    if (startWithLaser) {
+      this.weapon = WeaponType.LASER;
+      this.ammo = 0;
+      this.ammoReserve = 0;
+      this.laserCharge = Math.floor(this.laserChargeMax * 0.5);
+      this.inventorySlots[0] = { type: ItemType.LASER_PISTOL };
+      this.inventorySlots[1] = { type: ItemType.BUTCHER_KNIFE };
+      this.inventorySlots[2] = { type: ItemType.BLACK_PILL };
+    } else {
+      this.weapon = WeaponType.PISTOL;
+      this.ammo = 12;
+      this.ammoReserve = 24;
+      this.laserCharge = 0;
+      this.inventorySlots[0] = { type: ItemType.PISTOL };
+      this.inventorySlots[1] = { type: ItemType.AMMO };
+      this.inventorySlots[2] = { type: ItemType.BUTCHER_KNIFE };
+      this.inventorySlots[3] = { type: ItemType.BLACK_PILL };
+    }
+
+    this.selectedBarSlot = 0;
   }
 }

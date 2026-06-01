@@ -67,14 +67,20 @@ describe("multiplayer server (multi-world)", () => {
 
     send(client, { type: "start_game" });
     const initial = await waitFor(client, "state_full");
-    expect(initial.state.player.weapon).toBe("pistol"); // default
+    // Starter weapon is a pistol or a laser, depending on the random loadout.
+    expect(["pistol", "laser"]).toContain(initial.state.player.weapon);
 
-    // Bar slot 2 holds a grenade by default; selecting it should switch weapons.
-    send(client, { type: "select_weapon", slot: 2 });
+    // The butcher knife is always in the starter kit; selecting it should
+    // switch to the melee weapon.
+    const knifeSlot = initial.state.player.inventorySlots.findIndex(
+      (s: { type: string | null }) => s.type === "butcher-knife",
+    );
+    expect(knifeSlot).toBeGreaterThanOrEqual(0);
+    send(client, { type: "select_weapon", slot: knifeSlot });
     send(client, { type: "request_keyframe" });
     const updated = await waitFor(client, "state_full");
-    expect(updated.state.player.weapon).toBe("grenade");
-    expect(updated.state.player.selectedBarSlot).toBe(2);
+    expect(updated.state.player.weapon).toBe("melee");
+    expect(updated.state.player.selectedBarSlot).toBe(knifeSlot);
 
     client.close();
   });
@@ -84,17 +90,22 @@ describe("multiplayer server (multi-world)", () => {
     const client = connect(server.port, "Host");
     await waitFor(client, "welcome");
     send(client, { type: "start_game" });
-    await waitFor(client, "state_full");
+    const initial = await waitFor(client, "state_full");
 
-    // Default: slot 0 = pistol, slot 2 = grenade. Swap them.
-    send(client, { type: "inventory_swap", from: 0, to: 2 });
+    // Swap the primary firearm (slot 0) with the always-present butcher knife.
+    const slot0Type = initial.state.player.inventorySlots[0].type;
+    const knifeSlot = initial.state.player.inventorySlots.findIndex(
+      (s: { type: string | null }) => s.type === "butcher-knife",
+    );
+    expect(knifeSlot).toBeGreaterThan(0);
+    send(client, { type: "inventory_swap", from: 0, to: knifeSlot });
     send(client, { type: "request_keyframe" });
     const updated = await waitFor(client, "state_full");
 
-    expect(updated.state.player.inventorySlots[0].type).toBe("grenade");
-    expect(updated.state.player.inventorySlots[2].type).toBe("pistol");
-    // Selected bar slot 0 now holds the grenade, so the weapon follows.
-    expect(updated.state.player.weapon).toBe("grenade");
+    expect(updated.state.player.inventorySlots[0].type).toBe("butcher-knife");
+    expect(updated.state.player.inventorySlots[knifeSlot].type).toBe(slot0Type);
+    // Selected bar slot 0 now holds the knife, so the weapon follows.
+    expect(updated.state.player.weapon).toBe("melee");
 
     client.close();
   });
