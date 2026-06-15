@@ -15,6 +15,7 @@ const { build } = await import("vite");
 
 try {
   await build();
+  console.log("✓ built app/game.js (client bundle)");
 } catch (error) {
   console.error(error);
   process.exit(1);

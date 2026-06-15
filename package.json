@@ -17,9 +17,9 @@
     "build:win": "npm run build:ts && electron-builder -w",
     "build:linux": "npm run build:ts && electron-builder -l",
     "build:server": "esbuild server/multiplayer-server.ts --bundle --platform=node --format=cjs --outfile=app/server-bundle.js --log-level=warning",
-    "build:ts": "npm run build:server && tsc && node scripts/build-web.mjs",
-    "dev": "npm run build:ts && node scripts/launch-electron.js",
-    "dev:online": "npm run build:ts && node scripts/launch-electron.js --mode=online --server=ws://localhost:7777 --room=default",
+    "build:ts": "npm run -s build:server && tsc && node scripts/build-web.mjs",
+    "dev": "npm run -s build:ts && node scripts/launch-electron.js",
+    "dev:online": "npm run -s build:ts && node scripts/launch-electron.js --mode=online --server=ws://localhost:7777 --room=default",
     "online:client": "node scripts/launch-electron.js --mode=online --server=ws://localhost:7777 --room=default",
     "multiplayer:server": "tsx server/multiplayer-server.ts",
     "type-check": "npm run type-check:client && npm run type-check:server",
@@ -61,6 +61,7 @@
     "mac": {
       "category": "public.app-category.games",
       "icon": "build/icon.icns",
+      "identity": null,
       "target": [
         "dmg",
         "zip"
