@@ -52,7 +52,7 @@ export enum MonsterType {
   RAT = "rat",
   SKULKER = "skulker",
   UTILITY_BOT = "utility-bot",
-  // New creatures (see src/content/monster-defs.ts for stats/behavior).
+  // New creatures (see src/engine/content/monster-defs.ts for stats/behavior).
   GIANT_SPIDER = "giant-spider",
   WILD_DOG = "wild-dog",
   ICKY_LUMP = "icky-lump",
@@ -75,7 +75,7 @@ export enum ItemType {
   LAND_MINE = "land-mine",
   CTDM = "ctdm",
   POWERCELL = "powercell",
-  // New items (see src/content/item-defs.ts for metadata/behavior).
+  // New items (see src/engine/content/item-defs.ts for metadata/behavior).
   BUTCHER_KNIFE = "butcher-knife",
   LASER_PISTOL = "laser-pistol",
   GYROJET_SMG = "gyrojet-smg",

@@ -111,16 +111,19 @@ dark-war/
   reviewable in code (no opaque binaries authored by hand): `gen-spritesheet.mjs`
   extends `sprites.png`; `gen-sounds.mjs` synthesizes effect WAVs.
 
-## How today maps onto the target
+## How today maps onto the optional packages
 
-| Today                                                                                                                                                                     | Target                                                                                                    |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `src/types.ts`, `src/core/*` (game, game-loop, generators, tile-source), `src/entities/*`, `src/systems/{simulation,physics,fov}`, `src/utils/*`, `src/config/sprites.ts` | `packages/engine` (sprites coords are data → engine `content/`; the PNG stays in `assets/`)               |
-| `src/net/*`                                                                                                                                                               | `packages/net`                                                                                            |
-| `src/systems/{renderer,sound,mouse-tracker,input,*-modal,*-menu,inventory-bar,intro-story,title-screen,…}`, `src/main.ts`                                                 | `packages/client` (+ `apps/*` entry points)                                                               |
-| `server/multiplayer-server.ts`                                                                                                                                            | split: hosting lib → `packages/server-core`; executable → `apps/server`; Electron embed → `apps/electron` |
-| `electron/*`                                                                                                                                                              | `apps/electron`                                                                                           |
-| `app/` (built output + index.html + assets)                                                                                                                               | `apps/electron` shell + `apps/web`; assets → top-level `assets/`                                          |
+The split is already realized in `src/`. This is where each directory would move if
+the workspaces lift (above) is ever done — a mechanical relocation, not a redesign.
+
+| Today (realized)                                                                                                                       | Would lift into                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `src/engine/*` — `types.ts`, `core/`, `entities/`, `systems/{simulation,physics.ts,fov.ts}`, `content/`, `utils/`, `config/sprites.ts` | `packages/engine` (the sprite PNG stays in `assets/`)                                              |
+| `src/net/*`                                                                                                                            | `packages/net`                                                                                     |
+| `src/client/*` — `main.ts` + `systems/{renderer,sound,mouse-tracker,input,*-modal,*-menu,inventory-bar,intro-story,title-screen,…}`    | `packages/client` (+ `apps/*` entry points)                                                        |
+| `server/multiplayer-server.ts`                                                                                                         | hosting lib → `packages/server-core`; executable → `apps/server`; Electron embed → `apps/electron` |
+| `electron/*`                                                                                                                           | `apps/electron`                                                                                    |
+| `app/` (built output + index.html + assets)                                                                                            | `apps/electron` shell + `apps/web`; assets → top-level `assets/`                                   |
 
 ## How the boundary is held
 

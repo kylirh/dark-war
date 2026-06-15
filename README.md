@@ -114,24 +114,36 @@ This creates distributable packages in the `dist/` directory:
 
 - **macOS**: `.dmg` and `.zip`
 - **Windows**: `.exe` installer and `.zip`
-- **Linux**: `.AppImage` and `.deb`
+- **Linux**: `.AppImage`
+
+### Other build variants
+
+One shared engine drives four variants (see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)):
+
+```bash
+npm run build         # ① Electron desktop client (above)
+npm run server:start  # ② headless dedicated server  (apps/server)
+npm run build:web     # ③ static web client → apps/web/dist  (apps/web)
+                      # ④ arcade cabinet — scaffolded (apps/arcade), built last
+```
+
+The web client is single-player plus join-a-server-by-address; it can't host or
+auto-discover LAN games (a browser has no listening/UDP sockets).
 
 ## Project Structure
 
 ```
 dark-war/
-├── app/                      # Build output (HTML, bundled JS, assets)
+├── app/                      # Electron build output (HTML, bundled JS, assets)
+├── apps/                     # Per-variant homes (electron, web, server, arcade)
 ├── electron/                 # Electron main process, preload, server manager
 ├── server/                   # Authoritative multiplayer server
-├── src/                      # TypeScript source code
-│   ├── config/               # Sprite configuration
-│   ├── core/                 # Game engine (Game, GameLoop, EntityManager, Map, tile sources)
-│   ├── entities/             # Entity classes (Player, Monster, Item, Bullet, Explosive)
-│   ├── net/                  # Multiplayer client, protocol version, delta encoding
-│   ├── systems/              # Game systems (Physics, Renderer, FOV, Input, UI, menus)
-│   │   └── simulation/       # Simulation subsystem (commands, events, AI, explosives)
-│   ├── types.ts              # All TypeScript type definitions
-│   └── utils/                # Helper functions, RNG, pathfinding, walls, repair
+├── src/                      # TypeScript source, split by package boundary:
+│   ├── engine/               # Pure core — NO DOM/Pixi/Electron/ws/node
+│   │                         #   (types, config, content, core, entities,
+│   │                         #    systems/{simulation,physics,fov}, utils)
+│   ├── client/               # Presentation — main.ts + systems/ (renderer, input, UI)
+│   └── net/                  # Multiplayer client, protocol version, delta encoding
 └── reference/                # Original game assets and documentation
 ```
 
@@ -139,18 +151,18 @@ dark-war/
 
 All movement and action keys are configurable in **Settings** from the pause menu.
 
-| Key | Action |
-|-----|--------|
-| **WASD** | Move in 8 directions |
-| **Mouse** | Aim weapon |
-| **Left Click** | Use current weapon (melee / shoot / throw / place) |
-| **Right Click** | Click-to-move (walk to tile; click stairs to use them) |
-| **Mouse Wheel** or **1–4** | Cycle weapons |
-| **G** | Pick up nearby items |
-| **R** | Reload pistol |
-| **O** | Open / close door in movement direction |
-| **C** | Toggle CTDM (time dilation device) |
-| **Escape** | Pause menu / cancel auto-move |
+| Key                        | Action                                                     |
+| -------------------------- | ---------------------------------------------------------- |
+| **WASD**                   | Move in 8 directions                                       |
+| **Mouse**                  | Aim weapon                                                 |
+| **Left Click**             | Use current weapon (melee / shoot / throw / place)         |
+| **Right Click**            | Click-to-move (walk to tile; click stairs to use them)     |
+| **Mouse Wheel** or **1–4** | Cycle weapons                                              |
+| **G**                      | Pick up nearby items                                       |
+| **R**                      | Reload active weapon (uses the matching ammo / power cell) |
+| **O**                      | Open / close door in movement direction                    |
+| **C**                      | Toggle CTDM (time dilation device)                         |
+| **Escape**                 | Pause menu / cancel auto-move                              |
 
 **Stairs**: Right-click a staircase to auto-navigate to it and descend or ascend. You can also walk directly onto a staircase tile.
 

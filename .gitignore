@@ -9,7 +9,6 @@ app/game.js.map
 app/server-bundle.js
 
 # Electron Distributables
-packages/
 *.dmg
 *.exe
 *.deb

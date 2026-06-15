@@ -179,7 +179,7 @@ if (entity.kind === EntityKind.MONSTER) {
   `getTile(x, y)`, `setTile(x, y, tile)`, `passable(x, y)`. Every level wraps the
   flat array in a `FlatTileSource`.
 - **Dungeons:** bounded `128×96` maps generated in full up front by
-  `generateDungeon` (`src/core/dungeon-generator.ts`) — rooms + caves connected
+  `generateDungeon` (`src/engine/core/dungeon-generator.ts`) — rooms + caves connected
   by a Prim's MST with extra loop edges, doors at corridor pinches, and a sealed
   impenetrable border. Deterministic from a per-level seed; full connectivity is
   unit-tested.
@@ -198,7 +198,7 @@ if (entity.kind === EntityKind.MONSTER) {
   scrolling. The camera (`cameraWorldX/Y`) smooth-follows the player and is
   clamped to the map edge on bounded levels.
 - **Toroidal outside world:** level 0 (`levelKind === "outside"`) wraps — walk
-  off one edge, reappear on the other. The wrap math lives in `src/utils/wrap.ts`
+  off one edge, reappear on the other. The wrap math lives in `src/engine/utils/wrap.ts`
   (`wrapValue`, `wrapDelta`, `nearestWrappedImage`) and is applied in the
   renderer (window lookups, camera, entity images), physics (position/bullet
   wrap instead of clamp), and FOV (`computeFOVFrom(..., wraps)`). Dungeons are
@@ -245,11 +245,11 @@ RNG.chance(0.5); // 50% chance, returns true
 
 ### Entity Lifecycle
 
-Add/remove entities only through `state.entityManager` (`src/core/entity-manager.ts`) — `spawn()`, `destroy()`, `destroyWhere()`, `destroyByIds()`, `replaceAll()`. It owns the entity array in place and tracks spawn/remove diffs that `Physics.syncEntityBodies()` uses to reconcile colliders. Direct `state.entities.push(...)` or reassigning `state.entities` will desync physics bodies and network deltas.
+Add/remove entities only through `state.entityManager` (`src/engine/core/entity-manager.ts`) — `spawn()`, `destroy()`, `destroyWhere()`, `destroyByIds()`, `replaceAll()`. It owns the entity array in place and tracks spawn/remove diffs that `Physics.syncEntityBodies()` uses to reconcile colliders. Direct `state.entities.push(...)` or reassigning `state.entities` will desync physics bodies and network deltas.
 
 ### Simulation Modules
 
-The simulation is split into domain modules under `src/systems/simulation/` (no barrel — import the specific file):
+The simulation is split into domain modules under `src/engine/systems/simulation/` (no barrel — import the specific file):
 
 - `tick.ts` — `stepSimulationTick` (entry point), hole-fall and item-pickup processing
 - `commands.ts` — `enqueueCommand` + all `resolve*Command` handlers
@@ -266,7 +266,7 @@ The simulation is split into domain modules under `src/systems/simulation/` (no 
 - **Per-depth worlds:** one `LevelWorld` (Game + Physics) per depth, shared by everyone on that depth; players migrate individually on stairs/holes via `Game.detachPlayer`/`attachExistingPlayer` (only the acting player moves)
 - Wire format is versioned (`src/net/protocol.ts`, `PROTOCOL_VERSION`); mismatched clients are rejected
 - Clients send velocity/actions stamped with a monotonic `seq`; the server echoes the processed seq as `ackSeq`
-- **Client-side prediction** (movement-only): the local player is predicted immediately and reconciled against server snapshots (`src/main.ts`, `Physics.predictLocalMovement`). Firing/hits stay server-authoritative
+- **Client-side prediction** (movement-only): the local player is predicted immediately and reconciled against server snapshots (`src/client/main.ts`, `Physics.predictLocalMovement`). Firing/hits stay server-authoritative
 - **Delta broadcasts** (`src/net/state-delta.ts`): per-client keyframe + delta instead of full state every tick
 - Per-player FOV and explored state tracked separately
 - LAN hosting: Electron embeds the server as a child process; UDP discovery via `electron/server-manager.js`
@@ -275,7 +275,7 @@ The simulation is split into domain modules under `src/systems/simulation/` (no 
 
 ## Project Structure
 
-The source tree is split by future-package boundary (see `docs/ARCHITECTURE.md`):
+The source tree is split into engine/client/net by package boundary (see `docs/ARCHITECTURE.md`):
 
 ```
 src/
@@ -287,20 +287,23 @@ src/
 server/       # headless multiplayer server
 ```
 
-The subtrees below are shown relative to `src/engine/` unless noted (e.g.
-`engine/core/game.ts`, `client/systems/renderer.ts`). Vite bundles
-`src/client/main.ts` → `app/game.js`.
+The three roots below all live under `src/`. Engine purity is enforced by
+`src/engine-purity.test.ts`. Vite bundles `src/client/main.ts` → `app/game.js`.
 
 ```
-engine/
+engine/                       # PURE core — no DOM/Pixi/Electron/ws/node
 ├── config/
-│   └── sprites.ts            # Sprite sheet configuration
+│   └── sprites.ts            # Sprite-sheet coordinates (data)
+├── content/                  # Data-driven definitions (decoupled from behavior)
+│   ├── monster-defs.ts       # Per-monster stats, AI archetype, spawn, abilities, loot
+│   ├── item-defs.ts          # Per-item name/category/flags
+│   └── sound-effects.ts      # SoundEffect IDs (pure data; client sound.ts plays them)
 ├── core/
 │   ├── game.ts               # State manager, level transitions, FOV, serialization
 │   ├── game-loop.ts          # Fixed 60Hz timestep with accumulator
 │   ├── entity-manager.ts     # Entity add/remove + lifecycle diff tracking
 │   ├── dungeon-generator.ts  # Bounded full-level dungeon generation (128×96)
-│   ├── outside-level.ts      # Procedural outside level generation (128×72)
+│   ├── outside-level.ts      # Procedural toroidal outside level (128×72)
 │   └── tile-source.ts        # TileSource interface + FlatTileSource adapter
 ├── entities/
 │   ├── game-entity.ts        # Base class with worldX/worldY
@@ -309,28 +312,9 @@ engine/
 │   ├── item-entity.ts
 │   ├── bullet-entity.ts
 │   └── explosive-entity.ts
-├── net/
-│   ├── multiplayer-client.ts # WebSocket client for online mode
-│   ├── protocol.ts           # PROTOCOL_VERSION (wire compatibility gate)
-│   └── state-delta.ts        # Keyframe/delta encode + apply for broadcasts
 ├── systems/
 │   ├── fov.ts                # Field of view (rot.js PreciseShadowcasting)
-│   ├── game-menu.ts          # Main menu, pause menu, multiplayer lobby
-│   ├── input.ts              # Keyboard/mouse input handling
-│   ├── intro-story.ts        # Intro lore slides shown before new game
-│   ├── mouse-tracker.ts      # Mouse world-position and aiming angle
-│   ├── music.ts              # Background music
 │   ├── physics.ts            # Collision detection (detect-collisions)
-│   ├── preferences.ts        # Persistent user settings and keybindings
-│   ├── renderer.ts           # Pixi.js rendering with interpolation
-│   ├── retro-window-chrome.ts # Window chrome / UI shell
-│   ├── retro-modal.ts        # Shared retro modal component
-│   ├── character-modal.ts    # Character/stats modal
-│   ├── inventory-bar.ts      # Inventory hotbar UI
-│   ├── save-slots.ts         # Save/load slot dialog
-│   ├── sound.ts              # Sound effects
-│   ├── title-screen.ts       # Animated title screen
-│   ├── ui.ts                 # In-game HUD updates
 │   └── simulation/           # Simulation system (domain modules, no barrel)
 │       ├── tick.ts           # stepSimulationTick (entry), hole-falls, pickups
 │       ├── constants.ts      # All simulation constants
@@ -346,8 +330,33 @@ engine/
 │   ├── pathfinding.ts        # A* pathfinding (click-to-move)
 │   ├── repair.ts             # applyRepairAt(), findNearestRepairTarget()
 │   ├── rng.ts                # Deterministic RNG (+ exported RandomNumberGenerator)
-│   └── walls.ts              # applyWallDamageAt() for destructible walls
+│   ├── walls.ts              # applyWallDamageAt() for destructible walls
+│   └── wrap.ts               # Toroidal wrap helpers (wrapValue, wrapDelta, …)
 └── types.ts                  # All TypeScript type definitions
+
+client/                       # Presentation — Pixi/DOM/Electron-bridge layer
+├── main.ts                   # DarkWar entry — orchestrates loop/render/input/net
+└── systems/
+    ├── renderer.ts           # Pixi.js windowed rendering with interpolation
+    ├── input.ts              # Keyboard/mouse input handling
+    ├── mouse-tracker.ts      # Mouse world-position and aiming angle
+    ├── sound.ts              # Sound-effect playback (re-exports engine SoundEffect)
+    ├── music.ts              # Background music
+    ├── ui.ts                 # In-game HUD updates
+    ├── game-menu.ts          # Main menu, pause menu, multiplayer lobby
+    ├── title-screen.ts       # Animated title screen
+    ├── intro-story.ts        # Intro lore slides shown before new game
+    ├── character-modal.ts    # Character/stats modal
+    ├── inventory-bar.ts      # Inventory hotbar UI
+    ├── save-slots.ts         # Save/load slot dialog
+    ├── preferences.ts        # Persistent user settings and keybindings
+    ├── retro-window-chrome.ts # Window chrome / UI shell
+    └── retro-modal.ts        # Shared retro modal component
+
+net/
+├── multiplayer-client.ts     # WebSocket client for online mode
+├── protocol.ts               # PROTOCOL_VERSION (wire compatibility gate)
+└── state-delta.ts            # Keyframe/delta encode + apply for broadcasts
 
 server/
 └── multiplayer-server.ts     # Authoritative WebSocket server (delta broadcasts)
@@ -359,7 +368,7 @@ electron/
 
 app/
 ├── index.html                # Entry point
-├── game.js                   # Vite output (IIFE bundle from src/main.ts)
+├── game.js                   # Vite output (IIFE bundle from src/client/main.ts)
 └── server-bundle.js          # esbuild output (server for packaged app)
 ```
 

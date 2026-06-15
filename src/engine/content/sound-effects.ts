@@ -1,6 +1,6 @@
 /**
  * Sound effect identifiers — pure data, safe for the engine to reference when
- * queuing `pendingSounds`. The DOM playback layer (`src/systems/sound.ts`) maps
+ * queuing `pendingSounds`. The DOM playback layer (`src/client/systems/sound.ts`) maps
  * these to audio files. Kept out of that module so engine code never imports a
  * browser/DOM dependency (see docs/ARCHITECTURE.md, engine-purity rule).
  */
