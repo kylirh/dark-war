@@ -26,8 +26,16 @@ import {
   MONSTER_WALK_FRAMES,
   MONSTER_IDLE_FRAMES,
   FacingDirection,
+  SpriteFrame,
+  SpriteShadowSize,
+  SPRITE_FRAMES,
+  holeAutotileCoordinate,
+  wallAutotileCoordinate,
 } from "../../engine/config/sprites";
 import { wrapValue, nearestWrappedImage } from "../../engine/utils/wrap";
+import { cardinalAutotileMask } from "../../engine/utils/autotile";
+
+type RenderFrame = SpriteFrame & { key: string };
 
 /**
  * Handles rendering the game using Pixi.js
@@ -40,6 +48,8 @@ export class Renderer {
   private spriteSheet?: Texture;
   private spriteSheetImage?: HTMLImageElement;
   private textureCache: Map<string, Texture> = new Map();
+  private shadowTextureCache: Map<SpriteShadowSize, Texture> = new Map();
+  private glowTextureCache: Map<string, Texture> = new Map();
   private ready: boolean = false;
   private pendingRender?: { state: GameState; isDead: boolean };
   private viewportElement?: HTMLElement;
@@ -70,6 +80,7 @@ export class Renderer {
     // Initialize containers
     this.mapContainer = new Container();
     this.entityContainer = new Container();
+    this.entityContainer.sortableChildren = true;
 
     // Initialize app asynchronously
     this.initAsync(canvas);
@@ -104,7 +115,7 @@ export class Renderer {
     this.app.stage.addChild(this.mapContainer);
     this.app.stage.addChild(this.entityContainer);
 
-    const spriteSheetUrl = "./assets/img/sprites.png?v=outside-level-0";
+    const spriteSheetUrl = "./assets/img/sprites.png?v=autotiles-1";
     try {
       this.spriteSheet = await Assets.load<Texture>(spriteSheetUrl);
       if (this.spriteSheet?.source) {
@@ -402,6 +413,8 @@ export class Renderer {
           tileType,
           state,
           tileIndex,
+          mapX,
+          mapY,
           screenX,
           screenY,
           alpha,
@@ -441,11 +454,14 @@ export class Renderer {
 
       const coord = this.getPreviewEntitySpriteCoord(entity);
       if (!coord) continue;
+      const frameKey = this.getPreviewEntityFrameKey(entity);
       this.drawPreviewSprite(
         context,
         coord,
-        entity.worldX - minGridX * CELL_CONFIG.w - CELL_CONFIG.w / 2,
-        entity.worldY - minGridY * CELL_CONFIG.h - CELL_CONFIG.h / 2,
+        entity.worldX - minGridX * CELL_CONFIG.w,
+        entity.worldY - minGridY * CELL_CONFIG.h + CELL_CONFIG.h / 2,
+        1,
+        frameKey,
       );
     }
 
@@ -456,8 +472,10 @@ export class Renderer {
     this.drawPreviewSprite(
       context,
       playerCoord,
-      player.worldX - minGridX * CELL_CONFIG.w - CELL_CONFIG.w / 2,
-      player.worldY - minGridY * CELL_CONFIG.h - CELL_CONFIG.h / 2,
+      player.worldX - minGridX * CELL_CONFIG.w,
+      player.worldY - minGridY * CELL_CONFIG.h + CELL_CONFIG.h / 2,
+      1,
+      player.hp <= 0 ? "player_dead" : "player_walk_down_1",
     );
 
     return this.canvasToPreviewDataUrl(sourceCanvas);
@@ -468,6 +486,8 @@ export class Renderer {
     tileType: TileType,
     state: GameState,
     tileIndex: number,
+    mapX: number,
+    mapY: number,
     screenX: number,
     screenY: number,
     alpha: number,
@@ -487,7 +507,17 @@ export class Renderer {
       }
     } else if (tileType === TileType.HOLE) {
       baseCoord = floorCoord;
-      overlayCoord = SPRITE_COORDS.hole;
+      const holeMask = cardinalAutotileMask(
+        mapX,
+        mapY,
+        (x, y) =>
+          x >= 0 &&
+          y >= 0 &&
+          x < state.mapWidth &&
+          y < state.mapHeight &&
+          state.tiles.getTile(x, y) === TileType.HOLE,
+      );
+      overlayCoord = holeAutotileCoordinate(holeMask);
     }
 
     const needsFloorBase =
@@ -498,7 +528,14 @@ export class Renderer {
       tileType === TileType.STAIRS_UP;
 
     if (needsFloorBase) {
-      this.drawPreviewSprite(context, floorCoord, screenX, screenY, alpha);
+      this.drawPreviewSprite(
+        context,
+        floorCoord,
+        screenX,
+        screenY,
+        alpha,
+        TileType.FLOOR,
+      );
       tileCoord =
         state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
           ? SPRITE_COORDS.megacorp_entrance
@@ -517,17 +554,87 @@ export class Renderer {
             : isWood
               ? "wall_wood"
               : TileType.WALL;
-      tileCoord = SPRITE_COORDS[wallSpriteKey] || SPRITE_COORDS[tileType];
+      const wallMask = cardinalAutotileMask(mapX, mapY, (x, y) => {
+        if (x < 0 || y < 0 || x >= state.mapWidth || y >= state.mapHeight) {
+          return false;
+        }
+        const neighbor = state.tiles.getTile(x, y);
+        return (
+          neighbor === TileType.WALL ||
+          neighbor === TileType.DOOR_CLOSED ||
+          neighbor === TileType.DOOR_OPEN ||
+          neighbor === TileType.DOOR_LOCKED
+        );
+      });
+      tileCoord = wallAutotileCoordinate(wallSpriteKey, wallMask);
     } else if (tileType !== TileType.FLOOR && tileType !== TileType.HOLE) {
       tileCoord = SPRITE_COORDS[tileType];
     }
 
     if (baseCoord)
-      this.drawPreviewSprite(context, baseCoord, screenX, screenY, alpha);
-    if (overlayCoord)
-      this.drawPreviewSprite(context, overlayCoord, screenX, screenY, alpha);
-    if (tileCoord)
-      this.drawPreviewSprite(context, tileCoord, screenX, screenY, alpha);
+      this.drawPreviewSprite(
+        context,
+        baseCoord,
+        screenX,
+        screenY,
+        alpha,
+        tileType === TileType.FLOOR ? TileType.FLOOR : undefined,
+      );
+    if (overlayCoord) {
+      this.drawPreviewSprite(
+        context,
+        overlayCoord,
+        screenX,
+        screenY,
+        alpha,
+        tileType === TileType.HOLE ? "hole" : undefined,
+      );
+    }
+    if (tileCoord) {
+      const isFlatTile =
+        tileType === TileType.STAIRS_UP ||
+        (tileType === TileType.STAIRS_DOWN && state.levelKind !== "outside");
+      const verticalKey =
+        tileType === TileType.WALL
+          ? state.wallSet === "wood"
+            ? "wall_wood"
+            : TileType.WALL
+          : state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
+            ? "megacorp_entrance"
+            : tileType;
+      this.drawPreviewSprite(
+        context,
+        tileCoord,
+        isFlatTile ? screenX : screenX + CELL_CONFIG.w / 2,
+        isFlatTile ? screenY : screenY + CELL_CONFIG.h,
+        alpha,
+        verticalKey,
+      );
+    }
+  }
+
+  private getPreviewEntityFrameKey(
+    entity: GameState["entities"][number],
+  ): string | number | undefined {
+    if (entity.kind === EntityKind.MONSTER) {
+      return entity.type;
+    }
+    if (entity.kind === EntityKind.ITEM) {
+      return entity.type;
+    }
+    if (entity.kind === EntityKind.EXPLOSIVE) {
+      if (entity.type === ItemType.LAND_MINE && entity.armed) {
+        return "land_mine_active";
+      }
+      return entity.type;
+    }
+    if (entity.kind === EntityKind.BULLET) {
+      return (entity as { thrownItem?: ItemType }).thrownItem ?? "bullet";
+    }
+    if (entity.kind === EntityKind.PLAYER) {
+      return entity.hp <= 0 ? "player_dead" : "player_walk_down_1";
+    }
+    return undefined;
   }
 
   private getPreviewEntitySpriteCoord(entity: GameState["entities"][number]): {
@@ -563,31 +670,75 @@ export class Renderer {
     screenX: number,
     screenY: number,
     alpha: number = 1,
+    frameKey?: string | number,
   ): void {
     if (!this.spriteSheetImage) return;
+    const frame = this.resolveFrame(coord, frameKey);
+    const destX =
+      frame.anchorX === 0
+        ? screenX
+        : screenX - frame.renderWidth * frame.anchorX;
+    const destY =
+      frame.anchorY === 0
+        ? screenY
+        : screenY - frame.renderHeight * frame.anchorY + frame.yOffset;
     context.save();
     context.globalAlpha = alpha;
     context.drawImage(
       this.spriteSheetImage,
-      coord.x * SPRITE_SIZE,
-      coord.y * SPRITE_SIZE,
-      SPRITE_SIZE,
-      SPRITE_SIZE,
-      Math.round(screenX),
-      Math.round(screenY),
-      CELL_CONFIG.w,
-      CELL_CONFIG.h,
+      frame.x * SPRITE_SIZE,
+      frame.y * SPRITE_SIZE,
+      frame.width * SPRITE_SIZE,
+      frame.height * SPRITE_SIZE,
+      Math.round(destX),
+      Math.round(destY),
+      frame.renderWidth,
+      frame.renderHeight,
     );
     context.restore();
+  }
+
+  private resolveFrame(
+    coord: { x: number; y: number },
+    frameKey?: string | number,
+  ): RenderFrame {
+    const key = String(frameKey ?? `${coord.x},${coord.y}`);
+    const overrides = frameKey !== undefined ? SPRITE_FRAMES[key] : undefined;
+    const billboardDefault = frameKey !== undefined;
+    return {
+      key,
+      x: coord.x,
+      y: coord.y,
+      width: overrides?.width ?? 1,
+      height: overrides?.height ?? 1,
+      renderWidth: overrides?.renderWidth ?? CELL_CONFIG.w,
+      renderHeight: overrides?.renderHeight ?? CELL_CONFIG.h,
+      anchorX: overrides?.anchorX ?? (billboardDefault ? 0.5 : 0),
+      anchorY: overrides?.anchorY ?? (billboardDefault ? 1 : 0),
+      yOffset: overrides?.yOffset ?? 0,
+      depthOffset: overrides?.depthOffset ?? 0,
+      shadow: overrides?.shadow ?? (billboardDefault ? "small" : "none"),
+    };
+  }
+
+  private resolveFrameForKey(frameKey: string | number): RenderFrame | null {
+    const coord = SPRITE_COORDS[frameKey];
+    if (!coord) return null;
+    return this.resolveFrame(coord, frameKey);
   }
 
   /**
    * Textures are cached to prevent memory leaks
    */
-  private getTexture(x: number, y: number): Texture | null {
+  private getTexture(
+    x: number,
+    y: number,
+    width: number = 1,
+    height: number = 1,
+  ): Texture | null {
     if (!this.spriteSheet) return null;
 
-    const key = `${x},${y}`;
+    const key = `${x},${y},${width},${height}`;
 
     // Return cached texture if available
     if (this.textureCache.has(key)) {
@@ -600,8 +751,8 @@ export class Renderer {
       frame: new Rectangle(
         x * SPRITE_SIZE,
         y * SPRITE_SIZE,
-        SPRITE_SIZE,
-        SPRITE_SIZE,
+        width * SPRITE_SIZE,
+        height * SPRITE_SIZE,
       ),
     });
 
@@ -628,6 +779,127 @@ export class Renderer {
     sprite.height = CELL_CONFIG.h;
 
     return sprite;
+  }
+
+  private createSpriteFromFrame(
+    frame: RenderFrame,
+    screenX: number,
+    screenY: number,
+  ): Sprite | null {
+    const texture = this.getTexture(
+      frame.x,
+      frame.y,
+      frame.width,
+      frame.height,
+    );
+    if (!texture) return null;
+
+    const sprite = new Sprite(texture);
+    sprite.x = screenX;
+    sprite.y = screenY + frame.yOffset;
+    sprite.width = frame.renderWidth;
+    sprite.height = frame.renderHeight;
+    sprite.anchor.set(frame.anchorX, frame.anchorY);
+    return sprite;
+  }
+
+  private getShadowTexture(size: SpriteShadowSize): Texture | null {
+    if (size === "none") return null;
+    if (this.shadowTextureCache.has(size)) {
+      return this.shadowTextureCache.get(size)!;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 32;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+
+    const alphaBySize: Record<SpriteShadowSize, number> = {
+      none: 0,
+      small: 0.24,
+      medium: 0.28,
+      large: 0.32,
+      huge: 0.36,
+    };
+    context.fillStyle = `rgba(0, 0, 0, ${alphaBySize[size]})`;
+    context.beginPath();
+    context.ellipse(32, 18, 25, 8, 0, 0, Math.PI * 2);
+    context.fill();
+
+    const texture = Texture.from(canvas);
+    this.shadowTextureCache.set(size, texture);
+    return texture;
+  }
+
+  private addShadow(
+    container: Container,
+    size: SpriteShadowSize,
+    screenX: number,
+    screenY: number,
+    zIndex: number,
+  ): void {
+    const texture = this.getShadowTexture(size);
+    if (!texture) return;
+
+    const scaleBySize: Record<SpriteShadowSize, [number, number]> = {
+      none: [0, 0],
+      small: [0.48, 0.38],
+      medium: [0.66, 0.48],
+      large: [0.92, 0.58],
+      huge: [1.18, 0.72],
+    };
+    const [scaleX, scaleY] = scaleBySize[size];
+    const shadow = new Sprite(texture);
+    shadow.anchor.set(0.5, 0.5);
+    shadow.x = screenX;
+    shadow.y = screenY - 3;
+    shadow.scale.set(scaleX, scaleY);
+    shadow.zIndex = zIndex - 0.5;
+    container.addChild(shadow);
+  }
+
+  private getGlowTexture(color: string): Texture | null {
+    if (this.glowTextureCache.has(color)) {
+      return this.glowTextureCache.get(color)!;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 96;
+    canvas.height = 96;
+    const context = canvas.getContext("2d");
+    if (!context) return null;
+
+    const gradient = context.createRadialGradient(48, 48, 4, 48, 48, 48);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(0.4, color.replace("0.28", "0.12"));
+    gradient.addColorStop(1, color.replace("0.28", "0"));
+    context.fillStyle = gradient;
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    const texture = Texture.from(canvas);
+    this.glowTextureCache.set(color, texture);
+    return texture;
+  }
+
+  private addGlow(
+    container: Container,
+    color: string,
+    screenX: number,
+    screenY: number,
+    zIndex: number,
+    scale: number = 1,
+  ): void {
+    const texture = this.getGlowTexture(color);
+    if (!texture) return;
+
+    const glow = new Sprite(texture);
+    glow.anchor.set(0.5, 0.5);
+    glow.x = screenX;
+    glow.y = screenY;
+    glow.scale.set(scale);
+    glow.zIndex = zIndex - 0.25;
+    container.addChild(glow);
   }
 
   private getNowMs(): number {
@@ -820,6 +1092,30 @@ export class Renderer {
     const startRow = Math.floor(camTop / CELL_CONFIG.h) - 1;
     const endRow = Math.floor((camTop + viewH) / CELL_CONFIG.h) + 1;
 
+    const hashTile = (x: number, y: number, salt: number = 0): number => {
+      let h = (x * 374761393 + y * 668265263 + salt * 1442695041) | 0;
+      h = (h ^ (h >>> 13)) | 0;
+      h = Math.imul(h, 1274126177);
+      return (h ^ (h >>> 16)) >>> 0;
+    };
+
+    const tileAtWindow = (x: number, y: number): TileType | null => {
+      let mx = x;
+      let my = y;
+      if (wraps) {
+        mx = wrapValue(x, state.mapWidth);
+        my = wrapValue(y, state.mapHeight);
+      } else if (
+        x < 0 ||
+        y < 0 ||
+        x >= state.mapWidth ||
+        y >= state.mapHeight
+      ) {
+        return null;
+      }
+      return state.tiles.getTile(mx, my);
+    };
+
     for (let tileY = startRow; tileY <= endRow; tileY++) {
       for (let tileX = startCol; tileX <= endCol; tileX++) {
         // Map coords (wrapped on the torus); screen coords use the unwrapped
@@ -851,58 +1147,168 @@ export class Renderer {
 
         const screenX = offsetX + tileX * CELL_CONFIG.w;
         const screenY = offsetY + tileY * CELL_CONFIG.h;
+        const tileBaselineX = screenX + CELL_CONFIG.w / 2;
+        const tileBaselineY = screenY + CELL_CONFIG.h;
+        const tileSortY = tileY * CELL_CONFIG.h + CELL_CONFIG.h;
 
         const floorVariant = state.floorVariant ?? 0;
         const floorCoord =
           FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
         const damage = state.wallDamage[tileIndex] || 0;
 
-        let baseCoord: { x: number; y: number } | null = null;
-        let overlayCoord: { x: number; y: number } | null = null;
-        let tileCoord: { x: number; y: number } | null = null;
+        const applyFovAlpha = (sprite: Sprite): void => {
+          if (!isVisible && usingShadowFov) {
+            sprite.alpha = 0.45;
+          }
+        };
+
+        const renderGround = (
+          key: string | number,
+          coordOverride?: { x: number; y: number },
+        ): void => {
+          const coord = coordOverride ?? SPRITE_COORDS[key];
+          if (!coord) return;
+          const frame = this.resolveFrame(coord, key);
+          const sprite = this.createSpriteFromFrame(frame, screenX, screenY);
+          if (sprite) {
+            applyFovAlpha(sprite);
+            this.mapContainer.addChild(sprite);
+          }
+        };
+
+        const renderDepthTile = (
+          key: string | number,
+          coordOverride?: { x: number; y: number },
+        ): void => {
+          const coord = coordOverride ?? SPRITE_COORDS[key];
+          if (!coord) return;
+          const frame = this.resolveFrame(coord, key);
+          const sortY = tileSortY + frame.depthOffset;
+          this.addShadow(
+            this.entityContainer,
+            frame.shadow,
+            tileBaselineX,
+            tileBaselineY,
+            sortY,
+          );
+          const sprite = this.createSpriteFromFrame(
+            frame,
+            tileBaselineX,
+            tileBaselineY,
+          );
+          if (!sprite) return;
+          applyFovAlpha(sprite);
+          sprite.zIndex = sortY;
+          this.entityContainer.addChild(sprite);
+        };
+
+        const renderDecoration = (
+          key: string,
+          depthOffset: number = 0,
+          glow?: { color: string; scale: number },
+        ): void => {
+          const frame = this.resolveFrameForKey(key);
+          if (!frame) return;
+          const sortY = tileSortY + frame.depthOffset + depthOffset;
+          if (glow) {
+            this.addGlow(
+              this.entityContainer,
+              glow.color,
+              tileBaselineX,
+              tileBaselineY - frame.renderHeight * 0.55,
+              sortY,
+              glow.scale,
+            );
+          }
+          this.addShadow(
+            this.entityContainer,
+            frame.shadow,
+            tileBaselineX,
+            tileBaselineY,
+            sortY,
+          );
+          const sprite = this.createSpriteFromFrame(
+            frame,
+            tileBaselineX,
+            tileBaselineY,
+          );
+          if (!sprite) return;
+          applyFovAlpha(sprite);
+          sprite.zIndex = sortY;
+          this.entityContainer.addChild(sprite);
+        };
 
         if (tileType === TileType.FLOOR) {
-          baseCoord = floorCoord;
+          renderGround(TileType.FLOOR, floorCoord);
           if (damage >= FLOOR_DAMAGE_THRESHOLDS[0]) {
-            overlayCoord = SPRITE_COORDS.floor_damaged;
+            renderGround("floor_damaged");
+          }
+          const h = hashTile(mx, my, 22);
+          if (state.levelKind === "dungeon" && h % 97 === 0) {
+            renderGround("blood_stain");
           }
         } else if (tileType === TileType.HOLE) {
-          baseCoord = floorCoord;
-          overlayCoord = SPRITE_COORDS.hole;
-        }
-
-        const needsFloorBase =
+          renderGround(TileType.FLOOR, floorCoord);
+          const holeMask = cardinalAutotileMask(
+            tileX,
+            tileY,
+            (x, y) => tileAtWindow(x, y) === TileType.HOLE,
+          );
+          renderGround("hole", holeAutotileCoordinate(holeMask));
+        } else if (tileType === TileType.GRASS) {
+          renderGround(
+            hashTile(mx, my, 3) % 17 === 0 ? "grass_flowers" : TileType.GRASS,
+          );
+          renderDepthTile("grass_blades");
+        } else if (tileType === TileType.WEEDS) {
+          renderGround(
+            hashTile(mx, my, 4) % 4 === 0 ? "weeds_dense" : TileType.WEEDS,
+          );
+          renderDepthTile("weeds_blades");
+        } else if (tileType === TileType.ASPHALT) {
+          renderGround(
+            hashTile(mx, my, 5) % 9 === 0
+              ? "asphalt_cracked"
+              : TileType.ASPHALT,
+          );
+        } else if (tileType === TileType.SIDEWALK) {
+          renderGround(
+            hashTile(mx, my, 6) % 7 === 0
+              ? "sidewalk_cracked"
+              : TileType.SIDEWALK,
+          );
+          if (
+            state.levelKind === "outside" &&
+            hashTile(mx, my, 77) % 151 === 0
+          ) {
+            renderDecoration("streetlight", 1, {
+              color: "rgba(255, 214, 112, 0.28)",
+              scale: 0.85,
+            });
+          }
+        } else if (
           tileType === TileType.DOOR_CLOSED ||
           tileType === TileType.DOOR_OPEN ||
           tileType === TileType.DOOR_LOCKED ||
           tileType === TileType.STAIRS_DOWN ||
-          tileType === TileType.STAIRS_UP;
-
-        if (needsFloorBase) {
-          const floorVariant = state.floorVariant ?? 0;
-          const floorCoord =
-            FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
-          if (floorCoord) {
-            const floorSprite = this.createSprite(
-              floorCoord.x,
-              floorCoord.y,
-              screenX,
-              screenY,
-            );
-            if (floorSprite) {
-              if (!isVisible && usingShadowFov) {
-                floorSprite.alpha = 0.45;
-              }
-              this.mapContainer.addChild(floorSprite);
-            }
+          tileType === TileType.STAIRS_UP
+        ) {
+          renderGround(TileType.FLOOR, floorCoord);
+          if (
+            state.levelKind === "outside" &&
+            tileType === TileType.STAIRS_DOWN
+          ) {
+            renderDepthTile("megacorp_entrance");
+          } else if (
+            tileType === TileType.DOOR_CLOSED ||
+            tileType === TileType.DOOR_OPEN ||
+            tileType === TileType.DOOR_LOCKED
+          ) {
+            renderDepthTile(tileType);
+          } else {
+            renderGround(tileType);
           }
-          // Set tile coordinate for doors and stairs
-          tileCoord =
-            state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
-              ? SPRITE_COORDS.megacorp_entrance
-              : SPRITE_COORDS[tileType];
         } else if (tileType === TileType.WALL) {
-          // Wall rendering with damage states
           const isWood = state.wallSet === "wood";
           const wallSpriteKey =
             damage >= WALL_DAMAGE_THRESHOLDS[1]
@@ -916,50 +1322,88 @@ export class Renderer {
                 : isWood
                   ? "wall_wood"
                   : TileType.WALL;
-          tileCoord = SPRITE_COORDS[wallSpriteKey] || SPRITE_COORDS[tileType];
-        } else if (tileType !== TileType.FLOOR && tileType !== TileType.HOLE) {
-          // Default: use sprite coordinate for the tile type
-          // (FLOOR and HOLE already handled via baseCoord/overlayCoord)
-          tileCoord = SPRITE_COORDS[tileType];
-        }
-
-        const renderSprite = (coord: { x: number; y: number }) => {
-          const sprite = this.createSprite(coord.x, coord.y, screenX, screenY);
-          if (sprite) {
-            // Dim explored but not visible tiles
-            if (!isVisible && usingShadowFov) {
-              sprite.alpha = 0.45;
+          const wallMask = cardinalAutotileMask(tileX, tileY, (x, y) => {
+            const neighbor = tileAtWindow(x, y);
+            return (
+              neighbor === TileType.WALL ||
+              neighbor === TileType.DOOR_CLOSED ||
+              neighbor === TileType.DOOR_OPEN ||
+              neighbor === TileType.DOOR_LOCKED
+            );
+          });
+          renderDepthTile(
+            wallSpriteKey,
+            wallAutotileCoordinate(wallSpriteKey, wallMask),
+          );
+        } else if (
+          tileType === TileType.TREE ||
+          tileType === TileType.BUILDING ||
+          tileType === TileType.FENCE ||
+          tileType === TileType.RUBBLE
+        ) {
+          if (tileType === TileType.BUILDING) {
+            const below = tileAtWindow(tileX, tileY + 1);
+            if (below === TileType.BUILDING) {
+              renderGround("building_roof");
+            } else {
+              renderDepthTile(TileType.BUILDING);
             }
-            this.mapContainer.addChild(sprite);
+          } else if (tileType === TileType.FENCE) {
+            const vertical =
+              tileAtWindow(tileX, tileY - 1) === TileType.FENCE ||
+              tileAtWindow(tileX, tileY + 1) === TileType.FENCE;
+            renderDepthTile(vertical ? "fence_vertical" : "fence_horizontal");
+          } else {
+            renderDepthTile(tileType);
           }
-        };
-
-        if (baseCoord) {
-          renderSprite(baseCoord);
-        }
-        if (overlayCoord) {
-          renderSprite(overlayCoord);
-        }
-        if (tileCoord) {
-          renderSprite(tileCoord);
+        } else {
+          renderGround(tileType);
         }
       }
     }
 
-    // Render entities (items first, then monsters), excluding local player
-    const sortedEntities = entities
-      .filter((e) => e.kind !== EntityKind.PLAYER || e.id !== player.id)
-      .sort((a, b) => {
-        const aIsItem = a.kind === EntityKind.ITEM ? 1 : 0;
-        const bIsItem = b.kind === EntityKind.ITEM ? 1 : 0;
-        const aIsExplosive = a.kind === EntityKind.EXPLOSIVE ? 1 : 0;
-        const bIsExplosive = b.kind === EntityKind.EXPLOSIVE ? 1 : 0;
-        return bIsItem + bIsExplosive - (aIsItem + aIsExplosive);
-      });
+    const getEntityScreenPosition = (entity: GameState["entities"][number]) => {
+      if ("worldX" in entity) {
+        const worldX = this.wrapImage(entity.worldX, camCenterX, worldW, wraps);
+        const worldY = this.wrapImage(entity.worldY, camCenterY, worldH, wraps);
+        return {
+          screenX: offsetX + worldX,
+          screenY: offsetY + worldY,
+          sortY: worldY + CELL_CONFIG.h / 2,
+        };
+      }
+      const worldX = (entity as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+      const worldY = (entity as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+      return {
+        screenX: offsetX + worldX,
+        screenY: offsetY + worldY,
+        sortY: worldY + CELL_CONFIG.h / 2,
+      };
+    };
 
-    for (const entity of sortedEntities) {
-      // Type guard to ensure we have required properties
-      if (!("gridX" in entity) || !("gridY" in entity)) continue;
+    const playerFrameKey = (
+      moving: boolean,
+      facing: FacingDirection,
+      dead: boolean,
+      offsetMs: number = 0,
+    ): string => {
+      if (dead) return "player_dead";
+      if (!moving) {
+        if (facing === "down") return "player_walk_down_1";
+        if (facing === "up") return "player_walk_up_1";
+        return "player_walk_side_1";
+      }
+      const frameIndex = this.getWalkFrameIndex(nowMs, 2, 160, offsetMs) + 1;
+      if (facing === "down") return `player_walk_down_${frameIndex}`;
+      if (facing === "up") return `player_walk_up_${frameIndex}`;
+      return `player_walk_side_${frameIndex}`;
+    };
+
+    const renderDepthEntity = (
+      entity: GameState["entities"][number],
+      forceDead: boolean = false,
+    ): void => {
+      if (!("gridX" in entity) || !("gridY" in entity)) return;
 
       const tileIndex = entity.gridX + entity.gridY * state.mapWidth;
       const shouldRenderEntity = usingShadowFov
@@ -967,60 +1411,34 @@ export class Renderer {
           ? explored.has(tileIndex)
           : visible.has(tileIndex)
         : true;
-      if (!shouldRenderEntity) continue;
+      if (!shouldRenderEntity) return;
 
-      // Use current world position (no interpolation for instant movement)
-      let screenX: number, screenY: number;
-      if ("worldX" in entity) {
-        screenX =
-          offsetX +
-          this.wrapImage((entity as any).worldX, camCenterX, worldW, wraps);
-        screenY =
-          offsetY +
-          this.wrapImage((entity as any).worldY, camCenterY, worldH, wraps);
-      } else {
-        // Fall back to grid-based positioning
-        screenX =
-          offsetX + (entity as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
-        screenY =
-          offsetY + (entity as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
-      }
-
-      let coord;
+      const { screenX, screenY, sortY } = getEntityScreenPosition(entity);
+      const baselineY =
+        entity.kind === EntityKind.BULLET
+          ? screenY
+          : screenY + CELL_CONFIG.h / 2;
+      let frame: RenderFrame | null = null;
+      let facing: FacingDirection | null = null;
 
       if (entity.kind === EntityKind.MONSTER && "type" in entity) {
         const monsterType = entity.type as MonsterType;
-        const moving = this.isEntityMoving(entity as any);
-        if (moving && MONSTER_WALK_FRAMES[monsterType]) {
-          const frames = MONSTER_WALK_FRAMES[monsterType];
-          const frameIndex = this.getWalkFrameIndex(
-            nowMs,
-            frames.length,
-            180,
-            typeof entity.id === "number" ? entity.id * 37 : 0,
-          );
-          coord = frames[frameIndex];
+        const moving = this.isEntityMoving(entity);
+        const frames = MONSTER_WALK_FRAMES[monsterType];
+        if (moving && frames && frames.length > 1) {
+          const frameIndex = this.getWalkFrameIndex(nowMs, frames.length, 180);
+          frame = this.resolveFrame(frames[frameIndex], monsterType);
         } else {
-          coord =
-            MONSTER_IDLE_FRAMES[monsterType] ?? SPRITE_COORDS[monsterType];
+          frame = this.resolveFrameForKey(monsterType);
         }
       } else if (entity.kind === EntityKind.PLAYER) {
         const remotePlayer = entity as any;
-        const isDead = remotePlayer.hp <= 0;
+        const dead = forceDead || remotePlayer.hp <= 0;
         const moving = this.isEntityMoving(remotePlayer);
-        const facing = this.getEntityDirection(remotePlayer);
-        coord = isDead
-          ? SPRITE_COORDS["player_dead"]
-          : moving
-            ? PLAYER_WALK_FRAMES[facing][
-                this.getWalkFrameIndex(
-                  nowMs,
-                  PLAYER_WALK_FRAMES[facing].length,
-                  160,
-                  41,
-                )
-              ]
-            : PLAYER_IDLE_FRAMES[facing];
+        facing = this.getEntityDirection(remotePlayer);
+        frame = this.resolveFrameForKey(
+          playerFrameKey(moving, facing, dead, 41),
+        );
       } else if (
         (entity.kind === EntityKind.ITEM ||
           entity.kind === EntityKind.EXPLOSIVE) &&
@@ -1032,66 +1450,80 @@ export class Renderer {
           "armed" in entity &&
           entity.armed
         ) {
-          coord = SPRITE_COORDS["land_mine_active"];
+          frame = this.resolveFrameForKey("land_mine_active");
         } else {
-          coord = SPRITE_COORDS[entity.type];
+          frame = this.resolveFrameForKey(entity.type);
         }
       } else if (entity.kind === EntityKind.BULLET) {
-        // Thrown items (bone/rock) render as themselves; bullets as a bullet.
         const thrown = (entity as { thrownItem?: ItemType }).thrownItem;
-        coord = thrown
-          ? (SPRITE_COORDS[thrown] ?? SPRITE_COORDS["bullet"])
-          : SPRITE_COORDS["bullet"];
+        frame = this.resolveFrameForKey(thrown ?? "bullet");
       }
 
-      if (coord) {
-        const sprite = this.createSprite(coord.x, coord.y, screenX, screenY);
-        if (sprite) {
-          // Center the sprite on its position
-          sprite.anchor.set(0.5, 0.5);
+      if (!frame) return;
 
-          // Only rotate bullets, keep player and monsters upright
-          if (entity.kind === EntityKind.BULLET && "facingAngle" in entity) {
-            sprite.rotation = (entity as any).facingAngle;
-          } else if (entity.kind === EntityKind.PLAYER) {
-            const remotePlayer = entity as any;
-            const isDead = remotePlayer.hp <= 0;
-            if (!isDead) {
-              sprite.tint = 0xa7f3d0;
-            }
-            const facing = this.getEntityDirection(entity as any);
-            if (!isDead && (facing === "right" || facing === "left")) {
-              sprite.scale.x = facing === "right" ? -1 : 1;
-            }
-          } else if (
-            entity.kind === EntityKind.MONSTER &&
-            (entity as any).type === MonsterType.SKULKER
-          ) {
-            sprite.tint = 0x88ff88;
-          } else if (
-            entity.kind === EntityKind.MONSTER &&
-            (entity as any).type === MonsterType.CYBERCOP
-          ) {
-            // Cybercops engage nearly invisible — a faint shimmer.
-            sprite.alpha = 0.22;
-            sprite.tint = 0x9fc8ff;
-          }
+      const zIndex = sortY + frame.depthOffset;
+      this.addShadow(
+        this.entityContainer,
+        frame.shadow,
+        screenX,
+        baselineY,
+        zIndex,
+      );
+      const sprite = this.createSpriteFromFrame(frame, screenX, baselineY);
+      if (!sprite) return;
+      sprite.zIndex = zIndex;
 
-          // Hit flash overrides any existing tint
-          const hasHitFlash = effects.some(
-            (e) => e.type === "hit_flash" && e.entityId === entity.id,
-          );
-          if (hasHitFlash) {
-            sprite.tint = 0xff3333;
-          }
-
-          this.entityContainer.addChild(sprite);
+      if (entity.kind === EntityKind.BULLET && "facingAngle" in entity) {
+        sprite.rotation = (entity as any).facingAngle;
+      } else if (entity.kind === EntityKind.PLAYER) {
+        const remotePlayer = entity as any;
+        const dead = forceDead || remotePlayer.hp <= 0;
+        if (!dead) {
+          sprite.tint = 0xa7f3d0;
         }
+        if (!dead && facing && (facing === "right" || facing === "left")) {
+          sprite.scale.x =
+            facing === "right"
+              ? -Math.abs(sprite.scale.x)
+              : Math.abs(sprite.scale.x);
+        }
+      } else if (
+        entity.kind === EntityKind.MONSTER &&
+        (entity as any).type === MonsterType.SKULKER
+      ) {
+        sprite.tint = 0x88ff88;
+      } else if (
+        entity.kind === EntityKind.MONSTER &&
+        (entity as any).type === MonsterType.CYBERCOP
+      ) {
+        sprite.alpha = 0.22;
+        sprite.tint = 0x9fc8ff;
+      }
+
+      const hasHitFlash = effects.some(
+        (e) => e.type === "hit_flash" && e.entityId === entity.id,
+      );
+      if (hasHitFlash) {
+        sprite.tint = 0xff3333;
+      }
+
+      this.entityContainer.addChild(sprite);
+    };
+
+    for (const entity of entities) {
+      if (entity.kind !== EntityKind.PLAYER || entity.id !== player.id) {
+        renderDepthEntity(entity);
       }
     }
 
-    // Render effects: explosions and sparks
+    // Render effects into the same depth pass so tall walls can occlude them.
     for (const effect of effects) {
+      const screenX =
+        offsetX + this.wrapImage(effect.worldX, camCenterX, worldW, wraps);
+      const screenY =
+        offsetY + this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
+      const sortY = this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
+
       if (effect.type === "explosion") {
         const frameIndex = Math.min(
           EXPLOSION_FRAMES.length - 1,
@@ -1099,94 +1531,34 @@ export class Renderer {
             (effect.ageTicks / effect.durationTicks) * EXPLOSION_FRAMES.length,
           ),
         );
-        const frame = EXPLOSION_FRAMES[frameIndex];
-        const screenX =
-          offsetX + this.wrapImage(effect.worldX, camCenterX, worldW, wraps);
-        const screenY =
-          offsetY + this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
-        const sprite = this.createSprite(frame.x, frame.y, screenX, screenY);
+        const frame = this.resolveFrame(
+          EXPLOSION_FRAMES[frameIndex],
+          `explosion_${frameIndex + 1}`,
+        );
+        const sprite = this.createSpriteFromFrame(frame, screenX, screenY);
         if (sprite) {
-          sprite.anchor.set(0.5, 0.5);
+          sprite.zIndex = sortY + frame.depthOffset;
           this.entityContainer.addChild(sprite);
         }
       } else if (effect.type === "spark") {
-        const screenX =
-          offsetX + this.wrapImage(effect.worldX, camCenterX, worldW, wraps);
-        const screenY =
-          offsetY + this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
-        const sprite = this.createSprite(
-          SPRITE_COORDS.bullet.x,
-          SPRITE_COORDS.bullet.y,
-          screenX,
-          screenY,
-        );
+        const frame = this.resolveFrameForKey("bullet");
+        if (!frame) continue;
+        const sprite = this.createSpriteFromFrame(frame, screenX, screenY);
         if (sprite) {
-          sprite.anchor.set(0.5, 0.5);
           sprite.scale.set(0.5);
           sprite.tint = 0xffffff;
           sprite.alpha = 1 - effect.ageTicks / effect.durationTicks;
+          sprite.zIndex = sortY + 12;
           this.entityContainer.addChild(sprite);
         }
       }
     }
 
-    // Render player last
-    let playerX: number, playerY: number;
-    if ("worldX" in player) {
-      playerX =
-        offsetX +
-        this.wrapImage((player as any).worldX, camCenterX, worldW, wraps);
-      playerY =
-        offsetY +
-        this.wrapImage((player as any).worldY, camCenterY, worldH, wraps);
-    } else {
-      playerX = offsetX + (player as any).x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
-      playerY = offsetY + (player as any).y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
-    }
-    const playerMoving = this.isEntityMoving(player as any);
+    const playerMoving = this.isEntityMoving(player);
     if (playerMoving) {
-      this.playerFacing = this.getEntityDirection(player as any);
+      this.playerFacing = this.getEntityDirection(player);
     }
-    const playerFacing =
-      this.playerFacing ?? this.getEntityDirection(player as any);
-
-    const playerCoord = isDead
-      ? SPRITE_COORDS["player_dead"]
-      : playerMoving
-        ? PLAYER_WALK_FRAMES[playerFacing][
-            this.getWalkFrameIndex(
-              nowMs,
-              PLAYER_WALK_FRAMES[playerFacing].length,
-              160,
-            )
-          ]
-        : PLAYER_IDLE_FRAMES[playerFacing];
-
-    if (playerCoord) {
-      const sprite = this.createSprite(
-        playerCoord.x,
-        playerCoord.y,
-        playerX,
-        playerY,
-      );
-
-      if (sprite) {
-        sprite.anchor.set(0.5, 0.5);
-
-        if (!isDead && (playerFacing === "right" || playerFacing === "left")) {
-          sprite.scale.x = playerFacing === "right" ? -1 : 1;
-        }
-
-        const playerHitFlash = effects.some(
-          (e) => e.type === "hit_flash" && e.entityId === player.id,
-        );
-        if (playerHitFlash) {
-          sprite.tint = 0xff3333;
-        }
-
-        this.entityContainer.addChild(sprite);
-      }
-    }
+    renderDepthEntity(player, isDead);
   }
 
   /**

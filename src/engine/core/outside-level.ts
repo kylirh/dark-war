@@ -50,6 +50,22 @@ export function createOutsideLevel(): OutsideLevelData {
     [17, 57],
     [29, 55],
     [34, 57],
+    [6, 42],
+    [12, 45],
+    [28, 42],
+    [36, 50],
+  ]);
+
+  // Wild growth has pushed through the old commercial blocks.
+  fillRect(map, 28, 31, 11, 4, TileType.WEEDS);
+  fillRect(map, 60, 31, 8, 3, TileType.GRASS);
+  fillRect(map, 77, 54, 12, 3, TileType.WEEDS);
+  fillRect(map, 100, 57, 9, 5, TileType.GRASS);
+  addTreeCluster(map, [
+    [61, 32],
+    [88, 50],
+    [101, 58],
+    [107, 60],
   ]);
 
   // Non-enterable city buildings.
@@ -76,10 +92,13 @@ export function createOutsideLevel(): OutsideLevelData {
 
   // Barricades and abandoned debris.
   fillRect(map, 66, 51, 3, 1, TileType.RUBBLE);
+  fillRect(map, 71, 49, 2, 2, TileType.RUBBLE);
   fillRect(map, 78, 31, 1, 5, TileType.FENCE);
   fillRect(map, 99, 52, 4, 1, TileType.RUBBLE);
+  fillRect(map, 91, 30, 2, 2, TileType.RUBBLE);
   fillRect(map, 17, 28, 3, 1, TileType.FENCE);
   fillRect(map, 108, 26, 7, 1, TileType.FENCE);
+  fillRect(map, 111, 27, 1, 4, TileType.FENCE);
 
   // Keep edge tiles walkable but visually compatible with eventual wrapping.
   addStreet(map, 0, 0, WIDTH, 3);
