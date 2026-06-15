@@ -40,6 +40,32 @@ describe("new weapon firing modes", () => {
     expect(angles.size).toBeGreaterThan(1);
   });
 
+  it("shotgun refuses to fire with fewer than four shells", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.weapon = WeaponType.SHOTGUN;
+    player.ammo = 3; // a partial shell is not enough for a blast
+    player.facingAngle = 0;
+
+    const bullets = fire(game);
+    expect(bullets.length).toBe(0); // no pellets
+    expect(player.ammo).toBe(3); // ammo untouched, not clamped to 0
+  });
+
+  it("shotgun fires with exactly four shells and empties", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.weapon = WeaponType.SHOTGUN;
+    player.ammo = 4;
+    player.facingAngle = 0;
+
+    const bullets = fire(game);
+    expect(bullets.length).toBe(6);
+    expect(player.ammo).toBe(0);
+  });
+
   it("laser drains charge instead of ammo", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);

@@ -659,6 +659,12 @@ function stealFromPlayer(
   }
 
   // Steal a random carried item that isn't the equipped weapon or a starter.
+  // Restrict to genuinely count-backed trinkets (tracked in itemCounts). Gear
+  // whose authoritative state lives in dedicated fields — ammo (ammoReserve),
+  // grenades, mines, keycards (keys), CTDM (hasCTDM), armor, weapons — isn't in
+  // itemCounts, so takePlayerItem can't actually remove it: stealing it would
+  // clear the slot while the player keeps the resource, then drop a duplicate
+  // when the thief dies. Excluding it keeps theft consistent.
   const candidates = player.inventorySlots
     .map((slot, index) => ({ slot, index }))
     .filter(
@@ -666,7 +672,8 @@ function stealFromPlayer(
         slot.type &&
         index !== player.selectedBarSlot &&
         slot.type !== ItemType.BLACK_PILL &&
-        slot.type !== ItemType.BUTCHER_KNIFE,
+        slot.type !== ItemType.BUTCHER_KNIFE &&
+        (player.itemCounts[slot.type] ?? 0) > 0,
     );
   if (candidates.length === 0) return;
   const pick = candidates[RNG.int(candidates.length)];

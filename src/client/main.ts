@@ -1248,6 +1248,11 @@ class DarkWar {
     this.mouseTracker.setScale(this.renderer.getScale());
     const camTopLeft = this.renderer.getCameraTopLeft();
     this.mouseTracker.setCameraTopLeft(camTopLeft.x, camTopLeft.y);
+    this.mouseTracker.setWorldWrap(
+      state.levelKind === "outside",
+      state.mapWidth * CELL_CONFIG.w,
+      state.mapHeight * CELL_CONFIG.h,
+    );
 
     if (this.isOnlineMode()) {
       if (!this.onlineConnected) {

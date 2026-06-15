@@ -500,7 +500,8 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       }
       case WeaponType.SHOTGUN: {
         // One loud blast of pellets; eats ammo fast and has shorter range.
-        if (player.ammo <= 0) {
+        const SHELL_COST = 4; // a full shell is four rounds
+        if (player.ammo < SHELL_COST) {
           pushEvent(state, {
             type: EventType.MESSAGE,
             data: { type: "MESSAGE", message: "*click* Out of shells!" },
@@ -509,7 +510,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         }
         const PELLETS = 6;
         const SPREAD = 0.42; // total cone width (rad)
-        player.ammo = Math.max(0, player.ammo - 4); // heavy ammo use
+        player.ammo -= SHELL_COST; // heavy ammo use
         state.pendingSounds.push({
           effect: SoundEffect.SHOOT,
           sourceId: player.id,
