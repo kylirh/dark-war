@@ -705,6 +705,8 @@ export function updateMonsterSteering(state: GameState): void {
     }
 
     const m = monster as any;
+    const speedMul = MONSTER_DEFS[monster.type].speed;
+    const baseSpeed = MONSTER_SPEED * speedMul;
     const p = player as any;
 
     const dx = p.worldX - m.worldX;
@@ -729,8 +731,8 @@ export function updateMonsterSteering(state: GameState): void {
         const ky = (m.lastKnownPlayerY ?? m.worldY) - m.worldY;
         const kd = Math.sqrt(kx * kx + ky * ky);
         if (kd > CELL_CONFIG.w * 1.5) {
-          m.velocityX = (kx / kd) * MONSTER_SPEED * 0.75;
-          m.velocityY = (ky / kd) * MONSTER_SPEED * 0.75;
+          m.velocityX = (kx / kd) * baseSpeed * 0.75;
+          m.velocityY = (ky / kd) * baseSpeed * 0.75;
         } else {
           m.alertLevel = 0;
           m.velocityX = 0;
@@ -738,8 +740,8 @@ export function updateMonsterSteering(state: GameState): void {
         }
       } else if (RNG.chance(0.1)) {
         const angle = RNG.int(8) * (Math.PI / 4);
-        m.velocityX = Math.cos(angle) * MONSTER_SPEED * 0.5;
-        m.velocityY = Math.sin(angle) * MONSTER_SPEED * 0.5;
+        m.velocityX = Math.cos(angle) * baseSpeed * 0.5;
+        m.velocityY = Math.sin(angle) * baseSpeed * 0.5;
       } else {
         m.velocityX = 0;
         m.velocityY = 0;
@@ -755,8 +757,8 @@ export function updateMonsterSteering(state: GameState): void {
     const isFleeing = m.hp <= (m.hpMax ?? m.hp) * FLEE_HP_RATIO;
 
     if (isFleeing) {
-      m.velocityX = -dirX * MONSTER_SPEED;
-      m.velocityY = -dirY * MONSTER_SPEED;
+      m.velocityX = -dirX * baseSpeed;
+      m.velocityY = -dirY * baseSpeed;
       continue;
     }
 
@@ -781,22 +783,22 @@ export function updateMonsterSteering(state: GameState): void {
         if (nearestAmmo && nearestAmmoDist > CELL_CONFIG.w * 0.5) {
           const adx = nearestAmmo.worldX - m.worldX;
           const ady = nearestAmmo.worldY - m.worldY;
-          m.velocityX = (adx / nearestAmmoDist) * MONSTER_SPEED;
-          m.velocityY = (ady / nearestAmmoDist) * MONSTER_SPEED;
+          m.velocityX = (adx / nearestAmmoDist) * baseSpeed;
+          m.velocityY = (ady / nearestAmmoDist) * baseSpeed;
           continue;
         }
       }
 
       if (pixelDistance < SKULKER_MIN_RANGE_PX) {
-        m.velocityX = -dirX * MONSTER_SPEED;
-        m.velocityY = -dirY * MONSTER_SPEED;
+        m.velocityX = -dirX * baseSpeed;
+        m.velocityY = -dirY * baseSpeed;
       } else if (pixelDistance > SKULKER_MAX_RANGE_PX) {
-        m.velocityX = dirX * MONSTER_SPEED * 0.6;
-        m.velocityY = dirY * MONSTER_SPEED * 0.6;
+        m.velocityX = dirX * baseSpeed * 0.6;
+        m.velocityY = dirY * baseSpeed * 0.6;
       } else {
         // Strafe perpendicular to player
-        m.velocityX = -dirY * MONSTER_SPEED * 0.35;
-        m.velocityY = dirX * MONSTER_SPEED * 0.35;
+        m.velocityX = -dirY * baseSpeed * 0.35;
+        m.velocityY = dirX * baseSpeed * 0.35;
       }
       continue;
     }
@@ -805,8 +807,8 @@ export function updateMonsterSteering(state: GameState): void {
       m.velocityX = 0;
       m.velocityY = 0;
     } else {
-      m.velocityX = dirX * MONSTER_SPEED;
-      m.velocityY = dirY * MONSTER_SPEED;
+      m.velocityX = dirX * baseSpeed;
+      m.velocityY = dirY * baseSpeed;
     }
   }
 }

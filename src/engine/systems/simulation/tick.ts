@@ -15,7 +15,7 @@ import { idxFor, tileAtFor, passableFor } from "../../utils/helpers";
 import { RNG } from "../../utils/rng";
 import { wrapDelta } from "../../utils/wrap";
 import { ITEM_DEFS } from "../../content/item-defs";
-import { MONSTER_DEFS } from "../../content/monster-defs";
+import { MONSTER_DEFS, isRangedMonster } from "../../content/monster-defs";
 import { MonsterEntity } from "../../entities/monster-entity";
 import {
   MONSTER_AI_UPDATE_INTERVAL,
@@ -123,7 +123,7 @@ export function stepSimulationTick(state: GameState): void {
 // Monster Item Pickup (Auto)
 // ========================================
 
-function processMonsterItemPickups(state: GameState): void {
+export function processMonsterItemPickups(state: GameState): void {
   const monsters: Monster[] = [];
   const items: Item[] = [];
   for (const e of state.entities) {
@@ -168,6 +168,7 @@ function processMonsterItemPickups(state: GameState): void {
 
       if (!RNG.chance(MONSTER_ITEM_PICKUP_CHANCE)) continue;
 
+      let picked = false;
       switch (item.type) {
         case ItemType.MEDKIT:
           if (!isFleeing) continue;
@@ -175,16 +176,19 @@ function processMonsterItemPickups(state: GameState): void {
             hpMax,
             monster.hp + positiveAmount(item.heal, 20),
           );
+          picked = true;
           break;
         case ItemType.GRENADE:
           monster.grenades += positiveAmount(item.amount, 1);
+          picked = true;
           break;
         case ItemType.LAND_MINE:
           monster.landMines += positiveAmount(item.amount, 1);
+          picked = true;
           break;
         case ItemType.AMMO:
-          if (monster.type === MonsterType.SKULKER) {
-            // Skulkers reload directly from ammo pickups
+          if (isRangedMonster(monster.type)) {
+            // Ranged monsters reload directly from ammo pickups
             monster.bullets = Math.min(
               SKULKER_MAX_BULLETS,
               monster.bullets + positiveAmount(item.amount, 8),
@@ -195,29 +199,37 @@ function processMonsterItemPickups(state: GameState): void {
               amount: positiveAmount(item.amount, 8),
             });
           }
+          picked = true;
           break;
         case ItemType.KEYCARD:
           monster.carriedItems.push({
             type: ItemType.KEYCARD,
           });
+          picked = true;
           break;
         case ItemType.PISTOL:
           monster.carriedItems.push({
             type: ItemType.PISTOL,
           });
+          picked = true;
           break;
         case ItemType.CTDM:
           monster.carriedItems.push({ type: ItemType.CTDM });
+          picked = true;
           break;
         case ItemType.POWERCELL:
           monster.carriedItems.push({
             type: ItemType.POWERCELL,
             amount: positiveAmount(item.amount, 25),
           });
+          picked = true;
           break;
       }
 
-      pickedItemIds.add(item.id);
+      // Only consume the item if the monster actually picked it up. Item types
+      // with no case above (cookies, coins, rocks, armor, new weapons, holowalls,
+      // …) are left on the floor instead of being silently destroyed.
+      if (picked) pickedItemIds.add(item.id);
     }
   }
 
