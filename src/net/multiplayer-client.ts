@@ -1,4 +1,4 @@
-import { SerializedState } from "../types";
+import { SerializedState } from "../engine/types";
 import { PROTOCOL_VERSION } from "./protocol";
 import { StateDelta, applyStateDelta } from "./state-delta";
 
@@ -15,7 +15,22 @@ export interface LobbyUpdate {
 }
 
 export type NetworkAction =
-  | { type: "FIRE"; dx: number; dy: number; facingAngle?: number; targetWorldX?: number; targetWorldY?: number }
+  | {
+      type: "FIRE";
+      dx: number;
+      dy: number;
+      facingAngle?: number;
+      targetWorldX?: number;
+      targetWorldY?: number;
+    }
+  | {
+      type: "USE_ITEM";
+      dx: number;
+      dy: number;
+      facingAngle?: number;
+      targetWorldX?: number;
+      targetWorldY?: number;
+    }
   | { type: "INTERACT"; dx: number; dy: number }
   | { type: "PICKUP" }
   | { type: "RELOAD" }
@@ -25,8 +40,19 @@ export type NetworkAction =
   | { type: "TOGGLE_GOD_MODE" };
 
 type ServerMessage =
-  | { type: "welcome"; playerId: string; roomId: string; isHost: boolean; protocolVersion?: number }
-  | { type: "lobby_update"; players: LobbyPlayer[]; roomId: string; phase: "lobby" | "playing" }
+  | {
+      type: "welcome";
+      playerId: string;
+      roomId: string;
+      isHost: boolean;
+      protocolVersion?: number;
+    }
+  | {
+      type: "lobby_update";
+      players: LobbyPlayer[];
+      roomId: string;
+      phase: "lobby" | "playing";
+    }
   | { type: "state_full"; state: SerializedState; seq: number; ackSeq?: number }
   | { type: "state_delta"; delta: StateDelta; ackSeq?: number }
   | { type: "error"; message: string };
@@ -52,7 +78,11 @@ export class MultiplayerClient {
   private baselineSeq = 0;
 
   private onStateCallback?: (state: SerializedState) => void;
-  private onConnectedCallback?: (playerId: string, roomId: string, isHost: boolean) => void;
+  private onConnectedCallback?: (
+    playerId: string,
+    roomId: string,
+    isHost: boolean,
+  ) => void;
   private onDisconnectedCallback?: () => void;
   private onErrorCallback?: (message: string) => void;
   private onLobbyUpdateCallback?: (update: LobbyUpdate) => void;
@@ -133,7 +163,9 @@ export class MultiplayerClient {
     this.onStateCallback = callback;
   }
 
-  public onConnected(callback: (playerId: string, roomId: string, isHost: boolean) => void): void {
+  public onConnected(
+    callback: (playerId: string, roomId: string, isHost: boolean) => void,
+  ): void {
     this.onConnectedCallback = callback;
   }
 
@@ -157,7 +189,12 @@ export class MultiplayerClient {
    */
   public sendVelocity(vx: number, vy: number): number {
     const seq = ++this.inputSeq;
-    this.send({ type: "velocity", vx: Number.isFinite(vx) ? vx : 0, vy: Number.isFinite(vy) ? vy : 0, seq });
+    this.send({
+      type: "velocity",
+      vx: Number.isFinite(vx) ? vx : 0,
+      vy: Number.isFinite(vy) ? vy : 0,
+      seq,
+    });
     return seq;
   }
 
@@ -223,9 +260,11 @@ export class MultiplayerClient {
 
   private handleMessage(rawData: unknown): void {
     const text =
-      typeof rawData === "string" ? rawData
-      : rawData instanceof ArrayBuffer ? new TextDecoder().decode(rawData)
-      : "";
+      typeof rawData === "string"
+        ? rawData
+        : rawData instanceof ArrayBuffer
+          ? new TextDecoder().decode(rawData)
+          : "";
     if (!text) return;
 
     let message: ServerMessage;
@@ -236,7 +275,11 @@ export class MultiplayerClient {
     }
 
     if (message.type === "welcome") {
-      if (typeof message.playerId !== "string" || typeof message.roomId !== "string") return;
+      if (
+        typeof message.playerId !== "string" ||
+        typeof message.roomId !== "string"
+      )
+        return;
       if (
         typeof message.protocolVersion === "number" &&
         message.protocolVersion !== PROTOCOL_VERSION
@@ -255,12 +298,17 @@ export class MultiplayerClient {
       this.lastAckedSeq = 0;
       this.stateBaseline = null;
       this.baselineSeq = 0;
-      this.onConnectedCallback?.(message.playerId, message.roomId, message.isHost);
+      this.onConnectedCallback?.(
+        message.playerId,
+        message.roomId,
+        message.isHost,
+      );
       return;
     }
 
     if (message.type === "lobby_update") {
-      if (!Array.isArray(message.players) || typeof message.roomId !== "string") return;
+      if (!Array.isArray(message.players) || typeof message.roomId !== "string")
+        return;
       this.onLobbyUpdateCallback?.({
         players: message.players,
         roomId: message.roomId,
@@ -284,7 +332,10 @@ export class MultiplayerClient {
       // A delta is only valid on top of the baseline it was computed against.
       // If we don't have that exact baseline, ask for a fresh keyframe and
       // drop this delta rather than corrupt our state.
-      if (this.stateBaseline === null || message.delta.baseSeq !== this.baselineSeq) {
+      if (
+        this.stateBaseline === null ||
+        message.delta.baseSeq !== this.baselineSeq
+      ) {
         this.requestKeyframe();
         return;
       }

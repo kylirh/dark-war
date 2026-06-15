@@ -1513,8 +1513,9 @@ body {
 
 .viewport {
   flex: 1;
-  overflow: auto;
-  scroll-behavior: auto; /* Disable smooth scrolling for instant response */
+  /* Windowed renderer: the canvas is sized to this element and the camera
+     follows the player in-engine, so there is nothing to scroll. */
+  overflow: hidden;
   position: relative; /* anchor for floating inventory bar */
 }
 
@@ -1619,6 +1620,11 @@ body {
 
 #game {
   display: block;
+  /* Fill the viewport. The drawing buffer is resized (debounced) on settle; in
+     between, CSS stretches the existing buffer so live window resizing stays
+     smooth instead of reallocating WebGL every frame. */
+  width: 100%;
+  height: 100%;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
 }
@@ -1706,8 +1712,8 @@ body {
 .story-overlay {
   position: absolute;
   left: 8px;
-  right: 30px; /* 8px gap from scrollbar left edge (scrollbar = 22px) */
-  bottom: 30px; /* 8px gap from scrollbar top edge  (scrollbar = 22px) */
+  right: 8px; /* viewport no longer scrolls — symmetric 8px inset */
+  bottom: 8px;
   z-index: 50;
   pointer-events: none;
 }

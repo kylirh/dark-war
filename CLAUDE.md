@@ -32,15 +32,16 @@ Electron/Pixi/DOM layers. No linter is configured.
 
 ### Build Pipeline
 
-Vite bundles `src/main.ts` into `app/game.js` (IIFE format). Electron loads `app/index.html` which references this bundle. The server (`server/multiplayer-server.ts`) is bundled separately into `app/server-bundle.js` and can run as a child process within the Electron app. The server also runs directly via `tsx` for development.
+Vite bundles `src/client/main.ts` into `app/game.js` (IIFE format). Electron loads `app/index.html` which references this bundle. The server (`server/multiplayer-server.ts`) is bundled separately into `app/server-bundle.js` and can run as a child process within the Electron app. The server also runs directly via `tsx` for development.
 
 ### Core Loop
 
-`DarkWar` class in `src/main.ts` orchestrates everything:
-- **GameLoop** (`src/core/game-loop.ts`): Fixed 60Hz timestep with accumulator pattern. Calls `update(dt)` at fixed rate and `render(alpha)` at variable framerate with interpolation.
-- **Simulation** (`src/systems/simulation/`): Tick-based command/event system running at 20 ticks/sec (`SIM_DT_MS = 50`). Split into domain modules: `constants`, `sim-helpers`, `ai`, `commands`, `explosives`, `events`, `tick` (entry point with `stepSimulationTick`). Player actions become Commands, resolved into Events (damage, death, pickup, etc.). AI commands generated after player commands each tick.
-- **Physics** (`src/systems/physics.ts`): Uses `detect-collisions` library for continuous collision detection. Wall sliding, bullet movement, explosive physics.
-- **Game** (`src/core/game.ts`): Central state manager. Holds all `GameState`, handles level transitions (descend/ascend), serialization, FOV updates, and multiplayer player management.
+`DarkWar` class in `src/client/main.ts` orchestrates everything:
+
+- **GameLoop** (`src/engine/core/game-loop.ts`): Fixed 60Hz timestep with accumulator pattern. Calls `update(dt)` at fixed rate and `render(alpha)` at variable framerate with interpolation.
+- **Simulation** (`src/engine/systems/simulation/`): Tick-based command/event system running at 20 ticks/sec (`SIM_DT_MS = 50`). Split into domain modules: `constants`, `sim-helpers`, `ai`, `commands`, `explosives`, `events`, `tick` (entry point with `stepSimulationTick`). Player actions become Commands, resolved into Events (damage, death, pickup, etc.). AI commands generated after player commands each tick.
+- **Physics** (`src/engine/systems/physics.ts`): Uses `detect-collisions` library for continuous collision detection. Wall sliding, bullet movement, explosive physics.
+- **Game** (`src/engine/core/game.ts`): Central state manager. Holds all `GameState`, handles level transitions (descend/ascend), serialization, FOV updates, and multiplayer player management.
 
 ### Coordinate System (Critical)
 
@@ -52,9 +53,9 @@ Vite bundles `src/main.ts` into `app/game.js` (IIFE format). Electron loads `app
 
 ### Entity System
 
-All entities extend `GameEntity` (`src/entities/game-entity.ts`) which provides `worldX`/`worldY`, velocity, facing angle, and physics body. Entity types: `PlayerEntity`, `MonsterEntity`, `ItemEntity`, `BulletEntity`, `ExplosiveEntity`. Discriminated by `EntityKind` enum.
+All entities extend `GameEntity` (`src/engine/entities/game-entity.ts`) which provides `worldX`/`worldY`, velocity, facing angle, and physics body. Entity types: `PlayerEntity`, `MonsterEntity`, `ItemEntity`, `BulletEntity`, `ExplosiveEntity`. Discriminated by `EntityKind` enum.
 
-**Entity lifecycle** is owned by `EntityManager` (`src/core/entity-manager.ts`), accessible as `state.entityManager`. It owns the entity array (shared in place with `state.entities`) and is the **only** way to add/remove entities — use `spawn()`, `destroy()`, `destroyWhere()`, `destroyByIds()`, `replaceAll()`. Never `state.entities.push(...)` or reassign `state.entities` directly; that desyncs physics bodies and network deltas. The manager tracks `spawnedIds`/`removedIds` diffs, which `Physics.syncEntityBodies()` consumes to reconcile colliders incrementally each frame. `Physics.rebuildAll(state)` rebuilds the whole physics world (walls + all entity bodies) on level transitions.
+**Entity lifecycle** is owned by `EntityManager` (`src/engine/core/entity-manager.ts`), accessible as `state.entityManager`. It owns the entity array (shared in place with `state.entities`) and is the **only** way to add/remove entities — use `spawn()`, `destroy()`, `destroyWhere()`, `destroyByIds()`, `replaceAll()`. Never `state.entities.push(...)` or reassign `state.entities` directly; that desyncs physics bodies and network deltas. The manager tracks `spawnedIds`/`removedIds` diffs, which `Physics.syncEntityBodies()` consumes to reconcile colliders incrementally each frame. `Physics.rebuildAll(state)` rebuilds the whole physics world (walls + all entity bodies) on level transitions.
 
 ### CTDM (Cognitive Time Dilation Module)
 
@@ -70,7 +71,7 @@ Two modes: `offline` (default) and `online`. In online mode, an authoritative We
 
 **Input sequence numbers**: every client `velocity`/`action` carries a monotonic `seq`. The server records the highest processed seq per client and echoes it as `ackSeq` on every state message (`MultiplayerClient.getLastAckedSeq()`).
 
-**Client-side prediction** (movement-only v1): the online client predicts the local player immediately under the latest local input (`Physics.predictLocalMovement` — single-entity movement vs walls), so input feels instant. On each snapshot `reconcileLocalPlayer` keeps most of the prediction and eases out residual error; large gaps (teleport, hole-fall, respawn) hard-snap to the server. Firing and hit resolution stay fully server-authoritative; remote entities come straight from the server. See `src/main.ts` (`predictLocalPlayer`, `reconcileLocalPlayer`, `ensurePredictionWorld`).
+**Client-side prediction** (movement-only v1): the online client predicts the local player immediately under the latest local input (`Physics.predictLocalMovement` — single-entity movement vs walls), so input feels instant. On each snapshot `reconcileLocalPlayer` keeps most of the prediction and eases out residual error; large gaps (teleport, hole-fall, respawn) hard-snap to the server. Firing and hit resolution stay fully server-authoritative; remote entities come straight from the server. See `src/client/main.ts` (`predictLocalPlayer`, `reconcileLocalPlayer`, `ensurePredictionWorld`).
 
 **Delta-compressed broadcasts** (`src/net/state-delta.ts`): instead of the full `GameState` every tick, the server keeps a per-client baseline and sends `state_full` (keyframe — on join, level change, new game, and every ~5s) or `state_delta` (changed entities by id, explored additions, map/wallDamage index changes, changed scalars). The client applies deltas onto its baseline to reconstruct a full `SerializedState` and feeds the existing `deserialize()` path. A baseline mismatch triggers a `request_keyframe`.
 
@@ -78,22 +79,60 @@ Two modes: `offline` (default) and `online`. In online mode, an authoritative We
 
 ### Map Generation
 
-- **Dungeon (streamed)** (`src/core/level-streamer.ts`): dungeon levels are large `128×96` maps that start solid and fill in `16×16` connected room/corridor chunks around each player as they explore (`LevelStreamer.ensureAround`, driven by `Game.streamAroundPlayers` from the offline loop and the multiplayer `stepWorld`). Generation is deterministic from `state.levelSeed`; the down-stairs sit in a far chunk and are revealed on approach; monsters/items scatter into newly revealed chunks.
-- **Outside** (`src/core/outside-level.ts`): Procedural exterior level (finite, not streamed). Size `OUTSIDE_MAP_WIDTH × OUTSIDE_MAP_HEIGHT` (128×72).
+- **Dungeon** (`src/engine/core/dungeon-generator.ts`): dungeon levels are **bounded** `128×96` maps generated **in full up front** (no streaming). `generateDungeon(width, height, depth, rng)` places varied rectangular and cellular-automata "cave" rooms, connects them with a Prim's MST plus a few extra loop edges (so the layout isn't a pure tree), carves corridors, drops doors at corridor pinch points, and seals an impenetrable border. The start is room 0's center (an up-stair) and the down-stair sits in the farthest room. Generation is deterministic from a per-level seed (`new RandomNumberGenerator(seed)`); full connectivity (stairs reachable from start) is enforced and unit-tested. `Game.createDungeonLevel` calls it and `spawnLevelEntities` scatters monsters/items scaled to floor area.
+- **Outside** (`src/engine/core/outside-level.ts`): Procedural exterior level. Size `OUTSIDE_MAP_WIDTH × OUTSIDE_MAP_HEIGHT` (128×72). The outside world (`levelKind === "outside"`, depth 0) is **toroidal**: walking off any edge wraps to the opposite side so it feels infinite. Its outer ring of tiles is kept walkable so the seam is never blocked. Dungeon levels are bounded and sealed, so the player never reaches a seam — the same wrap code runs for both, gated by `levelKind`.
 
-The streamed dungeon stays a **bounded** flat `TileType[]`, so serialization, `explored`/`wallDamage` indices, FOV, physics, and rendering all work unchanged — clients just receive carved tiles via the map delta and render them under fog. Index tiles with `idx(x, y)` or `idxFor(x, y, width)`.
+### Rendering & Camera
 
-**Tile access** (`src/core/tile-source.ts`, `src/core/chunked-map.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). For every level today it is a `FlatTileSource` over `state.map`; `ChunkedTileSource` (unbounded, generated on demand) exists for a future truly-infinite world. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors, streamed-in chunks).
+The renderer (`src/client/systems/renderer.ts`) uses **windowed rendering**: the Pixi canvas is sized to the visible viewport and each frame draws only the tiles in a window around the camera (`cameraWorldX/Y`, smooth-followed onto the player). There is no DOM scrolling. This scales to large levels and is what makes the toroidal world possible — on wrapping levels the tile loop and entity/effect positions use wrapped lookups (`src/engine/utils/wrap.ts`: `wrapValue`, `wrapDelta`, `nearestWrappedImage`), the camera wraps (taking the short way across the seam), and the camera is clamped to the map edge on bounded levels. `MouseTracker` converts canvas pixels to world coordinates via the live camera window origin (`getCameraTopLeft`). Wrapping is also applied in **physics** (entity/bullet positions wrap instead of clamping on the outside) and **FOV** (`computeFOVFrom(..., wraps)` folds shadowcasting probes across the seam).
+
+Every level is a **bounded** flat `TileType[]`, so serialization, `explored`/`wallDamage` indices, FOV, physics, and rendering all work directly. Index tiles with `idxFor(x, y, width)`.
+
+**Tile access** (`src/engine/core/tile-source.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). For every level it is a `FlatTileSource` over `state.map`. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors).
+
+### Content & Assets
+
+- **Content registries** (`src/engine/content/`): data-driven definitions decoupled from
+  behavior. `monster-defs.ts` (`MONSTER_DEFS`) holds per-monster stats, the AI
+  `behavior` archetype (`melee`/`ranged`/`bot`), spawn weight/`minDepth`/`miniboss`,
+  ability `flags`, and loot; `MonsterEntity` and the spawner read it. `item-defs.ts`
+  (`ITEM_DEFS`) holds per-item name/category/flags. Add new items/monsters here.
+- **Asset pipeline** (`tools/`, run `npm run gen:assets`): art and sound are
+  generated deterministically from code so they're reproducible and reviewable.
+  `gen-spritesheet.mjs` composites procedural placeholder sprites onto a pristine
+  base (`tools/sprites.base.png`) → `app/assets/img/sprites.png`; new cells must
+  match `SPRITE_COORDS` in `src/engine/config/sprites.ts`. `gen-sounds.mjs` synthesizes
+  WAV effects. `tools/png.mjs` is a dependency-free PNG codec (zlib only).
+
+### Build Variants
+
+One shared engine is consumed by four variants: **① Electron client** (`npm run
+build`), **② headless server** (`server/multiplayer-server.ts`, `npm run
+server:start`, `apps/server/`), **③ static web client** (`npm run build:web`,
+`apps/web/` — single-player + join-by-address; can't host or LAN-discover), and
+**④ arcade cabinet** (`apps/arcade/`, scaffolded, built last). See
+`docs/ARCHITECTURE.md` for the variant matrix, the engine-purity rule, and the
+optional npm-workspaces lift. The source tree is split by those package
+boundaries: **`src/engine/`** is
+the platform-agnostic core (types, config/sprites, core, entities, content, utils,
+systems/{simulation,physics,fov}); **`src/client/`** is the presentation layer
+(`main.ts` entry + `systems/` renderer/sound/input/UI); **`src/net/`** is the wire
+protocol/client; and **`server/`** is the headless server. The Vite bundle entry
+is `src/client/main.ts`. **New engine code must not import DOM/Pixi/Electron/ws/node**
+— enforced by `src/engine-purity.test.ts`, which scans `src/engine` and fails on
+any forbidden import. Sound IDs live in `src/engine/content/sound-effects.ts`
+(pure data); `src/client/systems/sound.ts` is the DOM playback layer that re-exports
+them. Lifting `src/engine` into a `packages/engine` workspace later is a
+mechanical move.
 
 ### Key Utilities
 
-- `src/utils/helpers.ts`: `idx()`, `idxFor()`, `inBounds()`, `inBoundsFor()`, `passable()`, `passableFor()`, `tileAt()`, `tileAtFor()`, `dist()`, `setPositionFromGrid()`
-  - Functions ending in `For` take explicit `width`/`height` — use these for outside levels or any non-standard map size
-  - Functions without suffix use global `MAP_WIDTH`/`MAP_HEIGHT` constants
-- `src/utils/walls.ts`: `applyWallDamageAt()` for destructible walls
-- `src/utils/repair.ts`: `applyRepairAt()`, `findNearestRepairTarget()`, `hasAnyRepairTarget()` — used by utility bot
-- `src/utils/rng.ts`: Deterministic RNG — `RNG.int(n)`, `RNG.choose(arr)`, `RNG.chance(p)`. The `RandomNumberGenerator` class is exported for independent seeded instances (e.g. per-chunk generation).
-- `src/utils/pathfinding.ts`: A* pathfinding for click-to-move
+- `src/engine/utils/helpers.ts`: `idxFor()`, `inBoundsFor()`, `passableFor()`, `tileAtFor()`, `setTileFor()`, `dist()`, `setPositionFromGrid()`
+  - The tile helpers take explicit `width`/`height` (the `For` suffix) — there are no global-width variants; always pass the level's `mapWidth`/`mapHeight`
+- `src/engine/utils/walls.ts`: `applyWallDamageAt()` for destructible walls
+- `src/engine/utils/repair.ts`: `applyRepairAt()`, `findNearestRepairTarget()`, `hasAnyRepairTarget()` — used by utility bot
+- `src/engine/utils/rng.ts`: Deterministic RNG — `RNG.int(n)`, `RNG.choose(arr)`, `RNG.chance(p)`. The `RandomNumberGenerator` class is exported for independent seeded instances (e.g. per-level dungeon generation).
+- `src/engine/utils/pathfinding.ts`: A\* pathfinding for click-to-move
 
 ### State & Commands Pattern
 

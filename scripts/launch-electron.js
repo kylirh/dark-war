@@ -1,77 +1,31 @@
 #!/usr/bin/env node
-
-const { execFileSync, spawn } = require("child_process");
-const fs = require("fs");
+/**
+ * Launch the app in dev by running the Electron binary directly against the
+ * project (package.json `main` → electron/main.js).
+ *
+ * We deliberately do NOT package with electron-builder here: a full `--mac dir`
+ * pack on every launch is slow and floods the console (code-signing warnings,
+ * effective-config dumps, etc.). Packaging belongs to `npm run build`. In dev the
+ * window just shows the stock Electron name/icon — cosmetic only.
+ */
+const { spawn } = require("child_process");
 const path = require("path");
 
 const rootDir = path.resolve(__dirname, "..");
-const packageJson = require(path.join(rootDir, "package.json"));
-const appName = packageJson.productName || "Dark War";
 const args = process.argv.slice(2);
+const electronPath = require("electron");
 
-function run(command, commandArgs) {
-  execFileSync(command, commandArgs, {
-    cwd: rootDir,
-    stdio: "inherit",
-  });
-}
+console.log("▶ launching Dark War (Electron)…");
 
-function findMacApp() {
-  const distDir = path.join(rootDir, "dist");
-  const appBundleName = `${appName}.app`;
-  const preferredDir = process.arch === "arm64" ? "mac-arm64" : "mac";
-  const candidates = [
-    path.join(distDir, preferredDir, appBundleName),
-    ...fs
-      .readdirSync(distDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name.startsWith("mac"))
-      .map((entry) => path.join(distDir, entry.name, appBundleName)),
-  ];
+const child = spawn(electronPath, [rootDir, ...args], {
+  cwd: rootDir,
+  stdio: "inherit",
+});
 
-  const appPath = candidates.find((candidate) => fs.existsSync(candidate));
-  if (!appPath) {
-    throw new Error(`Could not find ${appBundleName} in ${distDir}.`);
+child.on("exit", (code, signal) => {
+  if (signal) {
+    process.kill(process.pid, signal);
+    return;
   }
-  return appPath;
-}
-
-function launchMacApp() {
-  const npx = process.platform === "win32" ? "npx.cmd" : "npx";
-  run(npx, ["electron-builder", "--mac", "dir", "--publish=never"]);
-
-  const appPath = findMacApp();
-  const child = spawn("open", ["-W", "-n", appPath, "--args", ...args], {
-    cwd: rootDir,
-    stdio: "inherit",
-  });
-
-  child.on("exit", (code, signal) => {
-    if (signal) {
-      process.kill(process.pid, signal);
-      return;
-    }
-    process.exit(code || 0);
-  });
-}
-
-function launchElectronBinary() {
-  const electronPath = require("electron");
-  const child = spawn(electronPath, [rootDir, ...args], {
-    cwd: rootDir,
-    stdio: "inherit",
-  });
-
-  child.on("exit", (code, signal) => {
-    if (signal) {
-      process.kill(process.pid, signal);
-      return;
-    }
-    process.exit(code || 0);
-  });
-}
-
-if (process.platform === "darwin") {
-  launchMacApp();
-} else {
-  launchElectronBinary();
-}
+  process.exit(code || 0);
+});

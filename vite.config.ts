@@ -6,6 +6,9 @@ export default defineConfig(({ command }) => ({
   // app/index.html is the Electron entry point and stays unchanged.
   root: ".",
 
+  // Quieter build output: only warnings/errors (no per-step "transforming…" spam).
+  logLevel: "warn",
+
   // In dev: serve app/ contents at / so asset paths ("assets/...") resolve
   // correctly without any changes to TypeScript or CSS source.
   // In build: false — we don't want Vite copying app/ into app/.
@@ -30,7 +33,7 @@ export default defineConfig(({ command }) => ({
     outDir: "app",
     emptyOutDir: false,
     lib: {
-      entry: resolve(__dirname, "src/main.ts"),
+      entry: resolve(__dirname, "src/client/main.ts"),
       name: "DarkWar",
       formats: ["iife"],
       fileName: () => "game.js",
@@ -42,6 +45,8 @@ export default defineConfig(({ command }) => ({
     },
     sourcemap: true,
     target: "es2020",
+    // The game ships as a single IIFE bundle; the >500 kB notice is expected.
+    chunkSizeWarningLimit: 2000,
   },
 
   resolve: {

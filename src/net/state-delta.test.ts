@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SerializedState, TileType, EntityKind } from "../types";
+import { SerializedState, TileType, EntityKind } from "../engine/types";
 import {
   computeStateDelta,
   applyStateDelta,
@@ -9,10 +9,24 @@ import {
 type AnyEntity = SerializedState["entities"][number];
 
 function entity(id: string, x: number, hp = 10): AnyEntity {
-  return { id, kind: EntityKind.MONSTER, worldX: x, worldY: 0, hp, type: "RAT" } as unknown as AnyEntity;
+  return {
+    id,
+    kind: EntityKind.MONSTER,
+    worldX: x,
+    worldY: 0,
+    hp,
+    type: "RAT",
+  } as unknown as AnyEntity;
 }
 function player(id: string, x: number, hp = 100): SerializedState["player"] {
-  return { id, kind: EntityKind.PLAYER, worldX: x, worldY: 0, hp, weapon: 1 } as unknown as SerializedState["player"];
+  return {
+    id,
+    kind: EntityKind.PLAYER,
+    worldX: x,
+    worldY: 0,
+    hp,
+    weapon: 1,
+  } as unknown as SerializedState["player"];
 }
 
 function baseState(): SerializedState {
