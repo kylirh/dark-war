@@ -12,21 +12,26 @@ A roguelike remake of Mission Thunderbolt (1992) built with TypeScript, Pixi.js,
 npm run dev              # Build TypeScript + Vite, then launch Electron
 npm run dev:online       # Build and launch in online multiplayer mode (connects to localhost:7777)
 npm run multiplayer:server  # Start the WebSocket multiplayer server (tsx)
+npm run server:start     # Alias for the headless server
 npm run online:client    # Launch an additional client without rebuilding
 npm run watch            # Vite watch mode (run `npx electron .` separately)
 npm run build:ts         # Compile TypeScript (tsc) + bundle with Vite
+npm run build:web        # Build the static web client
 npm run build            # Full distributable build (macOS/Windows/Linux via electron-builder)
 npm run type-check       # Type-check both client and server without emitting
 npm run type-check:client  # Type-check client only (tsconfig.json)
 npm run type-check:server  # Type-check server only (tsconfig.server.json)
 npm test                 # Run the Vitest unit suite once
 npm run test:watch       # Vitest in watch mode
+npm run format           # Prettier write
+npm run format:check     # Prettier check
 ```
 
 Unit tests run on **Vitest** and live next to the code they cover as
 `*.test.ts`. They focus on the deterministic logic (simulation, helpers,
 netcode encoding, map/tile systems, entity lifecycle) rather than the
-Electron/Pixi/DOM layers. No linter is configured.
+Electron/Pixi/DOM layers. No ESLint is configured; Prettier is available through
+the `format` scripts.
 
 ## Architecture
 
@@ -137,6 +142,19 @@ mechanical move.
 ### State & Commands Pattern
 
 Player input → `enqueueCommand(state, {...})` → `stepSimulationTick(state)` resolves commands → pushes events → `processEventQueue()` handles cascading effects (damage → death → loot drop → chain explosions). Access game state via `Game.getState()`.
+
+## Current Roadmap
+
+The engine/client/net/server split is in place, and the Electron, web, and
+headless server variants are shipping. The next highest-leverage work is a
+mission/objective spine: serializable objective state, HUD/story progress,
+target-depth goals, extraction/win/fail states, and tests that cover save/load
+and multiplayer serialization. After that, prioritize balance/onboarding,
+authored mission hooks and interiors, character/living-world systems,
+presentation polish, public-server operations, and finally the arcade variant.
+
+Keep `.github/copilot-instructions.md`, `README.md`, this file, `AGENTS.md`, and
+the app READMEs in sync whenever feature status changes.
 
 ## Code Style
 

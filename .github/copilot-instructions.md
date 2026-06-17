@@ -1,336 +1,361 @@
 # Dark War - AI Coding Instructions
 
-You are assisting in the development of **Dark War**, a browser-first 2D simulation RPG that blends elements of _The Legend of Zelda: A Link to the Past_, _Stardew Valley_, _Terraria_, and classic roguelikes with a unique time-dilation combat system.
+You are assisting with **Dark War**, a playable roguelike remake of
+_Mission Thunderbolt_ (1992). The game is built with TypeScript, Pixi.js,
+Electron, rot.js, detect-collisions, Vite, and a headless WebSocket server.
 
-The project is a functional, playable game and will be expanded incrementally. **Architectural flexibility, experimentation, and refactoring are expected and encouraged.**
+The current codebase is organized around a platform-agnostic engine under
+`src/engine`, a presentation/client layer under `src/client`, shared networking
+code under `src/net`, and the authoritative server under `server`. The same core
+simulation is used by the Electron desktop app, the static web client, and the
+headless multiplayer server.
 
----
-
-## Project Vision
-
-### Core Experience
-
-A top-down 2D world where players explore, build, fight, and form relationships in a living, mutable world. Combat uses a **Cognitive Time Dilation Module (CTDM)** that slows time when danger appears, allowing strategic decision-making in real-time combat.
-
-### Key Design Pillars
-
-**1. Presentation & Feel**
-
-- Cute, family-friendly retro sprites (SNES Zelda / Stardew Valley aesthetic)
-- Top-down perspective with pseudo-3D depth via:
-  - Sprite layering and Y-sorting
-  - Partial transparency when player walks behind tall objects
-- Sparse, impactful visual effects (sword hits, bullet traces, explosions)
-- Retro sci-fi aesthetic inspired by the original Mission Thunderbolt
-- Top-down perspective with sprite-based rendering
-- Sparse, impactful visual effects (bullet traces, explosions, hit flashes)
-- Visual clarity always prioritized over realism
-
-**2. World & Exploration**
-
-- **Tile-based world, but entities move freely** (not grid-locked)
-- **Fully mutable terrain**: build/destroy structures, plant crops, modify landscapes permanently
-- **Multiple worlds/levels**: interiors, dungeons, portals, instanced areas
-- Hybrid **procedural + authored content** that blends seamlessly
-- **Multiple level types**: procedural dungeons (BSP), procedural outside level, future interior levels
-- **Field of view system**: unexplored areas hidden, explored areas revealed and dimmed
-- **Mutable terrain**: walls can be damaged and destroyed; holes can be repaired by utility bots
-
-**3. Combat & Time Dilation (CTDM)**
-
-- Combat is fundamentally **real-time**
-- The **CTDM** is a **findable in-game device**:
-  - A hard sci-fi neural interface that accelerates the user's cognition relative to time
-  - When equipped and active, detects nearby threats and triggers proportional time slowdown
-  - Has a **charge meter** that drains under threat and recharges when safe
-  - Can be toggled off (toggle key: `C`)
-  - Auto-disables when charge is exhausted
-- **Without CTDM**, combat runs at near-real-time (`REAL_TIME_SCALE = 0.85`) — challenging
-- **Current CTDM implementation**: Threat computed from proximity and alert level of monsters; time scale interpolates smoothly; charge drains/recharges
-
-**4. Movement & Physics**
-
-- Items can cluster naturally with small spacing
-- All actors (player, NPCs, monsters) can pick up, equip, and use items
-- Grid defines terrain constraints, not movement
-- Smooth, fluid entity movement at 225 pixels/second with circle-collider physics
-- Bullets, grenades, and land mines with physics and collision
-- Wall sliding preserves parallel velocity on collision
-
-**5. Sleep, Time & Simulation**
-
-- Actions and combat consume energy and health
-- **Sleeping restores stats and advances time**
-- Sleep triggers **world simulation updates**: crop growth, NPC schedules, relationships, construction, ecosystem changes
-- Simulation layer will grow in complexity (SimCity/SimLife inspired)
-
-**6. Stats, Growth & Trade-offs**
-
-- All entities use **shared stat system with meaningful trade-offs**
-- Becoming stronger in one area weakens another
-- Growth driven by actions, choices, long-term behavior
-- Permanent stat changes typically resolve during sleep
-- **Intentionally experimental - expected to evolve**
-
-**7. AI, Memory & Relationships**
-
-- NPCs and monsters feel intentional and reactive
-- Support for relationships (trust, fear, hostility, cooperation)
-- Memory of past events and player actions
-- Relationship updates may occur during sleep
-- **Start simple, expand over time** - future AI integration possible
-
-**8. Mini-Games**
-
-- Support many optional mini-games (fishing, arcade games, etc.)
-- Mechanically distinct but reuse core systems when possible
-
-**9. Platform & Distribution**
-
-- **Primary target**: Web browser (instant play, minimal friction)
-- Secondary: Electron, installable apps (future)
-- Codebase should remain platform-agnostic
-
-**10. Multiplayer (Secondary)**
-
-- **LAN multiplayer**: Host a game from within the app; other players discover it via UDP broadcast
-- **Online multiplayer**: Authoritative WebSocket server; clients send input, server runs simulation
-- Per-player FOV and explored-state; server sends per-client delta-compressed state (keyframe + deltas, `src/net/state-delta.ts`), not the full state each tick
-- Client-side prediction (movement-only): the local player is predicted and reconciled against server snapshots; wire format is versioned via `src/net/protocol.ts`
+The project is functional and playable. Future work should be delivered in
+playable chunks that preserve type-checks, tests, and the current build variants.
 
 ---
 
-## Current Implementation
+## Current Product
 
-### Architecture Overview
+### Playable Experience
+
+- Top-down roguelike exploration inspired by _Mission Thunderbolt_.
+- Continuous, free-moving actors on a tile-constrained world; entities are not
+  grid-locked.
+- Mouse aiming, click-to-move, configurable keyboard controls, hotbar inventory,
+  pause menu, character/settings modal, save slots, intro story, title screen,
+  procedural music, and sound effects.
+- Outside surface level at depth 0 plus bounded dungeon levels below.
+- Field of view: unseen tiles hidden, explored tiles dimmed, per-player FOV in
+  multiplayer.
+- Destructible terrain: walls can be damaged, destroyed into rubble, and
+  sometimes opened into holes. Items can fall through holes to deeper levels.
+- Utility bots can repair damaged tiles and holes.
+- Doors, locked doors, stairs, deliberate hole descent, and level persistence
+  across visited depths.
+
+### Combat And CTDM
+
+- Combat is real-time and uses continuous physics.
+- Weapons and gear include melee weapons, gyrojet pistol, laser pistol, SMG,
+  shotgun, grenades, land mines, thrown rocks/bones, armor, medkits, power cells,
+  panic button, holowalls, keycards, cookies, coins, junk, and vending machines.
+- The CTDM is a findable item in offline play. Before finding it, the game runs
+  near real time. When installed and enabled, nearby alert threats slow time
+  proportionally, drain charge under danger, recharge when safe, and auto-disable
+  when depleted.
+- Online multiplayer intentionally runs in real time; CTDM/time dilation is not
+  part of the authoritative online simulation.
+
+### Content
+
+- Data-driven item metadata lives in `src/engine/content/item-defs.ts`.
+- Data-driven monster definitions live in `src/engine/content/monster-defs.ts`.
+- Current monsters include mutants, rats, skulkers, utility bots, giant spiders,
+  wild dogs, icky lumps, snagglepuss, flutterbangs, moppets, cybercops, zyths,
+  tentacular horrors, terrorist collaborators, and dreadnaughts.
+- Monster behavior is built from reusable archetypes (`melee`, `ranged`, `bot`)
+  plus flags for breeding, explosions, venom slow, invisibility, theft, teleport,
+  far sight, self-healing, wall destruction, friendship, multi-hit attacks, and
+  item-carry restrictions.
+- Friendly pet behavior exists for wild dogs and snagglepuss-style companions.
+
+### Multiplayer And Variants
+
+- Electron app: shipping desktop variant. Can host an embedded LAN server, browse
+  LAN games through UDP discovery, and join manual WebSocket servers.
+- Headless server: shipping authoritative WebSocket host with rooms, per-depth
+  worlds, authoritative simulation, player migration between depths, respawn
+  handling, and delta-compressed broadcasts.
+- Web client: shipping static browser build. Single-player works; browser clients
+  can join `ws://` / `wss://` servers by address but cannot host or UDP-discover
+  LAN games.
+- Arcade variant: scaffolded only, intentionally left for later.
+
+---
+
+## Architecture Overview
 
 ```
 src/
-├── config/
-│   └── sprites.ts            # Sprite sheet configuration
-├── core/
-│   ├── Game.ts               # State manager, level transitions, FOV, serialization
-│   ├── GameLoop.ts           # Fixed 60Hz timestep with accumulator pattern
-│   ├── Map.ts                # BSP dungeon generation (64×36 tiles)
-│   └── OutsideLevel.ts       # Procedural exterior (128×72 tiles)
-├── entities/
-│   ├── GameEntity.ts         # Abstract base: worldX/Y, velocity, physics body
-│   ├── PlayerEntity.ts
-│   ├── MonsterEntity.ts
-│   ├── ItemEntity.ts
-│   ├── BulletEntity.ts
-│   └── ExplosiveEntity.ts
-├── net/
-│   └── MultiplayerClient.ts  # WebSocket client (online mode)
-├── systems/
-│   ├── FOV.ts                # rot.js PreciseShadowcasting per player
-│   ├── GameMenu.ts           # Main menu, pause menu, multiplayer lobby UI
-│   ├── Input.ts              # Keyboard/mouse input → callbacks
-│   ├── IntroStory.ts         # Pre-game lore slides
-│   ├── MouseTracker.ts       # Mouse world position and aiming angle
-│   ├── Music.ts              # Background music
-│   ├── Physics.ts            # detect-collisions; circle/box colliders
-│   ├── Preferences.ts        # Persistent settings and keybindings (localStorage)
-│   ├── Renderer.ts           # Pixi.js with render interpolation
-│   ├── RetroWindowChrome.ts  # Window chrome and UI shell
-│   ├── Sound.ts              # Sound effects
-│   ├── TitleScreen.ts        # Animated title/splash screen
-│   ├── UI.ts                 # In-game HUD
-│   └── simulation/
-│       ├── index.ts          # stepSimulationTick, processEventQueue, re-exports
-│       ├── constants.ts      # SIM_DT_MS=50, MONSTER_SPEED=225, etc.
-│       ├── helpers.ts        # pushEvent, canActorAct, hasClearLineOfSight
-│       ├── ai.ts             # Steering + AI command generation
-│       ├── commands.ts       # enqueueCommand + all resolve*Command
-│       ├── events.ts         # All process*Event handlers
-│       └── explosives.ts     # Grenade/mine fuse, chain explosions
-├── utils/
-│   ├── helpers.ts            # Coordinate math, tile queries (two variants each)
-│   ├── multiplayer.ts        # Multiplayer utilities
-│   ├── pathfinding.ts        # A* for click-to-move
-│   ├── repair.ts             # Wall/hole repair utilities (utility bot)
-│   ├── RNG.ts                # Deterministic Mulberry32 RNG
-│   └── walls.ts              # applyWallDamageAt() — destructible walls
-└── types/
-    └── index.ts              # All TypeScript type definitions and enums
+├── engine/                    # Pure shared core: no DOM/Pixi/Electron/ws/node
+│   ├── config/
+│   │   └── sprites.ts         # Sprite-sheet coordinates and sprite metadata
+│   ├── content/
+│   │   ├── item-defs.ts       # Item names, categories, behavior flags
+│   │   ├── monster-defs.ts    # Monster stats, AI archetypes, spawn data
+│   │   └── sound-effects.ts   # Pure sound effect IDs
+│   ├── core/
+│   │   ├── game.ts            # State manager, levels, FOV, serialization
+│   │   ├── game-loop.ts       # Fixed 60Hz timestep
+│   │   ├── entity-manager.ts  # Entity add/remove lifecycle tracking
+│   │   ├── dungeon-generator.ts
+│   │   ├── outside-level.ts
+│   │   └── tile-source.ts
+│   ├── entities/
+│   ├── systems/
+│   │   ├── fov.ts
+│   │   ├── physics.ts
+│   │   └── simulation/
+│   │       ├── tick.ts
+│   │       ├── constants.ts
+│   │       ├── sim-helpers.ts
+│   │       ├── ai.ts
+│   │       ├── commands.ts
+│   │       ├── events.ts
+│   │       └── explosives.ts
+│   ├── utils/
+│   └── types.ts
+├── client/                    # Pixi/DOM/UI/input/sound presentation layer
+│   ├── main.ts
+│   └── systems/
+└── net/                       # Wire protocol, WebSocket client, delta codec
 
 server/
-└── multiplayer-server.ts     # Authoritative WebSocket server
+└── multiplayer-server.ts      # Authoritative multiplayer server
 
 electron/
-├── main.js                   # Electron main process + IPC
-├── preload.js                # Exposes IPC bridge to renderer
-└── server-manager.js         # Embedded server child process + UDP LAN discovery
+├── main.js
+├── preload.js
+└── server-manager.js
+
+apps/
+├── server/
+├── web/
+└── arcade/
 ```
 
-### Key Technical Details
-
-**Simulation** (20 ticks/sec, `SIM_DT_MS = 50ms`):
-- Command/event pipeline: player input → `enqueueCommand` → `stepSimulationTick` → `processEventQueue`
-- Events cascade: DAMAGE → DEATH → loot drop → chain EXPLOSION
-- AI updates steering velocities every 5 ticks; each monster decides one command per turn
-
-**Physics** (60Hz):
-- Circle colliders: ~12px player, ~10px monster, ~4px bullet
-- Wall boxes: 16px half-extents (32px tiles)
-- Per-frame entity Map for O(1) body→entity lookup in collision callbacks
-
-**Coordinate System (CRITICAL)**:
-- `worldX/worldY`: Float pixel coordinates (source of truth)
-- `gridX/gridY`: Read-only getters — `Math.floor(worldX / 32)`
-- **Never set `gridX`/`gridY` directly**
-
-**Helper function variants**:
-- `idx/inBounds/tileAt/passable/setTile` — use global dungeon dimensions (MAP_WIDTH=64, MAP_HEIGHT=36)
-- `idxFor/inBoundsFor/tileAtFor/passableFor/setTileFor` — take explicit width/height; required for outside levels
-
-**CTDM** (`REAL_TIME_SCALE = 0.85`, `SLOWMO_SCALE = 0.05`):
-- Threat = max(visible alert monster proximity factors)
-- Time scale → SLOWMO_SCALE when threat > 0 and CTDM active
-- Charge drains at up to `CTDM_DRAIN_MAX = 8.0` charge/sec at full threat
-- Recharges at `CTDM_RECHARGE_RATE = 3.0` charge/sec when no threat
-
-**LAN Multiplayer**:
-- `electron/server-manager.js`: Forks `app/server-bundle.js` as child process; manages lifecycle
-- `DiscoveryManager` sends UDP broadcast on port 7779 every 2s; clients listen and display available games
-- All discovery IPC: `discovery:start-broadcast`, `discovery:start-listen`, `discovery:get-servers`
+See `docs/ARCHITECTURE.md` for the variant matrix and the optional future
+workspace/package layout.
 
 ---
 
-## Development Workflows
+## Build, Run, And Validation
 
 ```bash
-npm run dev          # Build TypeScript and launch Electron (offline)
-npm run dev:online   # Build and launch, connects to localhost:7777
-npm run build        # Build distributables (macOS/Windows/Linux)
-npm run build:ts     # Compile TypeScript and bundle with Vite
-npm run type-check   # Type check without building
-npm run watch        # Watch mode for development
+# Development
+npm run dev                    # Build TypeScript + Vite, then launch Electron
+npm run dev:online             # Build and launch connected to localhost:7777
+npm run watch                  # Vite watch mode; run `npx electron .` separately
+
+# Multiplayer
+npm run multiplayer:server     # Start authoritative WebSocket server
+npm run online:client          # Launch an extra client without rebuilding
+npm run server:start           # Alias for the headless server
+
+# Type checking
+npm run type-check             # Client + server
+npm run type-check:client
+npm run type-check:server
+
+# Tests
+npm test                       # Vitest unit suite once
+npm run test:watch
+
+# Builds
+npm run build:ts               # Build server bundle, tsc, and web/electron bundle
+npm run build:web              # Static browser client
+npm run build                  # Electron distributables
+
+# Formatting
+npm run format                 # Prettier write
+npm run format:check           # Prettier check
 ```
+
+Vitest coverage focuses on deterministic logic: simulation, abilities, item
+mechanics, physics helpers, map generation, tile systems, entity lifecycle,
+network deltas, multiplayer server behavior, and engine purity.
 
 ---
 
 ## Critical Patterns
 
-**Coordinates**:
-- Always use `worldX/worldY` for entity position
-- Never set `gridX/gridY` directly (computed getters)
-- Movement: Set `velocityX/velocityY` in pixels/second
+### Coordinate System
 
-**State Management**:
-- `Game.getState()` returns `GameState`
-- Enqueue commands: `enqueueCommand(state, { type, actorId, tick, data, priority, source })`
+`worldX` and `worldY` are the source of truth. `gridX` and `gridY` are read-only
+getters derived from world coordinates.
 
-**Entity Queries**:
-- `entities.filter(e => e.kind === EntityKind.MONSTER)`
-- `tileAtFor(map, x, y, mapWidth, mapHeight)`, `passableFor(map, x, y, mapWidth, mapHeight)`
+```typescript
+// Correct: place by world coordinates or helper.
+entity.worldX = 5 * 32 + 16;
+entity.worldY = 10 * 32 + 16;
+setPositionFromGrid(entity, 5, 10);
 
-**RNG**:
-- `RNG.int(n)`, `RNG.choose(array)`, `RNG.chance(probability)`
-- Use `Math.random()` only for non-deterministic cosmetic choices (e.g., which hit sound to play)
+// Correct: move by velocity.
+entity.velocityX = 225;
+entity.velocityY = 0;
+```
 
-**Pushig events**:
-- `pushEvent(state, { type: EventType.DAMAGE, data: { ... } })`
-- Child events set `cause: parentEvent.id` for depth tracking
+Never assign `gridX` or `gridY` directly.
+
+### Tile Access
+
+- Use `state.tiles` (`TileSource`) for canonical tile reads/writes when possible.
+- Flat-array code must use explicit-dimension helpers:
+  `idxFor`, `inBoundsFor`, `tileAtFor`, `setTileFor`, `passableFor`.
+- Dungeon levels are bounded `128x96` maps generated up front.
+- The outside level is `128x72` and wraps toroidally.
+
+### Entity Lifecycle
+
+All runtime entities live in `state.entities`, but add/remove operations must go
+through `state.entityManager`. Direct `state.entities.push(...)` or whole-array
+replacement can desync physics bodies and network deltas.
+
+Use:
+
+- `state.entityManager.spawn(entity)`
+- `state.entityManager.destroy(entityOrId)`
+- `state.entityManager.destroyWhere(predicate)`
+- `state.entityManager.destroyByIds(ids)`
+- `state.entityManager.replaceAll(entities)` only when the caller rebuilds
+  physics wholesale.
+
+### Simulation
+
+Player input becomes commands. Commands resolve into events. Events mutate state
+and may cascade.
+
+```typescript
+enqueueCommand(state, {
+  type: CommandType.FIRE,
+  actorId: player.id,
+  tick: state.sim.nowTick,
+  data: {
+    type: "FIRE",
+    dx: 1,
+    dy: 0,
+    weapon: WeaponType.PISTOL,
+  },
+  priority: 1,
+  source: "PLAYER",
+});
+```
+
+Simulation modules live under `src/engine/systems/simulation/`. Import the
+specific file; do not add a barrel.
+
+### Engine Purity
+
+`src/engine` must not import Pixi, DOM APIs, Electron, `ws`, Node APIs, or
+browser/Node globals. `src/engine-purity.test.ts` enforces this boundary.
+
+Sound effect names are pure data in `src/engine/content/sound-effects.ts`; DOM
+audio playback belongs in `src/client/systems/sound.ts`.
+
+### Multiplayer
+
+- Server is authoritative in online mode.
+- One `LevelWorld` is simulated per depth and shared by players on that depth.
+- Players migrate individually between depths by stairs or hole falls.
+- Wire format is versioned in `src/net/protocol.ts`; bump `PROTOCOL_VERSION`
+  whenever serialized network shape changes.
+- Clients send monotonic input `seq`; snapshots echo `ackSeq`.
+- Movement-only client prediction lives in `src/client/main.ts` and
+  `Physics.predictLocalMovement`.
+- State broadcasts use `state_full` keyframes and `state_delta` updates from
+  `src/net/state-delta.ts`.
 
 ---
 
-## Code Philosophy & Style
+## Code Style
 
-- **Major architectural changes are encouraged** when they serve the vision
-- Work in **playable chunks** — each step should result in a working, fun game
-- **Never leave the codebase in a broken or half-implemented state**
-- Favor **flexible, modular designs** over premature optimization
-- **Clarity, debuggability, extensibility** > short-term speed
-- **TypeScript strict mode** — explicit types, no implicit any
-- **Named imports with relative paths** — no default exports
-- **Composition over inheritance** — pure functions where possible
-- **Performance matters** in rendering and physics paths
+- TypeScript strict mode.
+- Named exports only; no default exports.
+- Named imports with relative paths.
+- One class/system per file.
+- Kebab-case filenames.
+- Two-space indentation, semicolons, double quotes preferred.
+- Use deterministic `RNG` for gameplay logic. Use `Math.random()` only for
+  non-deterministic presentation choices.
+- Keep engine changes deterministic and serializable when they affect gameplay.
 
 ---
 
-## Evolution Roadmap
+## Current Roadmap
 
-**Development Philosophy**: Make major architectural changes in chunks that keep the game playable and fun at each step. Significant refactoring is encouraged, but avoid broken/incomplete states. Each phase should result in a working game with new capabilities.
+This roadmap reflects the current implementation. It is intentionally ordered by
+playable value rather than by architectural novelty.
 
-### Phase 1: Foundation (Current)
+### Phase 1: Mission Spine And Run Goals
 
-- ✅ Continuous movement with physics
-- ✅ Basic roguelike gameplay
-- ✅ FOV system
-- ✅ Simple time mechanics (auto-pause on stop)
+Build the first complete objective loop around existing systems:
 
-### Phase 2: CTDM & Combat Evolution
+- Add serializable `MissionState` / objective state to `GameState`.
+- Provide a clear early-game sequence: reach the bunker, find/install CTDM,
+  descend to a target depth, neutralize or recover a mission target, and extract.
+- Add HUD objective text and story-log messages.
+- Add win/extract/fail states that work offline and degrade cleanly online.
+- Cover objective progression with unit tests and save/load tests.
 
-- [ ] CTDM as findable in-game device
-- [ ] Danger detection system (enemies in range/attacking)
-- [ ] Time scaling on demand (vs. current auto-pause)
-- [ ] Action commitment and execution flow
-- [ ] CTDM device mechanics (power, durability, breaking)
-- [ ] Real-time combat without CTDM as high-difficulty mode
+### Phase 2: Balance, Onboarding, And Playtest Polish
 
-### Phase 3: World Mutability
+- Tune spawn rates, depth scaling, ammo economy, vending prices, CTDM charge, and
+  weapon usefulness against real playthroughs.
+- Add better first-run guidance through diegetic messages and UI affordances.
+- Make death, respawn, extraction, and level-complete feedback clearer.
+- Audit accessibility and settings defaults.
 
-- [ ] Terrain modification system (build/break tiles)
-- [ ] Persistent world state across sessions
-- [ ] Structure placement and destruction
-- [ ] Crop/tree planting and growth
-- [ ] Item crafting from materials
+### Phase 3: World Progression
 
-### Phase 4: Living World
+- Add lightweight authored content hooks for key rooms, mission targets,
+  terminals, interiors, and surface landmarks.
+- Expand persistent world state beyond explored tiles/entities into objective
+  decisions and level events.
+- Add more meaningful use for coins, junk, metal scraps, holowalls, repairs, and
+  vending machines.
 
-- [ ] Sleep system with time advancement
-- [ ] World simulation updates during sleep
-- [ ] NPC schedules and daily routines
-- [ ] Relationship and memory systems
-- [ ] Dynamic world events
+### Phase 4: Character And Living-World Systems
 
-### Phase 5: Depth & Content
+- Add a stat/growth model with explicit trade-offs.
+- Add sleep/rest/time advancement if it serves the mission loop.
+- Add NPC schedules, relationships, memory, and dynamic events after there is a
+  clear reason for the player to revisit places and people.
+- Add crafting, planting, or construction only as focused extensions of the
+  current mutable terrain loop.
 
-- [ ] Stat system with meaningful trade-offs
-- [ ] Multiple worlds/levels/portals/interiors
-- [ ] Procedural + authored content pipeline
-- [ ] Quest system and objectives
-- [ ] Mini-games framework
+### Phase 5: Presentation Upgrade
 
-### Phase 6: Visual Upgrade
+- Add richer sprite animation states and projectile/melee visual effects.
+- Improve pseudo-3D occlusion: Y-sorting, tall-object transparency, and clearer
+  building/tree readability.
+- Expand environmental art variety while preserving combat readability.
+- Continue deterministic asset generation through `tools/`.
 
-- [ ] Y-sorting for sprite layering
-- [ ] Transparency system for occlusion
-- [ ] Sprite variety and animation states
-- [ ] Visual effects (sword slashes, projectile trails, particles)
-- [ ] Environmental art polish
+### Phase 6: Multiplayer Operations
+
+- Add server configuration for public hosting: max rooms, idle timeouts, metrics,
+  and operational logging.
+- Harden reconnect/resume behavior and late-join UX.
+- Keep authoritative simulation and protocol versioning simple and test-backed.
+
+### Phase 7: Arcade Variant
+
+- Build the cabinet/kiosk variant after the core game loop and first complete run
+  are stable.
+- Reuse the existing engine/client/net split; focus on fullscreen kiosk behavior,
+  cabinet controls, attract mode, and fixed-resolution scaling.
 
 ### Future Exploration
 
-- AI integration for dynamic NPCs
-- Multiplayer architecture
-- Mobile/installable versions
-- Advanced simulation systems (economy, ecology)
-- Mod support
+- Mod support.
+- More authored campaigns and mini-games.
+- Advanced economy/ecology simulation.
+- AI-assisted dynamic NPC dialog or event generation, if it can remain debuggable
+  and bounded.
 
 ---
 
-## Guidelines for Copilot
+## Guidance For Future Changes
 
-**When proposing changes**:
-- Consider how it fits the vision and the current playable game
-- Reference specific files/modules with line numbers when relevant
-- Maintain TypeScript strict-mode compliance
-- Think about the command/event pipeline — player action → command → event → state change
-- Consider multiplayer: does this work with the authoritative server model?
+When proposing or implementing a change:
 
-**Architecture questions to ask**:
-- Which module owns this logic? (simulation domain modules, Game.ts, Physics.ts?)
-- Does this integrate with continuous movement and physics?
-- What types need updating in `src/types/index.ts`?
-- Does this affect serialization (`Game.serialize`/`deserialize`)?
-- Are there existing helpers to reuse?
-- How will this work with per-player FOV in multiplayer?
-
-**Prefer**:
-- Small, focused changes over large rewrites
-- Composition over inheritance
-- Pure functions where possible
-- Performance where it matters (rendering, physics, simulation hot path)
-- Clarity over cleverness
+- Prefer the existing engine/client/net/server boundaries.
+- Preserve a playable state after each chunk.
+- Think through serialization and multiplayer before adding gameplay state.
+- Add tests when touching deterministic logic, network encoding, map generation,
+  entity lifecycle, or progression state.
+- Consider whether a feature improves the current playable loop or just expands
+  surface area.
+- Update this file, `README.md`, `CLAUDE.md`, `AGENTS.md`, and app READMEs when
+  feature status changes.

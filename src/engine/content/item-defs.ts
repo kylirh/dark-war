@@ -3,7 +3,7 @@ import { ItemType } from "../types";
 /**
  * Data-driven item metadata. Display names, categories, and behavior flags for
  * every item. Mechanics (firing modes, consumption, cleanup, economy) read these
- * flags; see docs/ROADMAP.md for what's wired vs. pending.
+ * flags; see .github/copilot-instructions.md for roadmap context.
  */
 
 export type ItemCategory =

@@ -6,6 +6,14 @@ Glad you asked! This is my remake of the classic roguelike Mission Thunderbolt b
 
 Service with a smile, citizen!
 
+Dark War is currently a playable TypeScript/Pixi/Electron roguelike with a pure
+shared engine, a desktop client, a static web client, and an authoritative
+WebSocket multiplayer server. The game has continuous movement, mouse aiming,
+field of view, destructible terrain, generated outside/dungeon levels, a
+findable CTDM time-dilation device in offline play, data-driven items and
+monsters, save slots, LAN hosting/discovery in Electron, and join-by-address
+multiplayer.
+
 ## Setup & Installation
 
 ### Prerequisites
@@ -130,6 +138,24 @@ npm run build:web     # ③ static web client → apps/web/dist  (apps/web)
 The web client is single-player plus join-a-server-by-address; it can't host or
 auto-discover LAN games (a browser has no listening/UDP sockets).
 
+## Current Roadmap
+
+The architecture/platform split is in place. The next development priority is
+game structure: add a mission/objective spine that turns the existing systems
+into a complete run with clear goals, extraction, success/failure states, and
+save/multiplayer-aware progression.
+
+After that, the roadmap is:
+
+1. Balance, onboarding, and playtest polish.
+2. Authored mission hooks, interiors/landmarks, and deeper world persistence.
+3. Character growth, sleep/time, NPC relationships, crafting, or construction
+   where they support the mission loop.
+4. Presentation upgrades: animation states, occlusion polish, combat effects,
+   and richer environmental art.
+5. Multiplayer operations for public hosting.
+6. Arcade cabinet variant once the core run is stable.
+
 ## Project Structure
 
 ```
@@ -144,7 +170,8 @@ dark-war/
 │   │                         #    systems/{simulation,physics,fov}, utils)
 │   ├── client/               # Presentation — main.ts + systems/ (renderer, input, UI)
 │   └── net/                  # Multiplayer client, protocol version, delta encoding
-└── reference/                # Original game assets and documentation
+├── tools/                    # Deterministic sprite/sound asset generators
+└── docs/                     # Architecture and roadmap notes
 ```
 
 ## Controls
@@ -179,4 +206,4 @@ All movement and action keys are configurable in **Settings** from the pause men
 
 ## Further Reading
 
-See [.github/copilot-instructions.md](.github/copilot-instructions.md) for the full development vision, architecture details, and roadmap.
+See [.github/copilot-instructions.md](.github/copilot-instructions.md) for the full development vision and detailed roadmap, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the build-variant architecture.

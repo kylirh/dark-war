@@ -5,7 +5,7 @@ import { ItemType, MonsterType } from "../types";
  * spawner builds depth-gated weighted tables from here, and the AI reads the
  * `behavior` archetype + `flags` to pick conduct. New creatures are introduced
  * as reskinned archetypes first; bespoke abilities are layered on via `flags`
- * and handled incrementally in the simulation (see docs/ROADMAP.md).
+ * and handled incrementally in the simulation (see .github/copilot-instructions.md).
  */
 
 /** Which base AI archetype drives the creature. */

@@ -94,7 +94,7 @@ dark-war/
   games), per-depth `LevelWorld`s, authoritative tick, delta broadcast, player
   join/leave/migration. Used by **both** the Electron embedded server and the
   dedicated server, so hosting logic lives in exactly one place.
-- **`packages/client`** — everything you see/hear/touch, browser-first. Pixi
+- **`packages/client`** — everything you see/hear/touch, browser-capable. Pixi
   renderer, sound, input, all the UI. No Electron APIs directly — those are
   injected by the host app via a thin `PlatformBridge` interface (e.g. `quit()`,
   `discoverLanGames()`, `hostLanGame()`); on web the bridge is a no-op/limited impl.

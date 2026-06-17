@@ -67,7 +67,8 @@ No linter is configured.
 
 ### Formatting
 
-- **No ESLint or Prettier configured** — Follow existing patterns
+- **Prettier is configured** — use `npm run format` / `npm run format:check` for broad formatting passes
+- **No ESLint configured** — type-checking and tests are the primary automated validation
 - **Indentation:** 2 spaces
 - **Semicolons:** Always use them
 - **String quotes:** Double quotes preferred
@@ -163,7 +164,10 @@ export abstract class GameEntity {
 
 Entity types: `PlayerEntity`, `MonsterEntity`, `ItemEntity`, `BulletEntity`, `ExplosiveEntity`
 
-Monster types: `MonsterType.MUTANT`, `MonsterType.RAT`, `MonsterType.SKULKER` (ranged), `MonsterType.UTILITY_BOT` (repairs walls)
+Monster definitions are data-driven in `src/engine/content/monster-defs.ts`.
+Current types include basic melee/ranged enemies, utility bots, pets/friendlies,
+thieves, breeders, explosive enemies, invisible enemies, deep ranged enemies,
+and miniboss-scale threats.
 
 Discriminate by `EntityKind` enum:
 

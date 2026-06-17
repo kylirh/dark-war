@@ -75,8 +75,8 @@ import { MultiplayerClient, NetworkAction } from "../net/multiplayer-client";
  * Modern roguelike remake of Mission Thunderbolt (1992)
  * Features:
  * - Continuous fluid movement with physics-based collision
- * - Superhot-style time mechanics (time flows when you move)
- * - Grid-based destructible terrain (future)
+ * - CTDM threat-based time dilation in offline play
+ * - Grid-based destructible terrain and holes
  * - Mouse aiming and shooting
  *
  * Architecture:
