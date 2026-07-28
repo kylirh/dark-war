@@ -3,7 +3,10 @@
 A browser build of Dark War. **Single-player works fully**, and you can **join an
 Internet or LAN server by address** (`ws://` / `wss://`). A browser can't host a
 game or auto-discover LAN games (no listening sockets / no UDP), so those are
-stubbed — see `docs/ARCHITECTURE.md`.
+stubbed — see [`../../docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md).
+
+The web build ships the same assets and follows the same canonical visual
+direction in [`../../docs/ART-DIRECTION.md`](../../docs/ART-DIRECTION.md).
 
 ## Build & run
 

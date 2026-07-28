@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A roguelike remake of Mission Thunderbolt (1992) built with TypeScript, Pixi.js, and Electron. Features continuous fluid movement (not grid-locked), a Cognitive Time Dilation Module (CTDM) combat system, mouse-aiming combat, destructible walls, and LAN multiplayer. See `.github/copilot-instructions.md` for the full long-term vision.
 
+Its current product direction is a cheerful post-apocalyptic rebuilding
+adventure: exploration, repair, gardening, construction, and community are the
+emotional center, with combat as contrast. Before visual or content work, read
+`docs/ART-DIRECTION.md`; do not default to grimdark, black-outlined, militarized
+art.
+
 ## Commands
 
 ```bash
@@ -72,7 +78,7 @@ Two modes: `offline` (default) and `online`. In online mode, an authoritative We
 
 **Per-depth worlds:** the server simulates one `LevelWorld` (its own `Game` + `Physics`) per depth, shared by everyone on that depth (co-op: same layout, same monsters). Players are tracked by depth and migrate between worlds individually — taking stairs (`DESCEND`/`ASCEND`, validated on the stairs tile) or falling through a hole (a player ending a tick on a `HOLE` tile drops to the next depth with fall damage) moves only that player, never the whole party. Empty worlds are frozen but retained. Migration carries the player entity (HP/inventory) via `Game.detachPlayer`/`attachExistingPlayer` and forces a keyframe so the client rebaselines on the new world.
 
-**Protocol** (`src/net/protocol.ts`, `PROTOCOL_VERSION`): the server stamps its version in the `welcome` message and clients refuse to play on a mismatch. Bump it whenever the wire format changes.
+**Protocol** (`src/net/protocol.ts`, `PROTOCOL_VERSION`): the server stamps its version in the `welcome` message and clients refuse to play on a mismatch. Bump it whenever the wire format changes. Dark War is unreleased, so do not build compatibility shims for old protocol versions or save formats.
 
 **Input sequence numbers**: every client `velocity`/`action` carries a monotonic `seq`. The server records the highest processed seq per client and echoes it as `ackSeq` on every state message (`MultiplayerClient.getLastAckedSeq()`).
 
@@ -82,7 +88,7 @@ Two modes: `offline` (default) and `online`. In online mode, an authoritative We
 
 **LAN multiplayer**: The Electron app can host an embedded server (child process via `electron/server-manager.js`) and advertises it over UDP LAN discovery. Other players on the same network see available games via `DiscoveryManager`. All managed through the in-game GameMenu — no separate terminal needed.
 
-### Map Generation
+### Current Map Generation
 
 - **Dungeon** (`src/engine/core/dungeon-generator.ts`): dungeon levels are **bounded** `128×96` maps generated **in full up front** (no streaming). `generateDungeon(width, height, depth, rng)` places varied rectangular and cellular-automata "cave" rooms, connects them with a Prim's MST plus a few extra loop edges (so the layout isn't a pure tree), carves corridors, drops doors at corridor pinch points, and seals an impenetrable border. The start is room 0's center (an up-stair) and the down-stair sits in the farthest room. Generation is deterministic from a per-level seed (`new RandomNumberGenerator(seed)`); full connectivity (stairs reachable from start) is enforced and unit-tested. `Game.createDungeonLevel` calls it and `spawnLevelEntities` scatters monsters/items scaled to floor area.
 - **Outside** (`src/engine/core/outside-level.ts`): Procedural exterior level. Size `OUTSIDE_MAP_WIDTH × OUTSIDE_MAP_HEIGHT` (128×72). The outside world (`levelKind === "outside"`, depth 0) is **toroidal**: walking off any edge wraps to the opposite side so it feels infinite. Its outer ring of tiles is kept walkable so the seam is never blocked. Dungeon levels are bounded and sealed, so the player never reaches a seam — the same wrap code runs for both, gated by `levelKind`.
@@ -91,7 +97,11 @@ Two modes: `offline` (default) and `online`. In online mode, an authoritative We
 
 The renderer (`src/client/systems/renderer.ts`) uses **windowed rendering**: the Pixi canvas is sized to the visible viewport and each frame draws only the tiles in a window around the camera (`cameraWorldX/Y`, smooth-followed onto the player). There is no DOM scrolling. This scales to large levels and is what makes the toroidal world possible — on wrapping levels the tile loop and entity/effect positions use wrapped lookups (`src/engine/utils/wrap.ts`: `wrapValue`, `wrapDelta`, `nearestWrappedImage`), the camera wraps (taking the short way across the seam), and the camera is clamped to the map edge on bounded levels. `MouseTracker` converts canvas pixels to world coordinates via the live camera window origin (`getCameraTopLeft`). Wrapping is also applied in **physics** (entity/bullet positions wrap instead of clamping on the outside) and **FOV** (`computeFOVFrom(..., wraps)` folds shadowcasting probes across the seam).
 
-Every level is a **bounded** flat `TileType[]`, so serialization, `explored`/`wallDamage` indices, FOV, physics, and rendering all work directly. Index tiles with `idxFor(x, y, width)`.
+Every level is currently a **bounded** flat `TileType[]`, so serialization,
+`explored`/`wallDamage` indices, FOV, physics, and rendering all work directly.
+This scalar representation is scheduled for replacement by the layered semantic
+model in `docs/TERRAIN-AND-WORLD.md`; do not treat it as a permanent constraint.
+Index current maps with `idxFor(x, y, width)`.
 
 **Tile access** (`src/engine/core/tile-source.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). For every level it is a `FlatTileSource` over `state.map`. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors).
 
@@ -102,12 +112,12 @@ Every level is a **bounded** flat `TileType[]`, so serialization, `explored`/`wa
   `behavior` archetype (`melee`/`ranged`/`bot`), spawn weight/`minDepth`/`miniboss`,
   ability `flags`, and loot; `MonsterEntity` and the spawner read it. `item-defs.ts`
   (`ITEM_DEFS`) holds per-item name/category/flags. Add new items/monsters here.
-- **Asset pipeline** (`tools/`, run `npm run gen:assets`): art and sound are
-  generated deterministically from code so they're reproducible and reviewable.
-  `gen-spritesheet.mjs` composites procedural placeholder sprites onto a pristine
-  base (`tools/sprites.base.png`) → `app/assets/img/sprites.png`; new cells must
-  match `SPRITE_COORDS` in `src/engine/config/sprites.ts`. `gen-sounds.mjs` synthesizes
-  WAV effects. `tools/png.mjs` is a dependency-free PNG codec (zlib only).
+- **Current asset pipeline** (`tools/`, run `npm run gen:assets`):
+  `gen-spritesheet.mjs` composites procedural and imported source art onto
+  `tools/sprites.base.png` and writes `app/assets/img/sprites.png`;
+  `gen-sounds.mjs` synthesizes sound effects. The approved direction adds
+  committed Aseprite sources plus Tiled metadata and build-time validation.
+  Hand-cleaned binary art sources are intentional, not an opacity problem.
 
 ### Build Variants
 
@@ -143,18 +153,20 @@ mechanical move.
 
 Player input → `enqueueCommand(state, {...})` → `stepSimulationTick(state)` resolves commands → pushes events → `processEventQueue()` handles cascading effects (damage → death → loot drop → chain explosions). Access game state via `Game.getState()`.
 
-## Current Roadmap
+## Active Program
 
-The engine/client/net/server split is in place, and the Electron, web, and
-headless server variants are shipping. The next highest-leverage work is a
-mission/objective spine: serializable objective state, HUD/story progress,
-target-depth goals, extraction/win/fail states, and tests that cover save/load
-and multiplayer serialization. After that, prioritize balance/onboarding,
-authored mission hooks and interiors, character/living-world systems,
-presentation polish, public-server operations, and finally the arcade variant.
+The next program is the terrain and world rewrite. Read these before planning or
+editing its code:
 
-Keep `.github/copilot-instructions.md`, `README.md`, this file, `AGENTS.md`, and
-the app READMEs in sync whenever feature status changes.
+1. `docs/TERRAIN-AND-WORLD.md` — authoritative decisions and non-goals.
+2. `docs/ROADMAP.md` — milestones, status, and cross-branch handoff ledger.
+3. `docs/ARCHITECTURE.md` — current platform boundaries and approved direction.
+
+The target is compositional typed-array tile layers on 2D WorldPlanes,
+portal-linked WorldSpaces, signed discrete elevation, static water,
+deterministic per-family visual resolution, and compiled Aseprite/Tiled sources.
+Old saves, worlds, and network clients do not require migration or compatibility.
+Remove superseded paths once their replacement works.
 
 ## Code Style
 

@@ -2,7 +2,28 @@
 
 **Instructions for AI coding agents working in the Dark War codebase.**
 
-This is a roguelike remake of Mission Thunderbolt (1992) built with TypeScript, Pixi.js, and Electron. Features continuous fluid movement, a CTDM (Cognitive Time Dilation Module) combat system, mouse-aiming, destructible walls, and LAN multiplayer. See `.github/copilot-instructions.md` for the full vision and `CLAUDE.md` for architecture details.
+This is a roguelike remake of Mission Thunderbolt (1992) built with TypeScript,
+Pixi.js, and Electron. It features continuous actor movement, CTDM time dilation,
+mouse-aiming, destructible terrain, and LAN multiplayer.
+
+## Required project context
+
+Before changing world, terrain, rendering, asset, save, or multiplayer code, read:
+
+1. `docs/ART-DIRECTION.md` — authoritative visual and emotional direction.
+2. `docs/TERRAIN-AND-WORLD.md` — authoritative world/terrain decisions.
+3. `docs/ROADMAP.md` — milestone order and cross-branch handoff ledger.
+4. `docs/ARCHITECTURE.md` — current runtime boundaries and approved direction.
+
+Dark War is unreleased. Compatibility with old saves, generated worlds, and
+network clients is explicitly not required. Prefer clean replacement of obsolete
+formats and code paths over compatibility shims. Each branch must still finish in
+a playable, type-safe, tested state.
+
+The product is a cheerful, outline-free, modern pixel-art rebuilding adventure,
+not a grimdark combat showcase. Preserve the hopeful tone, painterly clusters,
+limited vibrant palette, colored atmospheric light, and building/community
+focus defined in `docs/ART-DIRECTION.md`.
 
 ---
 
@@ -177,7 +198,7 @@ if (entity.kind === EntityKind.MONSTER) {
 }
 ```
 
-### Map Representation
+### Current Map Representation
 
 - **Canonical accessor:** `state.tiles` (a `TileSource`) — read/write tiles via
   `getTile(x, y)`, `setTile(x, y, tile)`, `passable(x, y)`. Every level wraps the
@@ -194,6 +215,12 @@ if (entity.kind === EntityKind.MONSTER) {
 - **Query tile:** `tileAtFor(map, x, y, width, height)`
 - **Check passable:** `passableFor(map, x, y, width, height)`
 - **Set tile:** `setTileFor(map, x, y, width, TileType.FLOOR)`
+
+This is current implementation guidance, not the target architecture. The active
+program replaces the scalar `TileType[]` with compositional typed-array layers on
+2D WorldPlanes, signed discrete elevation, static water, and portal-linked
+WorldSpaces. Do not extend the scalar enum with new ground/structure/fixture
+combinations when the approved layered model is the appropriate solution.
 
 ### Rendering, Camera & Wrap-Around
 
@@ -269,6 +296,8 @@ The simulation is split into domain modules under `src/engine/systems/simulation
 - In `online` mode, server is authoritative (runs Game + Physics), always real time (no CTDM/time dilation)
 - **Per-depth worlds:** one `LevelWorld` (Game + Physics) per depth, shared by everyone on that depth; players migrate individually on stairs/holes via `Game.detachPlayer`/`attachExistingPlayer` (only the acting player moves)
 - Wire format is versioned (`src/net/protocol.ts`, `PROTOCOL_VERSION`); mismatched clients are rejected
+- Protocol breaks are allowed during the approved world rewrite. Bump the
+  version and replace the old encoding; do not maintain compatibility branches.
 - Clients send velocity/actions stamped with a monotonic `seq`; the server echoes the processed seq as `ackSeq`
 - **Client-side prediction** (movement-only): the local player is predicted immediately and reconciled against server snapshots (`src/client/main.ts`, `Physics.predictLocalMovement`). Firing/hits stay server-authoritative
 - **Delta broadcasts** (`src/net/state-delta.ts`): per-client keyframe + delta instead of full state every tick
@@ -385,6 +414,12 @@ app/
 - **Never leave codebase broken or half-implemented**
 - Favor **flexible, modular designs** over premature optimization
 - **Clarity, debuggability, extensibility** > short-term speed
+- Old saves and protocol versions have no compatibility requirement while the
+  game is unreleased
+- Aseprite and Tiled are build-time authoring sources; gameplay identity must not
+  depend on atlas coordinates or editor tile IDs
+- Coordinate multi-branch work through `docs/ROADMAP.md`; update its handoff
+  ledger when ownership or status changes
 
 ---
 
@@ -422,7 +457,9 @@ hasAnyRepairTarget(state)                // Quick check if repairs needed
 
 ## Key References
 
-- **Full vision:** `.github/copilot-instructions.md`
-- **Architecture:** `CLAUDE.md`
+- **Terrain/world design:** `docs/TERRAIN-AND-WORLD.md`
+- **Execution roadmap:** `docs/ROADMAP.md`
+- **Architecture:** `docs/ARCHITECTURE.md`
+- **Agent quick context:** `.github/copilot-instructions.md`, `CLAUDE.md`
 - **TypeScript config:** `tsconfig.json`, `tsconfig.server.json`
 - **Build pipeline:** `vite.config.ts`, `package.json`

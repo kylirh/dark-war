@@ -2,16 +2,14 @@
  * Tile access abstraction.
  *
  * Today every level is a flat `TileType[]` of fixed `width × height`, accessed
- * through the `*For` helpers. That works but caps levels at whatever fits in a
- * single fully-loaded array. A `TileSource` decouples "how do I read/write the
- * tile at (x, y)" from "how are tiles stored", so the same consumers (FOV,
- * pathfinding, physics map build, generation) can run over either a flat array
- * or a streaming chunk store.
+ * through the `*For` helpers. `TileSource` centralizes semantic tile reads and
+ * writes so FOV, pathfinding, physics, generation, and rendering do not need to
+ * know the backing representation.
  *
  * `FlatTileSource` wraps the existing flat representation with identical
  * semantics (out-of-bounds reads return WALL, passability is TILE_DEFINITIONS
- * driven) so adopting the interface is a zero-behavior-change step. The
- * chunked, streamable implementation lives in `chunked-map.ts`.
+ * driven). The approved replacement is the compositional WorldPlane model in
+ * `docs/TERRAIN-AND-WORLD.md`, not an unimplemented streaming tile source.
  */
 
 import { TileType, TILE_DEFINITIONS } from "../types";

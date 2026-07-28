@@ -6,6 +6,12 @@ Glad you asked! This is my remake of the classic roguelike Mission Thunderbolt b
 
 Service with a smile, citizen!
 
+Dark War turns the end of the world into a colorful rebuilding adventure. The
+long-term center of play is exploration, repair, gardening, construction,
+community, and making strange ruined places feel like home. Combat remains part
+of the roguelike inheritance, but the default mood is cheerful, playful, and
+hopeful.
+
 Dark War is currently a playable TypeScript/Pixi/Electron roguelike with a pure
 shared engine, a desktop client, a static web client, and an authoritative
 WebSocket multiplayer server. The game has continuous movement, mouse aiming,
@@ -140,21 +146,16 @@ auto-discover LAN games (a browser has no listening/UDP sockets).
 
 ## Current Roadmap
 
-The architecture/platform split is in place. The next development priority is
-game structure: add a mission/objective spine that turns the existing systems
-into a complete run with clear goals, extraction, success/failure states, and
-save/multiplayer-aware progression.
+The active program is the world and terrain foundation: compositional semantic
+tile layers, authored elevation, static water, automatic visual resolution,
+portal-linked interiors/caves, and a reproducible Aseprite + Tiled workflow.
+Procedural and handcrafted content will compile into the same semantic model so
+they can meet without graphical or gameplay seams.
 
-After that, the roadmap is:
-
-1. Balance, onboarding, and playtest polish.
-2. Authored mission hooks, interiors/landmarks, and deeper world persistence.
-3. Character growth, sleep/time, NPC relationships, crafting, or construction
-   where they support the mission loop.
-4. Presentation upgrades: animation states, occlusion polish, combat effects,
-   and richer environmental art.
-5. Multiplayer operations for public hosting.
-6. Arcade cabinet variant once the core run is stable.
+See [`docs/TERRAIN-AND-WORLD.md`](docs/TERRAIN-AND-WORLD.md) for the accepted
+design and [`docs/ROADMAP.md`](docs/ROADMAP.md) for milestones and cross-branch
+handoffs. Dark War is unreleased; this program may deliberately break old saves,
+worlds, and multiplayer protocol versions in favor of a clean implementation.
 
 ## Project Structure
 
@@ -162,6 +163,7 @@ After that, the roadmap is:
 dark-war/
 ├── app/                      # Electron build output (HTML, bundled JS, assets)
 ├── apps/                     # Per-variant homes (electron, web, server, arcade)
+├── assets/                   # Authored source art currently used by the project
 ├── electron/                 # Electron main process, preload, server manager
 ├── server/                   # Authoritative multiplayer server
 ├── src/                      # TypeScript source, split by package boundary:
@@ -170,8 +172,8 @@ dark-war/
 │   │                         #    systems/{simulation,physics,fov}, utils)
 │   ├── client/               # Presentation — main.ts + systems/ (renderer, input, UI)
 │   └── net/                  # Multiplayer client, protocol version, delta encoding
-├── tools/                    # Deterministic sprite/sound asset generators
-└── docs/                     # Architecture and roadmap notes
+├── tools/                    # Asset generation, conversion, and validation
+└── docs/                     # Canonical architecture and execution plans
 ```
 
 ## Controls
@@ -206,4 +208,8 @@ All movement and action keys are configurable in **Settings** from the pause men
 
 ## Further Reading
 
-See [.github/copilot-instructions.md](.github/copilot-instructions.md) for the full development vision and detailed roadmap, and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the build-variant architecture.
+See [docs/ART-DIRECTION.md](docs/ART-DIRECTION.md) for the canonical visual and
+emotional direction, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for current
+system boundaries, [docs/TERRAIN-AND-WORLD.md](docs/TERRAIN-AND-WORLD.md) for the
+approved world design, and [docs/ROADMAP.md](docs/ROADMAP.md) for the execution
+sequence.

@@ -640,8 +640,8 @@ export class Game {
 
   /**
    * Rebuild the canonical tile accessor after the backing map array or its
-   * dimensions are swapped (level transitions). For finite levels this wraps
-   * the flat `map` array; a streaming dungeon would install a chunk source.
+   * dimensions are swapped (level transitions). This currently wraps the flat
+   * map; the layered WorldPlane rewrite will replace this refresh path.
    */
   private refreshTileSource(): void {
     this.state.tiles = new FlatTileSource(

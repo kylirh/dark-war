@@ -58,57 +58,113 @@ const referenceSprites = {
   "zyth.png": { col: 7, row: 7 },
 };
 
+// Rebuilding palette: colored separation replaces universal black contours.
 const C = {
-  ink: [15, 17, 22],
-  ink2: [27, 31, 40],
-  steel0: [58, 64, 78],
-  steel1: [112, 124, 144],
-  steel2: [184, 196, 210],
-  white: [238, 240, 232],
-  concrete0: [58, 61, 67],
-  concrete1: [92, 98, 108],
-  concrete2: [134, 142, 152],
-  rust: [154, 74, 42],
-  wood0: [72, 47, 31],
-  wood1: [118, 77, 43],
-  wood2: [171, 118, 66],
-  grass0: [24, 51, 29],
-  grass1: [45, 104, 46],
-  grass2: [88, 161, 71],
-  grass3: [139, 203, 91],
-  weed0: [37, 61, 31],
-  weed1: [84, 125, 52],
-  road0: [26, 29, 34],
-  road1: [48, 53, 62],
-  road2: [82, 86, 91],
-  sidewalk0: [76, 80, 80],
-  sidewalk1: [128, 132, 124],
-  tan0: [104, 76, 48],
-  tan1: [177, 135, 82],
-  tan2: [228, 184, 113],
-  gold0: [158, 111, 28],
-  gold1: [234, 184, 55],
-  gold2: [255, 227, 105],
-  red0: [92, 25, 27],
-  red1: [181, 42, 44],
-  red2: [245, 83, 67],
-  blue0: [26, 47, 88],
-  blue1: [50, 96, 180],
-  blue2: [100, 203, 255],
-  cyan0: [26, 109, 128],
-  cyan1: [68, 224, 236],
-  cyan2: [190, 255, 250],
-  purple0: [58, 34, 92],
-  purple1: [130, 70, 185],
-  purple2: [207, 112, 238],
-  green0: [24, 77, 52],
-  green1: [52, 166, 84],
-  green2: [119, 226, 108],
-  yellow0: [162, 94, 22],
-  yellow1: [238, 169, 45],
-  yellow2: [255, 224, 79],
-  black: [5, 6, 8],
+  ink: [13, 32, 49],
+  ink2: [22, 50, 67],
+  steel0: [39, 66, 88],
+  steel1: [111, 139, 156],
+  steel2: [185, 210, 205],
+  white: [246, 239, 194],
+  concrete0: [69, 61, 91],
+  concrete1: [133, 130, 132],
+  concrete2: [215, 209, 174],
+  rust: [205, 113, 69],
+  wood0: [112, 72, 42],
+  wood1: [163, 102, 52],
+  wood2: [211, 145, 70],
+  grass0: [27, 78, 67],
+  grass1: [39, 113, 76],
+  grass2: [65, 151, 83],
+  grass3: [171, 220, 105],
+  weed0: [37, 91, 69],
+  weed1: [112, 190, 91],
+  road0: [39, 66, 88],
+  road1: [91, 73, 112],
+  road2: [133, 130, 132],
+  sidewalk0: [105, 91, 96],
+  sidewalk1: [173, 172, 155],
+  tan0: [104, 61, 53],
+  tan1: [205, 113, 69],
+  tan2: [247, 193, 108],
+  gold0: [184, 121, 39],
+  gold1: [240, 177, 47],
+  gold2: [255, 220, 91],
+  red0: [171, 61, 69],
+  red1: [229, 78, 77],
+  red2: [247, 126, 100],
+  blue0: [15, 94, 110],
+  blue1: [61, 132, 191],
+  blue2: [111, 185, 229],
+  cyan0: [22, 137, 150],
+  cyan1: [31, 184, 180],
+  cyan2: [134, 231, 223],
+  purple0: [91, 55, 132],
+  purple1: [140, 87, 181],
+  purple2: [193, 132, 218],
+  green0: [27, 78, 67],
+  green1: [65, 151, 83],
+  green2: [202, 239, 151],
+  yellow0: [184, 121, 39],
+  yellow1: [240, 177, 47],
+  yellow2: [255, 220, 91],
+  black: [13, 32, 49],
 };
+
+const LEGACY_TO_CURRENT = new Map(
+  [
+    [[5, 6, 8], C.ink],
+    [[0, 0, 0], C.ink],
+    [[15, 17, 22], C.ink],
+    [[27, 31, 40], C.ink2],
+    [[58, 64, 78], C.steel0],
+    [[112, 124, 144], C.steel1],
+    [[184, 196, 210], C.steel2],
+    [[238, 240, 232], C.white],
+    [[58, 61, 67], C.concrete0],
+    [[92, 98, 108], C.concrete1],
+    [[134, 142, 152], C.concrete2],
+    [[154, 74, 42], C.rust],
+    [[72, 47, 31], C.wood0],
+    [[118, 77, 43], C.wood1],
+    [[171, 118, 66], C.wood2],
+    [[24, 51, 29], C.grass0],
+    [[45, 104, 46], C.grass1],
+    [[88, 161, 71], C.grass2],
+    [[139, 203, 91], C.grass3],
+    [[37, 61, 31], C.weed0],
+    [[84, 125, 52], C.weed1],
+    [[26, 29, 34], C.road0],
+    [[48, 53, 62], C.road1],
+    [[82, 86, 91], C.road2],
+    [[76, 80, 80], C.sidewalk0],
+    [[128, 132, 124], C.sidewalk1],
+    [[104, 76, 48], C.tan0],
+    [[177, 135, 82], C.tan1],
+    [[228, 184, 113], C.tan2],
+    [[158, 111, 28], C.gold0],
+    [[234, 184, 55], C.gold1],
+    [[255, 227, 105], C.gold2],
+    [[92, 25, 27], C.red0],
+    [[181, 42, 44], C.red1],
+    [[245, 83, 67], C.red2],
+    [[26, 47, 88], C.blue0],
+    [[50, 96, 180], C.blue1],
+    [[100, 203, 255], C.blue2],
+    [[26, 109, 128], C.cyan0],
+    [[68, 224, 236], C.cyan1],
+    [[190, 255, 250], C.cyan2],
+    [[58, 34, 92], C.purple0],
+    [[130, 70, 185], C.purple1],
+    [[207, 112, 238], C.purple2],
+    [[24, 77, 52], C.green0],
+    [[52, 166, 84], C.green1],
+    [[119, 226, 108], C.green2],
+    [[162, 94, 22], C.yellow0],
+    [[238, 169, 45], C.yellow1],
+    [[255, 224, 79], C.yellow2],
+  ].map(([from, to]) => [from.join(","), to]),
+);
 
 function blend(dst, src) {
   const [r, g, b, a = 255] = src;
@@ -170,9 +226,10 @@ function frame(col, row, cellsW = 1, cellsH = 1) {
       for (let xx = 0; xx < w; xx++) put(x + xx, y + yy, color);
     }
   };
-  const outlineRect = (x, y, w, h, fill, stroke = C.ink) => {
-    rect(x, y, w, h, stroke);
-    rect(x + 1, y + 1, Math.max(0, w - 2), Math.max(0, h - 2), fill);
+  const outlineRect = (x, y, w, h, fill, shadow = C.ink) => {
+    rect(x, y, w, h, fill);
+    if (w > 1) rect(x + 1, y + h - 1, w - 1, 1, shadow);
+    if (h > 1) rect(x + w - 1, y + 1, 1, h - 1, shadow);
   };
   const ellipse = (cx, cy, rx, ry, color) => {
     for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
@@ -1268,8 +1325,10 @@ tinyIcon(13, 16, (c) => {
   c.rect(20, 15, 4, 9, [100, 205, 235, 40]);
 });
 
-// Reference-faithful replacements from original Mission Thunderbolt sprites.
-// These intentionally preserve the tiny, high-contrast 1992 icon scale.
+// Imported legacy silhouettes remain temporary subject references. The final
+// palette pass pulls their neutral black edges into the shared colored-shadow
+// vocabulary while bespoke outline-free replacements are authored family by
+// family.
 drawReferenceSprite(10, 5, "cookie.png");
 drawReferenceSprite(1, 7, "dog.png");
 drawReferenceSprite(2, 16, "dog.png");
@@ -1329,6 +1388,17 @@ drawReferenceSprite(1, 6, "vending-machine.png");
 drawReferenceSprite(7, 7, "zyth.png");
 drawReferenceSprite(14, 16, "zyth.png");
 drawReferenceSprite(15, 16, "zyth.png", { offsetY: -1 });
+
+for (let i = 0; i < data.length; i += 4) {
+  if (data[i + 3] === 0) continue;
+  const replacement = LEGACY_TO_CURRENT.get(
+    `${data[i]},${data[i + 1]},${data[i + 2]}`,
+  );
+  if (!replacement) continue;
+  data[i] = replacement[0];
+  data[i + 1] = replacement[1];
+  data[i + 2] = replacement[2];
+}
 
 writeFileSync(OUT, encodePNG(W, H, data));
 console.log(`spritesheet: ${W}x${H}, generated 2.5D atlas -> ${OUT}`);

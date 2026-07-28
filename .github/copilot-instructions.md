@@ -13,6 +13,16 @@ headless multiplayer server.
 The project is functional and playable. Future work should be delivered in
 playable chunks that preserve type-checks, tests, and the current build variants.
 
+## Product and visual direction
+
+Dark War is centered on cheerful reconstruction after the apocalypse.
+Exploration, repair, gardening, building, friendship, and community should
+occupy more of the player's emotional life than fighting and destruction. The
+visual target is outline-free modern pixel art with painterly clusters, a
+limited vibrant palette, deep colored contrast, and atmospheric lighting—not a
+grim, heavy military aesthetic. `docs/ART-DIRECTION.md` is authoritative for all
+art, UI, effects, animation, and visual content decisions.
+
 ---
 
 ## Current Product
@@ -272,77 +282,23 @@ audio playback belongs in `src/client/systems/sound.ts`.
 
 ---
 
-## Current Roadmap
+## Active Roadmap
 
-This roadmap reflects the current implementation. It is intentionally ordered by
-playable value rather than by architectural novelty.
+The active program replaces the scalar tile model with compositional semantic
+layers, signed discrete elevation, static water, deterministic visual resolution,
+portal-linked WorldSpaces, and compiled Aseprite/Tiled authoring sources.
 
-### Phase 1: Mission Spine And Run Goals
+Read these canonical documents before planning or changing world code:
 
-Build the first complete objective loop around existing systems:
+1. `docs/TERRAIN-AND-WORLD.md` — accepted architecture, prototype, constraints,
+   and non-goals.
+2. `docs/ROADMAP.md` — ordered milestones and cross-branch handoff ledger.
+3. `docs/ARCHITECTURE.md` — current runtime boundaries and future world shape.
 
-- Add serializable `MissionState` / objective state to `GameState`.
-- Provide a clear early-game sequence: reach the bunker, find/install CTDM,
-  descend to a target depth, neutralize or recover a mission target, and extract.
-- Add HUD objective text and story-log messages.
-- Add win/extract/fail states that work offline and degrade cleanly online.
-- Cover objective progression with unit tests and save/load tests.
-
-### Phase 2: Balance, Onboarding, And Playtest Polish
-
-- Tune spawn rates, depth scaling, ammo economy, vending prices, CTDM charge, and
-  weapon usefulness against real playthroughs.
-- Add better first-run guidance through diegetic messages and UI affordances.
-- Make death, respawn, extraction, and level-complete feedback clearer.
-- Audit accessibility and settings defaults.
-
-### Phase 3: World Progression
-
-- Add lightweight authored content hooks for key rooms, mission targets,
-  terminals, interiors, and surface landmarks.
-- Expand persistent world state beyond explored tiles/entities into objective
-  decisions and level events.
-- Add more meaningful use for coins, junk, metal scraps, holowalls, repairs, and
-  vending machines.
-
-### Phase 4: Character And Living-World Systems
-
-- Add a stat/growth model with explicit trade-offs.
-- Add sleep/rest/time advancement if it serves the mission loop.
-- Add NPC schedules, relationships, memory, and dynamic events after there is a
-  clear reason for the player to revisit places and people.
-- Add crafting, planting, or construction only as focused extensions of the
-  current mutable terrain loop.
-
-### Phase 5: Presentation Upgrade
-
-- Add richer sprite animation states and projectile/melee visual effects.
-- Improve pseudo-3D occlusion: Y-sorting, tall-object transparency, and clearer
-  building/tree readability.
-- Expand environmental art variety while preserving combat readability.
-- Continue deterministic asset generation through `tools/`.
-
-### Phase 6: Multiplayer Operations
-
-- Add server configuration for public hosting: max rooms, idle timeouts, metrics,
-  and operational logging.
-- Harden reconnect/resume behavior and late-join UX.
-- Keep authoritative simulation and protocol versioning simple and test-backed.
-
-### Phase 7: Arcade Variant
-
-- Build the cabinet/kiosk variant after the core game loop and first complete run
-  are stable.
-- Reuse the existing engine/client/net split; focus on fullscreen kiosk behavior,
-  cabinet controls, attract mode, and fixed-resolution scaling.
-
-### Future Exploration
-
-- Mod support.
-- More authored campaigns and mini-games.
-- Advanced economy/ecology simulation.
-- AI-assisted dynamic NPC dialog or event generation, if it can remain debuggable
-  and bounded.
+Dark War is unreleased. Old saves, generated worlds, and network clients do not
+require migration or compatibility. It is valid to replace formats and bump the
+protocol. Keep each branch playable and tested, but delete superseded paths once
+the replacement works rather than accumulating compatibility scaffolding.
 
 ---
 
@@ -352,10 +308,13 @@ When proposing or implementing a change:
 
 - Prefer the existing engine/client/net/server boundaries.
 - Preserve a playable state after each chunk.
-- Think through serialization and multiplayer before adding gameplay state.
+- Update serialization and authoritative multiplayer in the same milestone as
+  new gameplay state; do not write legacy migrations.
 - Add tests when touching deterministic logic, network encoding, map generation,
   entity lifecycle, or progression state.
-- Consider whether a feature improves the current playable loop or just expands
-  surface area.
-- Update this file, `README.md`, `CLAUDE.md`, `AGENTS.md`, and app READMEs when
-  feature status changes.
+- Use stable semantic authoring keys and compact generated runtime IDs. Never use
+  atlas positions or editor tile IDs as gameplay identity.
+- Coordinate branch ownership through `docs/ROADMAP.md` and update its handoff
+  ledger when work is transferred or merged.
+- Update canonical documentation in the same branch as behavior changes; avoid
+  copying a second roadmap into provider-specific instruction files.

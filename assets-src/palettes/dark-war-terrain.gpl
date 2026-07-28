@@ -1,0 +1,46 @@
+GIMP Palette
+Name: Dark War Rebuilding
+Columns: 8
+# Working role palette; use a focused subset per asset or scene.
+ 13  32  49 Deep Teal
+ 22  50  67 Night Teal
+ 39  66  88 Blue Shadow
+ 69  61  91 Plum Shadow
+ 91  73 112 Lavender Shadow
+246 239 194 Warm Cream
+255 249 225 Sun Cream
+ 27  78  67 Forest Deep
+ 39 113  76 Forest
+ 65 151  83 Leaf
+112 190  91 Spring Green
+171 220 105 Lime Light
+202 239 151 Mint Light
+ 15  94 110 Water Deep
+ 22 137 150 Turquoise Shadow
+ 31 184 180 Turquoise
+ 80 215 204 Aqua
+134 231 223 Water Light
+ 61 132 191 Sky Blue
+111 185 229 Sky Light
+104  61  53 Earth Deep
+154  83  58 Clay Shadow
+205 113  69 Terracotta
+237 155  84 Peach Clay
+247 193 108 Sand Light
+112  72  42 Wood Deep
+163 102  52 Wood
+211 145  70 Wood Light
+105  91  96 Stone Deep
+133 130 132 Stone Shadow
+173 172 155 Stone
+215 209 174 Stone Light
+171  61  69 Coral Deep
+229  78  77 Coral
+247 126 100 Coral Light
+184 121  39 Gold Deep
+240 177  47 Sunny Gold
+255 220  91 Gold Light
+ 91  55 132 Violet Deep
+140  87 181 Violet
+193 132 218 Lavender
+238 154 195 Blossom Pink

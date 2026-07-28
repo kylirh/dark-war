@@ -1,11 +1,16 @@
 # apps/arcade — cabinet build (variant 4, planned)
 
 The arcade-cabinet variant. **Not built yet** — this is the last variant by design,
-once the other three are stable.
+once the terrain/world foundation and the other three variants are stable. It is
+explicitly deferred in [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md).
 
 It will reuse the exact same shared core as every other variant (`src/engine`,
 `src/client`, `src/net`); a cabinet is essentially the Electron client locked to
 kiosk/fullscreen with hardware-input mapping and no OS chrome.
+
+The cabinet must preserve the outline-free, vibrant art and optimistic
+rebuilding focus in [`../../docs/ART-DIRECTION.md`](../../docs/ART-DIRECTION.md),
+including integer scaling on its target panel.
 
 ## When it's built, expect
 

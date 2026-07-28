@@ -522,9 +522,9 @@ export interface GameState {
   wallSet: WallSet;
   wallDamage: number[];
   mapDirty: boolean;
-  // Canonical tile accessor. For finite levels this is a FlatTileSource over
-  // `map` above; a streaming dungeon swaps in a ChunkedTileSource. Gameplay
-  // logic should read/write tiles through this, not the raw `map` array.
+  // Canonical tile accessor. Currently this is a FlatTileSource over `map`
+  // above. Gameplay logic should prefer it over raw array access so the
+  // approved layered WorldPlane rewrite can replace the backing model.
   tiles: TileSource;
   visible: Set<number>;
   explored: Set<number>;

@@ -4,6 +4,15 @@ The four build variants (see
 [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md)). All share the same core under
 `../src` (`engine`/`client`/`net`) plus the headless host in `../server`.
 
+The active world/terrain rewrite applies to every variant. Its canonical design
+and milestone status live in [`../docs/TERRAIN-AND-WORLD.md`](../docs/TERRAIN-AND-WORLD.md)
+and [`../docs/ROADMAP.md`](../docs/ROADMAP.md); variant READMEs do not maintain
+separate product roadmaps.
+
+All visual clients share the cheerful rebuilding direction in
+[`../docs/ART-DIRECTION.md`](../docs/ART-DIRECTION.md). Variant-specific scaling
+or controls must not introduce a separate palette, asset identity, or mood.
+
 - **`electron/`** — Variant 1. **Shipping.** Installable desktop app: BrowserWindow
   shell, embedded-server child process, UDP LAN discovery. Code: `../electron` +
   `../app/index.html`; build with `npm run build`.
