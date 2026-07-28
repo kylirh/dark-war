@@ -1178,6 +1178,199 @@ for (let mask = 0; mask < 16; mask++) {
   connectedHole(mask, 42, mask);
 }
 
+// Milestone 1 terrain laboratory. These cells intentionally use broad colored
+// clusters and selective undersides instead of perimeter outlines.
+const prototypeGrass = frame(0, 17);
+prototypeGrass.clear();
+prototypeGrass.rect(0, 0, 32, 32, C.grass2);
+prototypeGrass.rect(3, 10, 8, 5, C.grass1);
+prototypeGrass.rect(9, 13, 5, 4, C.grass1);
+prototypeGrass.rect(22, 5, 7, 4, C.grass3);
+prototypeGrass.rect(18, 24, 10, 4, C.grass1);
+prototypeGrass.rect(4, 27, 6, 3, C.grass3);
+
+const prototypeGrassFlowers = frame(1, 17);
+prototypeGrassFlowers.clear();
+prototypeGrassFlowers.rect(0, 0, 32, 32, C.grass2);
+prototypeGrassFlowers.rect(3, 22, 9, 5, C.grass1);
+prototypeGrassFlowers.rect(21, 8, 7, 4, C.grass3);
+for (const [x, y, color] of [
+  [7, 8, [246, 239, 194]],
+  [15, 20, [238, 154, 195]],
+  [25, 25, [193, 132, 218]],
+  [27, 14, [255, 220, 91]],
+]) {
+  prototypeGrassFlowers.rect(x, y, 2, 2, color);
+}
+
+const prototypeDirt = frame(2, 17);
+prototypeDirt.clear();
+prototypeDirt.rect(0, 0, 32, 32, C.tan1);
+prototypeDirt.rect(4, 10, 12, 5, [183, 94, 62]);
+prototypeDirt.rect(18, 20, 10, 5, C.tan0);
+prototypeDirt.rect(8, 27, 7, 3, C.tan2);
+
+const prototypeStone = frame(3, 17);
+prototypeStone.clear();
+prototypeStone.rect(0, 0, 32, 32, C.concrete1);
+prototypeStone.rect(3, 8, 13, 8, [154, 153, 143]);
+prototypeStone.rect(18, 17, 11, 7, C.steel0);
+prototypeStone.rect(5, 27, 9, 3, C.concrete2);
+
+const prototypeWaterShallow = frame(4, 17);
+prototypeWaterShallow.clear();
+prototypeWaterShallow.rect(0, 0, 32, 32, C.cyan1);
+prototypeWaterShallow.rect(2, 13, 12, 3, [80, 215, 204]);
+prototypeWaterShallow.rect(17, 23, 13, 3, C.cyan0);
+prototypeWaterShallow.rect(22, 8, 7, 2, C.white);
+
+const prototypeWaterDeep = frame(5, 17);
+prototypeWaterDeep.clear();
+prototypeWaterDeep.rect(0, 0, 32, 32, C.cyan0);
+prototypeWaterDeep.rect(3, 12, 11, 3, [22, 137, 150]);
+prototypeWaterDeep.rect(16, 24, 14, 3, C.blue0);
+prototypeWaterDeep.rect(20, 8, 8, 2, C.cyan2);
+
+function prototypeCliff(col, tall = false) {
+  const c = frame(col, 17);
+  c.clear();
+  c.rect(0, 0, 32, 32, tall ? C.tan0 : [154, 83, 58]);
+  c.rect(0, 0, 32, tall ? 6 : 9, C.grass1);
+  c.rect(0, tall ? 5 : 8, 32, 4, C.tan2);
+  c.rect(3, tall ? 11 : 13, 11, tall ? 14 : 10, C.tan1);
+  c.rect(16, tall ? 9 : 14, 13, tall ? 8 : 6, C.rust);
+  c.rect(20, tall ? 20 : 22, 9, 7, C.tan0);
+  c.rect(5, 27, 12, 5, C.ink2);
+  c.rect(0, 30, 32, 2, C.ink);
+  c.rect(6, tall ? 8 : 11, 4, 3, C.grass3);
+}
+prototypeCliff(6, false);
+prototypeCliff(7, true);
+
+for (const [col, side] of [
+  [8, "north"],
+  [9, "east"],
+  [10, "south"],
+  [11, "west"],
+]) {
+  const c = frame(col, 17);
+  c.clear();
+  if (side === "north") c.rect(0, 0, 32, 4, C.tan2);
+  if (side === "east") c.rect(28, 0, 4, 32, C.tan0);
+  if (side === "south") c.rect(0, 27, 32, 5, C.tan0);
+  if (side === "west") c.rect(0, 0, 4, 32, C.tan2);
+}
+
+const prototypeGrassAlt = frame(12, 17);
+prototypeGrassAlt.clear();
+prototypeGrassAlt.rect(0, 0, 32, 32, C.grass2);
+prototypeGrassAlt.rect(1, 23, 11, 5, C.grass1);
+prototypeGrassAlt.rect(20, 15, 9, 4, C.grass3);
+prototypeGrassAlt.rect(9, 4, 6, 4, [112, 190, 91]);
+
+const prototypeDirtAlt = frame(13, 17);
+prototypeDirtAlt.clear();
+prototypeDirtAlt.rect(0, 0, 32, 32, C.tan1);
+prototypeDirtAlt.rect(2, 21, 13, 5, C.tan0);
+prototypeDirtAlt.rect(19, 7, 10, 5, C.tan2);
+prototypeDirtAlt.rect(12, 14, 7, 4, C.rust);
+
+const prototypeStoneAlt = frame(14, 17);
+prototypeStoneAlt.clear();
+prototypeStoneAlt.rect(0, 0, 32, 32, C.concrete1);
+prototypeStoneAlt.rect(2, 18, 14, 8, C.steel0);
+prototypeStoneAlt.rect(18, 5, 11, 7, C.concrete2);
+prototypeStoneAlt.rect(12, 13, 8, 4, [154, 153, 143]);
+
+const prototypeWaterAlt = frame(15, 17);
+prototypeWaterAlt.clear();
+prototypeWaterAlt.rect(0, 0, 32, 32, C.cyan1);
+prototypeWaterAlt.rect(3, 22, 15, 3, C.cyan0);
+prototypeWaterAlt.rect(17, 9, 12, 3, C.cyan2);
+prototypeWaterAlt.rect(7, 13, 6, 2, C.white);
+
+const prototypeBridge = frame(8, 18);
+prototypeBridge.clear();
+prototypeBridge.rect(0, 6, 32, 22, C.wood0);
+prototypeBridge.rect(0, 7, 32, 5, C.wood2);
+prototypeBridge.rect(0, 14, 32, 4, C.wood1);
+prototypeBridge.rect(0, 21, 32, 4, C.wood2);
+prototypeBridge.rect(0, 27, 32, 3, C.ink2);
+prototypeBridge.rect(4, 4, 3, 27, C.gold0);
+prototypeBridge.rect(25, 4, 3, 27, C.gold0);
+
+const prototypeStairs = frame(9, 18);
+prototypeStairs.clear();
+prototypeStairs.rect(3, 3, 26, 27, C.tan0);
+for (let step = 0; step < 5; step++) {
+  const inset = 3 + step * 2;
+  prototypeStairs.rect(inset, 4 + step * 5, 26 - step * 4, 4, C.tan2);
+  prototypeStairs.rect(inset, 8 + step * 5, 26 - step * 4, 2, C.ink2);
+}
+
+const prototypeGarden = frame(10, 18);
+prototypeGarden.clear();
+prototypeGarden.rect(2, 3, 28, 27, C.wood0);
+prototypeGarden.rect(4, 5, 24, 23, C.tan0);
+for (const x of [7, 15, 23]) {
+  prototypeGarden.rect(x, 8, 3, 15, C.grass1);
+  prototypeGarden.rect(x - 2, 11, 7, 5, C.grass3);
+  prototypeGarden.rect(x - 1, 8, 5, 4, C.yellow1);
+}
+
+const prototypeFlowers = frame(11, 18);
+prototypeFlowers.clear();
+prototypeFlowers.rect(14, 13, 4, 17, C.grass0);
+prototypeFlowers.rect(9, 18, 7, 5, C.grass2);
+prototypeFlowers.rect(17, 20, 8, 5, C.grass3);
+prototypeFlowers.rect(9, 9, 7, 7, [238, 154, 195]);
+prototypeFlowers.rect(17, 7, 7, 7, C.purple2);
+prototypeFlowers.rect(13, 5, 6, 6, C.gold2);
+
+const prototypeWorkshop = frame(8, 20, 3, 3);
+prototypeWorkshop.clear();
+prototypeWorkshop.ellipse(48, 82, 39, 9, [13, 32, 49, 90]);
+prototypeWorkshop.rect(10, 35, 76, 48, C.wood1);
+prototypeWorkshop.rect(15, 39, 66, 39, C.rust);
+prototypeWorkshop.rect(20, 47, 23, 31, C.tan2);
+prototypeWorkshop.rect(50, 49, 24, 29, C.cyan0);
+prototypeWorkshop.rect(55, 54, 14, 12, C.cyan2);
+prototypeWorkshop.rect(5, 28, 86, 13, C.red1);
+prototypeWorkshop.rect(13, 20, 70, 13, C.red2);
+prototypeWorkshop.rect(23, 14, 50, 10, C.gold1);
+prototypeWorkshop.rect(28, 10, 40, 8, C.gold2);
+prototypeWorkshop.rect(43, 55, 8, 28, C.ink2);
+prototypeWorkshop.rect(45, 58, 5, 18, C.purple1);
+prototypeWorkshop.rect(10, 41, 8, 8, C.grass3);
+prototypeWorkshop.rect(72, 35, 9, 7, C.purple2);
+
+const prototypeCave = frame(11, 20, 2, 2);
+prototypeCave.clear();
+prototypeCave.ellipse(32, 55, 29, 9, [13, 32, 49, 80]);
+prototypeCave.rect(5, 23, 54, 34, C.tan0);
+prototypeCave.rect(10, 16, 44, 36, C.tan1);
+prototypeCave.rect(16, 11, 32, 40, C.tan2);
+prototypeCave.ellipse(32, 43, 18, 23, C.ink);
+prototypeCave.ellipse(32, 46, 13, 19, [22, 50, 67]);
+prototypeCave.rect(11, 17, 9, 7, C.grass2);
+prototypeCave.rect(43, 20, 8, 7, C.grass3);
+prototypeCave.rect(21, 13, 8, 5, C.gold1);
+
+const prototypeTree = frame(13, 20, 2, 3);
+prototypeTree.clear();
+prototypeTree.ellipse(32, 87, 24, 7, [13, 32, 49, 80]);
+prototypeTree.rect(27, 48, 11, 39, C.wood0);
+prototypeTree.rect(31, 43, 8, 40, C.wood1);
+prototypeTree.rect(35, 50, 5, 27, C.wood2);
+prototypeTree.ellipse(24, 42, 22, 25, C.grass1);
+prototypeTree.ellipse(42, 39, 20, 24, C.grass0);
+prototypeTree.ellipse(33, 25, 25, 23, C.grass2);
+prototypeTree.ellipse(18, 28, 15, 16, C.grass3);
+prototypeTree.ellipse(43, 21, 14, 14, [112, 190, 91]);
+prototypeTree.rect(16, 16, 10, 7, [171, 220, 105]);
+prototypeTree.rect(38, 12, 9, 7, C.grass3);
+prototypeTree.rect(47, 31, 8, 6, C.grass1);
+
 drawBaseSprite(0, 10, 5, 4, { cellsW: 2, cellsH: 3, scale: 2, y: 25 });
 drawBaseSprite(2, 10, 6, 4, { cellsH: 2, y: 25 });
 drawBaseSprite(3, 10, 7, 4, { cellsH: 2, y: 28 });

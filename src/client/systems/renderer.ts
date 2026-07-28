@@ -36,6 +36,18 @@ import {
 } from "../../engine/config/sprites";
 import { wrapValue, nearestWrappedImage } from "../../engine/utils/wrap";
 import { cardinalAutotileMask } from "../../engine/utils/autotile";
+import {
+  PrototypeGround,
+  PrototypeStructure,
+} from "../../engine/systems/terrain/terrain-prototype";
+import {
+  cliffMagnitudeForDrop,
+  ELEVATION_EAST,
+  ELEVATION_NORTH,
+  ELEVATION_SOUTH,
+  ELEVATION_WEST,
+  resolveElevationVisualContext,
+} from "../../engine/systems/terrain/elevation-resolver";
 
 type RenderFrame = SpriteFrame & { key: string };
 
@@ -1260,6 +1272,98 @@ export class Renderer {
           sprite.zIndex = sortY;
           this.entityContainer.addChild(sprite);
         };
+
+        const prototype = state.terrainPrototype;
+        if (prototype) {
+          const prototypeIndex = mx + my * prototype.width;
+          const prototypeGround = prototype.ground[
+            prototypeIndex
+          ] as PrototypeGround;
+          const groundKeyByType: Record<PrototypeGround, string> = {
+            [PrototypeGround.GRASS]:
+              hashTile(mx, my, 81) % 17 === 0
+                ? "prototype_grass_flowers"
+                : hashTile(mx, my, 82) % 2 === 0
+                  ? "prototype_grass"
+                  : "prototype_grass_alt",
+            [PrototypeGround.DIRT]:
+              hashTile(mx, my, 83) % 2 === 0
+                ? "prototype_dirt"
+                : "prototype_dirt_alt",
+            [PrototypeGround.STONE]:
+              hashTile(mx, my, 84) % 2 === 0
+                ? "prototype_stone"
+                : "prototype_stone_alt",
+            [PrototypeGround.WATER_SHALLOW]:
+              hashTile(mx, my, 85) % 2 === 0
+                ? "prototype_water_shallow"
+                : "prototype_water_alt",
+            [PrototypeGround.WATER_DEEP]: "prototype_water_deep",
+          };
+          renderGround(groundKeyByType[prototypeGround]);
+
+          const elevationAt = (x: number, y: number): number => {
+            if (
+              x < 0 ||
+              y < 0 ||
+              x >= prototype.width ||
+              y >= prototype.height
+            ) {
+              return prototype.elevation[prototypeIndex];
+            }
+            return prototype.elevation[x + y * prototype.width];
+          };
+          const elevationContext = resolveElevationVisualContext(
+            mx,
+            my,
+            elevationAt,
+          );
+
+          // A lower cell directly south of a higher terrace carries the visible
+          // face. Arbitrary height differences collapse to one bounded sprite.
+          if (elevationContext.higherNeighborMask & ELEVATION_NORTH) {
+            renderGround(
+              cliffMagnitudeForDrop(elevationContext.maximumRise) === "tall"
+                ? "prototype_cliff_tall"
+                : "prototype_cliff_step",
+            );
+          } else {
+            if (elevationContext.lowerNeighborMask & ELEVATION_NORTH) {
+              renderGround("prototype_cliff_edge_north");
+            }
+            if (elevationContext.lowerNeighborMask & ELEVATION_EAST) {
+              renderGround("prototype_cliff_edge_east");
+            }
+            if (elevationContext.lowerNeighborMask & ELEVATION_SOUTH) {
+              renderGround("prototype_cliff_edge_south");
+            }
+            if (elevationContext.lowerNeighborMask & ELEVATION_WEST) {
+              renderGround("prototype_cliff_edge_west");
+            }
+          }
+
+          const prototypeStructure = prototype.structure[prototypeIndex];
+          if (prototypeStructure === PrototypeStructure.TREE) {
+            renderDecoration("prototype_tree");
+          } else if (
+            prototypeStructure === PrototypeStructure.BRIDGE_HORIZONTAL
+          ) {
+            renderGround("prototype_bridge_horizontal");
+          } else if (prototypeStructure === PrototypeStructure.STAIRS) {
+            renderGround("prototype_stairs");
+          } else if (prototypeStructure === PrototypeStructure.GARDEN) {
+            renderGround("prototype_garden");
+          } else if (prototypeStructure === PrototypeStructure.FLOWERS) {
+            renderDecoration("prototype_flowers");
+          } else if (prototypeStructure === PrototypeStructure.CRATE) {
+            renderDecoration("crate");
+          } else if (prototypeStructure === PrototypeStructure.WORKSHOP) {
+            renderDecoration("prototype_workshop");
+          } else if (prototypeStructure === PrototypeStructure.CAVE_MOUTH) {
+            renderDecoration("prototype_cave_mouth");
+          }
+          continue;
+        }
 
         if (tileType === TileType.FLOOR) {
           renderGround(TileType.FLOOR, floorCoord);

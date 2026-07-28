@@ -51,6 +51,12 @@ To build and launch the game in Electron:
 npm run dev
 ```
 
+To launch the deterministic terrain/elevation development slice directly:
+
+```bash
+npm run dev:terrain
+```
+
 This will compile TypeScript, bundle assets, and launch the Electron application. The game opens to a main menu where you can start a new game or join/host multiplayer.
 
 ### LAN Multiplayer (built-in)

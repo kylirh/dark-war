@@ -58,7 +58,9 @@ function parseGameQueryFromArgs(argv) {
       rawKey === "mode" ||
       rawKey === "server" ||
       rawKey === "room" ||
-      rawKey === "name"
+      rawKey === "name" ||
+      rawKey === "skipTitle" ||
+      rawKey === "terrainPrototype"
     ) {
       query[rawKey] = value;
     }

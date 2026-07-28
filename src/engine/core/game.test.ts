@@ -229,6 +229,23 @@ describe("Game multiplayer player management", () => {
     expect(hasCtdm).toBe(false);
   });
 
+  it("loads the terrain prototype through the canonical tile source", () => {
+    const prototypeGame = new Game();
+    prototypeGame.reset(0);
+    prototypeGame.loadTerrainPrototype();
+
+    const state = prototypeGame.getState();
+    expect(state.terrainPrototype).toBeDefined();
+    expect(state.mapWidth).toBe(40);
+    expect(state.mapHeight).toBe(30);
+    expect(state.map).toBe(state.terrainPrototype!.collisionMap);
+    expect(state.tiles.getTile(20, 3)).toBe(TileType.WALL);
+    expect(state.tiles.getTile(20, 6)).toBe(TileType.FLOOR);
+    expect([state.player.gridX, state.player.gridY]).toEqual([19, 14]);
+    expect(state.entities).toEqual([state.player]);
+    expect(state.options.fov).toBe(false);
+  });
+
   it("detaches a player and re-attaches it to another world with stats intact", () => {
     const from = new Game({ mode: "online" });
     from.reset(1);

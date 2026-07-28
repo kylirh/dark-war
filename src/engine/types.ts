@@ -562,6 +562,8 @@ export interface GameState {
   holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
   /** Sound effects queued during simulation for local or network playback. */
   pendingSounds: SoundCue[];
+  /** Development-only visual slice; never serialized into production saves. */
+  terrainPrototype?: import("./systems/terrain/terrain-prototype").TerrainPrototypePlane;
   /**
    * Transient: id of a pet that just became friendly and is awaiting a name.
    * The client shows a naming modal (and pauses) when this is set, then clears

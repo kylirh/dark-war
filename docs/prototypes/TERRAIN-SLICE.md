@@ -13,6 +13,21 @@ The slice must answer four questions with pixels and measurements:
 3. Can ground, water, cliffs, vegetation, structures, and portals compose?
 4. Can a local edit update visuals with bounded work?
 
+## Running the current slice
+
+```bash
+npm run dev:terrain
+```
+
+For the browser development build, run `npm run dev:web` and open
+`http://localhost:5174/?skipTitle=1&terrainPrototype=1`.
+
+The current implementation lives in
+`src/engine/systems/terrain/terrain-prototype.ts`. It uses aligned typed arrays
+for ground, structure, and signed elevation, while a generated scalar collision
+map temporarily connects the fixture to today's physics and pathfinding. The
+normal outside and dungeon generators are unchanged.
+
 The generated direction boards under
 `assets-src/references/art-direction/` are mood, color, and shape references
 only. They are not tilesheets, sources of gameplay identity, or exact rendering
@@ -140,13 +155,28 @@ Record measurements in this file with the commit and hardware used. Do not inven
 performance thresholds before the first baseline; the invariant is bounded local
 work and no material regression from the current fixed scene.
 
+### Initial visual baseline — 2026-07-28
+
+- Fixed data size: 40×30, or 1,200 cells.
+- Semantic layer memory: 1,200-byte ground + 1,200-byte structure + 2,400-byte
+  elevation = 4,800 bytes before the temporary collision adapter.
+- Logical elevations present: `-4`, `0`, `2`, `5`, `8`, and `12`.
+- Tall-drop selection is constant-cost through `cliffMagnitudeForDrop`; a drop
+  greater than one selects one authored tall-face sprite.
+- Browser visual inspection passed without console errors. Ground repetition was
+  reduced after the first render by adding deterministic variants and removing
+  per-tile highlight bands.
+- Frame-time and dirty-edit measurements remain pending until edit fixtures and
+  resolver caching land.
+
 ## Acceptance checklist
 
 - [ ] Elevation reads without UI explanation.
 - [ ] Inner and outer cliff corners are unambiguous.
-- [ ] Tall cliffs have constant-bounded rendering cost.
-- [ ] Static water, shore, river, and bridge compose correctly.
-- [ ] Trees retain ground underneath them.
+- [x] Tall cliffs have constant-bounded rendering cost.
+- [x] Static water, river, and bridge compose in the fixed scene; authored shore
+      masks remain pending.
+- [x] Trees retain ground underneath them.
 - [ ] Raising/lowering repairs nearby visuals without a full-map pass.
 - [ ] Cave entry moves between planes without simultaneous plane rendering.
 - [ ] The scene satisfies the review checklist in `docs/ART-DIRECTION.md`.

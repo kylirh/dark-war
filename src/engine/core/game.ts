@@ -39,6 +39,7 @@ import {
 import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { SoundEffect } from "../content/sound-effects";
+import { createTerrainPrototypePlane } from "../systems/terrain/terrain-prototype";
 
 const EXPLORATION_COMPLETION_THRESHOLD = 0.9;
 const MIN_COMPLETION_REACHABLE_TILES = 50;
@@ -346,6 +347,50 @@ export class Game {
 
     this.updateFOV();
     if (DEBUG) console.timeEnd("reset: total");
+  }
+
+  /**
+   * Replace the current level with the deterministic Milestone 1 terrain slice.
+   * The compositional layers drive presentation while the generated scalar map
+   * temporarily supplies collision to today's physics and pathfinding systems.
+   */
+  public loadTerrainPrototype(): void {
+    const prototype = createTerrainPrototypePlane();
+    const player = this.state.player;
+
+    this.state.depth = 0;
+    this.state.levelKind = "dungeon";
+    this.state.map = prototype.collisionMap;
+    this.state.mapWidth = prototype.width;
+    this.state.mapHeight = prototype.height;
+    this.state.floorVariant = 0;
+    this.state.wallSet = "wood";
+    this.state.wallDamage = new Array(prototype.width * prototype.height).fill(
+      0,
+    );
+    this.state.tiles = new FlatTileSource(
+      prototype.collisionMap,
+      prototype.width,
+      prototype.height,
+    );
+    this.state.terrainPrototype = prototype;
+    this.state.stairsDown = [31, 8];
+    this.state.stairsUp = null;
+    this.state.playerStart = [prototype.start[0], prototype.start[1]];
+    this.state.options.fov = false;
+    this.state.mapDirty = true;
+    this.state.changedTiles = new Set();
+    this.state.entityManager.replaceAll([player]);
+    this.state.players = [player];
+    setPositionFromGrid(player, prototype.start[0], prototype.start[1]);
+
+    this.state.visible.clear();
+    this.state.explored.clear();
+    this.state.accessible.clear();
+    this.addStory(
+      "Terrain laboratory: rebuild the bright world one tile at a time.",
+    );
+    this.updateFOV();
   }
 
   /**

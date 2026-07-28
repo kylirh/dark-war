@@ -148,6 +148,8 @@ interface DarkWarApplication {
 interface DarkWarOptions {
   initialGame?: InitialGameMode;
   initialLoadSlot?: number;
+  /** Launch the deterministic Milestone 1 visual terrain fixture. */
+  terrainPrototype?: boolean;
   /** Pre-connected multiplayer client (bypasses URL-param based connection). */
   multiplayerClient?: MultiplayerClient;
   /** Player name for UI display when using a pre-connected client. */
@@ -594,6 +596,9 @@ class DarkWar {
       } else {
         if (DEBUG) console.time("Start new game");
         this.game.reset(0);
+        if (options.terrainPrototype) {
+          this.game.loadTerrainPrototype();
+        }
         if (DEBUG) console.timeEnd("Start new game");
         this.finishInitialGameStartup();
       }
@@ -3023,6 +3028,9 @@ const createDarkWarApp = (): void => {
   const shouldShowMenu = new URLSearchParams(window.location.search).has(
     "showMenu",
   );
+  const shouldShowTerrainPrototype = new URLSearchParams(
+    window.location.search,
+  ).has("terrainPrototype");
 
   const startGame = (
     mode: InitialGameMode = "new",
@@ -3034,6 +3042,7 @@ const createDarkWarApp = (): void => {
     window.darkWarApp = new DarkWar({
       initialGame: mode,
       initialLoadSlot: loadSlot,
+      terrainPrototype: shouldShowTerrainPrototype && mode === "new",
     });
   };
 

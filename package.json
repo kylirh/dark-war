@@ -3,7 +3,7 @@
   "name": "dark-war",
   "private": true,
   "productName": "Dark War",
-  "description": "A roguelike remake of Mission Thunderbolt with continuous movement, the CTDM combat system, destructible levels, and LAN multiplayer.",
+  "description": "A colorful post-apocalyptic rebuilding roguelike with continuous movement, editable terrain, the CTDM combat system, and LAN multiplayer.",
   "author": {
     "name": "Kylir Horton",
     "email": "kylirh@gmail.com"
@@ -19,6 +19,7 @@
     "build:server": "esbuild server/multiplayer-server.ts --bundle --platform=node --format=cjs --outfile=app/server-bundle.js --log-level=warning",
     "build:ts": "npm run -s build:server && tsc && node scripts/build-web.mjs",
     "dev": "npm run -s build:ts && node scripts/launch-electron.js",
+    "dev:terrain": "npm run -s build:ts && node scripts/launch-electron.js --skipTitle=1 --terrainPrototype=1",
     "dev:online": "npm run -s build:ts && node scripts/launch-electron.js --mode=online --server=ws://localhost:7777 --room=default",
     "online:client": "node scripts/launch-electron.js --mode=online --server=ws://localhost:7777 --room=default",
     "multiplayer:server": "tsx server/multiplayer-server.ts",
