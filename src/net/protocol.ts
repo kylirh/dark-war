@@ -8,4 +8,4 @@
  * The server stamps its version in the `welcome` message and clients refuse
  * to play on a mismatch rather than silently desyncing.
  */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 5;

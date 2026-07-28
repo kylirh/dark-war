@@ -4,6 +4,31 @@ import { ItemEntity } from "../../entities/item-entity";
 import { EntityKind, ItemType, TileType, CELL_CONFIG } from "../../types";
 import { RNG } from "../../utils/rng";
 import { stepSimulationTick } from "./tick";
+import { SoundEffect } from "../../content/sound-effects";
+
+describe("player falls through a hole", () => {
+  beforeEach(() => RNG.reseed(7));
+
+  it("plays the fall-down cue when a hole opens beneath the player", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    const index = player.gridX + player.gridY * state.mapWidth;
+    state.tiles.setTile(player.gridX, player.gridY, TileType.HOLE);
+    state.holeCreatedTiles?.add(index);
+
+    stepSimulationTick(state);
+
+    expect(state.shouldDescend).toBe(true);
+    expect(state.descendTarget).toEqual([player.gridX, player.gridY]);
+    expect(
+      state.pendingSounds.some(
+        (sound) => sound.effect === SoundEffect.FALL_DOWN,
+      ),
+    ).toBe(true);
+  });
+});
 
 describe("magnetic auto-pickup", () => {
   beforeEach(() => RNG.reseed(123));

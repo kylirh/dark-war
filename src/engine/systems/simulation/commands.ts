@@ -24,7 +24,7 @@ import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
 import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
 import { MONSTER_DEFS } from "../../content/monster-defs";
-import { itemName } from "../../content/item-defs";
+import { ITEM_DEFS, itemName } from "../../content/item-defs";
 import { minedItemForTile, placedTileForItem } from "../../content/block-defs";
 import { tileIsPassable } from "../../core/tile-source";
 import { ItemEntity } from "../../entities/item-entity";
@@ -32,6 +32,14 @@ import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
 import { BulletEntity } from "../../entities/bullet-entity";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
+import { isWallLikeTile } from "../../core/tile-source";
+import {
+  equippedMonsterWeaponType,
+  isAdaptiveWeaponMonster,
+  MONSTER_LASER_SHOT_COST,
+  MONSTER_SHOTGUN_AMMO_COST,
+  monsterMeleeDamage,
+} from "../../utils/monster-weapons";
 import {
   SIM_DT_MS,
   GRENADE_FUSE_TICKS,
@@ -53,6 +61,21 @@ import {
 // ========================================
 // Command Management
 // ========================================
+
+const THROW_SOUNDS = [
+  SoundEffect.THROW_1,
+  SoundEffect.THROW_2,
+  SoundEffect.THROW_3,
+  SoundEffect.THROW_4,
+  SoundEffect.THROW_5,
+];
+
+function queuePlayerThrowSound(state: GameState, player: Player): void {
+  state.pendingSounds.push({
+    effect: RNG.choose(THROW_SOUNDS),
+    sourceId: player.id,
+  });
+}
 
 export function enqueueCommand(
   state: GameState,
@@ -313,10 +336,25 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
   let damage = 1;
   if (attacker.kind === EntityKind.MONSTER) {
     const monster = attacker as Monster;
-    damage = monster.dmg;
+    damage = isAdaptiveWeaponMonster(monster)
+      ? monsterMeleeDamage(monster)
+      : monster.dmg;
     // Multi-hit creatures (tentacular horror) strike several times at once.
     const multiHit = MONSTER_DEFS[monster.type]?.flags?.multiHit ?? 1;
     if (multiHit > 1) damage *= multiHit;
+
+    if (monster.type === MonsterType.ICKY_LUMP) {
+      const ickyLumpHitSounds = [
+        SoundEffect.ICKY_LUMP_HIT_1,
+        SoundEffect.ICKY_LUMP_HIT_2,
+        SoundEffect.ICKY_LUMP_HIT_3,
+      ];
+      state.pendingSounds.push({
+        effect: ickyLumpHitSounds[RNG.int(ickyLumpHitSounds.length)],
+        worldX: monster.worldX,
+        worldY: monster.worldY,
+      });
+    }
   }
 
   pushEvent(state, {
@@ -392,13 +430,34 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
 
     switch (weapon) {
       case WeaponType.MELEE: {
+        if (meleeWeapon === ItemType.VIBRA_SWORD) {
+          const vibraSwordSounds = [
+            SoundEffect.VIBRA_SWORD_1,
+            SoundEffect.VIBRA_SWORD_2,
+            SoundEffect.VIBRA_SWORD_3,
+            SoundEffect.VIBRA_SWORD_4,
+            SoundEffect.VIBRA_SWORD_5,
+            SoundEffect.VIBRA_SWORD_6,
+            SoundEffect.VIBRA_SWORD_7,
+          ];
+          state.pendingSounds.push({
+            effect: vibraSwordSounds[RNG.int(vibraSwordSounds.length)],
+          });
+        } else if (meleeWeapon === ItemType.MACRO_METAL_SWORD) {
+          const macroMetalSwordSounds = [
+            SoundEffect.MACRO_METAL_SWORD_1,
+            SoundEffect.MACRO_METAL_SWORD_2,
+          ];
+          state.pendingSounds.push({
+            effect: RNG.choose(macroMetalSwordSounds),
+          });
+        }
         const target = findMeleeTarget(state, player, angle);
         if (!target) {
           const dx = Math.round(Math.cos(angle));
           const dy = Math.round(Math.sin(angle));
           const targetX = player.gridX + dx;
           const targetY = player.gridY + dy;
-          const hitWall = applyWallDamageAt(state, targetX, targetY, 2);
           const targetTile = tileAtFor(
             state.map,
             targetX,
@@ -406,6 +465,9 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             state.mapWidth,
             state.mapHeight,
           );
+          const hitWall =
+            isWallLikeTile(targetTile) &&
+            applyWallDamageAt(state, targetX, targetY, 2);
           const isPerimeterWall =
             targetTile === TileType.WALL &&
             (targetX <= 0 ||
@@ -439,6 +501,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             });
             return;
           }
+          state.pendingSounds.push({ effect: SoundEffect.MISS });
           pushEvent(state, {
             type: EventType.MESSAGE,
             data: { type: "MESSAGE", message: "You swing at empty air." },
@@ -510,8 +573,9 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           return;
         }
         player.ammo--;
+        const smgSounds = [SoundEffect.SMG_SHOOT_1, SoundEffect.SMG_SHOOT_2];
         state.pendingSounds.push({
-          effect: SoundEffect.SHOOT,
+          effect: smgSounds[RNG.int(smgSounds.length)],
           sourceId: player.id,
         });
         const spread = (RNG.int(11) - 5) * 0.012; // ±~0.06 rad
@@ -531,8 +595,13 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         const PELLETS = 6;
         const SPREAD = 0.42; // total cone width (rad)
         player.ammo -= SHELL_COST; // heavy ammo use
+        const shotgunSounds = [
+          SoundEffect.SHOTGUN_BLAST_1,
+          SoundEffect.SHOTGUN_BLAST_2,
+          SoundEffect.SHOTGUN_BLAST_3,
+        ];
         state.pendingSounds.push({
-          effect: SoundEffect.SHOOT,
+          effect: shotgunSounds[RNG.int(shotgunSounds.length)],
           sourceId: player.id,
         });
         for (let i = 0; i < PELLETS; i++) {
@@ -546,8 +615,13 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         return;
       }
       case WeaponType.LASER: {
-        // Charge-powered: drains laserCharge instead of ammo; recharge with cells.
+        // Charge-powered beam: much faster than a ballistic round and able to
+        // reflect repeatedly without losing speed.
         if (player.laserCharge <= 0) {
+          state.pendingSounds.push({
+            effect: SoundEffect.CLICK,
+            sourceId: player.id,
+          });
           pushEvent(state, {
             type: EventType.MESSAGE,
             data: {
@@ -558,14 +632,37 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           return;
         }
         player.laserCharge = Math.max(0, player.laserCharge - 5);
+        const laserSounds = [
+          SoundEffect.LASER_SHOOT_1,
+          SoundEffect.LASER_SHOOT_2,
+          SoundEffect.LASER_SHOOT_3,
+          SoundEffect.LASER_SHOOT_4,
+        ];
         state.pendingSounds.push({
-          effect: SoundEffect.SHOOT,
+          effect: laserSounds[RNG.int(laserSounds.length)],
           sourceId: player.id,
         });
-        launchBullet(angle, 3, 760, 720); // fast, hits a bit harder
+        const LASER_SPEED = 3600;
+        const LASER_RANGE = 1536;
+        const MUZZLE_OFFSET = 16;
+        state.entityManager.spawn(
+          new BulletEntity(
+            player.worldX + Math.cos(angle) * MUZZLE_OFFSET,
+            player.worldY + Math.sin(angle) * MUZZLE_OFFSET,
+            Math.cos(angle) * LASER_SPEED,
+            Math.sin(angle) * LASER_SPEED,
+            4,
+            player.id,
+            LASER_RANGE,
+            0.65,
+            4,
+            0.03,
+            "laser",
+          ),
+        );
         pushEvent(state, {
           type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "Zap!" },
+          data: { type: "MESSAGE", message: "ZZZAP!" },
         });
         return;
       }
@@ -617,6 +714,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         grenade.worldX += grenade.velocityX * (SIM_DT_MS / 1000);
         grenade.worldY += grenade.velocityY * (SIM_DT_MS / 1000);
         state.entityManager.spawn(grenade);
+        queuePlayerThrowSound(state, player);
         pushEvent(state, {
           type: EventType.MESSAGE,
           data: { type: "MESSAGE", message: "Grenade out!" },
@@ -678,7 +776,36 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
     const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance === 0) return;
 
-    const weapon = weaponOverride ?? WeaponType.GRENADE;
+    const equippedWeapon = equippedMonsterWeaponType(monster);
+    const weapon = weaponOverride ?? equippedWeapon;
+    if (
+      isAdaptiveWeaponMonster(monster) &&
+      weapon !== WeaponType.GRENADE &&
+      weapon !== WeaponType.LAND_MINE &&
+      weapon !== equippedWeapon
+    ) {
+      return;
+    }
+
+    const launchMonsterBullet = (
+      aim: number,
+      damage: number,
+      speed: number,
+      maxDistance: number,
+    ): void => {
+      const muzzleOffset = 16;
+      state.entityManager.spawn(
+        new BulletEntity(
+          monster.worldX + Math.cos(aim) * muzzleOffset,
+          monster.worldY + Math.sin(aim) * muzzleOffset,
+          Math.cos(aim) * speed,
+          Math.sin(aim) * speed,
+          damage,
+          monster.id,
+          maxDistance,
+        ),
+      );
+    };
 
     switch (weapon) {
       case WeaponType.GRENADE: {
@@ -735,18 +862,84 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         const angle = baseAngle + variance;
 
         monster.bullets--;
-        const bullet = new BulletEntity(
-          monster.worldX,
-          monster.worldY,
-          Math.cos(angle) * SKULKER_BULLET_SPEED,
-          Math.sin(angle) * SKULKER_BULLET_SPEED,
+        launchMonsterBullet(
+          angle,
           1,
-          monster.id,
+          SKULKER_BULLET_SPEED,
           SKULKER_SHOOT_MAX_RANGE_PX,
         );
-        state.entityManager.spawn(bullet);
         state.pendingSounds.push({
           effect: SoundEffect.SHOOT,
+          worldX: monster.worldX,
+          worldY: monster.worldY,
+        });
+        return;
+      }
+      case WeaponType.SMG: {
+        if (monster.bullets <= 0) return;
+        monster.bullets--;
+        const angle = Math.atan2(dy, dx) + (RNG.int(11) - 5) * 0.012;
+        launchMonsterBullet(angle, 2, 640, 560);
+        const smgSounds = [SoundEffect.SMG_SHOOT_1, SoundEffect.SMG_SHOOT_2];
+        state.pendingSounds.push({
+          effect: smgSounds[RNG.int(smgSounds.length)],
+          worldX: monster.worldX,
+          worldY: monster.worldY,
+        });
+        return;
+      }
+      case WeaponType.SHOTGUN: {
+        if (monster.bullets < MONSTER_SHOTGUN_AMMO_COST) return;
+        monster.bullets -= MONSTER_SHOTGUN_AMMO_COST;
+        const pellets = 6;
+        const spread = 0.42;
+        const baseAngle = Math.atan2(dy, dx);
+        for (let i = 0; i < pellets; i++) {
+          const offset = i / (pellets - 1) - 0.5;
+          launchMonsterBullet(baseAngle + offset * spread, 2, 560, 360);
+        }
+        const shotgunSounds = [
+          SoundEffect.SHOTGUN_BLAST_1,
+          SoundEffect.SHOTGUN_BLAST_2,
+          SoundEffect.SHOTGUN_BLAST_3,
+        ];
+        state.pendingSounds.push({
+          effect: shotgunSounds[RNG.int(shotgunSounds.length)],
+          worldX: monster.worldX,
+          worldY: monster.worldY,
+        });
+        return;
+      }
+      case WeaponType.LASER: {
+        if ((monster.laserCharge ?? 0) < MONSTER_LASER_SHOT_COST) return;
+        monster.laserCharge =
+          (monster.laserCharge ?? 0) - MONSTER_LASER_SHOT_COST;
+        const angle = Math.atan2(dy, dx);
+        const muzzleOffset = 16;
+        const speed = 3600;
+        state.entityManager.spawn(
+          new BulletEntity(
+            monster.worldX + Math.cos(angle) * muzzleOffset,
+            monster.worldY + Math.sin(angle) * muzzleOffset,
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed,
+            4,
+            monster.id,
+            1536,
+            0.65,
+            4,
+            0.03,
+            "laser",
+          ),
+        );
+        const laserSounds = [
+          SoundEffect.LASER_SHOOT_1,
+          SoundEffect.LASER_SHOOT_2,
+          SoundEffect.LASER_SHOOT_3,
+          SoundEffect.LASER_SHOOT_4,
+        ];
+        state.pendingSounds.push({
+          effect: laserSounds[RNG.int(laserSounds.length)],
           worldX: monster.worldX,
           worldY: monster.worldY,
         });
@@ -799,6 +992,11 @@ function befriendNearbySnagglepuss(state: GameState, player: Player): void {
     monster.fleeing = false;
     monster.ownerId = player.id;
     monster.name = monster.name ?? "Snagglepuss";
+    state.pendingSounds.push({
+      effect: SoundEffect.SNAGGLEPUSS_ACK,
+      worldX: monster.worldX,
+      worldY: monster.worldY,
+    });
     msg(
       state,
       "A snagglepuss creeps over for a crumb — and decides to tag along!",
@@ -964,7 +1162,10 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       const heal = 15;
       player.hp = Math.min(player.hpMax, player.hp + heal);
       consumeOne(player, ItemType.MEDKIT);
-      state.pendingSounds.push({ effect: SoundEffect.BEEP });
+      const healSounds = [SoundEffect.HEAL_1, SoundEffect.HEAL_2];
+      state.pendingSounds.push({
+        effect: healSounds[RNG.int(healSounds.length)],
+      });
       msg(state, `You patch yourself up. +${heal} HP`, cmd.id);
       return;
     }
@@ -976,6 +1177,10 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       const heal = 6;
       player.hp = Math.min(player.hpMax, player.hp + heal);
       consumeOne(player, ItemType.COOKIE);
+      const eatSounds = [SoundEffect.EAT_1, SoundEffect.EAT_2];
+      state.pendingSounds.push({
+        effect: eatSounds[RNG.int(eatSounds.length)],
+      });
       msg(state, `You eat a cookie. +${heal} HP`, cmd.id);
       // The aroma can win over a nearby snagglepuss.
       befriendNearbySnagglepuss(state, player);
@@ -1002,7 +1207,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       player.laserCharge = player.laserChargeMax;
       if (player.hasCTDM) player.ctdmCharge = player.ctdmChargeMax;
       player.panicCharge = player.panicChargeMax;
-      state.pendingSounds.push({ effect: SoundEffect.RELOAD });
+      state.pendingSounds.push({ effect: SoundEffect.RECHARGE });
       msg(state, "Power cell spent — energy gear fully charged.", cmd.id);
       return;
     }
@@ -1029,6 +1234,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       thrown.thrownItem = active;
       state.entityManager.spawn(thrown);
       consumeOne(player, active);
+      queuePlayerThrowSound(state, player);
       msg(
         state,
         `You hurl the ${active === ItemType.ROCK ? "rock" : "bone"}.`,
@@ -1069,12 +1275,16 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       state.changedTiles?.add(idxFor(tx, ty, state.mapWidth));
       state.mapDirty = true;
       consumeOne(player, ItemType.HOLOWALL);
-      state.pendingSounds.push({ effect: SoundEffect.REPAIR });
+      state.pendingSounds.push({ effect: SoundEffect.PLACE_WALL });
       msg(state, "You deploy a holowall.", cmd.id);
       return;
     }
     case ItemType.PANIC_BUTTON: {
       if (player.panicCharge < player.panicChargeMax) {
+        state.pendingSounds.push({
+          effect: SoundEffect.CLICK,
+          sourceId: player.id,
+        });
         msg(
           state,
           "The panic button is still charging — feed it a power cell.",
@@ -1091,7 +1301,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       }
       player.panicCharge = 0;
       state.shouldAscend = true; // warp one level toward the entrance
-      state.pendingSounds.push({ effect: SoundEffect.RELOAD });
+      state.pendingSounds.push({ effect: SoundEffect.PANIC_BUTTON });
       msg(state, "PANIC! The teleporter yanks you toward safety!", cmd.id);
       return;
     }
@@ -1187,6 +1397,7 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
   const PICKUP_RADIUS = 24;
   const itemsNearby = state.entities.filter((e) => {
     if (e.kind !== EntityKind.ITEM) return false;
+    if (ITEM_DEFS[(e as Item).type]?.collectible === false) return false;
 
     // Use continuous coordinates if available
     if ("worldX" in actor && "worldX" in e) {
@@ -1258,7 +1469,17 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
     });
   } else if (tile === TileType.DOOR_LOCKED) {
     if (actor.kind === EntityKind.PLAYER && (actor as Player).keys > 0) {
+      state.pendingSounds.push({
+        effect: SoundEffect.DOOR_SCAN,
+        worldX: data.x * CELL_CONFIG.w + CELL_CONFIG.w / 2,
+        worldY: data.y * CELL_CONFIG.h + CELL_CONFIG.h / 2,
+      });
       (actor as Player).keys--;
+      state.pendingSounds.push({
+        effect: SoundEffect.DOOR_UNLOCK,
+        worldX: data.x * CELL_CONFIG.w + CELL_CONFIG.w / 2,
+        worldY: data.y * CELL_CONFIG.h + CELL_CONFIG.h / 2,
+      });
       pushEvent(state, {
         type: EventType.DOOR_OPEN,
         data: { type: "DOOR_OPEN", x: data.x, y: data.y },
@@ -1268,6 +1489,15 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
         data: { type: "MESSAGE", message: "You unlock the door." },
       });
     } else {
+      const doorFiddleSounds = [
+        SoundEffect.DOOR_FIDDLE_1,
+        SoundEffect.DOOR_FIDDLE_2,
+      ];
+      state.pendingSounds.push({
+        effect: doorFiddleSounds[RNG.int(doorFiddleSounds.length)],
+        worldX: data.x * CELL_CONFIG.w + CELL_CONFIG.w / 2,
+        worldY: data.y * CELL_CONFIG.h + CELL_CONFIG.h / 2,
+      });
       pushEvent(state, {
         type: EventType.MESSAGE,
         data: { type: "MESSAGE", message: "The door is locked." },

@@ -6,6 +6,7 @@ import { EntityKind, ItemType, CommandType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
+import { SoundEffect } from "../../content/sound-effects";
 
 describe("throwing bones and rocks", () => {
   beforeEach(() => RNG.reseed(8));
@@ -38,6 +39,13 @@ describe("throwing bones and rocks", () => {
     expect(thrown).toBeDefined();
     expect(thrown!.velocityX).toBeGreaterThan(0);
     expect(player.itemCounts[ItemType.ROCK]).toBe(1);
+    expect([
+      SoundEffect.THROW_1,
+      SoundEffect.THROW_2,
+      SoundEffect.THROW_3,
+      SoundEffect.THROW_4,
+      SoundEffect.THROW_5,
+    ]).toContain(state.pendingSounds.at(-1)?.effect);
   });
 
   it("comes to rest and drops back as a pickable item", () => {

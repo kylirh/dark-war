@@ -16,7 +16,16 @@ import { RNG } from "../../utils/rng";
 import { wrapDelta } from "../../utils/wrap";
 import { ITEM_DEFS } from "../../content/item-defs";
 import { MONSTER_DEFS, isRangedMonster } from "../../content/monster-defs";
+import { SoundEffect } from "../../content/sound-effects";
 import { MonsterEntity } from "../../entities/monster-entity";
+import { ItemEntity } from "../../entities/item-entity";
+import {
+  equippedMonsterWeaponItem,
+  isAdaptiveWeaponMonster,
+  isMonsterPrimaryWeapon,
+  MONSTER_LASER_CHARGE_MAX,
+  monsterWeaponScore,
+} from "../../utils/monster-weapons";
 import {
   MONSTER_AI_UPDATE_INTERVAL,
   MAX_COMMANDS_PER_TICK,
@@ -129,7 +138,10 @@ export function processMonsterItemPickups(state: GameState): void {
   for (const e of state.entities) {
     if (e.kind === EntityKind.MONSTER && (e as Monster).hp > 0) {
       monsters.push(e as Monster);
-    } else if (e.kind === EntityKind.ITEM) {
+    } else if (
+      e.kind === EntityKind.ITEM &&
+      ITEM_DEFS[(e as Item).type]?.collectible !== false
+    ) {
       items.push(e as Item);
     }
   }
@@ -169,66 +181,110 @@ export function processMonsterItemPickups(state: GameState): void {
       if (!RNG.chance(MONSTER_ITEM_PICKUP_CHANCE)) continue;
 
       let picked = false;
-      switch (item.type) {
-        case ItemType.MEDKIT:
-          if (!isFleeing) continue;
-          monster.hp = Math.min(
-            hpMax,
-            monster.hp + positiveAmount(item.heal, 20),
-          );
-          picked = true;
-          break;
-        case ItemType.GRENADE:
-          monster.grenades += positiveAmount(item.amount, 1);
-          picked = true;
-          break;
-        case ItemType.LAND_MINE:
-          monster.landMines += positiveAmount(item.amount, 1);
-          picked = true;
-          break;
-        case ItemType.AMMO:
-          if (isRangedMonster(monster.type)) {
-            // Ranged monsters reload directly from ammo pickups
-            monster.bullets = Math.min(
-              SKULKER_MAX_BULLETS,
-              monster.bullets + positiveAmount(item.amount, 8),
+      if (
+        isAdaptiveWeaponMonster(monster) &&
+        isMonsterPrimaryWeapon(item.type)
+      ) {
+        const oldWeapon = equippedMonsterWeaponItem(monster);
+        if (monsterWeaponScore(item.type) <= monsterWeaponScore(oldWeapon)) {
+          continue;
+        }
+
+        const droppedWeapon = new ItemEntity(
+          monster.gridX,
+          monster.gridY,
+          oldWeapon,
+        );
+        droppedWeapon.worldX = monster.worldX;
+        droppedWeapon.worldY = monster.worldY;
+        droppedWeapon.prevWorldX = monster.worldX;
+        droppedWeapon.prevWorldY = monster.worldY;
+        state.entityManager.spawn(droppedWeapon);
+
+        monster.equippedWeapon = item.type;
+        if (item.type === ItemType.LASER_PISTOL) {
+          monster.laserCharge = MONSTER_LASER_CHARGE_MAX / 2;
+        }
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: {
+            type: "MESSAGE",
+            message: `The ${monster.type} drops its ${ITEM_DEFS[oldWeapon].name} and equips the ${ITEM_DEFS[item.type].name}.`,
+          },
+        });
+        picked = true;
+      } else {
+        switch (item.type) {
+          case ItemType.MEDKIT:
+            if (!isFleeing) continue;
+            monster.hp = Math.min(
+              hpMax,
+              monster.hp + positiveAmount(item.heal, 20),
             );
-          } else {
+            picked = true;
+            break;
+          case ItemType.GRENADE:
+            monster.grenades += positiveAmount(item.amount, 1);
+            picked = true;
+            break;
+          case ItemType.LAND_MINE:
+            monster.landMines += positiveAmount(item.amount, 1);
+            picked = true;
+            break;
+          case ItemType.AMMO:
+            if (isRangedMonster(monster.type)) {
+              // Ranged monsters reload directly from ammo pickups
+              monster.bullets = Math.min(
+                SKULKER_MAX_BULLETS,
+                monster.bullets + positiveAmount(item.amount, 8),
+              );
+            } else {
+              monster.carriedItems.push({
+                type: ItemType.AMMO,
+                amount: positiveAmount(item.amount, 8),
+              });
+            }
+            picked = true;
+            break;
+          case ItemType.KEYCARD:
             monster.carriedItems.push({
-              type: ItemType.AMMO,
-              amount: positiveAmount(item.amount, 8),
+              type: ItemType.KEYCARD,
             });
-          }
-          picked = true;
-          break;
-        case ItemType.KEYCARD:
-          monster.carriedItems.push({
-            type: ItemType.KEYCARD,
-          });
-          picked = true;
-          break;
-        case ItemType.PISTOL:
-          monster.carriedItems.push({
-            type: ItemType.PISTOL,
-          });
-          picked = true;
-          break;
-        case ItemType.CTDM:
-          monster.carriedItems.push({ type: ItemType.CTDM });
-          picked = true;
-          break;
-        case ItemType.POWERCELL:
-          monster.carriedItems.push({
-            type: ItemType.POWERCELL,
-            amount: positiveAmount(item.amount, 25),
-          });
-          picked = true;
-          break;
+            picked = true;
+            break;
+          case ItemType.PISTOL:
+            monster.carriedItems.push({
+              type: ItemType.PISTOL,
+            });
+            picked = true;
+            break;
+          case ItemType.CTDM:
+            monster.carriedItems.push({ type: ItemType.CTDM });
+            picked = true;
+            break;
+          case ItemType.POWERCELL:
+            if (
+              isAdaptiveWeaponMonster(monster) &&
+              equippedMonsterWeaponItem(monster) === ItemType.LASER_PISTOL
+            ) {
+              if ((monster.laserCharge ?? 0) >= MONSTER_LASER_CHARGE_MAX) {
+                continue;
+              }
+              monster.laserCharge = MONSTER_LASER_CHARGE_MAX;
+            } else {
+              monster.carriedItems.push({
+                type: ItemType.POWERCELL,
+                amount: positiveAmount(item.amount, 25),
+              });
+            }
+            picked = true;
+            break;
+        }
       }
 
       // Only consume the item if the monster actually picked it up. Item types
-      // with no case above (cookies, coins, rocks, armor, new weapons, holowalls,
-      // …) are left on the floor instead of being silently destroyed.
+      // with no case above are left on the floor instead of being silently
+      // destroyed.
       if (picked) pickedItemIds.add(item.id);
     }
   }
@@ -261,6 +317,7 @@ function processMagneticPickup(state: GameState): void {
   for (const item of state.entities) {
     if (item.kind !== EntityKind.ITEM) continue;
     const itm = item as Item;
+    if (ITEM_DEFS[itm.type]?.collectible === false) continue;
     if (ITEM_DEFS[itm.type]?.category === "machine") continue;
     if (collected.has(itm.id)) continue;
 
@@ -476,6 +533,11 @@ function processHoleFalls(state: GameState): void {
 function triggerPlayerFall(state: GameState, player: Player): void {
   state.descendTarget = [player.gridX, player.gridY];
   state.shouldDescend = true;
+  state.pendingSounds.push({
+    effect: SoundEffect.FALL_DOWN,
+    worldX: player.worldX,
+    worldY: player.worldY,
+  });
 
   pushEvent(state, {
     type: EventType.MESSAGE,

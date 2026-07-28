@@ -23,7 +23,7 @@ Clients connect with `ws://<host>:<port>/?room=<roomId>` (the in-game Multiplaye
 menu does this for you). Put a TLS terminator in front and use `wss://` for the web
 client over HTTPS.
 
-## Status / future
+## Status / next operations work
 
 - Multi-room hosting and per-depth worlds already work.
 - A thin config layer (max rooms/games, idle timeouts, metrics) would be the next

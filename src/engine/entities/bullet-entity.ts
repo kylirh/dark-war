@@ -1,4 +1,4 @@
-import { EntityKind, ItemType } from "../types";
+import { BeamPoint, EntityKind, ItemType, ProjectileType } from "../types";
 import { GameEntity } from "./game-entity";
 
 /**
@@ -10,6 +10,12 @@ export class BulletEntity extends GameEntity {
 
   /** Damage dealt on impact */
   public damage: number;
+
+  /** Visual and physics behavior for this projectile. */
+  public projectileType: ProjectileType;
+
+  /** Laser muzzle and ricochet corners; the live head is worldX/worldY. */
+  public trailPoints: BeamPoint[];
 
   /**
    * If set, this is a *thrown item* (bone/rock), not a bullet: it bounces off
@@ -50,6 +56,7 @@ export class BulletEntity extends GameEntity {
     fuseSeconds: number = 2,
     maxRicochets: number = 1,
     ownerGraceSeconds: number = 0.08,
+    projectileType: ProjectileType = "bullet",
   ) {
     // Bullets don't use grid initialization, set world position directly
     super(0, 0);
@@ -63,6 +70,9 @@ export class BulletEntity extends GameEntity {
     this.velocityY = velocityY;
 
     this.damage = damage;
+    this.projectileType = projectileType;
+    this.trailPoints =
+      projectileType === "laser" ? [{ x: worldX, y: worldY }] : [];
     this.ownerId = ownerId;
     this.maxDistance = maxDistance;
     this.fuseSeconds = fuseSeconds;

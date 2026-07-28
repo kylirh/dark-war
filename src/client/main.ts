@@ -18,7 +18,7 @@ import {
   SIM_DT_MS,
   MATTER_MANIPULATOR_RANGE,
 } from "../engine/systems/simulation/constants";
-import { Sound, SoundEffect } from "./systems/sound";
+import { Sound, SoundEffect, volumeForSoundCue } from "./systems/sound";
 import { TitleScreen } from "./systems/title-screen";
 import { IntroStory } from "./systems/intro-story";
 import { GameMenu } from "./systems/game-menu";
@@ -45,6 +45,7 @@ import {
   MultiplayerMode,
   Player,
   REAL_TIME_SPEED,
+  SoundCue,
   SLOWMO_SCALE,
   TileType,
   TIME_SCALE_TRANSITION_SPEED,
@@ -83,8 +84,8 @@ import { MultiplayerClient, NetworkAction } from "../net/multiplayer-client";
  * Modern roguelike remake of Mission Thunderbolt (1992)
  * Features:
  * - Continuous fluid movement with physics-based collision
- * - Superhot-style time mechanics (time flows when you move)
- * - Grid-based destructible terrain (future)
+ * - CTDM threat-based time dilation in offline play
+ * - Grid-based destructible terrain and holes
  * - Mouse aiming and shooting
  *
  * Architecture:
@@ -777,8 +778,14 @@ class DarkWar {
   ): void {
     // Play any sounds queued by the server before deserializing
     if (serializedState.sounds && serializedState.sounds.length > 0) {
-      for (const sound of serializedState.sounds) {
-        Sound.play(sound as SoundEffect);
+      for (const cue of serializedState.sounds) {
+        this.playSoundCue(
+          cue,
+          serializedState.player,
+          serializedState.levelKind ?? "dungeon",
+          serializedState.mapWidth ?? this.game.getState().mapWidth,
+          serializedState.mapHeight ?? this.game.getState().mapHeight,
+        );
       }
     }
 
@@ -979,23 +986,37 @@ class DarkWar {
 
   private playPendingSounds(state: ReturnType<Game["getState"]>): void {
     const player = state.player;
-    const MAX_SOUND_DIST = 32 * 18; // 18 tiles = full falloff range
-    const MAX_SOUND_DIST_SQ = MAX_SOUND_DIST * MAX_SOUND_DIST;
     for (const pending of state.pendingSounds) {
-      let volume = Sound.getVolume();
-      if (pending.worldX !== undefined && pending.worldY !== undefined) {
-        const dx = pending.worldX - player.worldX;
-        const dy = pending.worldY - player.worldY;
-        const distSq = dx * dx + dy * dy;
-        if (distSq >= MAX_SOUND_DIST_SQ) continue;
-        const d = Math.sqrt(distSq);
-        volume = Sound.getVolume() * Math.max(0, 1 - d / MAX_SOUND_DIST);
-      }
-      if (volume > 0.01) {
-        Sound.play(pending.effect as SoundEffect, volume);
-      }
+      this.playSoundCue(
+        pending,
+        player,
+        state.levelKind,
+        state.mapWidth,
+        state.mapHeight,
+      );
     }
     state.pendingSounds.length = 0;
+  }
+
+  private playSoundCue(
+    cue: SoundCue,
+    listener: Player,
+    levelKind: "outside" | "dungeon",
+    mapWidth: number,
+    mapHeight: number,
+  ): void {
+    const volume = volumeForSoundCue(
+      Sound.getVolume(),
+      cue,
+      listener.worldX,
+      listener.worldY,
+      levelKind,
+      mapWidth * CELL_CONFIG.w,
+      mapHeight * CELL_CONFIG.h,
+    );
+    if (volume > 0.01) {
+      Sound.play(cue.effect as SoundEffect, volume);
+    }
   }
 
   private finalizeImmediateOfflineAction(
@@ -1461,6 +1482,7 @@ class DarkWar {
         );
         if (player.ctdmCharge <= 0) {
           player.ctdmEnabled = false;
+          Sound.play(SoundEffect.CLICK);
           state.story.unshift("CTDM battery depleted.");
         }
       } else {
@@ -1785,11 +1807,32 @@ class DarkWar {
         player.weapon === WeaponType.SMG ||
         player.weapon === WeaponType.SHOTGUN;
       const usesLaser = player.weapon === WeaponType.LASER;
-      if (
-        (usesAmmo && player.ammo > 0) ||
-        (usesLaser && player.laserCharge > 0)
-      ) {
-        Sound.play(SoundEffect.SHOOT);
+      const hasWeaponAmmo =
+        player.weapon === WeaponType.SHOTGUN
+          ? player.ammo >= 4
+          : usesAmmo && player.ammo > 0;
+      if (hasWeaponAmmo || (usesLaser && player.laserCharge > 0)) {
+        const laserSounds = [
+          SoundEffect.LASER_SHOOT_1,
+          SoundEffect.LASER_SHOOT_2,
+          SoundEffect.LASER_SHOOT_3,
+          SoundEffect.LASER_SHOOT_4,
+        ];
+        const shotgunSounds = [
+          SoundEffect.SHOTGUN_BLAST_1,
+          SoundEffect.SHOTGUN_BLAST_2,
+          SoundEffect.SHOTGUN_BLAST_3,
+        ];
+        const predictedSound = usesLaser
+          ? laserSounds[Math.floor(Math.random() * laserSounds.length)]
+          : player.weapon === WeaponType.SMG
+            ? Math.random() < 0.5
+              ? SoundEffect.SMG_SHOOT_1
+              : SoundEffect.SMG_SHOOT_2
+            : player.weapon === WeaponType.SHOTGUN
+              ? shotgunSounds[Math.floor(Math.random() * shotgunSounds.length)]
+              : SoundEffect.SHOOT;
+        Sound.play(predictedSound);
       }
       this.dispatchOnlineAction({
         type: "USE_ITEM",
@@ -2153,6 +2196,11 @@ class DarkWar {
     const state = this.game.getState();
     const player = state.player;
     if (!player.hasCTDM) return;
+    if (!player.ctdmEnabled && player.ctdmCharge <= 0) {
+      Sound.play(SoundEffect.CLICK);
+      state.story.unshift("The CTDM has no charge.");
+      return;
+    }
     player.ctdmEnabled = !player.ctdmEnabled;
     const statusMsg = player.ctdmEnabled ? "CTDM enabled." : "CTDM disabled.";
     state.story.unshift(statusMsg);

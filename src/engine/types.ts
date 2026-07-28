@@ -107,6 +107,9 @@ export enum ItemType {
   DOOR = "door",
   TREE_ITEM = "tree-item",
   LIGHT_FIXTURE = "light-fixture",
+  BLOOD_SPLATTER = "blood-splatter",
+  CORPSE = "corpse",
+  ENTRAILS = "entrails",
 }
 
 export enum WeaponType {
@@ -238,17 +241,45 @@ export interface Monster extends BaseEntity {
   grenades: number;
   landMines: number;
   bullets: number;
+  /** Primary weapon equipped by weapon-adaptive monsters. */
+  equippedWeapon?: ItemType;
+  /** Remaining charge for an equipped laser pistol. */
+  laserCharge?: number;
   carriedItems: CarriedItem[];
   alertLevel?: number;
   lastKnownPlayerX?: number;
   lastKnownPlayerY?: number;
   lastAttackerId?: string;
+  /** Most recent tick when this monster was damaged by a player. */
+  lastPlayerAttackTick?: number;
+  /** Mutants remain stationary while the current tick is below this value. */
+  digestingUntilTick?: number;
   /** Befriended (e.g. a dog given a bone): fights for and follows its owner. */
   friendly?: boolean;
   /** Player id this creature is loyal to (when friendly). */
   ownerId?: string;
   /** Player-given name (shown in the log for a friendly pet's actions). */
   name?: string;
+  /** Current pursuit target used to pace Wild Dog vocalizations. */
+  dogVocalTargetId?: string;
+  /** Simulation tick of this Wild Dog's most recent vocalization. */
+  lastDogVocalTick?: number;
+  /** Simulation tick of this friendly dog's most recent whimper. */
+  lastDogWhimperTick?: number;
+  /** Simulation tick of this Snagglepuss's most recent ambient mutter. */
+  lastSnagglepussMutterTick?: number;
+  /** Whether this Giant Spider was within ambient-audio range last update. */
+  spiderAmbienceNearby?: boolean;
+  /** Simulation tick of this Giant Spider's most recent ambient sound. */
+  lastSpiderAmbienceTick?: number;
+  /** Whether this Icky Lump was approaching within audio range last update. */
+  ickyLumpMovementNearby?: boolean;
+  /** Simulation tick of this Icky Lump's most recent movement sound. */
+  lastIckyLumpMovementTick?: number;
+  /** Simulation tick when this Dreadnaught should next emit ambience. */
+  nextDreadnaughtAmbienceTick?: number;
+  /** Simulation tick when this Flutterbang should next emit ambience. */
+  nextFlutterbangAmbienceTick?: number;
   /** A thief (snagglepuss/moppet) that grabbed loot is now running away. */
   fleeing?: boolean;
 }
@@ -267,6 +298,13 @@ export interface Item extends BaseEntity {
   heal?: number;
 }
 
+export type ProjectileType = "bullet" | "laser";
+
+export interface BeamPoint {
+  x: number;
+  y: number;
+}
+
 export interface Bullet extends BaseEntity {
   kind: EntityKind.BULLET;
   damage: number;
@@ -277,6 +315,8 @@ export interface Bullet extends BaseEntity {
   ricochetCount: number;
   maxRicochets: number;
   ownerGraceSeconds: number;
+  projectileType?: ProjectileType;
+  trailPoints?: BeamPoint[];
 }
 
 export interface Explosive extends BaseEntity {
@@ -297,7 +337,7 @@ export interface Explosive extends BaseEntity {
 
 export interface Effect {
   id: string;
-  type: "explosion" | "spark" | "hit_flash";
+  type: "explosion" | "spark" | "hit_flash" | "laser_beam";
   worldX: number;
   worldY: number;
   ageTicks: number;
@@ -305,9 +345,22 @@ export interface Effect {
   velocityX?: number;
   velocityY?: number;
   entityId?: string;
+  beamPoints?: BeamPoint[];
 }
 
 export type Entity = Player | Monster | Item | Bullet | Explosive;
+
+/** A sound queued by the simulation, optionally positioned in the game world. */
+export interface SoundCue {
+  effect: string;
+  worldX?: number;
+  worldY?: number;
+  sourceId?: string;
+  /** Overrides the normal 18-tile spatial-audio falloff distance. */
+  maxDistancePx?: number;
+  /** Volume retained at and beyond maxDistancePx, from 0 to 1. */
+  minimumVolumeScale?: number;
+}
 
 // ========================================
 // Simulation System (NEW)
@@ -507,12 +560,8 @@ export interface GameState {
   descendTarget?: [number, number];
   changedTiles?: Set<number>; // Track tiles that changed for physics updates
   holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
-  pendingSounds: Array<{
-    effect: string;
-    worldX?: number;
-    worldY?: number;
-    sourceId?: string;
-  }>; // Sound effects queued during simulation for playback (sourceId = actor that caused it)
+  /** Sound effects queued during simulation for local or network playback. */
+  pendingSounds: SoundCue[];
   /**
    * Transient: id of a pet that just became friendly and is awaiting a name.
    * The client shows a naming modal (and pauses) when this is set, then clears
@@ -561,7 +610,7 @@ export interface SerializedState {
     timeScale?: number;
     targetTimeScale?: number;
   };
-  sounds?: string[]; // Sound effects to play on receiving client
+  sounds?: SoundCue[]; // Sound effects to play on receiving client
   effects?: Effect[]; // Visual effects (explosions, etc.)
 }
 

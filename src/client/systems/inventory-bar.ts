@@ -176,6 +176,14 @@ export class InventoryBar {
       barFill.style.width = `${pct * 100}%`;
       barFill.style.setProperty("--bar-color", "#4af");
       barFill.parentElement!.style.display = "";
+    } else if (slot?.type === ItemType.LASER_PISTOL) {
+      const pct = Math.max(
+        0,
+        Math.min(1, player.laserCharge / player.laserChargeMax),
+      );
+      barFill.style.width = `${pct * 100}%`;
+      barFill.style.setProperty("--bar-color", "#63f4ff");
+      barFill.parentElement!.style.display = "";
     } else {
       barFill.style.width = "0";
       barFill.parentElement!.style.display = "none";

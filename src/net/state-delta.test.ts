@@ -125,6 +125,20 @@ describe("computeStateDelta / applyStateDelta", () => {
     roundTrip(baseState(), next);
   });
 
+  it("round-trips spatial sound metadata", () => {
+    const next = baseState();
+    next.sounds = [
+      {
+        effect: "mutant-eat",
+        worldX: 320,
+        worldY: 640,
+        maxDistancePx: 480,
+        minimumVolumeScale: 0.2,
+      },
+    ];
+    roundTrip(baseState(), next);
+  });
+
   it("round-trips a joining player", () => {
     const next = baseState();
     next.players = [player("p1", 10), player("p2", 20)];

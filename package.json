@@ -40,13 +40,13 @@
     "@types/rot-js": "0.6.5",
     "@types/ws": "8.18.1",
     "electron": "43.2.0",
-    "electron-builder": "24.13.3",
-    "esbuild": "0.28.0",
+    "electron-builder": "26.15.3",
+    "esbuild": "0.28.1",
     "prettier": "3.3.3",
-    "tsx": "4.21.0",
+    "tsx": "4.23.1",
     "typescript": "5.9.3",
-    "vite": "5.4.21",
-    "vitest": "2.1.9"
+    "vite": "8.1.5",
+    "vitest": "4.1.10"
   },
   "build": {
     "appId": "com.kylir.darkwar",
@@ -61,7 +61,8 @@
     "mac": {
       "category": "public.app-category.games",
       "icon": "build/icon.icns",
-      "identity": null,
+      "hardenedRuntime": true,
+      "notarize": true,
       "target": [
         "dmg",
         "zip"
@@ -87,6 +88,6 @@
     "detect-collisions": "10.10.2025",
     "pixi.js": "8.14.0",
     "rot-js": "2.2.1",
-    "ws": "8.21.0"
+    "ws": "8.21.1"
   }
 }

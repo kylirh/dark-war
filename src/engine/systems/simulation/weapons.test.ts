@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "../../core/game";
 import { EntityKind, WeaponType, CommandType } from "../../types";
 import { RNG } from "../../utils/rng";
+import { SoundEffect } from "../../content/sound-effects";
 import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
 
@@ -38,6 +39,11 @@ describe("new weapon firing modes", () => {
       bullets.map((b) => (b as any).facingAngle.toFixed(3)),
     );
     expect(angles.size).toBeGreaterThan(1);
+    expect([
+      SoundEffect.SHOTGUN_BLAST_1,
+      SoundEffect.SHOTGUN_BLAST_2,
+      SoundEffect.SHOTGUN_BLAST_3,
+    ]).toContain(game.getState().pendingSounds.at(-1)?.effect);
   });
 
   it("shotgun refuses to fire with fewer than four shells", () => {
@@ -78,6 +84,17 @@ describe("new weapon firing modes", () => {
     const bullets = fire(game);
     expect(bullets.length).toBe(1);
     expect(player.laserCharge).toBe(45);
+    expect(player.ammo).toBe(0);
+    expect((bullets[0] as any).projectileType).toBe("laser");
+    expect(Math.hypot(bullets[0].velocityX, bullets[0].velocityY)).toBe(3600);
+    expect((bullets[0] as any).trailPoints).toHaveLength(1);
+    expect((bullets[0] as any).maxRicochets).toBe(4);
+    expect([
+      SoundEffect.LASER_SHOOT_1,
+      SoundEffect.LASER_SHOOT_2,
+      SoundEffect.LASER_SHOOT_3,
+      SoundEffect.LASER_SHOOT_4,
+    ]).toContain(game.getState().pendingSounds.at(-1)?.effect);
   });
 
   it("laser refuses to fire when depleted", () => {
@@ -89,6 +106,9 @@ describe("new weapon firing modes", () => {
     player.facingAngle = 0;
 
     expect(fire(game).length).toBe(0);
+    expect(game.getState().pendingSounds.at(-1)?.effect).toBe(
+      SoundEffect.CLICK,
+    );
   });
 
   it("smg fires one round per shot", () => {
@@ -102,5 +122,27 @@ describe("new weapon firing modes", () => {
     const bullets = fire(game);
     expect(bullets.length).toBe(1);
     expect(player.ammo).toBe(4);
+    expect([SoundEffect.SMG_SHOOT_1, SoundEffect.SMG_SHOOT_2]).toContain(
+      game.getState().pendingSounds.at(-1)?.effect,
+    );
+  });
+
+  it("plays a randomized throw cue when the player throws a grenade", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.weapon = WeaponType.GRENADE;
+    player.grenades = 1;
+    player.facingAngle = 0;
+
+    fire(game);
+
+    expect([
+      SoundEffect.THROW_1,
+      SoundEffect.THROW_2,
+      SoundEffect.THROW_3,
+      SoundEffect.THROW_4,
+      SoundEffect.THROW_5,
+    ]).toContain(game.getState().pendingSounds.at(-1)?.effect);
   });
 });

@@ -5,6 +5,7 @@ import { RNG } from "../utils/rng";
 import { enqueueCommand } from "../systems/simulation/commands";
 import { stepSimulationTick } from "../systems/simulation/tick";
 import { BulletEntity } from "../entities/bullet-entity";
+import { SoundEffect } from "../content/sound-effects";
 
 describe("Game serialize/deserialize round-trip", () => {
   beforeEach(() => RNG.reseed(424242));
@@ -155,20 +156,68 @@ describe("Game multiplayer player management", () => {
     );
   });
 
-  it("suppresses a shooter's own shoot-sound echo but not for other players", () => {
+  it("suppresses a shooter's own weapon-sound echo but not for other players", () => {
     const game = new Game({ mode: "online" });
     game.reset(1);
     game.addNetworkPlayer("p1");
     game.addNetworkPlayer("p2");
-    // SoundEffect.SHOOT === "gyrojet-pistol"; p1 fired (predicts it locally).
+    // Both weapon sounds are predicted locally by the firing client.
     game
       .getState()
-      .pendingSounds.push({ effect: "gyrojet-pistol", sourceId: "p1" });
+      .pendingSounds.push(
+        { effect: SoundEffect.SHOOT, sourceId: "p1" },
+        { effect: SoundEffect.LASER_SHOOT_1, sourceId: "p1" },
+        { effect: SoundEffect.LASER_SHOOT_2, sourceId: "p1" },
+        { effect: SoundEffect.LASER_SHOOT_3, sourceId: "p1" },
+        { effect: SoundEffect.LASER_SHOOT_4, sourceId: "p1" },
+        { effect: SoundEffect.SMG_SHOOT_1, sourceId: "p1" },
+        { effect: SoundEffect.SMG_SHOOT_2, sourceId: "p1" },
+        { effect: SoundEffect.SHOTGUN_BLAST_1, sourceId: "p1" },
+        { effect: SoundEffect.SHOTGUN_BLAST_2, sourceId: "p1" },
+        { effect: SoundEffect.SHOTGUN_BLAST_3, sourceId: "p1" },
+      );
 
-    expect(game.serializeForPlayer("p1").sounds).not.toContain(
-      "gyrojet-pistol",
-    );
-    expect(game.serializeForPlayer("p2").sounds).toContain("gyrojet-pistol");
+    const effectsFor = (playerId: string): string[] =>
+      (game.serializeForPlayer(playerId).sounds ?? []).map(
+        (sound) => sound.effect,
+      );
+    const weaponSounds = [
+      SoundEffect.SHOOT,
+      SoundEffect.LASER_SHOOT_1,
+      SoundEffect.LASER_SHOOT_2,
+      SoundEffect.LASER_SHOOT_3,
+      SoundEffect.LASER_SHOOT_4,
+      SoundEffect.SMG_SHOOT_1,
+      SoundEffect.SMG_SHOOT_2,
+      SoundEffect.SHOTGUN_BLAST_1,
+      SoundEffect.SHOTGUN_BLAST_2,
+      SoundEffect.SHOTGUN_BLAST_3,
+    ];
+
+    expect(effectsFor("p1")).toEqual([]);
+    expect(effectsFor("p2")).toEqual(expect.arrayContaining(weaponSounds));
+  });
+
+  it("preserves spatial sound metadata for network clients", () => {
+    const game = new Game({ mode: "online" });
+    game.reset(1);
+    game.addNetworkPlayer("p1");
+    game.getState().pendingSounds.push({
+      effect: SoundEffect.MUTANT_EAT,
+      worldX: 320,
+      worldY: 640,
+      maxDistancePx: 480,
+      minimumVolumeScale: 0.2,
+      sourceId: "monster-1",
+    });
+
+    expect(game.serializeForPlayer("p1").sounds).toContainEqual({
+      effect: SoundEffect.MUTANT_EAT,
+      worldX: 320,
+      worldY: 640,
+      maxDistancePx: 480,
+      minimumVolumeScale: 0.2,
+    });
   });
 
   it("does not spawn the CTDM item in online mode", () => {

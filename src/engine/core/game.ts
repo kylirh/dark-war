@@ -564,9 +564,22 @@ export class Game {
     // fire, so echoing it back would double up the audio.
     state.sounds = this.state.pendingSounds
       .filter(
-        (s) => !(s.effect === SoundEffect.SHOOT && s.sourceId === playerId),
+        (s) =>
+          !(
+            (s.effect === SoundEffect.SHOOT ||
+              s.effect === SoundEffect.LASER_SHOOT_1 ||
+              s.effect === SoundEffect.LASER_SHOOT_2 ||
+              s.effect === SoundEffect.LASER_SHOOT_3 ||
+              s.effect === SoundEffect.LASER_SHOOT_4 ||
+              s.effect === SoundEffect.SMG_SHOOT_1 ||
+              s.effect === SoundEffect.SMG_SHOOT_2 ||
+              s.effect === SoundEffect.SHOTGUN_BLAST_1 ||
+              s.effect === SoundEffect.SHOTGUN_BLAST_2 ||
+              s.effect === SoundEffect.SHOTGUN_BLAST_3) &&
+            s.sourceId === playerId
+          ),
       )
-      .map((s) => s.effect);
+      .map(({ sourceId: _sourceId, ...sound }) => sound);
     return state;
   }
 
@@ -1165,7 +1178,9 @@ export class Game {
         timeScale: this.state.sim.timeScale,
         targetTimeScale: this.state.sim.targetTimeScale,
       },
-      sounds: this.state.pendingSounds.map((s) => s.effect),
+      sounds: this.state.pendingSounds.map(
+        ({ sourceId: _sourceId, ...sound }) => sound,
+      ),
       effects: this.state.effects,
     };
   }
@@ -1326,14 +1341,9 @@ export class Game {
       ) {
         const [gridX, gridY] = this.getGridPositionFromSerialized(entity);
         const savedType = (entity as Monster).type;
-        const monsterType =
-          savedType === MonsterType.RAT
-            ? MonsterType.RAT
-            : savedType === MonsterType.SKULKER
-              ? MonsterType.SKULKER
-              : savedType === MonsterType.UTILITY_BOT
-                ? MonsterType.UTILITY_BOT
-                : MonsterType.MUTANT;
+        const monsterType = Object.values(MonsterType).includes(savedType)
+          ? savedType
+          : MonsterType.MUTANT;
         const monster = new MonsterEntity(gridX, gridY, monsterType, depth);
         Object.assign(monster, entity);
         if (typeof monster.hpMax !== "number") {
@@ -1341,6 +1351,13 @@ export class Game {
         }
         if (!monster.carriedItems) {
           monster.carriedItems = [];
+        }
+        if (
+          (monster.type === MonsterType.ZYTH ||
+            monster.type === MonsterType.TERRORIST_COLLABORATOR) &&
+          !monster.equippedWeapon
+        ) {
+          monster.equippedWeapon = ItemType.PISTOL;
         }
         this.syncWorldPosition(monster, entity);
         hydrated.push(monster);
@@ -1353,6 +1370,13 @@ export class Game {
         }
         if (!entity.carriedItems) {
           entity.carriedItems = [];
+        }
+        if (
+          (entity.type === MonsterType.ZYTH ||
+            entity.type === MonsterType.TERRORIST_COLLABORATOR) &&
+          !entity.equippedWeapon
+        ) {
+          entity.equippedWeapon = ItemType.PISTOL;
         }
         this.syncWorldPosition(entity, entity);
         hydrated.push(entity);
@@ -1550,7 +1574,7 @@ export class Game {
 
     this.state.enhancedVision = true;
     this.addStory("Level successfully explored!");
-    this.state.pendingSounds.push({ effect: SoundEffect.LEVEL_EXPLORED });
+    this.state.pendingSounds.push({ effect: SoundEffect.LEVEL_REVEAL });
     return true;
   }
 

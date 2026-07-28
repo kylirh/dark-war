@@ -3,7 +3,7 @@ import { ItemType } from "../types";
 /**
  * Data-driven item metadata. Display names, categories, and behavior flags for
  * every item. Mechanics (firing modes, consumption, cleanup, economy) read these
- * flags; see docs/ROADMAP.md for what's wired vs. pending.
+ * flags; see .github/copilot-instructions.md for roadmap context.
  */
 
 export type ItemCategory =
@@ -15,6 +15,7 @@ export type ItemCategory =
   | "throwable"
   | "currency"
   | "junk" // cleaned up by the utility bot, otherwise inert (for now)
+  | "organic-remains"
   | "utility"
   | "machine"
   | "key"
@@ -32,6 +33,10 @@ export interface ItemDef {
   cleanedByBot?: boolean;
   /** Eating/using consumes it (cookie heals, black pill kills). */
   consumable?: boolean;
+  /** Whether players, pets, and ordinary monster pickup logic may collect it. */
+  collectible?: boolean;
+  /** Dead organic matter that Mutants can smell, pursue, and consume. */
+  organicDead?: boolean;
   /** Stacks as a count rather than occupying a unique slot. */
   stackable?: boolean;
 }
@@ -122,7 +127,12 @@ export const ITEM_DEFS: Record<ItemType, ItemDef> = {
   },
 
   // Consumables / economy / drops
-  [ItemType.BONE]: { name: "Bone", category: "consumable", stackable: true },
+  [ItemType.BONE]: {
+    name: "Bone",
+    category: "consumable",
+    stackable: true,
+    organicDead: true,
+  },
   [ItemType.COOKIE]: {
     name: "Cookie",
     category: "consumable",
@@ -203,6 +213,24 @@ export const ITEM_DEFS: Record<ItemType, ItemDef> = {
     name: "Light Fixture",
     category: "block",
     stackable: true,
+  },
+  [ItemType.BLOOD_SPLATTER]: {
+    name: "Blood Splatter",
+    category: "organic-remains",
+    collectible: false,
+    organicDead: true,
+  },
+  [ItemType.CORPSE]: {
+    name: "Corpse",
+    category: "organic-remains",
+    collectible: false,
+    organicDead: true,
+  },
+  [ItemType.ENTRAILS]: {
+    name: "Entrails",
+    category: "organic-remains",
+    collectible: false,
+    organicDead: true,
   },
 };
 

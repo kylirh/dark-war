@@ -1,13 +1,15 @@
 /**
- * Synthesize simple placeholder sound effects (16-bit PCM mono WAV) for the new
- * weapons/items/monsters. Dependency-free. Re-runnable. Refine/replace with real
- * audio later — these just give each new action an audible cue.
+ * Synthesize simple placeholder sound effects (Ogg Vorbis) for the new
+ * weapons/items/monsters. No npm audio dependency. Re-runnable. Refine/replace
+ * with real audio later — these just give each new action an audible cue.
+ * Requires ffmpeg.
  *
  *   node tools/gen-sounds.mjs
  *
- * The SoundManager maps these effect keys to `.wav` via SOUND_FILES overrides.
+ * The SoundManager loads these effect keys directly as `.ogg` files.
  */
-import { writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, writeFileSync, mkdirSync, unlinkSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -60,65 +62,25 @@ const sweep = (t, f0, f1, dur) => sine(t, f0 + (f1 - f0) * (t / dur));
 
 const SOUNDS = {
   // weapons
-  "laser-shoot": render(
-    0.28,
-    (t) => sweep(t, 1400, 320, 0.28) * env(t, 0.28) * 0.5,
-  ),
-  "shotgun-blast": render(
+  "gyrojet-shotgun-1": render(
     0.35,
     (t) => (rng() * 0.7 + sine(t, 90) * 0.3) * env(t, 0.35, 0.002) * 0.6,
   ),
-  "smg-shoot": render(
-    0.08,
-    (t) => (sine(t, 520) * 0.6 + rng() * 0.4) * env(t, 0.08, 0.002) * 0.45,
-  ),
-  "throw-rock": render(
-    0.18,
-    (t) => sweep(t, 600, 200, 0.18) * env(t, 0.18) * 0.4,
-  ),
   // items
-  pickup: render(
-    0.18,
-    (t) => (sine(t, 880) + sine(t, 1320) * 0.5) * env(t, 0.18) * 0.4,
-  ),
-  eat: render(
+  "eat-1": render(
     0.22,
     (t) =>
       (sine(t, 200 + 120 * Math.sin(t * 60)) * 0.6 + rng() * 0.2) *
       env(t, 0.22) *
       0.5,
   ),
-  powerup: render(0.4, (t) => sweep(t, 300, 1200, 0.4) * env(t, 0.4) * 0.45),
-  warp: render(
-    0.6,
-    (t) =>
-      (sweep(t, 200, 1600, 0.3) + sweep(t, 1600, 200, 0.6)) * env(t, 0.6) * 0.4,
-  ),
+  recharge: render(0.4, (t) => sweep(t, 300, 1200, 0.4) * env(t, 0.4) * 0.45),
   "place-wall": render(
     0.2,
     (t) => (sine(t, 140) * 0.7 + rng() * 0.3) * env(t, 0.2, 0.002) * 0.5,
   ),
-  coins: render(
-    0.3,
-    (t) => (sine(t, 1000) + sine(t, 1500) * 0.6) * env(t % 0.1, 0.1) * 0.35,
-  ),
   // monsters
-  bark: render(
-    0.22,
-    (t) =>
-      (sine(t, 260 - 200 * t) * 0.7 + rng() * 0.3) * env(t, 0.22, 0.003) * 0.5,
-  ),
-  hiss: render(0.4, (t) => rng() * (1 - t) * env(t, 0.4, 0.02) * 0.4),
-  "alien-zap": render(
-    0.3,
-    (t) =>
-      sweep(t, 700, 1500, 0.3) * Math.sign(sine(t, 30)) * env(t, 0.3) * 0.4,
-  ),
-  squelch: render(
-    0.3,
-    (t) => sine(t, 120 + 80 * Math.sin(t * 25)) * env(t, 0.3) * 0.5,
-  ),
-  teleport: render(
+  "moppet-teleport-1": render(
     0.35,
     (t) =>
       sweep(t, 1200, 400, 0.35) *
@@ -129,8 +91,42 @@ const SOUNDS = {
 };
 
 let count = 0;
+let skipped = 0;
 for (const [name, samples] of Object.entries(SOUNDS)) {
-  writeFileSync(join(OUT_DIR, `${name}.wav`), wav(samples));
+  const wavPath = join(OUT_DIR, `${name}.wav.tmp`);
+  const oggPath = join(OUT_DIR, `${name}.ogg`);
+  // These are fallbacks, not authoritative assets. Never overwrite a sound
+  // that has been recorded or supplied by a developer.
+  if (existsSync(oggPath)) {
+    skipped++;
+    continue;
+  }
+  writeFileSync(wavPath, wav(samples));
+  const result = spawnSync(
+    "ffmpeg",
+    [
+      "-hide_banner",
+      "-loglevel",
+      "error",
+      "-y",
+      "-i",
+      wavPath,
+      "-ac",
+      "2",
+      "-c:a",
+      "vorbis",
+      "-strict",
+      "experimental",
+      "-q:a",
+      "5",
+      oggPath,
+    ],
+    { stdio: "inherit" },
+  );
+  unlinkSync(wavPath);
+  if (result.status !== 0) {
+    throw new Error(`ffmpeg failed while encoding ${name}.ogg`);
+  }
   count++;
 }
-console.log(`✓ sounds: wrote ${count} WAVs -> ${OUT_DIR}`);
+console.log(`✓ sounds: wrote ${count}, preserved ${skipped} existing OGGs`);

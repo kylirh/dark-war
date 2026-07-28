@@ -49,7 +49,7 @@ export interface StateDelta {
   // `sim`, `effects` and `sounds` are tiny / ephemeral and always sent.
   sim: SerializedState["sim"];
   effects: Effect[];
-  sounds: string[];
+  sounds: NonNullable<SerializedState["sounds"]>;
 
   // Array sub-diffs.
   entitiesUpserted?: Entity[];

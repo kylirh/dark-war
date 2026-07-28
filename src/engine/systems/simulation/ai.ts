@@ -21,11 +21,17 @@ import {
 } from "../../utils/helpers";
 import { applyWallDamageAt } from "../../utils/walls";
 import { TILE_DEFINITIONS } from "../../types";
+import { isWallLikeTile } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
 import { isRangedMonster, MONSTER_DEFS } from "../../content/monster-defs";
 import { isJunk, ITEM_DEFS } from "../../content/item-defs";
 import { ItemEntity } from "../../entities/item-entity";
 import { SoundEffect } from "../../content/sound-effects";
+import {
+  equippedMonsterWeaponType,
+  MONSTER_LASER_SHOT_COST,
+  monsterCanUseEquippedWeapon,
+} from "../../utils/monster-weapons";
 import {
   MONSTER_SPEED,
   MONSTER_ARRIVAL_RADIUS,
@@ -52,6 +58,12 @@ import {
 // ========================================
 // Utility Bot Helpers
 // ========================================
+
+const UTILITY_BOT_CLEANUP_SOUND_CHANCE = 0.2;
+const UTILITY_BOT_CLEANUP_SOUNDS = [
+  SoundEffect.UTILITY_BOT_CLEAN_1,
+  SoundEffect.UTILITY_BOT_CLEAN_2,
+];
 
 /**
  * BFS to find the next grid step the utility bot should take toward (toX, toY).
@@ -148,14 +160,15 @@ function botNextStep(
   return [cur % w, Math.floor(cur / w)];
 }
 
-/** Steer the bot toward a world-space grid cell using BFS next-step. */
-function botSteerToward(
+/** Steer an entity toward a grid cell using a BFS next-step. */
+function steerTowardGrid(
   m: any,
   state: GameState,
   monster: Monster,
   toGridX: number,
   toGridY: number,
-): void {
+  speed: number = UTILITY_BOT_SPEED,
+): boolean {
   const step = botNextStep(
     state,
     monster.gridX,
@@ -166,7 +179,7 @@ function botSteerToward(
   if (!step) {
     m.velocityX = 0;
     m.velocityY = 0;
-    return;
+    return false;
   }
   const [sx, sy] = step;
   const swx = sx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
@@ -178,9 +191,11 @@ function botSteerToward(
     m.velocityX = 0;
     m.velocityY = 0;
   } else {
-    m.velocityX = (dx / d) * UTILITY_BOT_SPEED;
-    m.velocityY = (dy / d) * UTILITY_BOT_SPEED;
+    m.velocityX = (dx / d) * speed;
+    m.velocityY = (dy / d) * speed;
+    m.facingAngle = Math.atan2(dy, dx);
   }
+  return true;
 }
 
 /**
@@ -286,7 +301,7 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
     const ky = m.lastKnownPlayerY - m.worldY;
     const kd = Math.sqrt(kx * kx + ky * ky);
     if (kd > CELL_CONFIG.w * 0.8) {
-      botSteerToward(
+      steerTowardGrid(
         m,
         state,
         monster,
@@ -342,7 +357,7 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
         m.velocityX = 0;
         m.velocityY = 0;
       } else {
-        botSteerToward(m, state, monster, tx, ty);
+        steerTowardGrid(m, state, monster, tx, ty);
       }
       return;
     }
@@ -357,10 +372,17 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
       const jd = Math.hypot(jdx, jdy);
       if (jd <= CELL_CONFIG.w * 0.8) {
         state.entityManager.destroy(junk.id); // vacuumed up
+        if (RNG.chance(UTILITY_BOT_CLEANUP_SOUND_CHANCE)) {
+          state.pendingSounds.push({
+            effect: RNG.choose(UTILITY_BOT_CLEANUP_SOUNDS),
+            worldX: m.worldX,
+            worldY: m.worldY,
+          });
+        }
         m.velocityX = 0;
         m.velocityY = 0;
       } else {
-        botSteerToward(m, state, monster, junk.gridX, junk.gridY);
+        steerTowardGrid(m, state, monster, junk.gridX, junk.gridY);
       }
       return;
     }
@@ -382,7 +404,7 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
       m.velocityX = (-dx / len) * speed;
       m.velocityY = (-dy / len) * speed;
     } else if (d > UTILITY_BOT_FOLLOW_DIST_PX) {
-      botSteerToward(
+      steerTowardGrid(
         m,
         state,
         monster,
@@ -400,6 +422,108 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
   m.velocityY = 0;
 }
 
+const MUTANT_SCAVENGE_RANGE_PX = CELL_CONFIG.w * 20;
+const MUTANT_EAT_RADIUS_PX = CELL_CONFIG.w * 0.8;
+const MUTANT_EAT_HEARING_RANGE_PX = CELL_CONFIG.w * 18;
+const MUTANT_DIGEST_MIN_TICKS = 40;
+const MUTANT_DIGEST_JITTER_TICKS = 41;
+const MUTANT_COMBAT_MEMORY_TICKS = 80;
+const MUTANT_IMMEDIATE_COMBAT_RANGE_PX = CELL_CONFIG.w * 1.5;
+
+/** Find the nearest dead organic remnant within the Mutant's scent range. */
+function nearestOrganicRemains(state: GameState, mutant: Monster): Item | null {
+  let nearest: Item | null = null;
+  let nearestDistanceSq = MUTANT_SCAVENGE_RANGE_PX ** 2;
+  for (const entity of state.entities) {
+    if (entity.kind !== EntityKind.ITEM) continue;
+    const item = entity as Item;
+    if (ITEM_DEFS[item.type]?.organicDead !== true) continue;
+    const dx = item.worldX - mutant.worldX;
+    const dy = item.worldY - mutant.worldY;
+    const distanceSq = dx * dx + dy * dy;
+    if (distanceSq < nearestDistanceSq) {
+      nearest = item;
+      nearestDistanceSq = distanceSq;
+    }
+  }
+  return nearest;
+}
+
+/** Mutants abandon a meal only for an immediate or recently initiated fight. */
+function mutantIsActivelyFightingPlayer(
+  state: GameState,
+  mutant: Monster,
+): boolean {
+  const player = getClosestPlayer(state, mutant);
+  if (!player) return false;
+  const recentlyAttacked =
+    state.sim.nowTick - (mutant.lastPlayerAttackTick ?? -Infinity) <
+    MUTANT_COMBAT_MEMORY_TICKS;
+  const playerDistance = Math.hypot(
+    player.worldX - mutant.worldX,
+    player.worldY - mutant.worldY,
+  );
+  return recentlyAttacked || playerDistance <= MUTANT_IMMEDIATE_COMBAT_RANGE_PX;
+}
+
+function mutantIsDigesting(state: GameState, mutant: Monster): boolean {
+  return (
+    mutant.type === MonsterType.MUTANT &&
+    state.sim.nowTick < (mutant.digestingUntilTick ?? -Infinity)
+  );
+}
+
+function mutantShouldScavenge(state: GameState, mutant: Monster): boolean {
+  return (
+    mutant.type === MonsterType.MUTANT &&
+    !mutantIsActivelyFightingPlayer(state, mutant) &&
+    nearestOrganicRemains(state, mutant) !== null
+  );
+}
+
+/** Prioritize scavenging dead organic matter over the Mutant's normal hunt. */
+function steerMutantTowardRemains(state: GameState, mutant: Monster): boolean {
+  if (mutant.type !== MonsterType.MUTANT) return false;
+  const remains = nearestOrganicRemains(state, mutant);
+  if (!remains) return false;
+  const dx = remains.worldX - mutant.worldX;
+  const dy = remains.worldY - mutant.worldY;
+  const distance = Math.hypot(dx, dy);
+
+  if (distance <= MUTANT_EAT_RADIUS_PX) {
+    state.entityManager.destroy(remains.id);
+    mutant.velocityX = 0;
+    mutant.velocityY = 0;
+    mutant.digestingUntilTick =
+      state.sim.nowTick +
+      MUTANT_DIGEST_MIN_TICKS +
+      RNG.int(MUTANT_DIGEST_JITTER_TICKS);
+    const player = getClosestPlayer(state, mutant);
+    if (
+      player &&
+      Math.hypot(player.worldX - mutant.worldX, player.worldY - mutant.worldY) <
+        MUTANT_EAT_HEARING_RANGE_PX
+    ) {
+      state.pendingSounds.push({
+        effect: SoundEffect.MUTANT_EAT,
+        worldX: mutant.worldX,
+        worldY: mutant.worldY,
+        maxDistancePx: MUTANT_EAT_HEARING_RANGE_PX,
+      });
+    }
+    return true;
+  }
+
+  return steerTowardGrid(
+    mutant,
+    state,
+    mutant,
+    remains.gridX,
+    remains.gridY,
+    MONSTER_SPEED * MONSTER_DEFS[MonsterType.MUTANT].speed,
+  );
+}
+
 // ========================================
 // Steering Behaviors (Continuous Movement AI)
 // ========================================
@@ -412,6 +536,324 @@ const PET_SPEED = 215; // px/s for friendly pets chasing/following
 const PET_HOSTILE_RANGE_PX = CELL_CONFIG.w * 8;
 const PET_FOLLOW_DIST_PX = CELL_CONFIG.w * 2.5;
 const PET_MELEE_RANGE_PX = CELL_CONFIG.w * 1.5;
+const DOG_VOCAL_RANGE_PX = CELL_CONFIG.w * 10;
+const DOG_VOCAL_REPEAT_COOLDOWN_TICKS = 120;
+const DOG_VOCAL_TARGET_CHANGE_COOLDOWN_TICKS = 20;
+const DOG_VOCAL_REPEAT_CHANCE = 0.1;
+const DOG_WHIMPER_RANGE_PX = CELL_CONFIG.w * 6;
+const DOG_WHIMPER_COOLDOWN_TICKS = 180;
+const DOG_WHIMPER_CHANCE = 0.08;
+const SNAGGLEPUSS_MUTTER_RANGE_PX = CELL_CONFIG.w * 12;
+const SNAGGLEPUSS_MUTTER_COOLDOWN_TICKS = 240;
+const SNAGGLEPUSS_MUTTER_CHANCE = 0.05;
+const DOG_VOCAL_SOUNDS = [
+  SoundEffect.DOG_VOCAL_1,
+  SoundEffect.DOG_VOCAL_2,
+  SoundEffect.DOG_VOCAL_3,
+  SoundEffect.DOG_VOCAL_4,
+  SoundEffect.DOG_VOCAL_5,
+  SoundEffect.DOG_VOCAL_6,
+  SoundEffect.DOG_VOCAL_7,
+  SoundEffect.DOG_VOCAL_8,
+  SoundEffect.DOG_VOCAL_9,
+  SoundEffect.DOG_VOCAL_10,
+];
+const DOG_WHIMPER_SOUNDS = [
+  SoundEffect.DOG_WIMPER_1,
+  SoundEffect.DOG_WIMPER_2,
+  SoundEffect.DOG_WIMPER_3,
+  SoundEffect.DOG_WIMPER_4,
+];
+
+/** Occasionally emit a spatial mutter while a Snagglepuss is within earshot. */
+function updateSnagglepussMutter(state: GameState, snagglepuss: Monster): void {
+  if (snagglepuss.type !== MonsterType.SNAGGLEPUSS) return;
+  const player = getClosestPlayer(state, snagglepuss);
+  if (!player) return;
+  const distance = Math.hypot(
+    player.worldX - snagglepuss.worldX,
+    player.worldY - snagglepuss.worldY,
+  );
+  if (distance >= SNAGGLEPUSS_MUTTER_RANGE_PX) return;
+
+  const ticksSinceLastMutter =
+    state.sim.nowTick - (snagglepuss.lastSnagglepussMutterTick ?? -Infinity);
+  if (
+    ticksSinceLastMutter < SNAGGLEPUSS_MUTTER_COOLDOWN_TICKS ||
+    !RNG.chance(SNAGGLEPUSS_MUTTER_CHANCE)
+  ) {
+    return;
+  }
+
+  snagglepuss.lastSnagglepussMutterTick = state.sim.nowTick;
+  state.pendingSounds.push({
+    effect: SoundEffect.SNAGGLEPUSS_MUTTER,
+    worldX: snagglepuss.worldX,
+    worldY: snagglepuss.worldY,
+    maxDistancePx: SNAGGLEPUSS_MUTTER_RANGE_PX,
+  });
+}
+
+const GIANT_SPIDER_AMBIENCE_RANGE_PX = CELL_CONFIG.w * 16;
+const GIANT_SPIDER_MOVING_COOLDOWN_TICKS = 80;
+const GIANT_SPIDER_IDLE_COOLDOWN_TICKS = 160;
+const GIANT_SPIDER_MOVING_CHANCE = 0.18;
+const GIANT_SPIDER_IDLE_CHANCE = 0.08;
+const GIANT_SPIDER_SOUNDS = [
+  SoundEffect.GIANT_SPIDER_1,
+  SoundEffect.GIANT_SPIDER_2,
+  SoundEffect.GIANT_SPIDER_3,
+  SoundEffect.GIANT_SPIDER_4,
+  SoundEffect.GIANT_SPIDER_5,
+];
+const DREADNAUGHT_AMBIENCE_MIN_INTERVAL_TICKS = 60;
+const DREADNAUGHT_AMBIENCE_INTERVAL_JITTER_TICKS = 61;
+const DREADNAUGHT_MINIMUM_VOLUME_SCALE = 0.65;
+const DREADNAUGHT_SOUNDS = [
+  SoundEffect.DREADNAUGHT_1,
+  SoundEffect.DREADNAUGHT_2,
+  SoundEffect.DREADNAUGHT_3,
+  SoundEffect.DREADNAUGHT_4,
+  SoundEffect.DREADNAUGHT_5,
+  SoundEffect.DREADNAUGHT_6,
+  SoundEffect.DREADNAUGHT_7,
+  SoundEffect.DREADNAUGHT_8,
+];
+const FLUTTERBANG_AMBIENCE_RANGE_PX = CELL_CONFIG.w * 18;
+const FLUTTERBANG_AMBIENCE_MIN_INTERVAL_TICKS = 30;
+const FLUTTERBANG_AMBIENCE_INTERVAL_JITTER_TICKS = 31;
+const ICKY_LUMP_MOVEMENT_RANGE_PX = CELL_CONFIG.w * 16;
+const ICKY_LUMP_MOVEMENT_COOLDOWN_TICKS = 100;
+const ICKY_LUMP_MOVEMENT_CHANCE = 0.15;
+const ICKY_LUMP_MOVEMENT_SOUNDS = [
+  SoundEffect.ICKY_LUMP_MOVE_1,
+  SoundEffect.ICKY_LUMP_MOVE_2,
+  SoundEffect.ICKY_LUMP_MOVE_3,
+  SoundEffect.ICKY_LUMP_MOVE_4,
+];
+
+/** Vocalize on pursuit acquisition/switch, then occasionally during the chase. */
+function updateWildDogVocal(
+  state: GameState,
+  dog: Monster,
+  target: Player | Monster | null,
+): void {
+  if (dog.type !== MonsterType.WILD_DOG) return;
+  if (!target) {
+    dog.dogVocalTargetId = undefined;
+    return;
+  }
+
+  const distance = Math.hypot(
+    target.worldX - dog.worldX,
+    target.worldY - dog.worldY,
+  );
+  if (distance > DOG_VOCAL_RANGE_PX) {
+    dog.dogVocalTargetId = undefined;
+    return;
+  }
+
+  const tick = state.sim.nowTick;
+  const targetChanged = dog.dogVocalTargetId !== target.id;
+  dog.dogVocalTargetId = target.id;
+  const ticksSinceLastVocal = tick - (dog.lastDogVocalTick ?? -Infinity);
+  const shouldVocalize = targetChanged
+    ? ticksSinceLastVocal >= DOG_VOCAL_TARGET_CHANGE_COOLDOWN_TICKS
+    : ticksSinceLastVocal >= DOG_VOCAL_REPEAT_COOLDOWN_TICKS &&
+      RNG.chance(DOG_VOCAL_REPEAT_CHANCE);
+  if (!shouldVocalize) return;
+
+  dog.lastDogVocalTick = tick;
+  state.pendingSounds.push({
+    effect: DOG_VOCAL_SOUNDS[RNG.int(DOG_VOCAL_SOUNDS.length)],
+    worldX: dog.worldX,
+    worldY: dog.worldY,
+  });
+}
+
+/** Occasionally vocalize while a friendly dog rests near its owner. */
+function updateFriendlyDogWhimper(
+  state: GameState,
+  dog: Monster,
+  owner: Player | null,
+  trackingEnemy: boolean,
+): void {
+  if (
+    dog.type !== MonsterType.WILD_DOG ||
+    !dog.friendly ||
+    !owner ||
+    trackingEnemy
+  ) {
+    return;
+  }
+  const distance = Math.hypot(
+    owner.worldX - dog.worldX,
+    owner.worldY - dog.worldY,
+  );
+  const ticksSinceLastWhimper =
+    state.sim.nowTick - (dog.lastDogWhimperTick ?? 0);
+  if (
+    distance > DOG_WHIMPER_RANGE_PX ||
+    ticksSinceLastWhimper < DOG_WHIMPER_COOLDOWN_TICKS ||
+    !RNG.chance(DOG_WHIMPER_CHANCE)
+  ) {
+    return;
+  }
+
+  dog.lastDogWhimperTick = state.sim.nowTick;
+  state.pendingSounds.push({
+    effect: DOG_WHIMPER_SOUNDS[RNG.int(DOG_WHIMPER_SOUNDS.length)],
+    worldX: dog.worldX,
+    worldY: dog.worldY,
+  });
+}
+
+/** Play spatial spider ambience, with more frequent rolls while it is moving. */
+function updateGiantSpiderAmbience(state: GameState, spider: Monster): void {
+  if (spider.type !== MonsterType.GIANT_SPIDER) return;
+  const player = getClosestPlayer(state, spider);
+  if (!player) {
+    spider.spiderAmbienceNearby = false;
+    return;
+  }
+
+  const distance = Math.hypot(
+    player.worldX - spider.worldX,
+    player.worldY - spider.worldY,
+  );
+  if (distance > GIANT_SPIDER_AMBIENCE_RANGE_PX) {
+    spider.spiderAmbienceNearby = false;
+    return;
+  }
+
+  const justBecameNearby = !spider.spiderAmbienceNearby;
+  spider.spiderAmbienceNearby = true;
+  const moving = Math.hypot(spider.velocityX, spider.velocityY) > 1;
+  const cooldown = moving
+    ? GIANT_SPIDER_MOVING_COOLDOWN_TICKS
+    : GIANT_SPIDER_IDLE_COOLDOWN_TICKS;
+  const repeatChance = moving
+    ? GIANT_SPIDER_MOVING_CHANCE
+    : GIANT_SPIDER_IDLE_CHANCE;
+  const ticksSinceLastSound =
+    state.sim.nowTick - (spider.lastSpiderAmbienceTick ?? -Infinity);
+  if (
+    !justBecameNearby &&
+    (ticksSinceLastSound < cooldown || !RNG.chance(repeatChance))
+  ) {
+    return;
+  }
+
+  spider.lastSpiderAmbienceTick = state.sim.nowTick;
+  state.pendingSounds.push({
+    effect: GIANT_SPIDER_SOUNDS[RNG.int(GIANT_SPIDER_SOUNDS.length)],
+    worldX: spider.worldX,
+    worldY: spider.worldY,
+  });
+}
+
+/** Frequently announce a Dreadnaught anywhere on the player's current level. */
+function updateDreadnaughtAmbience(
+  state: GameState,
+  dreadnaught: Monster,
+): void {
+  if (dreadnaught.type !== MonsterType.DREADNAUGHT) return;
+  if (!getClosestPlayer(state, dreadnaught)) return;
+  if (
+    state.sim.nowTick < (dreadnaught.nextDreadnaughtAmbienceTick ?? -Infinity)
+  ) {
+    return;
+  }
+
+  dreadnaught.nextDreadnaughtAmbienceTick =
+    state.sim.nowTick +
+    DREADNAUGHT_AMBIENCE_MIN_INTERVAL_TICKS +
+    RNG.int(DREADNAUGHT_AMBIENCE_INTERVAL_JITTER_TICKS);
+  state.pendingSounds.push({
+    effect: RNG.choose(DREADNAUGHT_SOUNDS),
+    worldX: dreadnaught.worldX,
+    worldY: dreadnaught.worldY,
+    maxDistancePx: Math.hypot(state.mapWidth, state.mapHeight) * CELL_CONFIG.w,
+    minimumVolumeScale: DREADNAUGHT_MINIMUM_VOLUME_SCALE,
+  });
+}
+
+/** Play recurring spatial flutter based only on distance, not line of sight. */
+function updateFlutterbangAmbience(
+  state: GameState,
+  flutterbang: Monster,
+): void {
+  if (flutterbang.type !== MonsterType.FLUTTERBANG) return;
+  const player = getClosestPlayer(state, flutterbang);
+  if (!player) {
+    flutterbang.nextFlutterbangAmbienceTick = undefined;
+    return;
+  }
+  const distance = Math.hypot(
+    player.worldX - flutterbang.worldX,
+    player.worldY - flutterbang.worldY,
+  );
+  if (distance >= FLUTTERBANG_AMBIENCE_RANGE_PX) {
+    flutterbang.nextFlutterbangAmbienceTick = undefined;
+    return;
+  }
+  if (
+    state.sim.nowTick < (flutterbang.nextFlutterbangAmbienceTick ?? -Infinity)
+  ) {
+    return;
+  }
+
+  flutterbang.nextFlutterbangAmbienceTick =
+    state.sim.nowTick +
+    FLUTTERBANG_AMBIENCE_MIN_INTERVAL_TICKS +
+    RNG.int(FLUTTERBANG_AMBIENCE_INTERVAL_JITTER_TICKS);
+  state.pendingSounds.push({
+    effect: SoundEffect.FLUTTER,
+    worldX: flutterbang.worldX,
+    worldY: flutterbang.worldY,
+  });
+}
+
+/** Play spatial movement sounds while an Icky Lump advances on a player. */
+function updateIckyLumpMovementSound(state: GameState, lump: Monster): void {
+  if (lump.type !== MonsterType.ICKY_LUMP) return;
+  const player = getClosestPlayer(state, lump);
+  if (!player) {
+    lump.ickyLumpMovementNearby = false;
+    return;
+  }
+
+  const dx = player.worldX - lump.worldX;
+  const dy = player.worldY - lump.worldY;
+  const distance = Math.hypot(dx, dy);
+  const speed = Math.hypot(lump.velocityX, lump.velocityY);
+  const movingTowardPlayer =
+    speed > 1 && lump.velocityX * dx + lump.velocityY * dy > 0;
+  if (distance > ICKY_LUMP_MOVEMENT_RANGE_PX || !movingTowardPlayer) {
+    lump.ickyLumpMovementNearby = false;
+    return;
+  }
+
+  const justStartedApproaching = !lump.ickyLumpMovementNearby;
+  lump.ickyLumpMovementNearby = true;
+  const ticksSinceLastSound =
+    state.sim.nowTick - (lump.lastIckyLumpMovementTick ?? -Infinity);
+  if (
+    !justStartedApproaching &&
+    (ticksSinceLastSound < ICKY_LUMP_MOVEMENT_COOLDOWN_TICKS ||
+      !RNG.chance(ICKY_LUMP_MOVEMENT_CHANCE))
+  ) {
+    return;
+  }
+
+  lump.lastIckyLumpMovementTick = state.sim.nowTick;
+  state.pendingSounds.push({
+    effect:
+      ICKY_LUMP_MOVEMENT_SOUNDS[RNG.int(ICKY_LUMP_MOVEMENT_SOUNDS.length)],
+    worldX: lump.worldX,
+    worldY: lump.worldY,
+  });
+}
 
 /** Nearest hostile (non-friendly) monster to a pet, within range. */
 function nearestHostileMonster(
@@ -454,6 +896,7 @@ function nearestFetchableItem(
   for (const entity of state.entities) {
     if (entity.kind !== EntityKind.ITEM) continue;
     const item = entity as Item;
+    if (ITEM_DEFS[item.type]?.collectible === false) continue;
     if (ITEM_DEFS[item.type]?.category === "machine") continue;
     // Skip loot the fetcher just dropped right next to the owner.
     if (owner && "worldX" in owner) {
@@ -557,6 +1000,9 @@ function steerFriendlyPet(state: GameState, monster: Monster): void {
   }
   const m = monster as any;
   const enemy = nearestHostileMonster(state, monster, PET_HOSTILE_RANGE_PX);
+  const owner = petOwner(state, monster);
+  updateWildDogVocal(state, monster, enemy);
+  updateFriendlyDogWhimper(state, monster, owner, enemy !== null);
   let targetX: number | null = null;
   let targetY: number | null = null;
 
@@ -564,7 +1010,6 @@ function steerFriendlyPet(state: GameState, monster: Monster): void {
     targetX = (enemy as any).worldX;
     targetY = (enemy as any).worldY;
   } else {
-    const owner = petOwner(state, monster);
     if (owner && "worldX" in owner) {
       const dx = (owner as any).worldX - m.worldX;
       const dy = (owner as any).worldY - m.worldY;
@@ -646,18 +1091,52 @@ function smashWallTowardPlayer(state: GameState, monster: Monster): void {
     const tx = monster.gridX + dx;
     const ty = monster.gridY + dy;
     const tile = tileAtFor(state.map, tx, ty, state.mapWidth, state.mapHeight);
-    if (TILE_DEFINITIONS[tile]?.block && tile === TileType.WALL) {
+    if (TILE_DEFINITIONS[tile]?.block && isWallLikeTile(tile)) {
       applyWallDamageAt(state, tx, ty, monster.dmg);
+      const remainingTile = tileAtFor(
+        state.map,
+        tx,
+        ty,
+        state.mapWidth,
+        state.mapHeight,
+      );
+      if (remainingTile !== tile) {
+        state.pendingSounds.push({
+          effect: SoundEffect.DREADNAUGHT_OBLITERATE,
+          worldX: tx * CELL_CONFIG.w + CELL_CONFIG.w / 2,
+          worldY: ty * CELL_CONFIG.h + CELL_CONFIG.h / 2,
+        });
+      }
       return;
     }
   }
 }
 
 export function updateMonsterSteering(state: GameState): void {
-  for (const entity of state.entities) {
+  // Steering may consume floor items. Iterate a snapshot so removing an item
+  // earlier in the live array cannot skip a later monster.
+  for (const entity of state.entities.slice()) {
     if (entity.kind !== EntityKind.MONSTER) continue;
     const monster = entity as Monster;
     if (!("worldX" in monster) || !("worldY" in monster)) continue;
+    updateDreadnaughtAmbience(state, monster);
+    updateFlutterbangAmbience(state, monster);
+    updateGiantSpiderAmbience(state, monster);
+    updateIckyLumpMovementSound(state, monster);
+    updateSnagglepussMutter(state, monster);
+
+    if (mutantIsDigesting(state, monster)) {
+      monster.velocityX = 0;
+      monster.velocityY = 0;
+      continue;
+    }
+
+    if (
+      !mutantIsActivelyFightingPlayer(state, monster) &&
+      steerMutantTowardRemains(state, monster)
+    ) {
+      continue;
+    }
 
     if (monster.type === MonsterType.UTILITY_BOT) {
       steerUtilityBot(state, monster);
@@ -691,6 +1170,7 @@ export function updateMonsterSteering(state: GameState): void {
 
     const player = getClosestPlayer(state, monster);
     if (!player) {
+      updateWildDogVocal(state, monster, null);
       const direction = chooseIdleWanderDirection(state, monster);
       if (direction) {
         const [dx, dy] = direction;
@@ -726,6 +1206,7 @@ export function updateMonsterSteering(state: GameState): void {
       m.alertLevel = Math.max(0, (m.alertLevel ?? 0) - MONSTER_ALERT_DECAY);
 
       if (m.alertLevel > 0) {
+        updateWildDogVocal(state, monster, player);
         // Investigate last known position
         const kx = (m.lastKnownPlayerX ?? m.worldX) - m.worldX;
         const ky = (m.lastKnownPlayerY ?? m.worldY) - m.worldY;
@@ -739,10 +1220,12 @@ export function updateMonsterSteering(state: GameState): void {
           m.velocityY = 0;
         }
       } else if (RNG.chance(0.1)) {
+        updateWildDogVocal(state, monster, null);
         const angle = RNG.int(8) * (Math.PI / 4);
         m.velocityX = Math.cos(angle) * baseSpeed * 0.5;
         m.velocityY = Math.sin(angle) * baseSpeed * 0.5;
       } else {
+        updateWildDogVocal(state, monster, null);
         m.velocityX = 0;
         m.velocityY = 0;
       }
@@ -757,14 +1240,22 @@ export function updateMonsterSteering(state: GameState): void {
     const isFleeing = m.hp <= (m.hpMax ?? m.hp) * FLEE_HP_RATIO;
 
     if (isFleeing) {
+      updateWildDogVocal(state, monster, null);
       m.velocityX = -dirX * baseSpeed;
       m.velocityY = -dirY * baseSpeed;
       continue;
     }
 
-    if (isRangedMonster(monster.type)) {
+    updateWildDogVocal(state, monster, player);
+
+    const equippedWeapon = equippedMonsterWeaponType(monster);
+    const usesBullets =
+      equippedWeapon === WeaponType.PISTOL ||
+      equippedWeapon === WeaponType.SMG ||
+      equippedWeapon === WeaponType.SHOTGUN;
+    if (equippedWeapon !== WeaponType.MELEE) {
       // When low on bullets, seek nearby ammo pickups
-      if (monster.bullets < SKULKER_LOW_AMMO_THRESHOLD) {
+      if (usesBullets && monster.bullets < SKULKER_LOW_AMMO_THRESHOLD) {
         const AMMO_SEEK_RADIUS = CELL_CONFIG.w * 8;
         let nearestAmmo: Item | null = null;
         let nearestAmmoDist = AMMO_SEEK_RADIUS;
@@ -785,6 +1276,37 @@ export function updateMonsterSteering(state: GameState): void {
           const ady = nearestAmmo.worldY - m.worldY;
           m.velocityX = (adx / nearestAmmoDist) * baseSpeed;
           m.velocityY = (ady / nearestAmmoDist) * baseSpeed;
+          continue;
+        }
+      }
+
+      if (
+        equippedWeapon === WeaponType.LASER &&
+        (monster.laserCharge ?? 0) < MONSTER_LASER_SHOT_COST
+      ) {
+        const POWER_CELL_SEEK_RADIUS = CELL_CONFIG.w * 8;
+        let nearestPowerCell: Item | null = null;
+        let nearestPowerCellDistance = POWER_CELL_SEEK_RADIUS;
+        for (const entity of state.entities) {
+          if (entity.kind !== EntityKind.ITEM) continue;
+          const item = entity as Item;
+          if (item.type !== ItemType.POWERCELL) continue;
+          const cellDx = item.worldX - m.worldX;
+          const cellDy = item.worldY - m.worldY;
+          const cellDistance = Math.hypot(cellDx, cellDy);
+          if (cellDistance < nearestPowerCellDistance) {
+            nearestPowerCellDistance = cellDistance;
+            nearestPowerCell = item;
+          }
+        }
+        if (
+          nearestPowerCell &&
+          nearestPowerCellDistance > CELL_CONFIG.w * 0.5
+        ) {
+          const cellDx = nearestPowerCell.worldX - m.worldX;
+          const cellDy = nearestPowerCell.worldY - m.worldY;
+          m.velocityX = (cellDx / nearestPowerCellDistance) * baseSpeed * 0.6;
+          m.velocityY = (cellDy / nearestPowerCellDistance) * baseSpeed * 0.6;
           continue;
         }
       }
@@ -931,7 +1453,7 @@ function decideUtilityBotCommand(
       const bwx = m.worldX ?? monster.gridX * CELL_CONFIG.w;
       const bwy = m.worldY ?? monster.gridY * CELL_CONFIG.h;
       state.pendingSounds.push({
-        effect: SoundEffect.BEEP,
+        effect: SoundEffect.UTILITY_BOT_NUGGLE,
         worldX: bwx,
         worldY: bwy,
       });
@@ -959,6 +1481,13 @@ function decideMonsterCommand(
   monster: Monster,
   tick: number,
 ): Command | null {
+  if (
+    mutantIsDigesting(state, monster) ||
+    mutantShouldScavenge(state, monster)
+  ) {
+    return makeWaitCommand(monster, tick);
+  }
+
   if (monster.type === MonsterType.UTILITY_BOT) {
     return decideUtilityBotCommand(state, monster, tick);
   }
@@ -977,7 +1506,9 @@ function decideMonsterCommand(
     return makeIdleWanderCommand(state, monster, tick);
   }
 
-  const isSkulker = isRangedMonster(monster.type);
+  const isRangedArchetype = isRangedMonster(monster.type);
+  const equippedWeapon = equippedMonsterWeaponType(monster);
+  const usesRangedPrimary = equippedWeapon !== WeaponType.MELEE;
 
   const waitCmd = (): Command => makeWaitCommand(monster, tick);
 
@@ -999,8 +1530,8 @@ function decideMonsterCommand(
     inMeleeRange = distance === 1;
   }
 
-  // Skulkers skip melee; fleeing monsters still fight back when cornered
-  if (inMeleeRange && !isSkulker) {
+  // Monsters with a melee primary close in and use it at striking distance.
+  if (inMeleeRange && !usesRangedPrimary) {
     return {
       id: crypto.randomUUID(),
       tick,
@@ -1021,6 +1552,7 @@ function decideMonsterCommand(
     return Math.sqrt(dx * dx + dy * dy) <= CELL_CONFIG.w * 1.5;
   });
   if (nearbyBot) {
+    updateWildDogVocal(state, monster, nearbyBot as Monster);
     return {
       id: crypto.randomUUID(),
       tick,
@@ -1042,6 +1574,7 @@ function decideMonsterCommand(
       return Math.sqrt(dx * dx + dy * dy) <= CELL_CONFIG.w * 1.5;
     });
     if (blockingMonster) {
+      updateWildDogVocal(state, monster, blockingMonster as Monster);
       return {
         id: crypto.randomUUID(),
         tick,
@@ -1067,7 +1600,7 @@ function decideMonsterCommand(
     playerWorldY,
   );
 
-  const grenadeChance = isSkulker ? 0.55 : 0.35;
+  const grenadeChance = isRangedArchetype ? 0.55 : 0.35;
   if (
     monster.grenades > 0 &&
     distance <= 8 &&
@@ -1088,7 +1621,7 @@ function decideMonsterCommand(
 
   // Lay land mine — skulkers skip this (they prefer distance)
   if (
-    !isSkulker &&
+    !isRangedArchetype &&
     monster.landMines > 0 &&
     distance <= 3 &&
     RNG.chance(0.25)
@@ -1130,10 +1663,10 @@ function decideMonsterCommand(
     return waitCmd();
   }
 
-  // Skulkers: steering handles velocity; shoot at visible targets with pistol
-  if (isSkulker) {
+  // Ranged primaries use their equipped weapon; steering maintains distance.
+  if (usesRangedPrimary) {
     if (
-      monster.bullets > 0 &&
+      monsterCanUseEquippedWeapon(monster) &&
       distance <= SKULKER_SHOOT_MAX_RANGE_PX / CELL_CONFIG.w &&
       hasGrenadeLOS
     ) {
@@ -1142,7 +1675,7 @@ function decideMonsterCommand(
         tick,
         actorId: monster.id,
         type: CommandType.FIRE,
-        data: { type: "FIRE", dx: 0, dy: 0, weapon: WeaponType.PISTOL },
+        data: { type: "FIRE", dx: 0, dy: 0, weapon: equippedWeapon },
         priority: 1,
         source: "AI",
       };

@@ -8,6 +8,7 @@ import { processEventQueue } from "./events";
 import { pushEvent } from "./sim-helpers";
 import { stepSimulationTick } from "./tick";
 import { CommandType } from "../../types";
+import { SoundEffect } from "../../content/sound-effects";
 
 function pickUp(game: Game, type: ItemType, amount?: number) {
   const state = game.getState();
@@ -41,6 +42,7 @@ describe("picking up new items lands them in the inventory", () => {
       true,
     );
     expect(player.itemCounts[ItemType.BONE]).toBe(1);
+    expect(state.pendingSounds).toEqual([]);
   });
 
   it("adds a panic button to the inventory", () => {
@@ -56,8 +58,17 @@ describe("picking up new items lands them in the inventory", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     pickUp(game, ItemType.COIN, 5);
-    const { player } = pickUp(game, ItemType.COIN, 3);
+    const { player, state } = pickUp(game, ItemType.COIN, 3);
     expect(player.itemCounts[ItemType.COIN]).toBe(8);
+    expect(
+      state.pendingSounds.some(
+        (sound) =>
+          sound.effect === SoundEffect.COINS_1 ||
+          sound.effect === SoundEffect.COINS_2 ||
+          sound.effect === SoundEffect.COINS_3 ||
+          sound.effect === SoundEffect.COINS_4,
+      ),
+    ).toBe(true);
   });
 
   it("equips a found weapon and half-charges a laser pistol", () => {

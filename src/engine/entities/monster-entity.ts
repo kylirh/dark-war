@@ -32,6 +32,12 @@ export class MonsterEntity extends GameEntity {
   /** Number of bullets carried (skulkers only) */
   public bullets: number;
 
+  /** Primary weapon equipped by Zyths and Terrorist Collaborators. */
+  public equippedWeapon?: ItemType;
+
+  /** Remaining charge for an equipped laser pistol. */
+  public laserCharge?: number;
+
   /** Items carried beyond direct counters */
   public carriedItems: { type: ItemType; amount?: number; heal?: number }[];
 
@@ -45,10 +51,46 @@ export class MonsterEntity extends GameEntity {
   public lastKnownPlayerX: number = 0;
   public lastKnownPlayerY: number = 0;
 
+  /** Most recent simulation tick when this monster was damaged by a player. */
+  public lastPlayerAttackTick?: number;
+
+  /** Mutants stop to digest until this simulation tick. */
+  public digestingUntilTick?: number;
+
   /** Befriended pet state (e.g. a dog given a bone). */
   public friendly?: boolean;
   public ownerId?: string;
   public name?: string;
+
+  /** Current pursuit target used to pace Wild Dog vocalizations. */
+  public dogVocalTargetId?: string;
+
+  /** Simulation tick of this Wild Dog's most recent vocalization. */
+  public lastDogVocalTick?: number;
+
+  /** Simulation tick of this friendly dog's most recent whimper. */
+  public lastDogWhimperTick?: number;
+
+  /** Simulation tick of this Snagglepuss's most recent ambient mutter. */
+  public lastSnagglepussMutterTick?: number;
+
+  /** Whether this Giant Spider was within ambient-audio range last update. */
+  public spiderAmbienceNearby?: boolean;
+
+  /** Simulation tick of this Giant Spider's most recent ambient sound. */
+  public lastSpiderAmbienceTick?: number;
+
+  /** Whether this Icky Lump was approaching within audio range last update. */
+  public ickyLumpMovementNearby?: boolean;
+
+  /** Simulation tick of this Icky Lump's most recent movement sound. */
+  public lastIckyLumpMovementTick?: number;
+
+  /** Simulation tick when this Dreadnaught should next emit ambience. */
+  public nextDreadnaughtAmbienceTick?: number;
+
+  /** Simulation tick when this Flutterbang should next emit ambience. */
+  public nextFlutterbangAmbienceTick?: number;
 
   /** A thief that grabbed loot and is now running away. */
   public fleeing?: boolean;
@@ -64,6 +106,14 @@ export class MonsterEntity extends GameEntity {
     this.grenades = 0;
     this.landMines = 0;
     this.bullets = 0;
+
+    if (
+      type === MonsterType.ZYTH ||
+      type === MonsterType.TERRORIST_COLLABORATOR
+    ) {
+      this.equippedWeapon = ItemType.PISTOL;
+      this.laserCharge = 0;
+    }
 
     // Some creatures (wild dog, icky lump) never carry weapons or items.
     if (!def.flags?.cannotCarryItems) {
