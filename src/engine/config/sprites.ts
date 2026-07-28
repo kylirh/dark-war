@@ -187,6 +187,9 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [ItemType.TRASH]: { x: 15, y: 5 },
   [ItemType.METAL_SCRAPS]: { x: 0, y: 6 },
   [ItemType.VENDING_MACHINE]: { x: 1, y: 6 },
+  [ItemType.BLOOD_SPLATTER]: { x: 15, y: 9 },
+  [ItemType.CORPSE]: { x: 1, y: 1 },
+  [ItemType.ENTRAILS]: { x: 15, y: 9 },
   laser_bullet: { x: 2, y: 6 },
 
   // ========================================
@@ -400,6 +403,19 @@ export const SPRITE_FRAMES: Record<string, Partial<SpriteFrame>> = {
     shadow: "small",
   },
   blood_stain: flatSprite,
+  [ItemType.BLOOD_SPLATTER]: {
+    ...singleCellBillboard,
+    anchorY: 0.5,
+    depthOffset: -1,
+    shadow: "none",
+  },
+  [ItemType.CORPSE]: { ...singleCellBillboard, shadow: "none" },
+  [ItemType.ENTRAILS]: {
+    ...singleCellBillboard,
+    anchorY: 0.5,
+    depthOffset: -1,
+    shadow: "none",
+  },
 
   player: { ...singleCellBillboard, renderHeight: 40, shadow: "small" },
   player_dead: { ...singleCellBillboard, shadow: "small" },

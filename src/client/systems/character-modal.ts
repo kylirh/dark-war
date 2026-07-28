@@ -1495,6 +1495,14 @@ export class CharacterModal {
       fill.style.width = `${pct * 100}%`;
       fill.style.setProperty("--bar-color", "#4af");
       fill.parentElement!.style.display = "";
+    } else if (slot?.type === ItemType.LASER_PISTOL) {
+      const pct = Math.max(
+        0,
+        Math.min(1, player.laserCharge / player.laserChargeMax),
+      );
+      fill.style.width = `${pct * 100}%`;
+      fill.style.setProperty("--bar-color", "#63f4ff");
+      fill.parentElement!.style.display = "";
     } else {
       fill.parentElement!.style.display = "none";
     }

@@ -5,8 +5,10 @@ import {
   Texture,
   Assets,
   Rectangle,
+  Graphics,
 } from "pixi.js";
 import {
+  BeamPoint,
   GameState,
   EntityKind,
   ItemType,
@@ -1399,6 +1401,46 @@ export class Renderer {
       return `player_walk_side_${frameIndex}`;
     };
 
+    const renderLaserPath = (
+      points: BeamPoint[],
+      beamAlpha: number,
+      zIndex: number,
+    ): void => {
+      if (points.length < 2) return;
+      const drawPath = (graphics: Graphics): void => {
+        const first = points[0];
+        graphics.moveTo(
+          offsetX + this.wrapImage(first.x, camCenterX, worldW, wraps),
+          offsetY + this.wrapImage(first.y, camCenterY, worldH, wraps),
+        );
+        for (let i = 1; i < points.length; i++) {
+          const point = points[i];
+          graphics.lineTo(
+            offsetX + this.wrapImage(point.x, camCenterX, worldW, wraps),
+            offsetY + this.wrapImage(point.y, camCenterY, worldH, wraps),
+          );
+        }
+      };
+
+      const glow = new Graphics();
+      drawPath(glow);
+      glow.stroke({ color: 0x22d3ff, width: 8, alpha: beamAlpha * 0.24 });
+      glow.zIndex = zIndex;
+      this.entityContainer.addChild(glow);
+
+      const beam = new Graphics();
+      drawPath(beam);
+      beam.stroke({ color: 0x63f4ff, width: 3, alpha: beamAlpha });
+      beam.zIndex = zIndex + 0.1;
+      this.entityContainer.addChild(beam);
+
+      const core = new Graphics();
+      drawPath(core);
+      core.stroke({ color: 0xffffff, width: 1, alpha: beamAlpha });
+      core.zIndex = zIndex + 0.2;
+      this.entityContainer.addChild(core);
+    };
+
     const renderDepthEntity = (
       entity: GameState["entities"][number],
       forceDead: boolean = false,
@@ -1455,7 +1497,25 @@ export class Renderer {
           frame = this.resolveFrameForKey(entity.type);
         }
       } else if (entity.kind === EntityKind.BULLET) {
-        const thrown = (entity as { thrownItem?: ItemType }).thrownItem;
+        const projectile = entity as {
+          projectileType?: "bullet" | "laser";
+          trailPoints?: BeamPoint[];
+          thrownItem?: ItemType;
+          worldX: number;
+          worldY: number;
+        };
+        if (projectile.projectileType === "laser") {
+          renderLaserPath(
+            [
+              ...(projectile.trailPoints ?? []),
+              { x: projectile.worldX, y: projectile.worldY },
+            ],
+            1,
+            sortY + 14,
+          );
+          return;
+        }
+        const thrown = projectile.thrownItem;
         frame = this.resolveFrameForKey(thrown ?? "bullet");
       }
 
@@ -1524,7 +1584,13 @@ export class Renderer {
         offsetY + this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
       const sortY = this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
 
-      if (effect.type === "explosion") {
+      if (effect.type === "laser_beam") {
+        renderLaserPath(
+          effect.beamPoints ?? [],
+          Math.max(0, 1 - effect.ageTicks / effect.durationTicks),
+          sortY + 14,
+        );
+      } else if (effect.type === "explosion") {
         const frameIndex = Math.min(
           EXPLOSION_FRAMES.length - 1,
           Math.floor(

@@ -15,6 +15,7 @@ export type ItemCategory =
   | "throwable"
   | "currency"
   | "junk" // cleaned up by the utility bot, otherwise inert (for now)
+  | "organic-remains"
   | "utility"
   | "machine"
   | "key"
@@ -31,6 +32,10 @@ export interface ItemDef {
   cleanedByBot?: boolean;
   /** Eating/using consumes it (cookie heals, black pill kills). */
   consumable?: boolean;
+  /** Whether players, pets, and ordinary monster pickup logic may collect it. */
+  collectible?: boolean;
+  /** Dead organic matter that Mutants can smell, pursue, and consume. */
+  organicDead?: boolean;
   /** Stacks as a count rather than occupying a unique slot. */
   stackable?: boolean;
 }
@@ -121,7 +126,12 @@ export const ITEM_DEFS: Record<ItemType, ItemDef> = {
   },
 
   // Consumables / economy / drops
-  [ItemType.BONE]: { name: "Bone", category: "consumable", stackable: true },
+  [ItemType.BONE]: {
+    name: "Bone",
+    category: "consumable",
+    stackable: true,
+    organicDead: true,
+  },
   [ItemType.COOKIE]: {
     name: "Cookie",
     category: "consumable",
@@ -167,6 +177,24 @@ export const ITEM_DEFS: Record<ItemType, ItemDef> = {
     stackable: true,
   },
   [ItemType.VENDING_MACHINE]: { name: "Vending Machine", category: "machine" },
+  [ItemType.BLOOD_SPLATTER]: {
+    name: "Blood Splatter",
+    category: "organic-remains",
+    collectible: false,
+    organicDead: true,
+  },
+  [ItemType.CORPSE]: {
+    name: "Corpse",
+    category: "organic-remains",
+    collectible: false,
+    organicDead: true,
+  },
+  [ItemType.ENTRAILS]: {
+    name: "Entrails",
+    category: "organic-remains",
+    collectible: false,
+    organicDead: true,
+  },
 };
 
 export function itemName(type: ItemType): string {

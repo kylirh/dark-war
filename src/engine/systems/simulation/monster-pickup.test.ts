@@ -101,3 +101,50 @@ describe("ranged monsters reload from ammo pickups", () => {
     expect(state.entities.some((e) => e.id === ammo.id)).toBe(false);
   });
 });
+
+describe("weapon-adaptive monsters", () => {
+  beforeEach(() => {
+    RNG.reseed(1);
+    vi.spyOn(RNG, "chance").mockReturnValue(true);
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([MonsterType.ZYTH, MonsterType.TERRORIST_COLLABORATOR])(
+    "%s equips a better weapon and drops its old one",
+    (monsterType) => {
+      const game = new Game({ mode: "offline" });
+      game.reset(1);
+      clearMonsters(game);
+      const state = game.getState();
+      const monster = spawnMonsterAtPlayer(game, monsterType);
+      const smg = dropItemOn(game, monster, ItemType.GYROJET_SMG);
+
+      processMonsterItemPickups(state);
+
+      expect(monster.equippedWeapon).toBe(ItemType.GYROJET_SMG);
+      expect(state.entities.some((entity) => entity.id === smg.id)).toBe(false);
+      expect(
+        state.entities.some(
+          (entity) =>
+            entity.kind === EntityKind.ITEM &&
+            (entity as ItemEntity).type === ItemType.PISTOL,
+        ),
+      ).toBe(true);
+    },
+  );
+
+  it("leaves an inferior weapon on the floor", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+    const zyth = spawnMonsterAtPlayer(game, MonsterType.ZYTH);
+    zyth.equippedWeapon = ItemType.LASER_PISTOL;
+    const pistol = dropItemOn(game, zyth, ItemType.PISTOL);
+
+    processMonsterItemPickups(state);
+
+    expect(zyth.equippedWeapon).toBe(ItemType.LASER_PISTOL);
+    expect(state.entities.some((entity) => entity.id === pistol.id)).toBe(true);
+  });
+});

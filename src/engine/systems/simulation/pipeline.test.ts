@@ -1,6 +1,14 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "../../core/game";
-import { EntityKind, EventType, ItemType, Monster } from "../../types";
+import {
+  EntityKind,
+  EventType,
+  ItemType,
+  Monster,
+  MonsterType,
+} from "../../types";
+import { MonsterEntity } from "../../entities/monster-entity";
+import { SoundEffect } from "../../content/sound-effects";
 import { RNG } from "../../utils/rng";
 import { pushEvent } from "./sim-helpers";
 import { processEventQueue } from "./events";
@@ -63,6 +71,70 @@ describe("damage → death event pipeline", () => {
     processEventQueue(state);
 
     expect(state.entityManager.removedIds.has(monster.id)).toBe(true);
+  });
+
+  it.each([
+    MonsterType.CYBERCOP,
+    MonsterType.UTILITY_BOT,
+    MonsterType.DREADNAUGHT,
+  ])("does not play a death cry for a %s", (monsterType) => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const robot = new MonsterEntity(
+      state.player.gridX + 1,
+      state.player.gridY,
+      monsterType,
+      1,
+    );
+    state.entityManager.spawn(robot);
+
+    pushEvent(state, {
+      type: EventType.DEATH,
+      data: { type: "DEATH", entityId: robot.id },
+    });
+    processEventQueue(state);
+
+    const deathSounds = [
+      SoundEffect.MONSTER_DEATH_1,
+      SoundEffect.MONSTER_DEATH_2,
+      SoundEffect.MONSTER_DEATH_3,
+      SoundEffect.MONSTER_DEATH_4,
+    ];
+    expect(
+      state.pendingSounds.some((sound) =>
+        deathSounds.some((deathSound) => sound.effect === deathSound),
+      ),
+    ).toBe(false);
+  });
+
+  it("still plays a death cry for an organic monster", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const mutant = new MonsterEntity(
+      state.player.gridX + 1,
+      state.player.gridY,
+      MonsterType.MUTANT,
+      1,
+    );
+    state.entityManager.spawn(mutant);
+
+    pushEvent(state, {
+      type: EventType.DEATH,
+      data: { type: "DEATH", entityId: mutant.id },
+    });
+    processEventQueue(state);
+
+    expect(
+      state.pendingSounds.some(
+        (sound) =>
+          sound.effect === SoundEffect.MONSTER_DEATH_1 ||
+          sound.effect === SoundEffect.MONSTER_DEATH_2 ||
+          sound.effect === SoundEffect.MONSTER_DEATH_3 ||
+          sound.effect === SoundEffect.MONSTER_DEATH_4,
+      ),
+    ).toBe(true);
   });
 });
 

@@ -36,6 +36,7 @@ import { TileSource } from "../core/tile-source";
 import { idxFor, tileAtFor } from "../utils/helpers";
 import { wrapValue } from "../utils/wrap";
 import { applyWallDamageAtIndex } from "../utils/walls";
+import { SoundEffect } from "../content/sound-effects";
 
 import { pushEvent } from "./simulation/sim-helpers";
 
@@ -742,6 +743,7 @@ export class Physics {
         if (bullet.thrownItem) {
           this.dropThrownItem(state, bullet);
         } else {
+          this.leaveLaserTrail(state, bullet);
           this.removeStateEntity(state, bullet);
         }
         continue;
@@ -786,6 +788,7 @@ export class Physics {
         bullet.traveledDistance += speed * stepDt;
 
         if (bullet.traveledDistance >= bullet.maxDistance) {
+          this.leaveLaserTrail(state, bullet);
           this.removeStateEntity(state, bullet);
           break;
         }
@@ -850,6 +853,7 @@ export class Physics {
               velocityY: Math.sin(angle) * sparkSpeed,
             });
           }
+          this.leaveLaserTrail(state, bullet);
           this.removeStateEntity(state, bullet);
         }
         stop = true;
@@ -886,6 +890,7 @@ export class Physics {
               knockbackDistance: 6,
             },
           });
+          this.leaveLaserTrail(state, bullet);
           this.removeStateEntity(state, bullet);
         }
         stop = true;
@@ -906,22 +911,36 @@ export class Physics {
     );
     if (speed <= VELOCITY_EPSILON) return false;
 
-    const normal = this.normalFromWallImpact(response);
+    const isLaser = bullet.projectileType === "laser";
+    let normal = this.normalFromWallImpact(response);
+    if (!normal && isLaser) {
+      normal = this.normalFromLaserWallContact(bullet, response);
+    }
     if (!normal) return false;
 
     const unitVelocityX = bullet.velocityX / speed;
     const unitVelocityY = bullet.velocityY / speed;
-    const incomingDot = unitVelocityX * normal.x + unitVelocityY * normal.y;
+    let incomingDot = unitVelocityX * normal.x + unitVelocityY * normal.y;
+    // Collision libraries may report either orientation for a trigger normal.
+    // A laser always wants the face opposing its travel so the reflection is
+    // geometrically stable even for a direct, high-speed impact.
+    if (isLaser && incomingDot > 0) {
+      normal = { x: -normal.x, y: -normal.y };
+      incomingDot = -incomingDot;
+    }
     if (
       incomingDot >= 0 ||
-      Math.abs(incomingDot) > BULLET_RICOCHET_DOT_THRESHOLD
+      (!isLaser && Math.abs(incomingDot) > BULLET_RICOCHET_DOT_THRESHOLD)
     ) {
       return false;
     }
 
     const reflectedX = unitVelocityX - 2 * incomingDot * normal.x;
     const reflectedY = unitVelocityY - 2 * incomingDot * normal.y;
-    const nextSpeed = speed * BULLET_RICOCHET_SPEED_RETAINED;
+    const nextSpeed = isLaser ? speed : speed * BULLET_RICOCHET_SPEED_RETAINED;
+    if (isLaser) {
+      bullet.trailPoints.push({ x: bullet.worldX, y: bullet.worldY });
+    }
     bullet.velocityX = reflectedX * nextSpeed;
     bullet.velocityY = reflectedY * nextSpeed;
     bullet.facingAngle = Math.atan2(bullet.velocityY, bullet.velocityX);
@@ -935,6 +954,41 @@ export class Physics {
     }
 
     return true;
+  }
+
+  /** Resolve exact edge contacts where the collision overlap vector is zero. */
+  private normalFromLaserWallContact(
+    bullet: BulletEntity,
+    response: Response,
+  ): { x: number; y: number } | null {
+    const wall = response.b as Box;
+    const faces = [
+      { distance: Math.abs(bullet.worldX - wall.minX), x: -1, y: 0 },
+      { distance: Math.abs(bullet.worldX - wall.maxX), x: 1, y: 0 },
+      { distance: Math.abs(bullet.worldY - wall.minY), x: 0, y: -1 },
+      { distance: Math.abs(bullet.worldY - wall.maxY), x: 0, y: 1 },
+    ];
+    faces.sort((a, b) => a.distance - b.distance);
+    return faces[0] ?? null;
+  }
+
+  /** Keep a completed laser path visible briefly after impact or expiry. */
+  private leaveLaserTrail(state: GameState, bullet: BulletEntity): void {
+    if (bullet.projectileType !== "laser") return;
+    const beamPoints = [
+      ...bullet.trailPoints,
+      { x: bullet.worldX, y: bullet.worldY },
+    ];
+    if (beamPoints.length < 2) return;
+    state.effects.push({
+      id: crypto.randomUUID(),
+      type: "laser_beam",
+      worldX: bullet.worldX,
+      worldY: bullet.worldY,
+      ageTicks: 0,
+      durationTicks: 6,
+      beamPoints,
+    });
   }
 
   /**
@@ -1004,6 +1058,24 @@ export class Physics {
         });
         // Ask the client to name the new pet.
         state.pendingDogNaming = monster.id;
+        const dogEatSounds = [SoundEffect.DOG_EAT_1, SoundEffect.DOG_EAT_2];
+        state.pendingSounds.push({
+          effect: dogEatSounds[RNG.int(dogEatSounds.length)],
+          worldX: monster.worldX,
+          worldY: monster.worldY,
+        });
+        const dogWhimperSounds = [
+          SoundEffect.DOG_WIMPER_1,
+          SoundEffect.DOG_WIMPER_2,
+          SoundEffect.DOG_WIMPER_3,
+          SoundEffect.DOG_WIMPER_4,
+        ];
+        monster.lastDogWhimperTick = state.sim.nowTick;
+        state.pendingSounds.push({
+          effect: dogWhimperSounds[RNG.int(dogWhimperSounds.length)],
+          worldX: monster.worldX,
+          worldY: monster.worldY,
+        });
         // The dog eats the bone — nothing to drop.
         this.removeStateEntity(state, bullet);
         return;

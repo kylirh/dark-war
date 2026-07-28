@@ -116,6 +116,7 @@ describe("Physics.updateBullets (anti-tunnel)", () => {
       entityManager: new EntityManager(entities),
       effects: [],
       eventQueue: [],
+      wallDamage: new Array(map.length).fill(0),
       map,
       mapWidth: W,
       mapHeight: H,
@@ -158,5 +159,63 @@ describe("Physics.updateBullets (anti-tunnel)", () => {
     );
     expect(damage).toBeDefined(); // no tunnelling — the hit registered
     expect(state.entities.some((e) => e.id === bullet.id)).toBe(false); // bullet consumed
+  });
+
+  it("reflects a laser at a wall without slowing and records a beam corner", () => {
+    const physics = new Physics();
+    const map = makeMap();
+    const state = bulletState(map);
+    const laser = new BulletEntity(
+      112,
+      112,
+      3600,
+      0,
+      4,
+      "shooter",
+      1536,
+      0.65,
+      4,
+      0.03,
+      "laser",
+    );
+    state.entityManager.spawn(laser);
+
+    physics.rebuildAll(state);
+    physics.updateBullets(state, 1 / 60);
+
+    expect(laser.ricochetCount).toBe(1);
+    expect(laser.velocityX).toBeLessThan(0);
+    expect(Math.hypot(laser.velocityX, laser.velocityY)).toBeCloseTo(3600);
+    expect(laser.trailPoints).toHaveLength(2);
+    expect(state.entities.some((e) => e.id === laser.id)).toBe(true);
+  });
+
+  it("leaves the completed laser streak visible after hitting an enemy", () => {
+    const physics = new Physics();
+    const map = makeMap();
+    const state = bulletState(map);
+    const monster = new MonsterEntity(5, 5, MonsterType.RAT, 1);
+    const laser = new BulletEntity(
+      120,
+      176,
+      3600,
+      0,
+      4,
+      "shooter",
+      1536,
+      0.65,
+      4,
+      0.03,
+      "laser",
+    );
+    state.entityManager.spawn(monster);
+    state.entityManager.spawn(laser);
+
+    physics.rebuildAll(state);
+    physics.updateBullets(state, 0.05);
+
+    const trail = state.effects.find((effect) => effect.type === "laser_beam");
+    expect(trail?.beamPoints?.length).toBeGreaterThanOrEqual(2);
+    expect(state.entities.some((e) => e.id === laser.id)).toBe(false);
   });
 });

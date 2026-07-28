@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { Game } from "../../core/game";
 import { Physics } from "../physics";
 import { MonsterEntity } from "../../entities/monster-entity";
@@ -17,6 +17,7 @@ import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
 import { pushEvent } from "./sim-helpers";
 import { processEventQueue } from "./events";
+import { SoundEffect } from "../../content/sound-effects";
 
 function clearMonsters(game: Game) {
   game
@@ -25,6 +26,8 @@ function clearMonsters(game: Game) {
 }
 
 describe("snagglepuss", () => {
+  afterEach(() => vi.restoreAllMocks());
+
   it("can be befriended by eating a cookie nearby", () => {
     let befriended = false;
     for (let seed = 1; seed <= 20 && !befriended; seed++) {
@@ -58,6 +61,11 @@ describe("snagglepuss", () => {
       if (snagg.friendly) {
         befriended = true;
         expect(snagg.ownerId).toBe(player.id);
+        expect(
+          state.pendingSounds.some(
+            (sound) => sound.effect === SoundEffect.SNAGGLEPUSS_ACK,
+          ),
+        ).toBe(true);
       }
     }
     expect(befriended).toBe(true);
@@ -101,6 +109,62 @@ describe("snagglepuss", () => {
 
     // The original loot has been collected (fetched) by the pet.
     expect(state.entities.some((e) => e.id === lootId)).toBe(false);
+  });
+
+  it("occasionally mutters while within hearing distance", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(2);
+    clearMonsters(game);
+    const state = game.getState();
+    const snagg = new MonsterEntity(
+      state.player.gridX + 2,
+      state.player.gridY,
+      MonsterType.SNAGGLEPUSS,
+      2,
+    );
+    state.entityManager.spawn(snagg);
+    vi.spyOn(RNG, "chance").mockReturnValue(true);
+
+    stepSimulationTick(state);
+
+    expect(state.pendingSounds).toContainEqual({
+      effect: SoundEffect.SNAGGLEPUSS_MUTTER,
+      worldX: snagg.worldX,
+      worldY: snagg.worldY,
+      maxDistancePx: 32 * 12,
+    });
+
+    state.pendingSounds.length = 0;
+    state.sim.nowTick = 235;
+    stepSimulationTick(state);
+    expect(
+      state.pendingSounds.some(
+        (sound) => sound.effect === SoundEffect.SNAGGLEPUSS_MUTTER,
+      ),
+    ).toBe(false);
+  });
+
+  it("does not mutter beyond hearing distance", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(2);
+    clearMonsters(game);
+    const state = game.getState();
+    const snagg = new MonsterEntity(
+      state.player.gridX + 13,
+      state.player.gridY,
+      MonsterType.SNAGGLEPUSS,
+      2,
+    );
+    state.entityManager.spawn(snagg);
+    vi.spyOn(RNG, "chance").mockReturnValue(true);
+
+    stepSimulationTick(state);
+
+    expect(
+      state.pendingSounds.some(
+        (sound) => sound.effect === SoundEffect.SNAGGLEPUSS_MUTTER,
+      ),
+    ).toBe(false);
   });
 });
 
@@ -152,6 +216,11 @@ describe("snagglepuss theft only takes count-backed items", () => {
     expect(player.grenades).toBe(3);
     expect(player.inventorySlots[1].type).toBe(ItemType.GRENADE);
     expect(snagg.fleeing).toBeFalsy();
+    expect(
+      state.pendingSounds.some(
+        (sound) => sound.effect === SoundEffect.SNAGGLEPUSS_STEAL,
+      ),
+    ).toBe(false);
   });
 
   it("steals a count-backed trinket (bone) and removes it from the player", () => {
@@ -164,5 +233,10 @@ describe("snagglepuss theft only takes count-backed items", () => {
     expect(snagg.carriedItems.some((c) => c.type === ItemType.BONE)).toBe(true);
     expect(player.itemCounts[ItemType.BONE]).toBeUndefined();
     expect(snagg.fleeing).toBe(true);
+    expect(
+      state.pendingSounds.some(
+        (sound) => sound.effect === SoundEffect.SNAGGLEPUSS_STEAL,
+      ),
+    ).toBe(true);
   });
 });

@@ -1,7 +1,42 @@
 // The SoundEffect enum lives in the engine (pure data) so engine code can queue
 // sounds without importing this DOM module. Re-exported here for convenience.
 import { SoundEffect } from "../../engine/content/sound-effects";
+import { LevelKind, SoundCue } from "../../engine/types";
+import { wrapDelta } from "../../engine/utils/wrap";
 export { SoundEffect };
+
+const DEFAULT_MAX_SOUND_DISTANCE_PX = 32 * 18;
+
+/** Calculate spatial volume, including shortest-path distance across a torus. */
+export function volumeForSoundCue(
+  baseVolume: number,
+  cue: SoundCue,
+  listenerWorldX: number,
+  listenerWorldY: number,
+  levelKind: LevelKind,
+  mapWidthPx: number,
+  mapHeightPx: number,
+): number {
+  if (cue.worldX === undefined || cue.worldY === undefined) return baseVolume;
+  const wraps = levelKind === "outside";
+  const dx = wraps
+    ? wrapDelta(listenerWorldX, cue.worldX, mapWidthPx)
+    : cue.worldX - listenerWorldX;
+  const dy = wraps
+    ? wrapDelta(listenerWorldY, cue.worldY, mapHeightPx)
+    : cue.worldY - listenerWorldY;
+  const distance = Math.hypot(dx, dy);
+  const maxDistance = Math.max(
+    1,
+    cue.maxDistancePx ?? DEFAULT_MAX_SOUND_DISTANCE_PX,
+  );
+  const minimumVolumeScale = Math.max(
+    0,
+    Math.min(1, cue.minimumVolumeScale ?? 0),
+  );
+  const distanceRatio = Math.min(1, distance / maxDistance);
+  return baseVolume * (1 - distanceRatio * (1 - minimumVolumeScale));
+}
 
 /**
  * Sound system manager
@@ -109,15 +144,15 @@ class SoundManager {
   }
 
   /**
-   * Play a random monster hit (thunk) sound
+   * Play a random flesh-impact sound
    */
-  public playHitMonster(volume?: number): void {
+  public playHitFlesh(volume?: number): void {
     const sounds: SoundEffect[] = [
-      SoundEffect.HIT_MONSTER_1,
-      SoundEffect.HIT_MONSTER_2,
-      SoundEffect.HIT_MONSTER_3,
-      SoundEffect.HIT_MONSTER_4,
-      SoundEffect.HIT_MONSTER_5,
+      SoundEffect.HIT_FLESH_1,
+      SoundEffect.HIT_FLESH_2,
+      SoundEffect.HIT_FLESH_3,
+      SoundEffect.HIT_FLESH_4,
+      SoundEffect.HIT_FLESH_5,
     ];
     this.play(sounds[Math.floor(Math.random() * sounds.length)], volume);
   }
@@ -144,6 +179,7 @@ class SoundManager {
       SoundEffect.HIT_METAL_1,
       SoundEffect.HIT_METAL_2,
       SoundEffect.HIT_METAL_3,
+      SoundEffect.HIT_METAL_4,
     ];
     const pick = hitSounds[Math.floor(Math.random() * hitSounds.length)];
     this.play(pick, volume);

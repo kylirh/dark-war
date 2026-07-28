@@ -23,9 +23,23 @@ import { weaponTypeForItem, removeFromInventory } from "../../utils/inventory";
 import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
+import {
+  equippedMonsterWeaponItem,
+  isAdaptiveWeaponMonster,
+} from "../../utils/monster-weapons";
 
 /** Flat damage reduction granted by a macrometal jacket. */
 const ARMOR_PER_JACKET = 3;
+const METAL_ROBOT_TYPES = new Set<MonsterType>([
+  MonsterType.CYBERCOP,
+  MonsterType.UTILITY_BOT,
+  MonsterType.DREADNAUGHT,
+]);
+const ORGANIC_REMAINS_TYPES = [
+  ItemType.BLOOD_SPLATTER,
+  ItemType.CORPSE,
+  ItemType.ENTRAILS,
+];
 import {
   MAX_EVENTS_PER_TICK,
   EXPLOSION_KNOCKBACK_MAX_DISTANCE,
@@ -187,6 +201,13 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     const monster = target as Monster;
     monster.hp -= data.amount;
 
+    const damageSource = data.sourceId
+      ? state.entities.find((entity) => entity.id === data.sourceId)
+      : undefined;
+    if (damageSource?.kind === EntityKind.PLAYER && monster.hp > 0) {
+      monster.lastPlayerAttackTick = state.sim.nowTick;
+    }
+
     if (monster.hp > 0) {
       applyDamageKnockback(state, monster, data);
       // Moppets blink away when struck.
@@ -216,12 +237,13 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
         state.visible.has(monsterTileIdx) || state.visible.has(sourceTileIdx);
 
       if (eitherVisible) {
-        if (monster.type === MonsterType.UTILITY_BOT) {
-          // Metal clang when bot is visible
+        if (METAL_ROBOT_TYPES.has(monster.type)) {
+          // Metal impact when a visible robot is hit.
           const metalSounds = [
             SoundEffect.HIT_METAL_1,
             SoundEffect.HIT_METAL_2,
             SoundEffect.HIT_METAL_3,
+            SoundEffect.HIT_METAL_4,
           ];
           state.pendingSounds.push({
             effect: metalSounds[Math.floor(Math.random() * metalSounds.length)],
@@ -229,16 +251,17 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
             worldY: mwy,
           });
         } else {
-          // Random thunk when any visible entity is in the fight
-          const thunkSounds = [
-            SoundEffect.HIT_MONSTER_1,
-            SoundEffect.HIT_MONSTER_2,
-            SoundEffect.HIT_MONSTER_3,
-            SoundEffect.HIT_MONSTER_4,
-            SoundEffect.HIT_MONSTER_5,
+          // Random flesh impact when an organic monster is visibly hit.
+          const fleshHitSounds = [
+            SoundEffect.HIT_FLESH_1,
+            SoundEffect.HIT_FLESH_2,
+            SoundEffect.HIT_FLESH_3,
+            SoundEffect.HIT_FLESH_4,
+            SoundEffect.HIT_FLESH_5,
           ];
           state.pendingSounds.push({
-            effect: thunkSounds[Math.floor(Math.random() * thunkSounds.length)],
+            effect:
+              fleshHitSounds[Math.floor(Math.random() * fleshHitSounds.length)],
             worldX: mwx,
             worldY: mwy,
           });
@@ -247,7 +270,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
         // Neither combatant is visible — silent, occasional distant fighting sound
         if (RNG.chance(0.2)) {
           state.pendingSounds.push({
-            effect: SoundEffect.FIGHTING,
+            effect: SoundEffect.FIGHT,
             worldX: mwx,
             worldY: mwy,
           });
@@ -494,8 +517,8 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
       monster.carriedItems = [];
     }
 
-    // Play death sound (skip for utility bot)
-    if (monster.type !== MonsterType.UTILITY_BOT) {
+    // Organic monsters vocalize on death; robots do not scream.
+    if (!METAL_ROBOT_TYPES.has(monster.type)) {
       const deathSounds = [
         SoundEffect.MONSTER_DEATH_1,
         SoundEffect.MONSTER_DEATH_2,
@@ -547,6 +570,18 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
       monster.worldX ?? monster.gridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     const baseY =
       monster.worldY ?? monster.gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    if (!METAL_ROBOT_TYPES.has(monster.type)) {
+      const remains = new ItemEntity(
+        monster.gridX,
+        monster.gridY,
+        RNG.choose(ORGANIC_REMAINS_TYPES),
+      );
+      remains.worldX = baseX;
+      remains.worldY = baseY;
+      remains.prevWorldX = baseX;
+      remains.prevWorldY = baseY;
+      state.entityManager.spawn(remains);
+    }
     const dropItem = (
       type: ItemType,
       opts?: { amount?: number; heal?: number },
@@ -590,6 +625,10 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
 
     if (monster.bullets > 0) {
       dropItem(ItemType.AMMO, { amount: monster.bullets });
+    }
+
+    if (isAdaptiveWeaponMonster(monster)) {
+      dropItem(equippedMonsterWeaponItem(monster));
     }
 
     if (monster.carriedItems.length > 0) {
@@ -681,6 +720,13 @@ function stealFromPlayer(
   takePlayerItem(player, type);
   monster.carriedItems.push({ type });
   monster.fleeing = true;
+  if (monster.type === MonsterType.SNAGGLEPUSS) {
+    state.pendingSounds.push({
+      effect: SoundEffect.SNAGGLEPUSS_STEAL,
+      worldX: monster.worldX,
+      worldY: monster.worldY,
+    });
+  }
   pushEvent(state, {
     type: EventType.MESSAGE,
     data: {
@@ -711,6 +757,14 @@ function teleportMonsterNearby(state: GameState, monster: Monster): void {
     setPositionFromGrid(monster, nx, ny);
     monster.velocityX = 0;
     monster.velocityY = 0;
+    state.pendingSounds.push({
+      effect: RNG.choose([
+        SoundEffect.MOPPET_TELEPORT_1,
+        SoundEffect.MOPPET_TELEPORT_2,
+      ]),
+      worldX: monster.worldX,
+      worldY: monster.worldY,
+    });
     return;
   }
 }
@@ -948,6 +1002,19 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
 
   // Remove item
   state.entityManager.destroy(item.id);
+  const coinSounds = [
+    SoundEffect.COINS_1,
+    SoundEffect.COINS_2,
+    SoundEffect.COINS_3,
+    SoundEffect.COINS_4,
+  ];
+  if (item.type === ItemType.COIN) {
+    state.pendingSounds.push({
+      effect: coinSounds[RNG.int(coinSounds.length)],
+      worldX: player.worldX,
+      worldY: player.worldY,
+    });
+  }
 }
 
 function processPlayerDeathEvent(state: GameState, event: GameEvent): void {

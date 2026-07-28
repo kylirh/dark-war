@@ -38,11 +38,6 @@ export default defineConfig(({ command }) => ({
       formats: ["iife"],
       fileName: () => "game.js",
     },
-    rollupOptions: {
-      output: {
-        inlineDynamicImports: true,
-      },
-    },
     sourcemap: true,
     target: "es2020",
     // The game ships as a single IIFE bundle; the >500 kB notice is expected.
