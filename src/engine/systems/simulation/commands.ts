@@ -18,12 +18,15 @@ import {
   tileAtFor,
   inBoundsFor,
   setTileFor,
+  idxFor,
 } from "../../utils/helpers";
 import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
 import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { itemName } from "../../content/item-defs";
+import { minedItemForTile, placedTileForItem } from "../../content/block-defs";
+import { tileIsPassable } from "../../core/tile-source";
 import { ItemEntity } from "../../entities/item-entity";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
@@ -37,6 +40,7 @@ import {
   SKULKER_SHOT_VARIANCE,
   SKULKER_BULLET_SPEED,
   SKULKER_SHOOT_MAX_RANGE_PX,
+  MATTER_MANIPULATOR_RANGE,
 } from "./constants";
 import {
   pushEvent,
@@ -150,6 +154,12 @@ export function resolveCommand(state: GameState, cmd: Command): void {
       break;
     case CommandType.REPAIR:
       resolveRepairCommand(state, cmd);
+      break;
+    case CommandType.MINE:
+      resolveMineCommand(state, cmd);
+      break;
+    case CommandType.PLACE_BLOCK:
+      resolvePlaceBlockCommand(state, cmd);
       break;
     case CommandType.WAIT:
       break;
@@ -402,6 +412,16 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
               targetY <= 0 ||
               targetX >= state.mapWidth - 1 ||
               targetY >= state.mapHeight - 1);
+          if (targetTile === TileType.HOLOWALL) {
+            pushEvent(state, {
+              type: EventType.MESSAGE,
+              data: {
+                type: "MESSAGE",
+                message: "The holowall vibrates and shimmers.",
+              },
+            });
+            return;
+          }
           if (hitWall) {
             pushEvent(state, {
               type: EventType.MESSAGE,
@@ -787,6 +807,140 @@ function befriendNearbySnagglepuss(state: GameState, player: Player): void {
   }
 }
 
+/** Chebyshev reach check for the Matter Manipulator's mine/place actions. */
+function withinManipulatorReach(
+  player: Player,
+  tileX: number,
+  tileY: number,
+): boolean {
+  const dx = Math.abs(tileX - player.gridX);
+  const dy = Math.abs(tileY - player.gridY);
+  return Math.max(dx, dy) <= MATTER_MANIPULATOR_RANGE;
+}
+
+/**
+ * Matter Manipulator — mine the targeted wall back into a placeable block.
+ * Mined walls go straight into the inventory (no rubble, unlike a wall blasted
+ * apart by weapons). Holowalls are indestructible and only shimmer.
+ */
+function resolveMineCommand(state: GameState, cmd: Command): void {
+  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  if (!actor || actor.kind !== EntityKind.PLAYER) return;
+  const player = actor as Player;
+  if (cmd.data.type !== "MINE") return;
+  if (!player.hasMatterManipulator) return;
+  const { tileX, tileY } = cmd.data;
+
+  if (
+    !inBoundsFor(tileX, tileY, state.mapWidth, state.mapHeight) ||
+    !withinManipulatorReach(player, tileX, tileY)
+  ) {
+    msg(state, "That's out of reach.");
+    return;
+  }
+
+  const tile = tileAtFor(
+    state.map,
+    tileX,
+    tileY,
+    state.mapWidth,
+    state.mapHeight,
+  );
+  if (tile === TileType.HOLOWALL) {
+    msg(state, "The holowall vibrates and shimmers.", cmd.id);
+    return;
+  }
+  const dropped = minedItemForTile(tile);
+  if (dropped === null) {
+    msg(state, "There's nothing to mine there.");
+    return;
+  }
+
+  const idx = idxFor(tileX, tileY, state.mapWidth);
+  setTileFor(state.map, tileX, tileY, state.mapWidth, TileType.FLOOR);
+  if (idx >= 0 && idx < state.wallDamage.length) state.wallDamage[idx] = 0;
+  state.mapDirty = true;
+  state.changedTiles?.add(idx);
+
+  // The mined material drops in-place as a pickup — it is NOT auto-collected.
+  if (typeof state.entityManager?.spawn === "function") {
+    state.entityManager.spawn(new ItemEntity(tileX, tileY, dropped));
+  }
+  state.pendingSounds.push({ effect: SoundEffect.REPAIR });
+  msg(state, `You mine loose a ${itemName(dropped)}.`, cmd.id);
+}
+
+/**
+ * Matter Manipulator — place a wall block from the inventory on open ground.
+ * Works on every level so the player can mix wall styles freely.
+ */
+function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
+  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  if (!actor || actor.kind !== EntityKind.PLAYER) return;
+  const player = actor as Player;
+  if (cmd.data.type !== "PLACE_BLOCK") return;
+  if (!player.hasMatterManipulator) return;
+  const { tileX, tileY, itemType } = cmd.data;
+
+  const tileType = placedTileForItem(itemType);
+  if (tileType === null) {
+    msg(state, `You can't place the ${itemName(itemType)}.`);
+    return;
+  }
+  if ((player.itemCounts[itemType] ?? 0) <= 0) {
+    msg(state, `No ${itemName(itemType)} left to place.`);
+    return;
+  }
+  if (
+    !inBoundsFor(tileX, tileY, state.mapWidth, state.mapHeight) ||
+    !withinManipulatorReach(player, tileX, tileY)
+  ) {
+    msg(state, "That's out of reach.");
+    return;
+  }
+
+  // Only build on open, walkable ground — never overwrite walls, doors,
+  // stairs, or holes.
+  const existing = tileAtFor(
+    state.map,
+    tileX,
+    tileY,
+    state.mapWidth,
+    state.mapHeight,
+  );
+  const buildable =
+    tileIsPassable(existing) &&
+    existing !== TileType.HOLE &&
+    existing !== TileType.STAIRS_UP &&
+    existing !== TileType.STAIRS_DOWN &&
+    existing !== TileType.DOOR_OPEN;
+  if (!buildable) {
+    msg(state, "You can't build there.");
+    return;
+  }
+
+  const occupied = state.entities.some(
+    (e) =>
+      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) &&
+      e.gridX === tileX &&
+      e.gridY === tileY,
+  );
+  if (occupied) {
+    msg(state, "Something's in the way.");
+    return;
+  }
+
+  const idx = idxFor(tileX, tileY, state.mapWidth);
+  setTileFor(state.map, tileX, tileY, state.mapWidth, tileType);
+  if (idx >= 0 && idx < state.wallDamage.length) state.wallDamage[idx] = 0;
+  state.mapDirty = true;
+  state.changedTiles?.add(idx);
+
+  consumeOne(player, itemType);
+  state.pendingSounds.push({ effect: SoundEffect.REPAIR });
+  msg(state, `You place a ${itemName(itemType)}.`, cmd.id);
+}
+
 /**
  * Left-click "use the active item". Weapons/grenades/mines/melee fall through to
  * the firing logic; consumables and gear have bespoke effects.
@@ -911,7 +1065,8 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
         msg(state, "Something's in the way.");
         return;
       }
-      setTileFor(state.map, tx, ty, state.mapWidth, TileType.WALL);
+      setTileFor(state.map, tx, ty, state.mapWidth, TileType.HOLOWALL);
+      state.changedTiles?.add(idxFor(tx, ty, state.mapWidth));
       state.mapDirty = true;
       consumeOne(player, ItemType.HOLOWALL);
       state.pendingSounds.push({ effect: SoundEffect.REPAIR });

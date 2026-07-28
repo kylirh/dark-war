@@ -1,11 +1,18 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "../../core/game";
-import { ItemType, WeaponType, CommandType, TileType } from "../../types";
+import {
+  ItemType,
+  WeaponType,
+  CommandType,
+  TileType,
+  WALL_MAX_DAMAGE,
+} from "../../types";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { MonsterType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
+import { applyWallDamageAt } from "../../utils/walls";
 
 function setActive(game: Game, type: ItemType) {
   const player = game.getState().player;
@@ -128,7 +135,7 @@ describe("reloading the active weapon", () => {
 describe("holowall placement", () => {
   beforeEach(() => RNG.reseed(3));
 
-  it("turns the floor tile in front of the player into a wall", () => {
+  it("turns the floor tile in front of the player into an indestructible holowall", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
@@ -141,9 +148,22 @@ describe("holowall placement", () => {
     setActive(game, ItemType.HOLOWALL);
 
     use(game);
-    expect(state.map[tx + ty * state.mapWidth]).toBe(TileType.WALL);
+    expect(state.map[tx + ty * state.mapWidth]).toBe(TileType.HOLOWALL);
     expect(player.itemCounts[ItemType.HOLOWALL] ?? 0).toBe(0);
     expect(state.mapDirty).toBe(true);
+  });
+
+  it("a deployed holowall shrugs off wall damage", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const tx = 5;
+    const ty = 5;
+    state.map[tx + ty * state.mapWidth] = TileType.HOLOWALL;
+
+    const changed = applyWallDamageAt(state, tx, ty, WALL_MAX_DAMAGE * 2);
+    expect(changed).toBe(false);
+    expect(state.map[tx + ty * state.mapWidth]).toBe(TileType.HOLOWALL);
   });
 });
 

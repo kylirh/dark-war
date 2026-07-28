@@ -1184,6 +1184,71 @@ tinyIcon(2, 6, (c) => {
   c.line(6, 15, 26, 15, [87, 240, 255]);
   c.put(27, 16, [229, 255, 255]);
 });
+// Matter Manipulator: a handheld emitter with a glowing cyan tip.
+tinyIcon(3, 6, (c) => {
+  c.rect(10, 22, 4, 6, [70, 74, 82]);
+  c.line(12, 24, 22, 10, [120, 126, 138]);
+  c.line(13, 24, 23, 10, [158, 166, 180]);
+  c.disc(23, 9, 3, [0, 220, 238, 170]);
+  c.put(23, 9, [210, 255, 255]);
+});
+// Wall block (placeable): a gray brick cube.
+tinyIcon(4, 6, (c) => {
+  c.rect(9, 11, 14, 12, [0, 0, 0]);
+  c.rect(10, 12, 12, 10, [96, 102, 112]);
+  c.line(10, 17, 21, 17, [60, 64, 72]);
+  c.line(16, 12, 16, 16, [60, 64, 72]);
+  c.line(13, 18, 13, 21, [60, 64, 72]);
+  c.line(19, 18, 19, 21, [60, 64, 72]);
+});
+// Building block (placeable): a bluish metal panel.
+tinyIcon(5, 6, (c) => {
+  c.rect(9, 11, 14, 12, [0, 0, 0]);
+  c.rect(10, 12, 12, 10, [70, 86, 120]);
+  c.rect(11, 13, 10, 3, [96, 116, 156]);
+  c.put(12, 19, [40, 50, 74]);
+  c.put(19, 19, [40, 50, 74]);
+});
+// Fence block (placeable): a short railing segment.
+tinyIcon(6, 6, (c) => {
+  c.rect(10, 12, 2, 12, [120, 126, 130]);
+  c.rect(20, 12, 2, 12, [120, 126, 130]);
+  c.rect(9, 15, 14, 2, [140, 146, 150]);
+  c.rect(9, 20, 14, 2, [140, 146, 150]);
+});
+// Door (placeable): a small paneled door with a knob.
+tinyIcon(8, 6, (c) => {
+  c.rect(11, 8, 10, 18, [0, 0, 0]);
+  c.rect(12, 9, 8, 16, [150, 116, 74]);
+  c.rect(13, 11, 6, 5, [120, 92, 58]);
+  c.rect(13, 18, 6, 5, [120, 92, 58]);
+  c.put(18, 17, [230, 210, 120]);
+});
+// Tree (placeable): a small leafy sapling.
+tinyIcon(9, 6, (c) => {
+  c.rect(15, 18, 3, 8, [92, 66, 40]);
+  c.disc(16, 13, 6, [52, 104, 50]);
+  c.disc(13, 15, 4, [64, 122, 58]);
+  c.disc(19, 15, 4, [64, 122, 58]);
+});
+// Light fixture (placeable): a lamppost with a glowing head.
+tinyIcon(10, 6, (c) => {
+  c.rect(15, 12, 2, 14, [96, 100, 108]);
+  c.rect(11, 24, 10, 2, [80, 84, 92]);
+  c.disc(16, 10, 4, [255, 214, 112]);
+  c.disc(16, 10, 2, [255, 244, 200]);
+});
+// Holowall tile: a translucent cyan block with shimmer scanlines.
+tinyIcon(7, 6, (c) => {
+  c.rect(2, 2, 28, 28, [0, 220, 238, 70]);
+  c.outlineRect(2, 2, 28, 28, [120, 245, 255, 180]);
+  c.line(3, 9, 28, 9, [176, 255, 255, 90]);
+  c.line(3, 16, 28, 16, [176, 255, 255, 90]);
+  c.line(3, 23, 28, 23, [176, 255, 255, 90]);
+  c.line(9, 3, 9, 28, [176, 255, 255, 70]);
+  c.line(16, 3, 16, 28, [176, 255, 255, 70]);
+  c.line(23, 3, 23, 28, [176, 255, 255, 70]);
+});
 tinyIcon(6, 7, (c) => {
   c.rect(12, 7, 9, 20, [100, 205, 235, 72]);
   c.rect(13, 9, 7, 5, [206, 255, 255, 92]);

@@ -18,6 +18,7 @@ export interface InputCallbacks {
   onReload: () => void;
   onToggleFOV: () => void;
   onToggleCTDM: () => void;
+  onToggleMatterManipulator: () => void;
   onToggleGodMode: () => void;
   onResumePause: (reason: string) => void;
   onNewGame: () => void;
@@ -229,6 +230,12 @@ export class InputHandler {
     if (this.isActionCode("toggleCTDM", code, preferences)) {
       e.preventDefault();
       this.callbacks.onToggleCTDM();
+      return;
+    }
+
+    if (this.isActionCode("toggleMatterManipulator", code, preferences)) {
+      e.preventDefault();
+      this.callbacks.onToggleMatterManipulator();
       return;
     }
   }

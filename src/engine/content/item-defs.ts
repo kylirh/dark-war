@@ -18,6 +18,7 @@ export type ItemCategory =
   | "utility"
   | "machine"
   | "key"
+  | "block" // placeable wall blocks (Matter Manipulator)
   | "special";
 
 export interface ItemDef {
@@ -167,6 +168,42 @@ export const ITEM_DEFS: Record<ItemType, ItemDef> = {
     stackable: true,
   },
   [ItemType.VENDING_MACHINE]: { name: "Vending Machine", category: "machine" },
+
+  // Building tools and placeable blocks
+  [ItemType.MATTER_MANIPULATOR]: {
+    name: "Matter Manipulator",
+    category: "special",
+  },
+  [ItemType.WALL_BLOCK]: {
+    name: "Wall Block",
+    category: "block",
+    stackable: true,
+  },
+  [ItemType.BUILDING_BLOCK]: {
+    name: "Building Block",
+    category: "block",
+    stackable: true,
+  },
+  [ItemType.FENCE_BLOCK]: {
+    name: "Fence",
+    category: "block",
+    stackable: true,
+  },
+  [ItemType.DOOR]: {
+    name: "Door",
+    category: "block",
+    stackable: true,
+  },
+  [ItemType.TREE_ITEM]: {
+    name: "Tree",
+    category: "block",
+    stackable: true,
+  },
+  [ItemType.LIGHT_FIXTURE]: {
+    name: "Light Fixture",
+    category: "block",
+    stackable: true,
+  },
 };
 
 export function itemName(type: ItemType): string {

@@ -14,7 +14,10 @@ import {
 import { Renderer } from "./systems/renderer";
 import { stepSimulationTick } from "../engine/systems/simulation/tick";
 import { enqueueCommand } from "../engine/systems/simulation/commands";
-import { SIM_DT_MS } from "../engine/systems/simulation/constants";
+import {
+  SIM_DT_MS,
+  MATTER_MANIPULATOR_RANGE,
+} from "../engine/systems/simulation/constants";
 import { Sound, SoundEffect } from "./systems/sound";
 import { TitleScreen } from "./systems/title-screen";
 import { IntroStory } from "./systems/intro-story";
@@ -48,7 +51,12 @@ import {
   WeaponType,
 } from "../engine/types";
 import { getWeaponForSlot } from "../engine/utils/inventory";
-import { idxFor, inBoundsFor } from "../engine/utils/helpers";
+import {
+  isPlaceableItem,
+  minedItemForTile,
+} from "../engine/content/block-defs";
+import { itemName } from "../engine/content/item-defs";
+import { idxFor, inBoundsFor, tileAtFor } from "../engine/utils/helpers";
 
 function weaponToItemType(weapon: WeaponType): ItemType | null {
   switch (weapon) {
@@ -117,6 +125,12 @@ const PREDICTION_CORRECTION = 0.3;
 // Above this gap (px) we stop trusting prediction and snap to the server: a
 // teleport, a hole-fall, a respawn, or a major desync. ~1.5 tiles.
 const PREDICTION_HARD_SNAP_PX = 48;
+
+// Matter Manipulator: how long a lightning "zap" lingers on a mined tile (ms).
+const MM_ZAP_DURATION_MS = 260;
+// Custom cyan-reticle cursor shown over the canvas while the manipulator is on.
+const MM_CURSOR_CSS =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg fill='none' stroke='%2300e7ee' stroke-width='2'%3E%3Ccircle cx='16' cy='16' r='9'/%3E%3Cline x1='16' y1='1' x2='16' y2='6'/%3E%3Cline x1='16' y1='26' x2='16' y2='31'/%3E%3Cline x1='1' y1='16' x2='6' y2='16'/%3E%3Cline x1='26' y1='16' x2='31' y2='16'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='2' fill='%2300e7ee'/%3E%3C/svg%3E\") 16 16, crosshair";
 
 // CTDM time dilation constants
 const CTDM_IDLE_SCALE = 0.35; // Timescale when CTDM is active but no threat detected
@@ -300,12 +314,30 @@ class DarkWar {
   // rebuild of wall colliders for prediction.
   private predictionTilesRef: TileSource | null = null;
   private gameCanvas: HTMLCanvasElement | null = null;
+  // Matter Manipulator interaction state (offline building/mining).
+  private mmMouseDown = false;
+  private mmLastMinedIdx: number | null = null;
+  private mmCursorApplied = false;
+  private mmZaps: { tileX: number; tileY: number; untilMs: number }[] = [];
   private newGameButton: HTMLElement | null = null;
   private introStory: IntroStory | null = null;
   private lastOnlineUnavailableLogAt: number = 0;
   private hasStartedGameLoop: boolean = false;
   private readonly onCanvasClick = (): void => {
     this.handleMouseFire();
+  };
+  private readonly onCanvasMouseDown = (event: MouseEvent): void => {
+    // Left button starts press-drag mining while the Matter Manipulator is on.
+    if (event.button !== 0 || !this.isMatterManipulatorActive()) return;
+    event.preventDefault();
+    this.mmMouseDown = true;
+    this.mmLastMinedIdx = null;
+    this.tryMineAtCursor();
+  };
+  private readonly onWindowMouseUp = (event: MouseEvent): void => {
+    if (event.button !== 0) return;
+    this.mmMouseDown = false;
+    this.mmLastMinedIdx = null;
   };
   private readonly onCanvasContextMenu = (event: MouseEvent): void => {
     event.preventDefault();
@@ -330,6 +362,17 @@ class DarkWar {
     }
 
     if (!inBoundsFor(tileX, tileY, state.mapWidth, state.mapHeight)) {
+      return;
+    }
+
+    // With the Matter Manipulator equipped, right-click places a wall block
+    // instead of issuing a click-to-move order.
+    if (
+      !this.isOnlineMode() &&
+      state.player.hasMatterManipulator &&
+      state.player.matterManipulatorActive
+    ) {
+      this.handlePlaceBlock(world.x, world.y);
       return;
     }
 
@@ -505,6 +548,7 @@ class DarkWar {
       onReload: () => this.handleReload(),
       onToggleFOV: () => this.handleToggleFOV(),
       onToggleCTDM: () => this.handleToggleCTDM(),
+      onToggleMatterManipulator: () => this.handleToggleMatterManipulator(),
       onToggleGodMode: () => this.handleToggleGodMode(),
       onResumePause: (reason) => this.game.resumeFromPause(reason),
       onNewGame: () => this.handleNewGame(),
@@ -1091,6 +1135,9 @@ class DarkWar {
     canvas.addEventListener("click", this.onCanvasClick);
     canvas.addEventListener("contextmenu", this.onCanvasContextMenu);
     canvas.addEventListener("wheel", this.onCanvasWheel, { passive: false });
+    canvas.addEventListener("mousedown", this.onCanvasMouseDown);
+    // Listen on window for mouseup so releasing off-canvas still ends mining.
+    window.addEventListener("mouseup", this.onWindowMouseUp);
   }
 
   private triggerRightClickMove(
@@ -1203,6 +1250,9 @@ class DarkWar {
    * Handle mouse-based firing
    */
   private handleMouseFire(): void {
+    // While the Matter Manipulator is active, left mouse mines via press-and-
+    // drag (see the mousedown/move handlers), so the click itself does not fire.
+    if (this.isMatterManipulatorActive()) return;
     // Fire with mouse aiming (dx/dy will be ignored)
     this.handleFire(0, 0);
   }
@@ -1454,6 +1504,7 @@ class DarkWar {
     const isDead = this.isLocalPlayerDead();
     const player = state.player;
 
+    this.updateMatterManipulator();
     this.renderer.render(state, isDead, alpha);
     this.ui.updateAll(
       state.player,
@@ -2108,6 +2159,183 @@ class DarkWar {
   }
 
   /**
+   * Toggle the Matter Manipulator tool on/off (F key). While active, left-click
+   * mines walls into placeable blocks and right-click places them.
+   */
+  private handleToggleMatterManipulator(): void {
+    const state = this.game.getState();
+    if (this.isOnlineMode()) {
+      state.story.unshift("Building isn't wired for co-op yet.");
+      return;
+    }
+    const player = state.player;
+    if (!player.hasMatterManipulator) {
+      state.story.unshift("You don't have a Matter Manipulator.");
+      return;
+    }
+    player.matterManipulatorActive = !player.matterManipulatorActive;
+    state.story.unshift(
+      player.matterManipulatorActive
+        ? "Matter Manipulator active — left-click mines, right-click places."
+        : "Matter Manipulator stowed.",
+    );
+  }
+
+  /** Translate a world position to a tile, wrapping on toroidal levels. */
+  private cursorTileFromWorld(
+    worldX: number,
+    worldY: number,
+  ): { tileX: number; tileY: number } | null {
+    const state = this.game.getState();
+    let tileX = Math.floor(worldX / CELL_CONFIG.w);
+    let tileY = Math.floor(worldY / CELL_CONFIG.h);
+    if (state.levelKind === "outside") {
+      tileX = ((tileX % state.mapWidth) + state.mapWidth) % state.mapWidth;
+      tileY = ((tileY % state.mapHeight) + state.mapHeight) % state.mapHeight;
+    }
+    if (!inBoundsFor(tileX, tileY, state.mapWidth, state.mapHeight))
+      return null;
+    return { tileX, tileY };
+  }
+
+  /** Whether the Matter Manipulator is equipped and active (offline only). */
+  private isMatterManipulatorActive(): boolean {
+    if (this.isOnlineMode()) return false;
+    const player = this.game.getState().player;
+    return player.hasMatterManipulator && player.matterManipulatorActive;
+  }
+
+  /** Chebyshev reach check mirroring the engine's MATTER_MANIPULATOR_RANGE. */
+  private tileInManipulatorReach(tileX: number, tileY: number): boolean {
+    const player = this.game.getState().player;
+    return (
+      Math.max(
+        Math.abs(tileX - player.gridX),
+        Math.abs(tileY - player.gridY),
+      ) <= MATTER_MANIPULATOR_RANGE
+    );
+  }
+
+  /**
+   * Right-click with the Matter Manipulator: place whatever is selected in the
+   * inventory. Non-placeable selections are rejected with a log message.
+   */
+  private handlePlaceBlock(worldX: number, worldY: number): void {
+    if (this.isLocalPlayerDead()) return;
+    const state = this.game.getState();
+    const player = state.player;
+    const selected =
+      player.inventorySlots[player.selectedBarSlot]?.type ?? null;
+    if (!selected) {
+      state.story.unshift("Select something to place first.");
+      return;
+    }
+    if (!isPlaceableItem(selected)) {
+      state.story.unshift(
+        `You can't place the ${itemName(selected)} with the Matter Manipulator.`,
+      );
+      return;
+    }
+    if ((player.itemCounts[selected] ?? 0) <= 0) {
+      state.story.unshift(`No ${itemName(selected)} left to place.`);
+      return;
+    }
+    const tile = this.cursorTileFromWorld(worldX, worldY);
+    if (!tile) return;
+    this.cancelAutoMove();
+    this.runOfflinePlayerCommand(CommandType.PLACE_BLOCK, {
+      type: "PLACE_BLOCK",
+      tileX: tile.tileX,
+      tileY: tile.tileY,
+      itemType: selected,
+    });
+  }
+
+  /**
+   * Mine the tile currently under the cursor if it's a fresh, in-range fixture.
+   * Called on mousedown and every frame while the button is held (press-drag),
+   * so a swipe carves a swath. Each mined tile registers a lightning "zap".
+   */
+  private tryMineAtCursor(): void {
+    if (this.isLocalPlayerDead()) return;
+    const world = this.mouseTracker.getWorldPosition();
+    const tile = this.cursorTileFromWorld(world.x, world.y);
+    if (!tile) return;
+    if (!this.tileInManipulatorReach(tile.tileX, tile.tileY)) return;
+    const state = this.game.getState();
+    const idx = idxFor(tile.tileX, tile.tileY, state.mapWidth);
+    if (idx === this.mmLastMinedIdx) return; // already handled this tile
+    this.mmLastMinedIdx = idx;
+
+    const t = tileAtFor(
+      state.map,
+      tile.tileX,
+      tile.tileY,
+      state.mapWidth,
+      state.mapHeight,
+    );
+    const isHolowall = t === TileType.HOLOWALL;
+    // Nothing minable and not a holowall → skip silently (avoids log spam while
+    // dragging across open floor).
+    if (!isHolowall && minedItemForTile(t) === null) return;
+
+    this.cancelAutoMove();
+    this.runOfflinePlayerCommand(CommandType.MINE, {
+      type: "MINE",
+      tileX: tile.tileX,
+      tileY: tile.tileY,
+    });
+    if (!isHolowall) {
+      this.mmZaps.push({
+        tileX: tile.tileX,
+        tileY: tile.tileY,
+        untilMs: performance.now() + MM_ZAP_DURATION_MS,
+      });
+    }
+  }
+
+  /**
+   * Per-frame Matter Manipulator upkeep: swap the cursor, continue press-drag
+   * mining, and hand the renderer the highlight + lightning overlay.
+   */
+  private updateMatterManipulator(): void {
+    const active = this.isMatterManipulatorActive();
+
+    // Custom cursor over the canvas while active; normal cursor otherwise (and
+    // the DOM HUD panels keep their own cursor since they sit above the canvas).
+    if (this.gameCanvas && active !== this.mmCursorApplied) {
+      this.gameCanvas.style.cursor = active ? MM_CURSOR_CSS : "pointer";
+      this.mmCursorApplied = active;
+    }
+
+    if (!active) {
+      this.mmMouseDown = false;
+      this.mmLastMinedIdx = null;
+      this.mmZaps.length = 0;
+      this.renderer.setMatterManipulatorOverlay(null);
+      return;
+    }
+
+    if (this.mmMouseDown) this.tryMineAtCursor();
+
+    const now = performance.now();
+    this.mmZaps = this.mmZaps.filter((z) => z.untilMs > now);
+
+    const world = this.mouseTracker.getWorldPosition();
+    const tile = this.cursorTileFromWorld(world.x, world.y);
+    const inRange =
+      tile !== null && this.tileInManipulatorReach(tile.tileX, tile.tileY);
+    this.renderer.setMatterManipulatorOverlay({
+      active: true,
+      cursorTileX: tile?.tileX ?? 0,
+      cursorTileY: tile?.tileY ?? 0,
+      hasCursorTile: tile !== null,
+      inRange,
+      zapTiles: this.mmZaps.map((z) => ({ tileX: z.tileX, tileY: z.tileY })),
+    });
+  }
+
+  /**
    * Compute a 0–1 threat level from visible monsters and incoming bullets.
    * Higher values produce stronger time dilation when the player is stationary.
    */
@@ -2340,6 +2568,8 @@ class DarkWar {
         this.onCanvasContextMenu,
       );
       this.gameCanvas.removeEventListener("wheel", this.onCanvasWheel);
+      this.gameCanvas.removeEventListener("mousedown", this.onCanvasMouseDown);
+      window.removeEventListener("mouseup", this.onWindowMouseUp);
       this.gameCanvas = null;
     }
 

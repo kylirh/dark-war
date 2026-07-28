@@ -116,6 +116,8 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   fence_horizontal: { x: 6, y: 10 },
   fence_vertical: { x: 7, y: 10 },
   [TileType.RUBBLE]: { x: 8, y: 4 },
+  [TileType.HOLOWALL]: { x: 7, y: 6 },
+  [TileType.LIGHT]: { x: 8, y: 10 }, // shares the streetlight sprite
   megacorp_entrance: { x: 4, y: 10 },
   streetlight: { x: 8, y: 10 },
   terminal: { x: 9, y: 10 },
@@ -188,6 +190,13 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [ItemType.METAL_SCRAPS]: { x: 0, y: 6 },
   [ItemType.VENDING_MACHINE]: { x: 1, y: 6 },
   laser_bullet: { x: 2, y: 6 },
+  [ItemType.MATTER_MANIPULATOR]: { x: 3, y: 6 },
+  [ItemType.WALL_BLOCK]: { x: 4, y: 6 },
+  [ItemType.BUILDING_BLOCK]: { x: 5, y: 6 },
+  [ItemType.FENCE_BLOCK]: { x: 6, y: 6 },
+  [ItemType.DOOR]: { x: 8, y: 6 },
+  [ItemType.TREE_ITEM]: { x: 9, y: 6 },
+  [ItemType.LIGHT_FIXTURE]: { x: 10, y: 6 },
 
   // ========================================
   // Row 7 - New monsters

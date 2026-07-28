@@ -41,6 +41,7 @@ export function tileIsPassable(tile: TileType): boolean {
 export function isWallLikeTile(tile: TileType): boolean {
   return (
     tile === TileType.WALL ||
+    tile === TileType.HOLOWALL ||
     tile === TileType.DOOR_CLOSED ||
     tile === TileType.DOOR_OPEN ||
     tile === TileType.DOOR_LOCKED

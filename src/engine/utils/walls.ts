@@ -34,6 +34,9 @@ export function applyWallDamageAtIndex(
     return false;
   }
   const tile = state.map[tileIndex];
+  // Holowalls are indestructible — no damage ever accrues. Callers that want to
+  // surface "The holowall vibrates and shimmers." should check the tile first.
+  if (tile === TileType.HOLOWALL) return false;
   const isFloor = tile === TileType.FLOOR;
   const isWallLike = isWallLikeTile(tile);
 

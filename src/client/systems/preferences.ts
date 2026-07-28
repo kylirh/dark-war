@@ -11,6 +11,7 @@ export type KeyBindingAction =
   | "pickup"
   | "reload"
   | "toggleCTDM"
+  | "toggleMatterManipulator"
   | "weapon1"
   | "weapon2"
   | "weapon3"
@@ -47,6 +48,7 @@ export const KEY_BINDING_DEFINITIONS: KeyBindingDefinition[] = [
   { action: "pickup", label: "Pickup" },
   { action: "reload", label: "Reload" },
   { action: "toggleCTDM", label: "Toggle CTDM" },
+  { action: "toggleMatterManipulator", label: "Matter Manipulator" },
   // weapon1-4 intentionally omitted: inventory slot keys (1-9, 0, -, =)
   // now handle weapon selection through the inventory bar.
   { action: "toggleGodMode", label: "God Mode", devOnly: true },
@@ -62,6 +64,7 @@ export const DEFAULT_KEY_BINDINGS: Record<KeyBindingAction, string> = {
   pickup: "KeyG",
   reload: "KeyR",
   toggleCTDM: "KeyC",
+  toggleMatterManipulator: "KeyF",
   weapon1: "Digit1",
   weapon2: "Digit2",
   weapon3: "Digit3",

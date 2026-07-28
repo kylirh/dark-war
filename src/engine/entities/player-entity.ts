@@ -48,6 +48,12 @@ export class PlayerEntity extends GameEntity {
   /** Maximum CTDM charge */
   public ctdmChargeMax: number;
 
+  /** Whether the player has found the Matter Manipulator tool */
+  public hasMatterManipulator: boolean;
+
+  /** Whether the Matter Manipulator is currently active (toggled by player) */
+  public matterManipulatorActive: boolean;
+
   /** Player score (accumulated through gameplay) */
   public score: number;
 
@@ -94,6 +100,8 @@ export class PlayerEntity extends GameEntity {
     this.ctdmEnabled = false;
     this.ctdmCharge = 0;
     this.ctdmChargeMax = 100;
+    this.hasMatterManipulator = false;
+    this.matterManipulatorActive = false;
     this.nextActTick = 0;
     this.score = 0;
     this.sight = 9;

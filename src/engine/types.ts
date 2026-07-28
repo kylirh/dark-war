@@ -25,6 +25,10 @@ export enum TileType {
   BUILDING = 14,
   FENCE = 15,
   RUBBLE = 16,
+  /** A wall deployed from a holowall item: solid, opaque, and indestructible. */
+  HOLOWALL = 17,
+  /** A streetlight fixture: walkable, casts a warm glow. Surface-only source. */
+  LIGHT = 18,
 }
 
 export interface TileDefinition {
@@ -94,6 +98,15 @@ export enum ItemType {
   TRASH = "trash",
   METAL_SCRAPS = "metal-scraps",
   VENDING_MACHINE = "vending-machine",
+  /** Held tool that mines walls into placeable blocks and places them back. */
+  MATTER_MANIPULATOR = "matter-manipulator",
+  /** Placeable blocks/fixtures recovered by mining (see content/block-defs.ts). */
+  WALL_BLOCK = "wall-block",
+  BUILDING_BLOCK = "building-block",
+  FENCE_BLOCK = "fence-block",
+  DOOR = "door",
+  TREE_ITEM = "tree-item",
+  LIGHT_FIXTURE = "light-fixture",
 }
 
 export enum WeaponType {
@@ -172,6 +185,12 @@ export const STACKABLE_ITEMS: ItemType[] = [
   ItemType.TRASH,
   ItemType.METAL_SCRAPS,
   ItemType.HOLOWALL,
+  ItemType.WALL_BLOCK,
+  ItemType.BUILDING_BLOCK,
+  ItemType.FENCE_BLOCK,
+  ItemType.DOOR,
+  ItemType.TREE_ITEM,
+  ItemType.LIGHT_FIXTURE,
 ];
 
 export interface Player extends BaseEntity {
@@ -190,6 +209,10 @@ export interface Player extends BaseEntity {
   ctdmEnabled: boolean;
   ctdmCharge: number;
   ctdmChargeMax: number;
+  /** Whether the player has found the Matter Manipulator tool. */
+  hasMatterManipulator: boolean;
+  /** Whether the Matter Manipulator is currently equipped/active (F to toggle). */
+  matterManipulatorActive: boolean;
   inventorySlots: InventorySlot[];
   selectedBarSlot: number;
   /** Counts for miscellaneous stackable items (coins, bones, rocks, ...). */
@@ -320,6 +343,10 @@ export enum CommandType {
   REPAIR = "REPAIR",
   /** Left-click: use whatever item is active (fire, eat, throw, place, ...). */
   USE_ITEM = "USE_ITEM",
+  /** Matter Manipulator: mine the targeted wall back into a placeable block. */
+  MINE = "MINE",
+  /** Matter Manipulator: place a wall block from the inventory at a tile. */
+  PLACE_BLOCK = "PLACE_BLOCK",
 }
 
 export interface Command {
@@ -356,7 +383,9 @@ export type CommandData =
       dy: number;
       targetWorldX?: number;
       targetWorldY?: number;
-    };
+    }
+  | { type: "MINE"; tileX: number; tileY: number }
+  | { type: "PLACE_BLOCK"; tileX: number; tileY: number; itemType: ItemType };
 
 export enum EventType {
   DAMAGE = "DAMAGE",
@@ -704,6 +733,20 @@ export const TILE_DEFINITIONS: Record<TileType, TileDefinition> = {
     color: "#6b6259",
     bg: "#211f1c",
     block: true,
+    opaque: false,
+  },
+  [TileType.HOLOWALL]: {
+    ch: "#",
+    color: "#5fe7e7",
+    bg: "#0b2a2c",
+    block: true,
+    opaque: true,
+  },
+  [TileType.LIGHT]: {
+    ch: "!",
+    color: "#ffd670",
+    bg: "#2c302d",
+    block: false,
     opaque: false,
   },
 };

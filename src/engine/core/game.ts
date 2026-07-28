@@ -246,7 +246,8 @@ export class Game {
               (e) =>
                 !(
                   e.kind === EntityKind.ITEM &&
-                  (e as Item).type === ItemType.CTDM
+                  ((e as Item).type === ItemType.CTDM ||
+                    (e as Item).type === ItemType.MATTER_MANIPULATOR)
                 ),
             )
           : outside.entities;

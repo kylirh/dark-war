@@ -875,6 +875,30 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
         });
       }
       break;
+    case ItemType.MATTER_MANIPULATOR:
+      if (!player.hasMatterManipulator) {
+        player.hasMatterManipulator = true;
+        addToInventory(player, ItemType.MATTER_MANIPULATOR);
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: {
+            type: "MESSAGE",
+            message:
+              "Matter Manipulator acquired. Press F to mine and place walls.",
+          },
+          cause: event.id,
+        });
+      } else {
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: {
+            type: "MESSAGE",
+            message: "You already have a Matter Manipulator.",
+          },
+          cause: event.id,
+        });
+      }
+      break;
     case ItemType.POWERCELL: {
       // Power cells are carried now; using one (or reloading laser/CTDM)
       // spends it for a full charge.

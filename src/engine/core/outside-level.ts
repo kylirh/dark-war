@@ -106,9 +106,20 @@ export function createOutsideLevel(): OutsideLevelData {
   addStreet(map, 0, 0, 3, HEIGHT);
   addStreet(map, WIDTH - 3, 0, 3, HEIGHT);
 
+  // Streetlights line the avenues. These are real LIGHT tiles (not decoration)
+  // so the player can mine them into Light Fixtures with the Matter Manipulator
+  // — the surface is the only place light fixtures can be sourced.
+  addStreetLights(map);
+
   setTileFor(map, stairsDown[0], stairsDown[1], WIDTH, TileType.STAIRS_DOWN);
 
-  const entities = [new ItemEntity(16, 58, ItemType.CTDM)];
+  const entities = [
+    new ItemEntity(16, 58, ItemType.CTDM),
+    // The Matter Manipulator sits beside the CTDM (on the path in from the
+    // start) so the player can grab it and start mining/building immediately.
+    // It is never spawned on other levels.
+    new ItemEntity(15, 58, ItemType.MATTER_MANIPULATOR),
+  ];
 
   return {
     map,
@@ -150,6 +161,22 @@ function addStreet(
   fillRect(map, x, y, w, h, TileType.ASPHALT);
   fillRect(map, x, y - 1, w, 1, TileType.SIDEWALK);
   fillRect(map, x, y + h, w, 1, TileType.SIDEWALK);
+}
+
+/**
+ * Scatter lampposts across every sidewalk on the surface — the avenues and the
+ * facility plaza alike. Lights only replace surviving sidewalk tiles (so the
+ * park, buildings, and streets never sprout a floating lamp), on a regular grid
+ * so they read as intentional streetlights the player can mine for fixtures.
+ */
+function addStreetLights(map: TileType[]): void {
+  for (let y = 0; y < HEIGHT; y++) {
+    for (let x = 0; x < WIDTH; x++) {
+      if (x % 5 !== 0 || y % 4 !== 0) continue;
+      const idx = x + y * WIDTH;
+      if (map[idx] === TileType.SIDEWALK) map[idx] = TileType.LIGHT;
+    }
+  }
 }
 
 function addParkPath(

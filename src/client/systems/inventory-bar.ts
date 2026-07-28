@@ -1,5 +1,6 @@
 import { INVENTORY_BAR_SIZE, ItemType, Player } from "../../engine/types";
 import { SPRITE_COORDS, SPRITE_SIZE } from "../../engine/config/sprites";
+import { isPlaceableItem } from "../../engine/content/block-defs";
 import {
   getSlotActions,
   getSlotDisplayCount,
@@ -129,6 +130,13 @@ export class InventoryBar {
 
     slotEl.classList.toggle("selected", isSelected);
     slotEl.classList.toggle("empty", !slot?.type);
+    // While the Matter Manipulator is active, grey out anything it can't place
+    // so the player can see at a glance what's buildable.
+    const unplaceable =
+      player.matterManipulatorActive &&
+      !!slot?.type &&
+      !isPlaceableItem(slot.type);
+    slotEl.classList.toggle("mm-unplaceable", unplaceable);
 
     const iconCanvas = slotEl.querySelector(
       ".inv-slot-icon",

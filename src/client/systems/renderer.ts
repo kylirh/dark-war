@@ -1,6 +1,7 @@
 import {
   Application,
   Container,
+  Graphics,
   Sprite,
   Texture,
   Assets,
@@ -37,6 +38,16 @@ import { cardinalAutotileMask } from "../../engine/utils/autotile";
 
 type RenderFrame = SpriteFrame & { key: string };
 
+/** Client-only Matter Manipulator overlay: cursor highlight + mining lightning. */
+export interface MatterManipulatorOverlay {
+  active: boolean;
+  cursorTileX: number;
+  cursorTileY: number;
+  hasCursorTile: boolean;
+  inRange: boolean;
+  zapTiles: { tileX: number; tileY: number }[];
+}
+
 /**
  * Handles rendering the game using Pixi.js
  */
@@ -45,6 +56,7 @@ export class Renderer {
   private readonly canvas: HTMLCanvasElement;
   private mapContainer: Container;
   private entityContainer: Container;
+  private mmOverlay: MatterManipulatorOverlay | null = null;
   private spriteSheet?: Texture;
   private spriteSheetImage?: HTMLImageElement;
   private textureCache: Map<string, Texture> = new Map();
@@ -168,6 +180,16 @@ export class Renderer {
     this.scale = newScale;
     this.app.stage.scale.set(this.scale);
     this.resizeToViewport();
+  }
+
+  /**
+   * Feed the per-frame Matter Manipulator overlay (cursor highlight + mining
+   * lightning). Pass null to clear it. Drawn during the next `render()`.
+   */
+  public setMatterManipulatorOverlay(
+    overlay: MatterManipulatorOverlay | null,
+  ): void {
+    this.mmOverlay = overlay;
   }
 
   /**
@@ -1277,15 +1299,13 @@ export class Renderer {
               ? "sidewalk_cracked"
               : TileType.SIDEWALK,
           );
-          if (
-            state.levelKind === "outside" &&
-            hashTile(mx, my, 77) % 151 === 0
-          ) {
-            renderDecoration("streetlight", 1, {
-              color: "rgba(255, 214, 112, 0.28)",
-              scale: 0.85,
-            });
-          }
+        } else if (tileType === TileType.LIGHT) {
+          // A streetlight fixture: a paved base, the lamppost, and a warm glow.
+          renderGround(TileType.SIDEWALK);
+          renderDecoration("streetlight", 1, {
+            color: "rgba(255, 214, 112, 0.32)",
+            scale: 0.95,
+          });
         } else if (
           tileType === TileType.DOOR_CLOSED ||
           tileType === TileType.DOOR_OPEN ||
@@ -1335,6 +1355,9 @@ export class Renderer {
             wallSpriteKey,
             wallAutotileCoordinate(wallSpriteKey, wallMask),
           );
+        } else if (tileType === TileType.HOLOWALL) {
+          renderGround(TileType.FLOOR, floorCoord);
+          renderDepthTile(TileType.HOLOWALL);
         } else if (
           tileType === TileType.TREE ||
           tileType === TileType.BUILDING ||
@@ -1554,11 +1577,101 @@ export class Renderer {
       }
     }
 
+    // Matter Manipulator overlay: hover highlight (in-range only) + mining
+    // lightning. Client-only; drawn above tiles/entities.
+    if (this.mmOverlay?.active) {
+      const tileTopLeftScreen = (tx: number, ty: number) => {
+        const cx = tx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+        const cy = ty * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+        return {
+          sx:
+            offsetX +
+            this.wrapImage(cx, camCenterX, worldW, wraps) -
+            CELL_CONFIG.w / 2,
+          sy:
+            offsetY +
+            this.wrapImage(cy, camCenterY, worldH, wraps) -
+            CELL_CONFIG.h / 2,
+        };
+      };
+
+      if (this.mmOverlay.hasCursorTile && this.mmOverlay.inRange) {
+        const { sx, sy } = tileTopLeftScreen(
+          this.mmOverlay.cursorTileX,
+          this.mmOverlay.cursorTileY,
+        );
+        const pulse = 0.22 + 0.14 * Math.sin(nowMs / 150);
+        const hi = new Graphics();
+        hi.rect(sx, sy, CELL_CONFIG.w, CELL_CONFIG.h)
+          .fill({ color: 0x00e7ee, alpha: pulse })
+          .stroke({ color: 0x9ffcff, width: 2, alpha: 0.9 });
+        hi.zIndex = 1_000_000;
+        this.entityContainer.addChild(hi);
+      }
+
+      for (const zap of this.mmOverlay.zapTiles) {
+        const { sx, sy } = tileTopLeftScreen(zap.tileX, zap.tileY);
+        const bolt = this.buildLightning(sx, sy, nowMs);
+        bolt.zIndex = 1_000_001;
+        this.entityContainer.addChild(bolt);
+      }
+    }
+
     const playerMoving = this.isEntityMoving(player);
     if (playerMoving) {
       this.playerFacing = this.getEntityDirection(player);
     }
     renderDepthEntity(player, isDead);
+  }
+
+  /**
+   * A crackling electric bolt drawn across a tile — a few jagged polylines that
+   * re-randomize each frame so the effect flickers like arcing electricity.
+   */
+  private buildLightning(sx: number, sy: number, nowMs: number): Graphics {
+    const g = new Graphics();
+    const w = CELL_CONFIG.w;
+    const h = CELL_CONFIG.h;
+    const cx = sx + w / 2;
+    const cy = sy + h / 2;
+    const boltCount = 3;
+    const segments = 4;
+    const jitter = 5;
+
+    // Precompute the jagged points so the glow and core strokes trace the same
+    // path (they'd diverge if we re-rolled the random jitter for each stroke).
+    const bolts: { x: number; y: number }[][] = [];
+    for (let b = 0; b < boltCount; b++) {
+      const angle = (b / boltCount) * Math.PI * 2 + nowMs / 90;
+      const startX = cx + Math.cos(angle) * (w / 2);
+      const startY = cy + Math.sin(angle) * (h / 2);
+      const endX = cx - Math.cos(angle) * (w / 2);
+      const endY = cy - Math.sin(angle) * (h / 2);
+      const pts = [{ x: startX, y: startY }];
+      for (let s = 1; s < segments; s++) {
+        const t = s / segments;
+        pts.push({
+          x: startX + (endX - startX) * t + (Math.random() - 0.5) * jitter * 2,
+          y: startY + (endY - startY) * t + (Math.random() - 0.5) * jitter * 2,
+        });
+      }
+      pts.push({ x: endX, y: endY });
+      bolts.push(pts);
+    }
+
+    const tracePath = (): void => {
+      for (const pts of bolts) {
+        g.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+      }
+    };
+
+    // Wide translucent glow underlay, then a bright thin core.
+    tracePath();
+    g.stroke({ color: 0x00e7ee, width: 3, alpha: 0.5 });
+    tracePath();
+    g.stroke({ color: 0xd8ffff, width: 1.25, alpha: 0.95 });
+    return g;
   }
 
   /**

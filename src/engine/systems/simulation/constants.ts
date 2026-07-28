@@ -46,6 +46,9 @@ export const IDLE_WANDER_DIRECTIONS: [number, number][] = [
   [-1, -1],
 ];
 
+/** Reach of the Matter Manipulator, in tiles from the player's tile. */
+export const MATTER_MANIPULATOR_RANGE = 6;
+
 export const EXPLOSIVE_CONFIG: Record<
   ItemType.GRENADE | ItemType.LAND_MINE,
   { radius: number; damage: number }

@@ -2206,6 +2206,16 @@ body {
   opacity: 0.1;
 }
 
+/* Matter Manipulator active: items it can't place are dimmed and desaturated. */
+.inv-slot.mm-unplaceable .inv-slot-icon {
+  opacity: 0.28;
+  filter: grayscale(1);
+}
+
+.inv-slot.mm-unplaceable .inv-slot-count {
+  opacity: 0.35;
+}
+
 .inv-slot-key {
   position: absolute;
   top: 1px;
