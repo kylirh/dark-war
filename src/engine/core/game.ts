@@ -19,7 +19,11 @@ import {
   WallSet,
   LevelKind,
 } from "../types";
-import { createOutsideLevel, OUTSIDE_CAVE_MOUTH } from "./outside-level";
+import {
+  createOutsideLevel,
+  OUTSIDE_CAVE_MOUTH,
+  PARK_WORKSHOP_DOOR,
+} from "./outside-level";
 import { EntityManager } from "./entity-manager";
 import { TileSource } from "./tile-source";
 import { generateDungeon } from "./dungeon-generator";
@@ -43,7 +47,12 @@ import {
   worldAddressForDepth,
   worldAddressKey,
 } from "./world-space";
-import { CAVE_ENTRY_ADDRESS, createParkGrotto } from "./world-space-content";
+import {
+  CAVE_ENTRY_ADDRESS,
+  createParkGrotto,
+  createWorkshopInterior,
+  WORKSHOP_INTERIOR_ADDRESS,
+} from "./world-space-content";
 import {
   createWorldPlaneFromTiles,
   deserializeWorldPlane,
@@ -922,6 +931,32 @@ export class Game {
         portals: cave.portals,
       };
     }
+    if (
+      address.spaceId === WORKSHOP_INTERIOR_ADDRESS.spaceId &&
+      address.planeId === WORKSHOP_INTERIOR_ADDRESS.planeId
+    ) {
+      const workshop = createWorkshopInterior();
+      return {
+        depth: workshop.depth,
+        worldSpaceId: workshop.address.spaceId,
+        worldPlaneId: workshop.address.planeId,
+        levelKind: "dungeon",
+        mapWidth: workshop.width,
+        mapHeight: workshop.height,
+        floorVariant: workshop.floorVariant,
+        wallSet: workshop.wallSet,
+        explored: new Set(),
+        exploredByPlayer: new Map(
+          this.state.players.map((player) => [player.id, new Set<number>()]),
+        ),
+        entities: [],
+        stairsDown: workshop.stairsDown,
+        stairsUp: workshop.stairsUp,
+        enhancedVision: false,
+        worldPlane: workshop.worldPlane,
+        portals: workshop.portals,
+      };
+    }
     throw new Error(`Unknown world plane: ${worldAddressKey(address)}`);
   }
 
@@ -961,6 +996,16 @@ export class Game {
           y: OUTSIDE_CAVE_MOUTH[1],
         },
         destination: { ...CAVE_ENTRY_ADDRESS, entry: "start" },
+      });
+      portals.push({
+        id: "outside/surface:park-workshop",
+        kind: "door",
+        source: {
+          ...address,
+          x: PARK_WORKSHOP_DOOR[0],
+          y: PARK_WORKSHOP_DOOR[1],
+        },
+        destination: { ...WORKSHOP_INTERIOR_ADDRESS, entry: "start" },
       });
     }
     return portals;

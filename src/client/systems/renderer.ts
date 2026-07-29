@@ -599,7 +599,9 @@ export class Renderer {
     if (needsFloorBase) {
       this.drawPreviewSprite(
         context,
-        floorCoord,
+        structure === StructureType.WORKSHOP_FOOTPRINT
+          ? SPRITE_COORDS[TileType.GRASS]
+          : floorCoord,
         screenX,
         screenY,
         alpha,
@@ -608,9 +610,11 @@ export class Renderer {
       tileCoord =
         fixture === FixtureType.CAVE_MOUTH
           ? SPRITE_COORDS.prototype_cave_mouth
-          : state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
-            ? SPRITE_COORDS.megacorp_entrance
-            : SPRITE_COORDS[tileType];
+          : structure === StructureType.WORKSHOP_FOOTPRINT
+            ? null
+            : state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
+              ? SPRITE_COORDS.megacorp_entrance
+              : SPRITE_COORDS[tileType];
     } else if (structure === StructureType.WORKSHOP) {
       baseCoord = SPRITE_COORDS[TileType.GRASS];
       tileCoord = SPRITE_COORDS.prototype_workshop;
@@ -1526,9 +1530,15 @@ export class Renderer {
           tileType === TileType.STAIRS_DOWN ||
           tileType === TileType.STAIRS_UP
         ) {
-          renderGround(TileType.FLOOR, floorCoord);
+          if (productionStructure === StructureType.WORKSHOP_FOOTPRINT) {
+            renderGround(TileType.GRASS);
+          } else {
+            renderGround(TileType.FLOOR, floorCoord);
+          }
           if (productionFixture === FixtureType.CAVE_MOUTH) {
             renderDepthTile("prototype_cave_mouth");
+          } else if (productionStructure === StructureType.WORKSHOP_FOOTPRINT) {
+            // The workshop billboard already contains its visible doorway.
           } else if (
             state.levelKind === "outside" &&
             tileType === TileType.STAIRS_DOWN

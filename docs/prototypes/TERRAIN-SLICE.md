@@ -33,10 +33,10 @@ traversal contract now drives production physics and pathfinding directly. The
 normal outside world also contains signed terraces, static water, a bridge, and
 the same bounded visual classifications.
 
-Press `[` to lower the marked test cell and `]` to raise its neighboring test
-cell. The edited cell is highlighted in warm gold; the rest of the reclassified
-3×3 dependency area is highlighted in mint. The story log reports the before
-and after elevation and the exact number of visual cells resolved. Press `\` to
+Point at any laboratory cell and press `[` to lower it or `]` to raise it. The
+edited cell is highlighted in warm gold; the rest of the reclassified 3×3
+dependency area is highlighted in mint. The story log reports the before and
+after elevation and the exact number of visual cells resolved. Press `\` to
 switch between the 47-blob shoreline and the 16-state dual-grid comparison.
 
 The generated direction boards under

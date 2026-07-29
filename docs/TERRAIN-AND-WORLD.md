@@ -151,9 +151,10 @@ flooding, evaporation, or per-tick fluid simulation unless a future gameplay
 decision explicitly adds it.
 
 Production currently includes shallow, deep, and directional river ground.
-Water is blocked unless a compositional bridge occupies the same cell. River
-connectivity, shoreline topology, and glints are derived presentation; no water
-work runs during simulation ticks.
+Water blocks movement but never blocks sight; a compositional bridge restores
+movement while preserving the water ground beneath it. River connectivity,
+shoreline topology, and glints are derived presentation; no water work runs
+during simulation ticks.
 
 ### Visuals are derived by rule family
 

@@ -70,8 +70,9 @@ used by scalar-layout procedural generators before runtime.
 
 The server owns one `LevelWorld` per stable `WorldAddress`. Players migrate
 independently through typed doors, stairs, ladders, cave mouths, and holes.
-Unoccupied planes do not simulate. The surface, numbered MegaCorp floors, and
-the park grotto cave are the current concrete world spaces.
+Unoccupied planes do not simulate. The surface, numbered MegaCorp floors, the
+park grotto cave, and the park workshop interior are the current concrete world
+spaces.
 
 ## Approved world direction
 

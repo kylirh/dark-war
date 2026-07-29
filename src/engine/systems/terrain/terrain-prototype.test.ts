@@ -16,6 +16,18 @@ import {
 } from "./terrain-prototype";
 
 describe("createTerrainPrototypePlane", () => {
+  it("lets the player leave the laboratory start cell", () => {
+    const plane = createTerrainPrototypePlane();
+    expect(
+      plane.world.canTraverse(
+        plane.start[0],
+        plane.start[1],
+        plane.start[0] + 1,
+        plane.start[1],
+      ),
+    ).toBe(true);
+  });
+
   it("creates aligned structure-of-arrays layers", () => {
     const plane = createTerrainPrototypePlane();
     const cellCount = TERRAIN_PROTOTYPE_WIDTH * TERRAIN_PROTOTYPE_HEIGHT;

@@ -3,7 +3,8 @@
 import { describe, expect, it } from "vitest";
 import { Game } from "./game";
 import { setPositionFromGrid } from "../utils/helpers";
-import { OUTSIDE_CAVE_MOUTH } from "./outside-level";
+import { OUTSIDE_CAVE_MOUTH, PARK_WORKSHOP_DOOR } from "./outside-level";
+import { WORKSHOP_INTERIOR_ADDRESS } from "./world-space-content";
 import {
   createProgressionPortals,
   depthForWorldAddress,
@@ -98,5 +99,36 @@ describe("world addresses", () => {
       game.getState().worldSpaceId,
       game.getState().worldPlaneId,
     ]).toEqual(["outside", "surface"]);
+  });
+
+  it("moves between the park and the workshop interior", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(0);
+    const outside = game.getState();
+    setPositionFromGrid(
+      outside.player,
+      PARK_WORKSHOP_DOOR[0],
+      PARK_WORKSHOP_DOOR[1],
+    );
+    outside.pendingPortalId = "outside/surface:park-workshop";
+
+    game.descend();
+    const workshop = game.getState();
+    expect([workshop.worldSpaceId, workshop.worldPlaneId]).toEqual([
+      WORKSHOP_INTERIOR_ADDRESS.spaceId,
+      WORKSHOP_INTERIOR_ADDRESS.planeId,
+    ]);
+    expect(workshop.worldPlane.passable(...workshop.stairsUp!)).toBe(true);
+
+    workshop.pendingPortalId = "settlement/park-workshop:exit";
+    game.ascend();
+    expect([
+      game.getState().worldSpaceId,
+      game.getState().worldPlaneId,
+    ]).toEqual(["outside", "surface"]);
+    expect([
+      game.getState().player.gridX,
+      game.getState().player.gridY,
+    ]).toEqual([PARK_WORKSHOP_DOOR[0], PARK_WORKSHOP_DOOR[1] + 1]);
   });
 });

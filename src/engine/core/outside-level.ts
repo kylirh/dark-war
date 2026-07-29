@@ -24,7 +24,9 @@ export interface OutsideLevelData extends Omit<DungeonData, "map"> {
 
 const WIDTH = OUTSIDE_MAP_WIDTH;
 const HEIGHT = OUTSIDE_MAP_HEIGHT;
-export const OUTSIDE_CAVE_MOUTH: readonly [number, number] = [35, 39];
+export const OUTSIDE_CAVE_MOUTH: readonly [number, number] = [62, 40];
+export const PARK_WORKSHOP_ORIGIN: readonly [number, number] = [57, 56];
+export const PARK_WORKSHOP_DOOR: readonly [number, number] = [60, 60];
 
 /**
  * Build the hand-authored level 0 city outside the Megacorp facility.
@@ -43,27 +45,6 @@ export function createOutsideLevel(): OutsideLevelData {
   addStreet(map, 20, 0, 7, HEIGHT);
   addStreet(map, 70, 0, 7, HEIGHT);
   addStreet(map, 104, 0, 7, HEIGHT);
-
-  // Overgrown park in the southwest quadrant.
-  fillRect(map, 4, 34, 36, 27, TileType.GRASS);
-  fillRect(map, 6, 36, 32, 23, TileType.WEEDS);
-  addParkPath(map, 7, 48, 36, 3);
-  addParkPath(map, 23, 36, 3, 22);
-  addTreeCluster(map, [
-    [8, 37],
-    [13, 39],
-    [18, 37],
-    [31, 38],
-    [35, 43],
-    [10, 55],
-    [17, 57],
-    [29, 55],
-    [34, 57],
-    [6, 42],
-    [12, 45],
-    [28, 42],
-    [36, 50],
-  ]);
 
   // Wild growth has pushed through the old commercial blocks.
   fillRect(map, 28, 31, 11, 4, TileType.WEEDS);
@@ -85,16 +66,10 @@ export function createOutsideLevel(): OutsideLevelData {
   addBuilding(map, 31, 22, 28, 7);
   addBuilding(map, 82, 33, 16, 16);
   addBuilding(map, 113, 32, 11, 16);
-  addBuilding(map, 43, 40, 18, 12);
-  addBuilding(map, 43, 57, 22, 10);
   addBuilding(map, 82, 57, 16, 10);
   addBuilding(map, 113, 56, 11, 11);
 
-  // Abandoned field clinic/research van.
-  fillRect(map, 50, 44, 9, 4, TileType.SIDEWALK);
-  fillRect(map, 52, 45, 5, 2, TileType.FLOOR);
-  setTileFor(map, 51, 45, WIDTH, TileType.RUBBLE);
-  setTileFor(map, 57, 46, WIDTH, TileType.RUBBLE);
+  addCityPark(map);
 
   // Megacorp research facility perimeter and entrance.
   addFacility(map, stairsDown);
@@ -138,13 +113,13 @@ export function createOutsideLevel(): OutsideLevelData {
     ground: GroundType.GRASS,
     structure: StructureType.NONE,
     fixture: FixtureType.CAVE_MOUTH,
-    elevation: 0,
+    elevation: 3,
   });
   stampSemanticPrefab(
     worldPlane,
     semanticPrefab("settlement.workshop-garden"),
-    60,
-    5,
+    PARK_WORKSHOP_ORIGIN[0],
+    PARK_WORKSHOP_ORIGIN[1],
   );
   return {
     width: WIDTH,
@@ -161,46 +136,46 @@ export function createOutsideLevel(): OutsideLevelData {
 
 /** Add the first production terraces, static pond, and walkable bridge. */
 function addNaturalTerrain(plane: WorldPlane): void {
-  const hillCenterX = 12;
-  const hillCenterY = 42;
-  for (let y = 34; y <= 50; y++) {
-    for (let x = 3; x <= 21; x++) {
+  const hillCenterX = 62;
+  const hillCenterY = 41;
+  for (let y = 34; y <= 48; y++) {
+    for (let x = 53; x <= 71; x++) {
       const dx = (x - hillCenterX) / 9;
-      const dy = (y - hillCenterY) / 8;
+      const dy = (y - hillCenterY) / 7;
       const distance = dx * dx + dy * dy;
       const elevation =
-        distance <= 0.08 ? 3 : distance <= 0.3 ? 2 : distance <= 1 ? 1 : 0;
+        distance <= 0.12 ? 3 : distance <= 0.42 ? 2 : distance <= 1 ? 1 : 0;
       if (elevation === 0) continue;
       plane.editCell(x, y, { elevation });
     }
   }
   for (const [x, y, elevation] of [
-    [hillCenterX, 49, 1],
-    [hillCenterX, 46, 2],
-    [hillCenterX, 44, 3],
+    [71, hillCenterY, 1],
+    [67, hillCenterY, 2],
+    [65, hillCenterY, 3],
   ] as const) {
     plane.editCell(x, y, { elevation, fixture: FixtureType.STAIRS });
   }
 
-  const pondCenterX = 33;
-  const pondCenterY = 45;
-  for (let y = 41; y <= 49; y++) {
-    for (let x = 27; x <= 39; x++) {
-      const dx = (x - pondCenterX) / 6;
-      const dy = (y - pondCenterY) / 4;
+  const pondCenterX = 43;
+  const pondCenterY = 47;
+  for (let y = 39; y <= 55; y++) {
+    for (let x = 31; x <= 55; x++) {
+      const dx = (x - pondCenterX) / 12;
+      const dy = (y - pondCenterY) / 8;
       const distance = dx * dx + dy * dy;
       if (distance > 1) continue;
       const index = plane.indexFor(x, y);
       if (plane.layers.structure[index] !== StructureType.NONE) continue;
       plane.editCell(x, y, {
         ground:
-          distance < 0.38 ? GroundType.WATER_DEEP : GroundType.WATER_SHALLOW,
+          distance < 0.46 ? GroundType.WATER_DEEP : GroundType.WATER_SHALLOW,
         elevation: -1,
         fixture: FixtureType.NONE,
       });
     }
   }
-  for (let x = 27; x <= 39; x++) {
+  for (let x = 31; x <= 55; x++) {
     const index = plane.indexFor(x, pondCenterY);
     if (
       plane.layers.ground[index] !== GroundType.WATER_SHALLOW &&
@@ -213,13 +188,50 @@ function addNaturalTerrain(plane: WorldPlane): void {
       elevation: 0,
     });
   }
-  for (let x = 39; x <= 42; x++) {
-    plane.editCell(x, pondCenterY + 1, {
+  for (let x = 54; x <= 68; x++) {
+    plane.editCell(x, pondCenterY + 2, {
       ground: GroundType.WATER_RIVER,
       structure: StructureType.NONE,
       fixture: FixtureType.NONE,
       elevation: -1,
     });
+  }
+}
+
+/** Lay out a substantial civic park around the pond, grotto, and workshop. */
+function addCityPark(map: TileType[]): void {
+  fillRect(map, 29, 35, 42, 34, TileType.GRASS);
+  fillRect(map, 31, 37, 38, 30, TileType.WEEDS);
+
+  // A broad promenade, pond loop, and workshop spur make the park readable.
+  addParkPath(map, 29, 57, 42, 3);
+  addParkPath(map, 47, 35, 3, 34);
+  addParkPath(map, 32, 37, 3, 21);
+  addParkPath(map, 54, 53, 15, 3);
+  addParkPath(map, 36, 64, 25, 2);
+
+  addTreeCluster(map, [
+    [30, 36],
+    [36, 36],
+    [43, 36],
+    [50, 37],
+    [67, 36],
+    [30, 60],
+    [34, 66],
+    [43, 66],
+    [51, 64],
+    [66, 62],
+    [68, 53],
+  ]);
+
+  for (const [x, y] of [
+    [38, 61],
+    [41, 61],
+    [52, 61],
+    [55, 63],
+    [33, 55],
+  ] as const) {
+    setTileFor(map, x, y, WIDTH, TileType.RUBBLE);
   }
 }
 

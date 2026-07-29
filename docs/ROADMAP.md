@@ -147,8 +147,9 @@ knockback, client prediction, and authoritative server physics.
 
 The outside world contains deterministic signed terraces, a shallow/deep pond,
 a directional static river outlet, and a bridge that preserves water beneath
-it. Cached shore, river, and bounded cliff classifications drive cheerful water,
-edge, face, stair, and shadow presentation. The Matter Manipulator raises and
+it. Static water blocks movement without blocking sight. Cached shore, river,
+and bounded cliff classifications drive cheerful water, edge, face, stair, and
+shadow presentation. The Matter Manipulator raises and
 lowers eligible clear terrain at the cursor with `[` and `]`; offline and online
 commands mutate the same semantic layer, invalidate at most a 3×3 neighborhood,
 and replicate through per-layer elevation deltas. Protocol version 7 introduced
@@ -173,9 +174,10 @@ Stable `WorldAddress` identities now drive the system: the surface is
 saves carry both IDs, offline caches and the multiplayer server key worlds by
 address, and clients require a keyframe when identity changes even if dimensions
 and progression depth happen to match. Typed portal records own their source,
-destination, entry policy, and transition kind. The park grotto is the first
-independent cave plane and round-trips through a visible cave-mouth portal;
-MegaCorp floors remain the first building planes. Offline and authoritative
+destination, entry policy, and transition kind. The park grotto round-trips
+through a visible cave-mouth portal, and the park workshop now round-trips
+through a door portal into a dedicated authored interior; MegaCorp floors remain
+the progression building planes. Offline and authoritative
 multiplayer transitions resolve the same portal contracts. Empty server planes
 remain frozen and every client renders only its active plane.
 
@@ -215,8 +217,9 @@ or graphical seams.
 
 The foundation program now demonstrates repeated content creation rather than a
 single laboratory: the production surface combines terraces, signed
-depressions, static pond/river water, a bridge, forest/city families, a portal
-cave, and a Tiled-authored workshop/garden vignette; the cave combines
+depressions, a substantial city-park pond and river, a bridge, forest/city
+families, a terraced portal grotto, and a Tiled-authored workshop/garden with an
+independent interior; the cave combines
 procedural chambers with a second transformed semantic-prefab family. Production
 rendering supports the rebuilding structures and fixtures. Terrain shaping has
 clear reach, occupancy, material, clearance, water, and ±12 elevation feedback.

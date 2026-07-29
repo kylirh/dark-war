@@ -19,6 +19,16 @@
       ]
     },
     {
+      "id": 5,
+      "properties": [
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "fixture.stairs.down"
+        }
+      ]
+    },
+    {
       "id": 72,
       "properties": [
         {

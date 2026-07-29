@@ -1036,6 +1036,16 @@ function resolveMineCommand(state: GameState, cmd: Command): void {
   }
 
   const tile = state.tiles.getTile(tileX, tileY);
+  const structure = state.worldPlane.layers.structure[
+    state.worldPlane.indexFor(tileX, tileY)
+  ] as StructureType;
+  if (
+    structure === StructureType.WORKSHOP ||
+    structure === StructureType.WORKSHOP_FOOTPRINT
+  ) {
+    msg(state, "The workshop is a permanent part of the settlement.", cmd.id);
+    return;
+  }
   if (tile === TileType.HOLOWALL) {
     msg(state, "The holowall vibrates and shimmers.", cmd.id);
     return;

@@ -3,14 +3,24 @@
 import { TileType, WallSet } from "../types";
 import { setTileFor } from "../utils/helpers";
 import { WorldPlane } from "./world-plane";
-import { createWorldPlaneFromTiles } from "./world-semantics";
+import {
+  createWorldPlaneFromTiles,
+  FixtureType,
+  GroundType,
+  StructureType,
+} from "./world-semantics";
 import { WorldAddress, WorldPortal } from "./world-space";
-import { OUTSIDE_CAVE_MOUTH } from "./outside-level";
+import { OUTSIDE_CAVE_MOUTH, PARK_WORKSHOP_DOOR } from "./outside-level";
 import { semanticPrefab, stampSemanticPrefab } from "./semantic-prefab";
 
 export const CAVE_ENTRY_ADDRESS: WorldAddress = {
   spaceId: "caves",
   planeId: "park-grotto",
+};
+
+export const WORKSHOP_INTERIOR_ADDRESS: WorldAddress = {
+  spaceId: "settlement",
+  planeId: "park-workshop",
 };
 
 export interface AuthoredWorldPlaneData {
@@ -84,6 +94,86 @@ export function createParkGrotto(): AuthoredWorldPlaneData {
           entry: "start",
           x: OUTSIDE_CAVE_MOUTH[0],
           y: OUTSIDE_CAVE_MOUTH[1] + 1,
+        },
+      },
+    ],
+  };
+}
+
+/** Build the park workshop as a cozy independent interior plane. */
+export function createWorkshopInterior(): AuthoredWorldPlaneData {
+  const width = 24;
+  const height = 18;
+  const start: [number, number] = [12, 16];
+  const map = new Array<TileType>(width * height).fill(TileType.WALL);
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      setTileFor(map, x, y, width, TileType.FLOOR);
+    }
+  }
+  setTileFor(map, start[0], start[1], width, TileType.STAIRS_UP);
+
+  // Work benches and storage divide the room without sealing it into corridors.
+  for (const [x, y] of [
+    [3, 3],
+    [4, 3],
+    [5, 3],
+    [18, 3],
+    [19, 3],
+    [20, 3],
+    [3, 10],
+    [20, 10],
+  ] as const) {
+    setTileFor(map, x, y, width, TileType.RUBBLE);
+  }
+
+  const worldPlane = createWorldPlaneFromTiles(map, width, height, undefined, {
+    variantSeed: 0x7a11,
+  });
+  for (let y = 6; y <= 8; y++) {
+    for (let x = 4; x <= 8; x++) {
+      worldPlane.editCell(x, y, {
+        ground: GroundType.DIRT,
+        structure: StructureType.NONE,
+        fixture: (x + y) % 3 === 0 ? FixtureType.FLOWERS : FixtureType.GARDEN,
+      });
+    }
+  }
+  for (const [x, y] of [
+    [16, 6],
+    [18, 6],
+    [16, 8],
+    [18, 8],
+  ] as const) {
+    worldPlane.editCell(x, y, { fixture: FixtureType.CRATE });
+  }
+
+  const outsideAddress: WorldAddress = {
+    spaceId: "outside",
+    planeId: "surface",
+  };
+  return {
+    address: WORKSHOP_INTERIOR_ADDRESS,
+    depth: 0,
+    width,
+    height,
+    floorVariant: 2,
+    wallSet: "wood",
+    start,
+    stairsDown: start,
+    stairsUp: start,
+    worldPlane,
+    portals: [
+      {
+        id: "settlement/park-workshop:exit",
+        kind: "door",
+        source: { ...WORKSHOP_INTERIOR_ADDRESS, x: start[0], y: start[1] },
+        destination: {
+          ...outsideAddress,
+          entry: "start",
+          x: PARK_WORKSHOP_DOOR[0],
+          y: PARK_WORKSHOP_DOOR[1] + 1,
         },
       },
     ],
