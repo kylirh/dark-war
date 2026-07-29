@@ -49,9 +49,9 @@ read-only derived coordinates and must never be assigned.
 Fresh outside, dungeon, and terrain-laboratory levels now use authoritative
 `WorldPlane` storage. They own aligned semantic typed arrays and expose a derived
 scalar projection only to consumers awaiting migration. Runtime tile mutations
-flow through `utils/state-tiles.ts`, keeping both views synchronized. Save and
-network payloads still use scalar maps while their breaking format conversion
-proceeds; those are now the remaining scalar authorities.
+flow through `utils/state-tiles.ts`, keeping both views synchronized. Save files,
+multiplayer keyframes, and multiplayer deltas now serialize all five semantic
+layers directly. Legacy scalar saves and clients are intentionally rejected.
 
 `core/world-semantics.ts` owns the shared ground/structure/fixture IDs, stable
 authoring keys, complete current-tile classification, and the conversion boundary
@@ -85,9 +85,9 @@ layers. WorldPlanes remain 2D; portals generalize today's stairs and hole-fall
 transitions. Static water is terrain, not a fluid simulation.
 
 This is a deliberate breaking rewrite. There is no requirement to load old saves
-or communicate with old clients. When the authoritative representation changes,
-replace serialization and delta encoding, bump `PROTOCOL_VERSION`, and delete the
-superseded paths.
+or communicate with old clients. The layered serialization and delta conversion
+bumped `PROTOCOL_VERSION` to 6; remaining scalar runtime projections will be
+deleted as their consumers move to semantic queries.
 
 ## Authoring boundary
 

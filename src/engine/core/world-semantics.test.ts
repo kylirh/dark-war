@@ -4,10 +4,12 @@ import { describe, expect, it } from "vitest";
 import { TileType } from "../types";
 import {
   createWorldPlaneFromTiles,
+  deserializeWorldPlane,
   FixtureType,
   GroundType,
   resolveSemanticCell,
   semanticCellForTile,
+  serializeWorldPlane,
   StructureType,
 } from "./world-semantics";
 
@@ -72,5 +74,36 @@ describe("world semantic vocabulary", () => {
     expect(() => createWorldPlaneFromTiles([TileType.FLOOR], 2, 2)).toThrow(
       "Generated tile layout must match width × height",
     );
+  });
+
+  it("serializes and restores every authoritative layer", () => {
+    const plane = createWorldPlaneFromTiles(
+      [TileType.GRASS, TileType.TREE, TileType.HOLE, TileType.LIGHT],
+      2,
+      2,
+      [0, 3, 8, 0],
+    );
+    plane.layers.elevation.set([-12, 0, 7, 32]);
+
+    const serialized = serializeWorldPlane(plane);
+    const restored = deserializeWorldPlane(serialized);
+
+    expect(serializeWorldPlane(restored)).toEqual(serialized);
+    restored.setTile(0, 0, TileType.DOOR_OPEN);
+    expect(restored.getTile(0, 0)).toBe(TileType.DOOR_OPEN);
+  });
+
+  it("rejects serialized planes with missing or mis-sized layers", () => {
+    expect(() =>
+      deserializeWorldPlane({
+        width: 2,
+        height: 2,
+        ground: [GroundType.FLOOR],
+        structure: [],
+        fixture: [],
+        elevation: [],
+        damage: [],
+      }),
+    ).toThrow("Invalid save: malformed world plane layers");
   });
 });

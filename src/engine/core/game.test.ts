@@ -7,7 +7,7 @@ import { stepSimulationTick } from "../systems/simulation/tick";
 import { BulletEntity } from "../entities/bullet-entity";
 import { SoundEffect } from "../content/sound-effects";
 import { TerrainPrototypeTransitionMode } from "../systems/terrain/terrain-prototype";
-import { setStateTile } from "../utils/state-tiles";
+import { setStateDamageAtIndex, setStateTile } from "../utils/state-tiles";
 import { FixtureType, StructureType } from "./world-semantics";
 
 describe("Game serialize/deserialize round-trip", () => {
@@ -19,6 +19,10 @@ describe("Game serialize/deserialize round-trip", () => {
 
     const before = game.getState();
     const serialized = game.serialize();
+    expect(serialized.plane.width).toBe(before.mapWidth);
+    expect(serialized.plane.height).toBe(before.mapHeight);
+    expect("map" in serialized).toBe(false);
+    expect("wallDamage" in serialized).toBe(false);
 
     const restored = new Game({ mode: "offline" });
     restored.deserialize(serialized);
@@ -31,6 +35,18 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(after.player.gridX).toBe(before.player.gridX);
     expect(after.player.gridY).toBe(before.player.gridY);
     expect(after.entities.length).toBe(before.entities.length);
+  });
+
+  it("rejects legacy scalar saves without a world plane", () => {
+    const game = new Game({ mode: "offline" });
+    expect(() =>
+      game.deserialize({
+        depth: 1,
+        map: [TileType.FLOOR],
+        mapWidth: 1,
+        mapHeight: 1,
+      } as unknown as ReturnType<Game["serialize"]>),
+    ).toThrow("Invalid save: missing world plane");
   });
 
   it("rebuilds the tile source over the restored map", () => {
@@ -46,21 +62,20 @@ describe("Game serialize/deserialize round-trip", () => {
     );
   });
 
-  it("serializes independent map/wallDamage arrays so deltas can detect changes", () => {
+  it("serializes independent world-plane arrays so deltas can detect changes", () => {
     const game = new Game({ mode: "online" });
     game.reset(1);
 
     const before = game.serialize();
-    // Damage a wall and crack a tile after the first snapshot.
-    game.getState().map[10] = TileType.HOLE;
-    game.getState().wallDamage[10] = 5;
+    setStateTile(game.getState(), 10, 0, TileType.HOLE);
+    setStateDamageAtIndex(game.getState(), 10, 5);
     const after = game.serialize();
 
     // Distinct arrays (not shared references) so a delta baseline sees the diff.
-    expect(after.map).not.toBe(before.map);
-    expect(after.wallDamage).not.toBe(before.wallDamage);
-    expect(before.map[10]).not.toBe(after.map[10]);
-    expect(before.wallDamage![10]).not.toBe(after.wallDamage![10]);
+    expect(after.plane.ground).not.toBe(before.plane.ground);
+    expect(after.plane.damage).not.toBe(before.plane.damage);
+    expect(before.plane.ground[10]).not.toBe(after.plane.ground[10]);
+    expect(before.plane.damage[10]).not.toBe(after.plane.damage[10]);
   });
 
   it("generates a large bounded dungeon in full, with the player on floor", () => {

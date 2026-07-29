@@ -84,7 +84,7 @@ Two modes: `offline` (default) and `online`. In online mode, an authoritative We
 
 **Client-side prediction** (movement-only v1): the online client predicts the local player immediately under the latest local input (`Physics.predictLocalMovement` — single-entity movement vs walls), so input feels instant. On each snapshot `reconcileLocalPlayer` keeps most of the prediction and eases out residual error; large gaps (teleport, hole-fall, respawn) hard-snap to the server. Firing and hit resolution stay fully server-authoritative; remote entities come straight from the server. See `src/client/main.ts` (`predictLocalPlayer`, `reconcileLocalPlayer`, `ensurePredictionWorld`).
 
-**Delta-compressed broadcasts** (`src/net/state-delta.ts`): instead of the full `GameState` every tick, the server keeps a per-client baseline and sends `state_full` (keyframe — on join, level change, new game, and every ~5s) or `state_delta` (changed entities by id, explored additions, map/wallDamage index changes, changed scalars). The client applies deltas onto its baseline to reconstruct a full `SerializedState` and feeds the existing `deserialize()` path. A baseline mismatch triggers a `request_keyframe`.
+**Delta-compressed broadcasts** (`src/net/state-delta.ts`): instead of the full `GameState` every tick, the server keeps a per-client baseline and sends `state_full` (keyframe — on join, level change, new game, and every ~5s) or `state_delta` (changed entities by id, explored additions, per-world-plane-layer index changes, changed scalars). The client applies deltas onto its baseline to reconstruct a full `SerializedState` and feeds the existing `deserialize()` path. A baseline mismatch triggers a `request_keyframe`.
 
 **LAN multiplayer**: The Electron app can host an embedded server (child process via `electron/server-manager.js`) and advertises it over UDP LAN discovery. Other players on the same network see available games via `DiscoveryManager`. All managed through the in-game GameMenu — no separate terminal needed.
 
@@ -97,13 +97,14 @@ Two modes: `offline` (default) and `online`. In online mode, an authoritative We
 
 The renderer (`src/client/systems/renderer.ts`) uses **windowed rendering**: the Pixi canvas is sized to the visible viewport and each frame draws only the tiles in a window around the camera (`cameraWorldX/Y`, smooth-followed onto the player). There is no DOM scrolling. This scales to large levels and is what makes the toroidal world possible — on wrapping levels the tile loop and entity/effect positions use wrapped lookups (`src/engine/utils/wrap.ts`: `wrapValue`, `wrapDelta`, `nearestWrappedImage`), the camera wraps (taking the short way across the seam), and the camera is clamped to the map edge on bounded levels. `MouseTracker` converts canvas pixels to world coordinates via the live camera window origin (`getCameraTopLeft`). Wrapping is also applied in **physics** (entity/bullet positions wrap instead of clamping on the outside) and **FOV** (`computeFOVFrom(..., wraps)` folds shadowcasting probes across the seam).
 
-Every level is currently a **bounded** flat `TileType[]`, so serialization,
-`explored`/`wallDamage` indices, FOV, physics, and rendering all work directly.
-This scalar representation is scheduled for replacement by the layered semantic
-model in `docs/TERRAIN-AND-WORLD.md`; do not treat it as a permanent constraint.
-Index current maps with `idxFor(x, y, width)`.
+Every generated level owns an authoritative semantic `WorldPlane` with ground,
+structure, fixture, signed elevation, and damage arrays. Saves, multiplayer
+keyframes, and deltas carry those layers directly. A synchronized flat
+`TileType[]` projection remains temporarily for runtime systems still awaiting
+migration; do not add new authoritative state to it. Index current planes with
+`idxFor(x, y, width)`.
 
-**Tile access** (`src/engine/core/tile-source.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). For every level it is a `FlatTileSource` over `state.map`. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors).
+**Tile access** (`src/engine/core/tile-source.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). Generated levels expose their `WorldPlane` through this interface. `FlatTileSource` remains for focused tests and temporary setup paths. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors).
 
 ### Content & Assets
 

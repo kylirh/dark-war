@@ -3,7 +3,7 @@
  * Stable dotted authoring keys will compile to these runtime values.
  */
 
-import { TILE_DEFINITIONS, TileType } from "../types";
+import { SerializedWorldPlane, TILE_DEFINITIONS, TileType } from "../types";
 import {
   createWorldPlaneLayers,
   WorldCellSemantics,
@@ -200,6 +200,67 @@ export function createWorldPlaneFromTiles(
         fixture: planeLayers.fixture[index] as FixtureType,
       }),
     (_planeLayers, index, tile) => writeSemanticCell(index, tile),
+  );
+}
+
+/** Copy one authoritative plane into its JSON/wire representation. */
+export function serializeWorldPlane(plane: WorldPlane): SerializedWorldPlane {
+  return {
+    width: plane.width,
+    height: plane.height,
+    ground: Array.from(plane.layers.ground),
+    structure: Array.from(plane.layers.structure),
+    fixture: Array.from(plane.layers.fixture),
+    elevation: Array.from(plane.layers.elevation),
+    damage: Array.from(plane.layers.damage),
+  };
+}
+
+/** Hydrate the current layered format. No scalar/legacy format is accepted. */
+export function deserializeWorldPlane(data: SerializedWorldPlane): WorldPlane {
+  if (
+    !Number.isInteger(data.width) ||
+    data.width <= 0 ||
+    !Number.isInteger(data.height) ||
+    data.height <= 0
+  ) {
+    throw new Error("Invalid save: malformed world plane dimensions");
+  }
+  const cellCount = data.width * data.height;
+  for (const layer of [
+    data.ground,
+    data.structure,
+    data.fixture,
+    data.elevation,
+    data.damage,
+  ]) {
+    if (!Array.isArray(layer) || layer.length !== cellCount) {
+      throw new Error("Invalid save: malformed world plane layers");
+    }
+  }
+  const layers = {
+    ground: Uint16Array.from(data.ground),
+    structure: Uint16Array.from(data.structure),
+    fixture: Uint16Array.from(data.fixture),
+    elevation: Int16Array.from(data.elevation),
+    damage: Uint8Array.from(data.damage),
+  };
+  return new WorldPlane(
+    data.width,
+    data.height,
+    layers,
+    (planeLayers, index) =>
+      resolveSemanticCell({
+        ground: planeLayers.ground[index] as GroundType,
+        structure: planeLayers.structure[index] as StructureType,
+        fixture: planeLayers.fixture[index] as FixtureType,
+      }),
+    (planeLayers, index, tile) => {
+      const cell = semanticCellForTile(tile);
+      planeLayers.ground[index] = cell.ground;
+      planeLayers.structure[index] = cell.structure;
+      planeLayers.fixture[index] = cell.fixture;
+    },
   );
 }
 

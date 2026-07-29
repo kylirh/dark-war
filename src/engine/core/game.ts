@@ -40,7 +40,11 @@ import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { SoundEffect } from "../content/sound-effects";
 import { WorldPlane } from "./world-plane";
-import { createWorldPlaneFromTiles } from "./world-semantics";
+import {
+  createWorldPlaneFromTiles,
+  deserializeWorldPlane,
+  serializeWorldPlane,
+} from "./world-semantics";
 import {
   applyTerrainPrototypeElevationEdit,
   createTerrainPrototypePlane,
@@ -1222,45 +1226,44 @@ export class Game {
    * Serialize game state for saving
    */
   public serialize(): SerializedState {
-    const levels = Array.from(this.levels.values()).map((snapshot) => ({
-      depth: snapshot.depth,
-      levelKind: snapshot.levelKind,
-      map: snapshot.map,
-      mapWidth: snapshot.mapWidth,
-      mapHeight: snapshot.mapHeight,
-      floorVariant: snapshot.floorVariant,
-      wallSet: snapshot.wallSet,
-      wallDamage: snapshot.wallDamage,
-      stairsDown: snapshot.stairsDown,
-      stairsUp: snapshot.stairsUp,
-      explored: Array.from(snapshot.explored),
-      exploredByPlayer: this.serializeExploredByPlayer(
-        snapshot.exploredByPlayer,
-      ),
-      entities: snapshot.entities.map((entity) =>
-        this.stripRuntimeEntityState(entity),
-      ),
-      enhancedVision: snapshot.enhancedVision,
-    }));
+    const levels = Array.from(this.levels.values()).map((snapshot) => {
+      if (!snapshot.worldPlane) {
+        throw new Error("Cannot serialize level without a world plane");
+      }
+      return {
+        depth: snapshot.depth,
+        levelKind: snapshot.levelKind,
+        plane: serializeWorldPlane(snapshot.worldPlane),
+        floorVariant: snapshot.floorVariant,
+        wallSet: snapshot.wallSet,
+        stairsDown: snapshot.stairsDown,
+        stairsUp: snapshot.stairsUp,
+        explored: Array.from(snapshot.explored),
+        exploredByPlayer: this.serializeExploredByPlayer(
+          snapshot.exploredByPlayer,
+        ),
+        entities: snapshot.entities.map((entity) =>
+          this.stripRuntimeEntityState(entity),
+        ),
+        enhancedVision: snapshot.enhancedVision,
+      };
+    });
 
     const exploredByPlayer: Record<string, number[]> = {};
     for (const [playerId, explored] of this.state.exploredByPlayer.entries()) {
       exploredByPlayer[playerId] = Array.from(explored);
     }
 
+    if (!this.state.worldPlane) {
+      throw new Error("Cannot serialize game without a world plane");
+    }
+
     return {
       depth: this.state.depth,
       levelKind: this.state.levelKind,
-      // Copy map/wallDamage: the delta encoder keeps the previous serialized
-      // snapshot as a baseline and diffs against it, so these must be distinct
-      // arrays each tick or wall changes are invisible to deltas (and only
-      // surface on the periodic keyframe — the "delayed wall damage" bug).
-      map: this.state.map.slice(),
-      mapWidth: this.state.mapWidth,
-      mapHeight: this.state.mapHeight,
+      plane: serializeWorldPlane(this.state.worldPlane),
       floorVariant: this.state.floorVariant,
       wallSet: this.state.wallSet,
-      wallDamage: this.state.wallDamage.slice(),
       stairsDown: this.state.stairsDown,
       stairsUp: this.state.stairsUp,
       player: this.stripRuntimeEntityState(this.state.player) as Player,
@@ -1295,8 +1298,8 @@ export class Game {
    */
   public deserialize(data: SerializedState): void {
     const partial = data as Partial<SerializedState>;
-    if (!Array.isArray(partial.map)) {
-      throw new Error("Invalid save: missing map data");
+    if (!partial.plane) {
+      throw new Error("Invalid save: missing world plane");
     }
     const serializedPlayers =
       Array.isArray(partial.players) && partial.players.length > 0
@@ -1317,12 +1320,10 @@ export class Game {
     const floorVariant =
       typeof data.floorVariant === "number" ? data.floorVariant : RNG.int(3);
     const wallSet = data.wallSet === "wood" ? "wood" : "concrete";
-    const mapWidth = data.mapWidth ?? (data.depth === 0 ? 128 : MAP_WIDTH);
-    const mapHeight = data.mapHeight ?? (data.depth === 0 ? 72 : MAP_HEIGHT);
-    const wallDamage =
-      data.wallDamage && data.wallDamage.length === data.map.length
-        ? data.wallDamage.slice()
-        : new Array(data.map.length).fill(0);
+    const worldPlane = deserializeWorldPlane(data.plane);
+    const mapWidth = worldPlane.width;
+    const mapHeight = worldPlane.height;
+    const wallDamage = Array.from(worldPlane.layers.damage);
     const players = this.hydratePlayers(serializedPlayers, data.depth);
     const localPlayerId = data.multiplayer?.localPlayerId ?? players[0].id;
     this.localPlayerId = localPlayerId;
@@ -1348,14 +1349,15 @@ export class Game {
     this.state = {
       depth: data.depth,
       levelKind: data.levelKind ?? (data.depth === 0 ? "outside" : "dungeon"),
-      map: data.map,
+      map: worldPlane.legacyTiles,
       mapWidth,
       mapHeight,
       floorVariant,
       wallSet,
       wallDamage,
       mapDirty: false,
-      tiles: new FlatTileSource(data.map, mapWidth, mapHeight),
+      tiles: worldPlane,
+      worldPlane,
       stairsDown: data.stairsDown ??
         (data as { stairs?: [number, number] }).stairs ?? [0, 0],
       stairsUp: data.stairsUp ?? null,
@@ -1398,16 +1400,17 @@ export class Game {
 
     this.levels = new Map();
     for (const level of data.levels ?? []) {
+      const levelPlane = deserializeWorldPlane(level.plane);
       this.levels.set(level.depth, {
         depth: level.depth,
         levelKind:
           level.levelKind ?? (level.depth === 0 ? "outside" : "dungeon"),
-        map: level.map,
-        mapWidth: level.mapWidth ?? (level.depth === 0 ? 128 : MAP_WIDTH),
-        mapHeight: level.mapHeight ?? (level.depth === 0 ? 72 : MAP_HEIGHT),
+        map: levelPlane.legacyTiles,
+        mapWidth: levelPlane.width,
+        mapHeight: levelPlane.height,
         floorVariant: level.floorVariant,
         wallSet: level.wallSet === "wood" ? "wood" : "concrete",
-        wallDamage: level.wallDamage,
+        wallDamage: Array.from(levelPlane.layers.damage),
         stairsDown: level.stairsDown,
         stairsUp: level.stairsUp ?? null,
         explored: new Set(level.explored),
@@ -1416,6 +1419,7 @@ export class Game {
         ),
         entities: this.hydrateEntities(level.entities, level.depth),
         enhancedVision: level.enhancedVision ?? false,
+        worldPlane: levelPlane,
       });
     }
 

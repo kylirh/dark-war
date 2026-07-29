@@ -201,16 +201,20 @@ if (entity.kind === EntityKind.MONSTER) {
 ### Current Map Representation
 
 - **Canonical accessor:** `state.tiles` (a `TileSource`) — read/write tiles via
-  `getTile(x, y)`, `setTile(x, y, tile)`, `passable(x, y)`. Every level wraps the
-  flat array in a `FlatTileSource`.
+  `getTile(x, y)`, `setTile(x, y, tile)`, `passable(x, y)`. Generated levels use
+  an authoritative `WorldPlane` with ground, structure, fixture, elevation, and
+  damage typed arrays.
 - **Dungeons:** bounded `128×96` maps generated in full up front by
   `generateDungeon` (`src/engine/core/dungeon-generator.ts`) — rooms + caves connected
   by a Prim's MST with extra loop edges, doors at corridor pinches, and a sealed
   impenetrable border. Deterministic from a per-level seed; full connectivity is
   unit-tested.
-- **Flat array (backing / serialization):** `TileType[]` sized
-  `mapWidth × mapHeight` (outside is 128×72). The `*For` helpers operate on it
-  directly in code that reads the array rather than `state.tiles`.
+- **Derived flat array:** `state.map` is a synchronized `TileType[]` projection
+  sized `mapWidth × mapHeight` (outside is 128×72). It temporarily supports
+  systems awaiting semantic-query migration; it is not serialized authority.
+- **Persistence/network:** `SerializedWorldPlane` carries all five semantic
+  layers. Multiplayer deltas diff each layer independently. Legacy scalar saves
+  and pre-v6 clients are intentionally unsupported.
 - **Index with:** `idxFor(x, y, width)` — always prefer the `For` variant in systems
 - **Query tile:** `tileAtFor(map, x, y, width, height)`
 - **Check passable:** `passableFor(map, x, y, width, height)`

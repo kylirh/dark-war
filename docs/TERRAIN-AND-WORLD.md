@@ -95,8 +95,10 @@ reads that have not yet moved to direct layer queries.
 
 The bounded dungeon generator now crosses the same boundary immediately after
 layout generation and stair placement. All freshly generated gameplay planes
-are therefore layered; scalar save and multiplayer payloads are the remaining
-authoritative-format migration work.
+are therefore layered. Saves and multiplayer payloads serialize the five layers
+directly; multiplayer deltas send changed indices per layer. Old scalar saves
+and protocol versions are not supported. The derived scalar projection remains
+only as a temporary adapter for runtime consumers still being migrated.
 
 This interface is illustrative; fields may change when the visual slice proves
 what is required. The durable decisions are compositional semantic layers,

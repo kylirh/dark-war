@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { SerializedState, TileType, EntityKind } from "../engine/types";
+import { SerializedState, EntityKind } from "../engine/types";
+import {
+  FixtureType,
+  GroundType,
+  StructureType,
+} from "../engine/core/world-semantics";
 import {
   computeStateDelta,
   applyStateDelta,
@@ -33,12 +38,32 @@ function baseState(): SerializedState {
   return {
     depth: 1,
     levelKind: "dungeon",
-    map: [TileType.WALL, TileType.FLOOR, TileType.FLOOR, TileType.WALL],
-    mapWidth: 2,
-    mapHeight: 2,
+    plane: {
+      width: 2,
+      height: 2,
+      ground: [
+        GroundType.FLOOR,
+        GroundType.FLOOR,
+        GroundType.FLOOR,
+        GroundType.FLOOR,
+      ],
+      structure: [
+        StructureType.WALL,
+        StructureType.NONE,
+        StructureType.NONE,
+        StructureType.WALL,
+      ],
+      fixture: [
+        FixtureType.NONE,
+        FixtureType.NONE,
+        FixtureType.NONE,
+        FixtureType.NONE,
+      ],
+      elevation: [0, 0, 0, 0],
+      damage: [0, 0, 0, 0],
+    },
     floorVariant: 0,
     wallSet: "concrete",
-    wallDamage: [0, 0, 0, 0],
     stairsDown: [1, 1],
     stairsUp: null,
     player: player("p1", 10),
@@ -110,10 +135,13 @@ describe("computeStateDelta / applyStateDelta", () => {
     roundTrip(baseState(), next);
   });
 
-  it("round-trips map and wall-damage changes", () => {
+  it("round-trips changes in every world-plane layer", () => {
     const next = baseState();
-    next.map = [TileType.WALL, TileType.FLOOR, TileType.HOLE, TileType.WALL];
-    next.wallDamage = [0, 0, 0, 2];
+    next.plane.ground[0] = GroundType.WATER_SHALLOW;
+    next.plane.structure[1] = StructureType.WALL;
+    next.plane.fixture[2] = FixtureType.STAIRS_DOWN;
+    next.plane.elevation[2] = 3;
+    next.plane.damage[3] = 2;
     roundTrip(baseState(), next);
   });
 
@@ -150,7 +178,7 @@ describe("computeStateDelta / applyStateDelta", () => {
     const next = baseState();
     next.entities[1] = entity("e1", 6);
     const delta = computeStateDelta(baseState(), next, 2, 1);
-    expect(delta.mapChanges).toBeUndefined();
+    expect(delta.planeChanges).toBeUndefined();
     expect(delta.entitiesRemoved).toBeUndefined();
     expect(delta.entitiesUpserted).toHaveLength(1);
     expect(delta.baseSeq).toBe(1);
@@ -165,9 +193,21 @@ describe("requiresKeyframe", () => {
     expect(requiresKeyframe(baseState(), next)).toBe(true);
   });
 
-  it("requires a keyframe when the map length changes", () => {
+  it("requires a keyframe when the plane shape changes", () => {
     const next = baseState();
-    next.map = [TileType.FLOOR];
+    next.plane.width = 1;
+    next.plane.height = 1;
+    next.plane.ground = [GroundType.FLOOR];
+    next.plane.structure = [StructureType.NONE];
+    next.plane.fixture = [FixtureType.NONE];
+    next.plane.elevation = [0];
+    next.plane.damage = [0];
+    expect(requiresKeyframe(baseState(), next)).toBe(true);
+  });
+
+  it("requires a keyframe when a plane layer is malformed", () => {
+    const next = baseState();
+    next.plane.damage = [0];
     expect(requiresKeyframe(baseState(), next)).toBe(true);
   });
 

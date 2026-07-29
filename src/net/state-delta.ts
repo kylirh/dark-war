@@ -13,9 +13,9 @@
  * order or get dropped. The only divergence risk is a bug in apply; periodic
  * keyframes (`state_full`) re-baseline and self-heal.
  *
- * Big static fields (`map`, `wallDamage`, `levels`, depth/level descriptors)
- * are only re-sent when they actually change. A change in map length or depth
- * means a level transition, which forces a fresh keyframe rather than a delta.
+ * Big static fields (world-plane layers, `levels`, and level descriptors) are
+ * only re-sent when they actually change. A plane shape or depth change means
+ * a level transition, which forces a fresh keyframe rather than a delta.
  */
 
 import {
@@ -24,9 +24,17 @@ import {
   Entity,
   Effect,
   LevelKind,
+  SerializedWorldPlane,
   WallSet,
-  TileType,
 } from "../engine/types";
+
+export interface WorldPlaneDelta {
+  ground?: Array<[number, number]>;
+  structure?: Array<[number, number]>;
+  fixture?: Array<[number, number]>;
+  elevation?: Array<[number, number]>;
+  damage?: Array<[number, number]>;
+}
 
 export interface StateDelta {
   /** Monotonic id of this delta (per client). */
@@ -58,8 +66,7 @@ export interface StateDelta {
   playersRemoved?: string[];
   exploredAdded?: number[];
   exploredFull?: number[]; // sent instead of `added` when the set shrank
-  mapChanges?: Array<[number, TileType]>;
-  wallDamageChanges?: Array<[number, number]>;
+  planeChanges?: WorldPlaneDelta;
 }
 
 /** True when the structural shape changed enough to require a keyframe. */
@@ -69,8 +76,9 @@ export function requiresKeyframe(
 ): boolean {
   return (
     base.depth !== next.depth ||
-    base.map.length !== next.map.length ||
-    (base.wallDamage?.length ?? 0) !== (next.wallDamage?.length ?? 0)
+    base.plane.width !== next.plane.width ||
+    base.plane.height !== next.plane.height ||
+    !planeLayerLengthsEqual(base.plane, next.plane)
   );
 }
 
@@ -122,14 +130,8 @@ export function computeStateDelta(
   else if (exploredDiff.added.length > 0)
     delta.exploredAdded = exploredDiff.added;
 
-  const mapChanges = diffIndexed(base.map, next.map);
-  if (mapChanges.length > 0)
-    delta.mapChanges = mapChanges as Array<[number, TileType]>;
-
-  if (base.wallDamage && next.wallDamage) {
-    const wallChanges = diffIndexed(base.wallDamage, next.wallDamage);
-    if (wallChanges.length > 0) delta.wallDamageChanges = wallChanges;
-  }
+  const planeChanges = diffWorldPlane(base.plane, next.plane);
+  if (planeChanges) delta.planeChanges = planeChanges;
 
   return delta;
 }
@@ -179,27 +181,62 @@ export function applyStateDelta(
     next.explored = [...(base.explored ?? []), ...delta.exploredAdded];
   }
 
-  if (delta.mapChanges && delta.mapChanges.length > 0) {
-    const map = base.map.slice();
-    for (const [index, value] of delta.mapChanges) map[index] = value;
-    next.map = map;
-  }
-
-  if (
-    delta.wallDamageChanges &&
-    delta.wallDamageChanges.length > 0 &&
-    base.wallDamage
-  ) {
-    const wallDamage = base.wallDamage.slice();
-    for (const [index, value] of delta.wallDamageChanges)
-      wallDamage[index] = value;
-    next.wallDamage = wallDamage;
+  if (delta.planeChanges) {
+    next.plane = applyWorldPlaneDelta(base.plane, delta.planeChanges);
   }
 
   return next;
 }
 
 // ─── Diff helpers ────────────────────────────────────────────────────────────
+
+const WORLD_PLANE_LAYER_KEYS = [
+  "ground",
+  "structure",
+  "fixture",
+  "elevation",
+  "damage",
+] as const;
+
+function planeLayerLengthsEqual(
+  base: SerializedWorldPlane,
+  next: SerializedWorldPlane,
+): boolean {
+  return WORLD_PLANE_LAYER_KEYS.every(
+    (key) => base[key].length === next[key].length,
+  );
+}
+
+function diffWorldPlane(
+  base: SerializedWorldPlane,
+  next: SerializedWorldPlane,
+): WorldPlaneDelta | undefined {
+  const delta: WorldPlaneDelta = {};
+  let changed = false;
+  for (const key of WORLD_PLANE_LAYER_KEYS) {
+    const changes = diffIndexed(base[key], next[key]);
+    if (changes.length > 0) {
+      delta[key] = changes;
+      changed = true;
+    }
+  }
+  return changed ? delta : undefined;
+}
+
+function applyWorldPlaneDelta(
+  base: SerializedWorldPlane,
+  delta: WorldPlaneDelta,
+): SerializedWorldPlane {
+  const next: SerializedWorldPlane = { ...base };
+  for (const key of WORLD_PLANE_LAYER_KEYS) {
+    const changes = delta[key];
+    if (!changes || changes.length === 0) continue;
+    const layer = base[key].slice();
+    for (const [index, value] of changes) layer[index] = value;
+    next[key] = layer;
+  }
+  return next;
+}
 
 function diffById(
   base: Entity[],

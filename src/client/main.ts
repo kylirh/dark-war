@@ -796,8 +796,8 @@ class DarkWar {
           cue,
           serializedState.player,
           serializedState.levelKind ?? "dungeon",
-          serializedState.mapWidth ?? this.game.getState().mapWidth,
-          serializedState.mapHeight ?? this.game.getState().mapHeight,
+          serializedState.plane.width,
+          serializedState.plane.height,
         );
       }
     }

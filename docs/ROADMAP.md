@@ -58,9 +58,9 @@ edits repair without seams, and tall drops do not scale draw work with height.
 **Status: IN PROGRESS**
 
 The production `WorldPlane` SoA container and centralized cell-semantics resolver
-are implemented. The terrain laboratory now uses it authoritatively; its scalar
-collision map is a derived projection. Ordinary dungeon/outside generation,
-mutation, saves, and netcode still require coordinated conversion.
+are implemented. Terrain-laboratory, dungeon, and outside levels use it
+authoritatively; their scalar collision maps are derived projections for
+remaining runtime consumers.
 
 The shared `GroundType`, `StructureType`, and `FixtureType` vocabulary now
 classifies every current `TileType`, preserves meaningful bases such as grass
@@ -71,21 +71,23 @@ The outside generator now emits an authoritative `WorldPlane`. Runtime door,
 building, mining, destruction, hole, repair, and damage mutations use one
 canonical helper that keeps semantic layers, derived scalar projection, and
 physics invalidation synchronized. Depth snapshots retain the same outside
-plane. Persistence and netcode remain to migrate.
+plane. Persistence and netcode serialize that plane directly.
 
 Dungeon generation now also converts immediately into authoritative layered
 storage, including wall/door structures and stair fixtures. Fresh gameplay and
 in-memory depth snapshots therefore use `WorldPlane` on every ordinary level.
-Persistence and multiplayer payloads remain the last scalar authorities to
-replace before the old map fields can be deleted.
+Save files and multiplayer keyframes now contain the five plane layers, and
+multiplayer deltas diff each layer independently. Protocol version 6 rejects old
+clients, and legacy scalar saves are intentionally unsupported. Remaining work
+is migrating runtime readers away from the derived `map` and `wallDamage` views
+so those fields and `FlatTileSource` setup paths can be deleted.
 
 - Replace the scalar tile model with a structure-of-arrays plane model.
 - Classify current `TileType` use into ground, structure, and fixture semantics.
 - Centralize synthesized passability, opacity, and destructibility.
-- Update generators, mutation helpers, physics, FOV, renderer, save state, and
-  network state as one coordinated breaking change.
+- Update remaining physics, FOV, and renderer reads to use semantic queries.
 - Delete superseded scalar-map paths instead of retaining compatibility layers.
-- Bump the multiplayer protocol once for the new authoritative representation.
+- Remove derived scalar runtime fields after their final consumers migrate.
 
 Exit: current gameplay works on the new semantic layers; type-checks and tests
 pass; old save files are intentionally unsupported.

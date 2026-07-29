@@ -522,7 +522,7 @@ export interface GameState {
   wallSet: WallSet;
   wallDamage: number[];
   mapDirty: boolean;
-  // Canonical tile accessor. Currently this is a FlatTileSource over `map`
+  // Canonical tile accessor. Generated levels expose their WorldPlane here.
   // above. Gameplay logic should prefer it over raw array access so the
   // approved layered WorldPlane rewrite can replace the backing model.
   tiles: TileSource;
@@ -586,12 +586,9 @@ export interface GameState {
 export interface SerializedState {
   depth: number;
   levelKind?: LevelKind;
-  map: TileType[];
-  mapWidth?: number;
-  mapHeight?: number;
+  plane: SerializedWorldPlane;
   floorVariant?: number;
   wallSet?: WallSet;
-  wallDamage?: number[];
   stairsDown: [number, number];
   stairsUp?: [number, number] | null;
   player: Player;
@@ -621,18 +618,25 @@ export interface SerializedState {
 export interface SerializedLevelState {
   depth: number;
   levelKind?: LevelKind;
-  map: TileType[];
-  mapWidth?: number;
-  mapHeight?: number;
+  plane: SerializedWorldPlane;
   floorVariant: number;
   wallSet?: WallSet;
-  wallDamage: number[];
   stairsDown: [number, number];
   stairsUp: [number, number] | null;
   explored: number[];
   exploredByPlayer?: Record<string, number[]>;
   entities: Entity[];
   enhancedVision?: boolean;
+}
+
+export interface SerializedWorldPlane {
+  width: number;
+  height: number;
+  ground: number[];
+  structure: number[];
+  fixture: number[];
+  elevation: number[];
+  damage: number[];
 }
 
 // ========================================
