@@ -59,6 +59,12 @@ All runtime tile reads use `state.tiles`, including AI, commands/events, repair,
 pathfinding, exploration, client interaction, physics, FOV, and rendering.
 `GameState` and level snapshots have no scalar map or damage fields.
 
+Each production plane also owns a derived `WorldVisualState`. It caches
+deterministic coordinate hashes and per-family neighborhood classifications in
+typed arrays. Canonical semantic writes refresh at most a 3×3 neighborhood
+(wrapped outside, clipped in dungeons). The cache is never serialized and never
+feeds simulation; it can always be rebuilt from semantic layers.
+
 `core/world-semantics.ts` owns the shared ground/structure/fixture IDs, stable
 authoring keys, complete current-tile classification, and the conversion boundary
 used as procedural generators move onto `WorldPlane`.

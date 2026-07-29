@@ -5,6 +5,7 @@
 
 import { TileType } from "../types";
 import { TileSource } from "./tile-source";
+import type { WorldVisualState } from "../systems/terrain/world-visual-resolver";
 
 export interface WorldPlaneLayers {
   readonly ground: Uint16Array;
@@ -52,6 +53,7 @@ export function createWorldPlaneLayers(
 /** A compositional plane that also satisfies current TileSource consumers. */
 export class WorldPlane implements TileSource {
   private readonly resolvedTileCache: Uint16Array;
+  private visualState?: WorldVisualState;
 
   constructor(
     readonly width: number,
@@ -76,6 +78,14 @@ export class WorldPlane implements TileSource {
 
   indexFor(x: number, y: number): number {
     return x + y * this.width;
+  }
+
+  get visuals(): WorldVisualState | undefined {
+    return this.visualState;
+  }
+
+  attachVisualState(visualState: WorldVisualState): void {
+    this.visualState = visualState;
   }
 
   semanticsAt(x: number, y: number): WorldCellSemantics {
@@ -104,6 +114,7 @@ export class WorldPlane implements TileSource {
     const index = this.indexFor(x, y);
     this.writeCell(this.layers, index, tile);
     this.refreshResolvedTile(index);
+    this.visualState?.refreshNeighborhood(x, y);
   }
 
   passable(x: number, y: number): boolean {

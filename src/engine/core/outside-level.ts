@@ -123,7 +123,9 @@ export function createOutsideLevel(): OutsideLevelData {
     new ItemEntity(15, 58, ItemType.MATTER_MANIPULATOR),
   ];
 
-  const worldPlane = createWorldPlaneFromTiles(map, WIDTH, HEIGHT);
+  const worldPlane = createWorldPlaneFromTiles(map, WIDTH, HEIGHT, undefined, {
+    wraps: true,
+  });
   return {
     width: WIDTH,
     height: HEIGHT,

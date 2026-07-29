@@ -52,4 +52,22 @@ describe("state tile mutations", () => {
       StructureType.HOLOWALL,
     );
   });
+
+  it("refreshes only the bounded resolved-visual neighborhood", () => {
+    const game = new Game();
+    game.reset(1);
+    const state = game.getState();
+    const visuals = state.worldPlane.visuals;
+    expect(visuals).toBeDefined();
+    const beforeRevision = visuals!.revision;
+    const x = state.player.gridX + 1;
+    const y = state.player.gridY;
+
+    setStateTile(state, x, y, TileType.HOLE);
+
+    expect(visuals!.revision).toBe(beforeRevision + 1);
+    expect(visuals!.lastDirtyIndices.length).toBeLessThanOrEqual(9);
+    expect(visuals!.lastDirtyIndices).toContain(x + y * state.mapWidth);
+    expect(visuals!.layers.holeMask[x + (y - 1) * state.mapWidth]).not.toBe(0);
+  });
 });

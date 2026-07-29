@@ -9,6 +9,10 @@ import {
   WorldCellSemantics,
   WorldPlane,
 } from "./world-plane";
+import {
+  WorldVisualResolverOptions,
+  WorldVisualState,
+} from "../systems/terrain/world-visual-resolver";
 
 export enum GroundType {
   VOID,
@@ -173,6 +177,7 @@ export function createWorldPlaneFromTiles(
   width: number,
   height: number,
   damage?: readonly number[],
+  visualOptions: WorldVisualResolverOptions = {},
 ): WorldPlane {
   const cellCount = width * height;
   if (tiles.length !== cellCount) {
@@ -189,7 +194,7 @@ export function createWorldPlaneFromTiles(
     writeSemanticCell(index, tiles[index]);
     layers.damage[index] = Math.max(0, Math.min(255, damage?.[index] ?? 0));
   }
-  return new WorldPlane(
+  const plane = new WorldPlane(
     width,
     height,
     layers,
@@ -201,6 +206,8 @@ export function createWorldPlaneFromTiles(
       }),
     (_planeLayers, index, tile) => writeSemanticCell(index, tile),
   );
+  attachProductionVisuals(plane, visualOptions);
+  return plane;
 }
 
 /** Copy one authoritative plane into its JSON/wire representation. */
@@ -217,7 +224,10 @@ export function serializeWorldPlane(plane: WorldPlane): SerializedWorldPlane {
 }
 
 /** Hydrate the current layered format. No scalar/legacy format is accepted. */
-export function deserializeWorldPlane(data: SerializedWorldPlane): WorldPlane {
+export function deserializeWorldPlane(
+  data: SerializedWorldPlane,
+  visualOptions: WorldVisualResolverOptions = {},
+): WorldPlane {
   if (
     !Number.isInteger(data.width) ||
     data.width <= 0 ||
@@ -245,7 +255,7 @@ export function deserializeWorldPlane(data: SerializedWorldPlane): WorldPlane {
     elevation: Int16Array.from(data.elevation),
     damage: Uint8Array.from(data.damage),
   };
-  return new WorldPlane(
+  const plane = new WorldPlane(
     data.width,
     data.height,
     layers,
@@ -261,6 +271,20 @@ export function deserializeWorldPlane(data: SerializedWorldPlane): WorldPlane {
       planeLayers.structure[index] = cell.structure;
       planeLayers.fixture[index] = cell.fixture;
     },
+  );
+  attachProductionVisuals(plane, visualOptions);
+  return plane;
+}
+
+function attachProductionVisuals(
+  plane: WorldPlane,
+  options: WorldVisualResolverOptions,
+): void {
+  plane.attachVisualState(
+    new WorldVisualState(plane, {
+      ...options,
+      waterGroundIds: [GroundType.WATER_SHALLOW, GroundType.WATER_DEEP],
+    }),
   );
 }
 

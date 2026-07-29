@@ -215,6 +215,9 @@ if (entity.kind === EntityKind.MONSTER) {
 - **Persistence/network:** `SerializedWorldPlane` carries all five semantic
   layers. Multiplayer deltas diff each layer independently. Legacy scalar saves
   and pre-v6 clients are intentionally unsupported.
+- **Resolved visuals:** `WorldPlane.visuals` is a derived typed-array cache.
+  Semantic tile edits refresh a bounded 3×3 neighborhood. Never serialize it or
+  use it for simulation decisions.
 - **Index with:** `idxFor(x, y, width)` — always prefer the `For` variant in systems
 - **Query tile:** `tileAtFor(map, x, y, width, height)`
 - **Check passable:** `passableFor(map, x, y, width, height)`

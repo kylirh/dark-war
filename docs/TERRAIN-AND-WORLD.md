@@ -91,6 +91,13 @@ boundary. `GameState.worldPlane` owns its semantics, `state.tiles` references th
 plane directly, and `utils/state-tiles.ts` is the required runtime mutation path.
 Renderer and simulation reads use `state.tiles` directly.
 
+`src/engine/systems/terrain/world-visual-resolver.ts` is the production
+presentation boundary. It derives deterministic coordinate hashes, ground,
+wall, hole, shore, and elevation classifications into typed arrays. A semantic
+edit invalidates only its clipped or wrapped 3×3 dependency neighborhood. The
+renderer now consumes its wall/hole masks and variant hashes; remaining visual
+families will move behind the same boundary as their authored art lands.
+
 The bounded dungeon generator now crosses the same boundary immediately after
 layout generation and stair placement. All freshly generated gameplay planes
 are therefore layered. Saves and multiplayer payloads serialize the five layers

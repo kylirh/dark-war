@@ -35,6 +35,10 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(after.player.gridX).toBe(before.player.gridX);
     expect(after.player.gridY).toBe(before.player.gridY);
     expect(after.entities.length).toBe(before.entities.length);
+    expect(after.worldPlane.visuals).toBeDefined();
+    expect(after.worldPlane.visuals!.layers.coordinateHash).toEqual(
+      before.worldPlane.visuals!.layers.coordinateHash,
+    );
   });
 
   it("rejects legacy scalar saves without a world plane", () => {

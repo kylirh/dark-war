@@ -790,7 +790,13 @@ export class Game {
       new RandomNumberGenerator(seed),
     );
     setTileFor(d.map, d.start[0], d.start[1], d.width, TileType.STAIRS_UP);
-    const worldPlane = createWorldPlaneFromTiles(d.map, d.width, d.height);
+    const worldPlane = createWorldPlaneFromTiles(
+      d.map,
+      d.width,
+      d.height,
+      undefined,
+      { variantSeed: depth },
+    );
     return {
       width: d.width,
       height: d.height,
@@ -1267,7 +1273,12 @@ export class Game {
     const floorVariant =
       typeof data.floorVariant === "number" ? data.floorVariant : RNG.int(3);
     const wallSet = data.wallSet === "wood" ? "wood" : "concrete";
-    const worldPlane = deserializeWorldPlane(data.plane);
+    const levelKind =
+      data.levelKind ?? (data.depth === 0 ? "outside" : "dungeon");
+    const worldPlane = deserializeWorldPlane(data.plane, {
+      wraps: levelKind === "outside",
+      variantSeed: data.depth,
+    });
     const mapWidth = worldPlane.width;
     const mapHeight = worldPlane.height;
     const players = this.hydratePlayers(serializedPlayers, data.depth);
@@ -1294,7 +1305,7 @@ export class Game {
 
     this.state = {
       depth: data.depth,
-      levelKind: data.levelKind ?? (data.depth === 0 ? "outside" : "dungeon"),
+      levelKind,
       mapWidth,
       mapHeight,
       floorVariant,
@@ -1344,11 +1355,15 @@ export class Game {
 
     this.levels = new Map();
     for (const level of data.levels ?? []) {
-      const levelPlane = deserializeWorldPlane(level.plane);
+      const levelKind =
+        level.levelKind ?? (level.depth === 0 ? "outside" : "dungeon");
+      const levelPlane = deserializeWorldPlane(level.plane, {
+        wraps: levelKind === "outside",
+        variantSeed: level.depth,
+      });
       this.levels.set(level.depth, {
         depth: level.depth,
-        levelKind:
-          level.levelKind ?? (level.depth === 0 ? "outside" : "dungeon"),
+        levelKind,
         mapWidth: levelPlane.width,
         mapHeight: levelPlane.height,
         floorVariant: level.floorVariant,

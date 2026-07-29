@@ -38,6 +38,10 @@ import { wrapValue, nearestWrappedImage } from "../../engine/utils/wrap";
 import { cardinalAutotileMask } from "../../engine/utils/autotile";
 import { getStateDamageAtIndex } from "../../engine/utils/state-tiles";
 import {
+  hashWorldVisualCoordinate,
+  mixWorldVisualHash,
+} from "../../engine/systems/terrain/world-visual-resolver";
+import {
   PrototypeCliffVisual,
   PrototypeGround,
   PrototypeGroundVisual,
@@ -560,16 +564,18 @@ export class Renderer {
       }
     } else if (tileType === TileType.HOLE) {
       baseCoord = floorCoord;
-      const holeMask = cardinalAutotileMask(
-        mapX,
-        mapY,
-        (x, y) =>
-          x >= 0 &&
-          y >= 0 &&
-          x < state.mapWidth &&
-          y < state.mapHeight &&
-          state.tiles.getTile(x, y) === TileType.HOLE,
-      );
+      const holeMask =
+        state.worldPlane.visuals?.layers.holeMask[tileIndex] ??
+        cardinalAutotileMask(
+          mapX,
+          mapY,
+          (x, y) =>
+            x >= 0 &&
+            y >= 0 &&
+            x < state.mapWidth &&
+            y < state.mapHeight &&
+            state.tiles.getTile(x, y) === TileType.HOLE,
+        );
       overlayCoord = holeAutotileCoordinate(holeMask);
     }
 
@@ -607,18 +613,20 @@ export class Renderer {
             : isWood
               ? "wall_wood"
               : TileType.WALL;
-      const wallMask = cardinalAutotileMask(mapX, mapY, (x, y) => {
-        if (x < 0 || y < 0 || x >= state.mapWidth || y >= state.mapHeight) {
-          return false;
-        }
-        const neighbor = state.tiles.getTile(x, y);
-        return (
-          neighbor === TileType.WALL ||
-          neighbor === TileType.DOOR_CLOSED ||
-          neighbor === TileType.DOOR_OPEN ||
-          neighbor === TileType.DOOR_LOCKED
-        );
-      });
+      const wallMask =
+        state.worldPlane.visuals?.layers.wallMask[tileIndex] ??
+        cardinalAutotileMask(mapX, mapY, (x, y) => {
+          if (x < 0 || y < 0 || x >= state.mapWidth || y >= state.mapHeight) {
+            return false;
+          }
+          const neighbor = state.tiles.getTile(x, y);
+          return (
+            neighbor === TileType.WALL ||
+            neighbor === TileType.DOOR_CLOSED ||
+            neighbor === TileType.DOOR_OPEN ||
+            neighbor === TileType.DOOR_LOCKED
+          );
+        });
       tileCoord = wallAutotileCoordinate(wallSpriteKey, wallMask);
     } else if (tileType !== TileType.FLOOR && tileType !== TileType.HOLE) {
       tileCoord = SPRITE_COORDS[tileType];
@@ -1145,12 +1153,7 @@ export class Renderer {
     const startRow = Math.floor(camTop / CELL_CONFIG.h) - 1;
     const endRow = Math.floor((camTop + viewH) / CELL_CONFIG.h) + 1;
 
-    const hashTile = (x: number, y: number, salt: number = 0): number => {
-      let h = (x * 374761393 + y * 668265263 + salt * 1442695041) | 0;
-      h = (h ^ (h >>> 13)) | 0;
-      h = Math.imul(h, 1274126177);
-      return (h ^ (h >>> 16)) >>> 0;
-    };
+    const worldVisualLayers = state.worldPlane.visuals?.layers;
 
     const tileAtWindow = (x: number, y: number): TileType | null => {
       let mx = x;
@@ -1188,6 +1191,9 @@ export class Renderer {
         }
 
         const tileIndex = mx + my * state.mapWidth;
+        const coordinateHash =
+          worldVisualLayers?.coordinateHash[tileIndex] ??
+          hashWorldVisualCoordinate(mx, my, state.depth);
         const isRevealed = usingShadowFov ? explored.has(tileIndex) : true;
         const isVisible = usingShadowFov
           ? enhancedVision
@@ -1392,37 +1398,43 @@ export class Renderer {
           if (damage >= FLOOR_DAMAGE_THRESHOLDS[0]) {
             renderGround("floor_damaged");
           }
-          const h = hashTile(mx, my, 22);
+          const h = mixWorldVisualHash(coordinateHash, 22);
           if (state.levelKind === "dungeon" && h % 97 === 0) {
             renderGround("blood_stain");
           }
         } else if (tileType === TileType.HOLE) {
           renderGround(TileType.FLOOR, floorCoord);
-          const holeMask = cardinalAutotileMask(
-            tileX,
-            tileY,
-            (x, y) => tileAtWindow(x, y) === TileType.HOLE,
-          );
+          const holeMask =
+            worldVisualLayers?.holeMask[tileIndex] ??
+            cardinalAutotileMask(
+              tileX,
+              tileY,
+              (x, y) => tileAtWindow(x, y) === TileType.HOLE,
+            );
           renderGround("hole", holeAutotileCoordinate(holeMask));
         } else if (tileType === TileType.GRASS) {
           renderGround(
-            hashTile(mx, my, 3) % 17 === 0 ? "grass_flowers" : TileType.GRASS,
+            mixWorldVisualHash(coordinateHash, 3) % 17 === 0
+              ? "grass_flowers"
+              : TileType.GRASS,
           );
           renderDepthTile("grass_blades");
         } else if (tileType === TileType.WEEDS) {
           renderGround(
-            hashTile(mx, my, 4) % 4 === 0 ? "weeds_dense" : TileType.WEEDS,
+            mixWorldVisualHash(coordinateHash, 4) % 4 === 0
+              ? "weeds_dense"
+              : TileType.WEEDS,
           );
           renderDepthTile("weeds_blades");
         } else if (tileType === TileType.ASPHALT) {
           renderGround(
-            hashTile(mx, my, 5) % 9 === 0
+            mixWorldVisualHash(coordinateHash, 5) % 9 === 0
               ? "asphalt_cracked"
               : TileType.ASPHALT,
           );
         } else if (tileType === TileType.SIDEWALK) {
           renderGround(
-            hashTile(mx, my, 6) % 7 === 0
+            mixWorldVisualHash(coordinateHash, 6) % 7 === 0
               ? "sidewalk_cracked"
               : TileType.SIDEWALK,
           );
@@ -1469,15 +1481,17 @@ export class Renderer {
                 : isWood
                   ? "wall_wood"
                   : TileType.WALL;
-          const wallMask = cardinalAutotileMask(tileX, tileY, (x, y) => {
-            const neighbor = tileAtWindow(x, y);
-            return (
-              neighbor === TileType.WALL ||
-              neighbor === TileType.DOOR_CLOSED ||
-              neighbor === TileType.DOOR_OPEN ||
-              neighbor === TileType.DOOR_LOCKED
-            );
-          });
+          const wallMask =
+            worldVisualLayers?.wallMask[tileIndex] ??
+            cardinalAutotileMask(tileX, tileY, (x, y) => {
+              const neighbor = tileAtWindow(x, y);
+              return (
+                neighbor === TileType.WALL ||
+                neighbor === TileType.DOOR_CLOSED ||
+                neighbor === TileType.DOOR_OPEN ||
+                neighbor === TileType.DOOR_LOCKED
+              );
+            });
           renderDepthTile(
             wallSpriteKey,
             wallAutotileCoordinate(wallSpriteKey, wallMask),
