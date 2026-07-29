@@ -169,7 +169,7 @@ worlds, and multiplayer protocol versions in favor of a clean implementation.
 dark-war/
 ├── app/                      # Electron build output (HTML, bundled JS, assets)
 ├── apps/                     # Per-variant homes (electron, web, server, arcade)
-├── assets/                   # Authored source art currently used by the project
+├── assets-src/               # Aseprite/Tiled sources, palettes, and art references
 ├── electron/                 # Electron main process, preload, server manager
 ├── server/                   # Authoritative multiplayer server
 ├── src/                      # TypeScript source, split by package boundary:

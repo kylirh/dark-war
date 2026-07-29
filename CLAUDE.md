@@ -115,12 +115,13 @@ planes with `idxFor(x, y, width)`.
   `behavior` archetype (`melee`/`ranged`/`bot`), spawn weight/`minDepth`/`miniboss`,
   ability `flags`, and loot; `MonsterEntity` and the spawner read it. `item-defs.ts`
   (`ITEM_DEFS`) holds per-item name/category/flags. Add new items/monsters here.
-- **Current asset pipeline** (`tools/`, run `npm run gen:assets`):
-  `gen-spritesheet.mjs` composites procedural and imported source art onto
-  `tools/sprites.base.png` and writes `app/assets/img/sprites.png`;
-  `gen-sounds.mjs` synthesizes sound effects. The approved direction adds
-  committed Aseprite sources plus Tiled metadata and build-time validation.
-  Hand-cleaned binary art sources are intentional, not an opacity problem.
+- **Asset pipeline** (`assets-src/`, `tools/`, run `npm run gen:assets`):
+  `compile-assets.mjs` runs configured atlas generators, exports enabled
+  Aseprite families when the CLI is available, validates Tiled `.tsj` Wang
+  metadata, and writes `app/assets/data/visual-manifest.json` alongside the
+  generated atlas. `gen-sounds.mjs` synthesizes sound effects. Hand-cleaned
+  binary source art is intentional; editor IDs and atlas positions never become
+  gameplay identity.
 
 ### Build Variants
 

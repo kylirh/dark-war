@@ -1,0 +1,975 @@
+{
+  "columns": 16,
+  "image": "../../app/assets/img/sprites.png",
+  "imageheight": 1376,
+  "imagewidth": 512,
+  "margin": 0,
+  "name": "dark-war-terrain",
+  "spacing": 0,
+  "tilecount": 688,
+  "tileheight": 32,
+  "tiles": [
+    {
+      "id": 288,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 289,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 290,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 2
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 291,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 3
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 292,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 4
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 293,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 5
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 294,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 6
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 295,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 7
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 320,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 8
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 321,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 9
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 322,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 10
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 323,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 11
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 324,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 12
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 325,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 13
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 326,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 14
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 327,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "wall.concrete.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 15
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 672,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 673,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 674,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 2
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 675,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 3
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 676,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 4
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 677,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 5
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 678,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 6
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 679,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 7
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 680,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 8
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 681,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 9
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 682,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 10
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 683,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 11
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 684,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 12
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 685,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 13
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 686,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 14
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    },
+    {
+      "id": 687,
+      "properties": [
+        {
+          "name": "darkwar.family",
+          "type": "string",
+          "value": "hole.cardinal"
+        },
+        {
+          "name": "darkwar.mask",
+          "type": "int",
+          "value": 15
+        },
+        {
+          "name": "darkwar.resolver",
+          "type": "string",
+          "value": "cardinal-16"
+        },
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.hole"
+        }
+      ]
+    }
+  ],
+  "tilewidth": 32,
+  "tiledversion": "1.11.2",
+  "type": "tileset",
+  "version": "1.10",
+  "wangsets": [
+    {
+      "name": "wall.concrete.cardinal",
+      "tile": -1,
+      "wangcolors": [
+        {
+          "name": "structure.wall",
+          "color": "#5de2d1",
+          "tile": -1,
+          "probability": 1
+        }
+      ],
+      "wangtiles": [
+        {
+          "tileid": 288,
+          "wangid": [0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tileid": 289,
+          "wangid": [0, 1, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tileid": 290,
+          "wangid": [0, 0, 0, 1, 0, 0, 0, 0]
+        },
+        {
+          "tileid": 291,
+          "wangid": [0, 1, 0, 1, 0, 0, 0, 0]
+        },
+        {
+          "tileid": 292,
+          "wangid": [0, 0, 0, 0, 0, 1, 0, 0]
+        },
+        {
+          "tileid": 293,
+          "wangid": [0, 1, 0, 0, 0, 1, 0, 0]
+        },
+        {
+          "tileid": 294,
+          "wangid": [0, 0, 0, 1, 0, 1, 0, 0]
+        },
+        {
+          "tileid": 295,
+          "wangid": [0, 1, 0, 1, 0, 1, 0, 0]
+        },
+        {
+          "tileid": 320,
+          "wangid": [0, 0, 0, 0, 0, 0, 0, 1]
+        },
+        {
+          "tileid": 321,
+          "wangid": [0, 1, 0, 0, 0, 0, 0, 1]
+        },
+        {
+          "tileid": 322,
+          "wangid": [0, 0, 0, 1, 0, 0, 0, 1]
+        },
+        {
+          "tileid": 323,
+          "wangid": [0, 1, 0, 1, 0, 0, 0, 1]
+        },
+        {
+          "tileid": 324,
+          "wangid": [0, 0, 0, 0, 0, 1, 0, 1]
+        },
+        {
+          "tileid": 325,
+          "wangid": [0, 1, 0, 0, 0, 1, 0, 1]
+        },
+        {
+          "tileid": 326,
+          "wangid": [0, 0, 0, 1, 0, 1, 0, 1]
+        },
+        {
+          "tileid": 327,
+          "wangid": [0, 1, 0, 1, 0, 1, 0, 1]
+        }
+      ]
+    },
+    {
+      "name": "hole.cardinal",
+      "tile": -1,
+      "wangcolors": [
+        {
+          "name": "ground.hole",
+          "color": "#5de2d1",
+          "tile": -1,
+          "probability": 1
+        }
+      ],
+      "wangtiles": [
+        {
+          "tileid": 672,
+          "wangid": [0, 0, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tileid": 673,
+          "wangid": [0, 1, 0, 0, 0, 0, 0, 0]
+        },
+        {
+          "tileid": 674,
+          "wangid": [0, 0, 0, 1, 0, 0, 0, 0]
+        },
+        {
+          "tileid": 675,
+          "wangid": [0, 1, 0, 1, 0, 0, 0, 0]
+        },
+        {
+          "tileid": 676,
+          "wangid": [0, 0, 0, 0, 0, 1, 0, 0]
+        },
+        {
+          "tileid": 677,
+          "wangid": [0, 1, 0, 0, 0, 1, 0, 0]
+        },
+        {
+          "tileid": 678,
+          "wangid": [0, 0, 0, 1, 0, 1, 0, 0]
+        },
+        {
+          "tileid": 679,
+          "wangid": [0, 1, 0, 1, 0, 1, 0, 0]
+        },
+        {
+          "tileid": 680,
+          "wangid": [0, 0, 0, 0, 0, 0, 0, 1]
+        },
+        {
+          "tileid": 681,
+          "wangid": [0, 1, 0, 0, 0, 0, 0, 1]
+        },
+        {
+          "tileid": 682,
+          "wangid": [0, 0, 0, 1, 0, 0, 0, 1]
+        },
+        {
+          "tileid": 683,
+          "wangid": [0, 1, 0, 1, 0, 0, 0, 1]
+        },
+        {
+          "tileid": 684,
+          "wangid": [0, 0, 0, 0, 0, 1, 0, 1]
+        },
+        {
+          "tileid": 685,
+          "wangid": [0, 1, 0, 0, 0, 1, 0, 1]
+        },
+        {
+          "tileid": 686,
+          "wangid": [0, 0, 0, 1, 0, 1, 0, 1]
+        },
+        {
+          "tileid": 687,
+          "wangid": [0, 1, 0, 1, 0, 1, 0, 1]
+        }
+      ]
+    }
+  ]
+}

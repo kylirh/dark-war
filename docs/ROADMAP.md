@@ -116,7 +116,15 @@ seam-correct visuals offline and online.
 
 ## Milestone 4 — Aseprite and Tiled asset compiler
 
-**Status: PLANNED**
+**Status: COMPLETE**
+
+`assets-src/assets.json` now declares generated atlases and active Aseprite
+families. `npm run gen:visual-assets` regenerates the main atlas, optionally
+exports enabled Aseprite sources through its CLI, imports standard Tiled JSON,
+and writes a deterministic runtime visual manifest. The compiler validates PNG
+dimensions, atlas grids, supported resolvers, duplicate family masks, complete
+16-mask cardinal sets, and Wang metadata. Its editor-independent contracts run
+as part of `npm test`.
 
 - Establish `assets-src/` as the home for committed authoring sources.
 - Automate Aseprite atlas/metadata export.

@@ -205,6 +205,12 @@ asset compiler and validators
 generated atlas + visual manifest + semantic prefabs
 ```
 
+The implemented visual half of this flow is `npm run gen:visual-assets`. Its
+source registry is `assets-src/assets.json`, standard Tiled tilesets live under
+`assets-src/tilesets/`, and its deterministic output is
+`app/assets/data/visual-manifest.json`. Active Aseprite families export when the
+CLI is installed; disabled legacy sources never silently affect the build.
+
 Validation must reject duplicate semantic keys, missing required masks, invalid
 atlas rectangles, unknown gameplay semantics, unsupported terrain combinations,
 and broken animation metadata.

@@ -21,9 +21,21 @@ Source types:
 
 Never use an editor tile ID or atlas coordinate as gameplay identity. Authoring
 files use stable semantic keys documented in
-`docs/prototypes/TERRAIN-SLICE.md`; the asset compiler will generate compact
-runtime IDs and validate references.
+`docs/prototypes/TERRAIN-SLICE.md`; `npm run gen:visual-assets` generates the
+runtime manifest and validates image bounds, semantic families, masks, and Wang
+metadata.
 
-`assets/dark-war.aseprite` predates this directory and remains in place until
-the Aseprite export pipeline is implemented. Its art is legacy source, not the
-approved visual target; replace or split it in playable asset-family increments.
+`legacy/dark-war.aseprite` is retained only as a recovery/reference source. It
+is disabled in `assets.json` and is not the approved visual target. Add new
+Aseprite family sources to `assets.json` with committed PNG/JSON destinations;
+the compiler exports active sources when `aseprite` is on `PATH` or `ASEPRITE`
+points to the executable. Replace the legacy source in playable family-sized
+increments.
+
+The standard authoring loop is:
+
+1. Edit an active `.aseprite` source and/or `.tsj` in this directory.
+2. Run `npm run gen:visual-assets`.
+3. Review `app/assets/img/sprites.png` and
+   `app/assets/data/visual-manifest.json`.
+4. Run `npm test` before committing source and generated output together.

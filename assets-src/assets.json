@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "atlases": [
+    {
+      "key": "main",
+      "image": "app/assets/img/sprites.png",
+      "runtimePath": "assets/img/sprites.png",
+      "tileWidth": 32,
+      "tileHeight": 32,
+      "generator": ["node", "tools/gen-spritesheet.mjs"]
+    }
+  ],
+  "asepriteSources": [
+    {
+      "source": "assets-src/legacy/dark-war.aseprite",
+      "enabled": false,
+      "note": "Legacy source retained for reference while asset families are rebuilt."
+    }
+  ]
+}
