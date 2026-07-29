@@ -11,10 +11,13 @@ unreviewed source of production pixels.
 2. Save useful concepts under `references/` with the prompt, model/tool, date,
    and intended semantic keys. Concepts may explore shape, mood, color grouping,
    and silhouettes.
-3. Reconstruct production art on the 32×32 grid in Aseprite. Enforce the palette,
-   cluster language, pivots, footprints, topology, and tileability by hand.
-4. Commit the reviewed `.aseprite`, `.tsj`, or `.tmj` source. Never treat an
-   ephemeral generated PNG as the only source of truth.
+3. Reconstruct production art on the 32×32 grid in Aseprite, or promote a
+   deliberately generated pixel-art family through a deterministic
+   alpha-trim/nearest-neighbor sampler. Enforce palette, clusters, pivots,
+   footprints, topology, and tileability during review.
+4. Commit the reviewed `.aseprite`, `.tsj`, `.tmj`, or production source board
+   with its prompt and stable cell contract. Never leave an ephemeral generated
+   PNG as the only source of truth.
 5. Run `npm run gen:visual-assets`, inspect the atlas and prefab output, then run
    `npm test`, `npm run type-check`, and an in-game visual pass.
 
@@ -23,6 +26,8 @@ unreviewed source of production pixels.
 - mood boards, silhouette sheets, prop ideation, and color studies;
 - deterministic sprite-generator and validation code;
 - controlled variations that an artist cleans and palette-locks;
+- coherent pixel-art source families that are deterministically reconstructed
+  on the gameplay grid and pass native-scale review;
 - identifying broken seams, missing masks, inconsistent light, or noisy pixels;
 - drafting Tiled prefab layouts that are then opened and reviewed in Tiled.
 

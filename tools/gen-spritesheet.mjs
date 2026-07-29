@@ -13,51 +13,39 @@ import { dirname, join } from "node:path";
 import { decodePNG, encodePNG } from "./png.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const BASE = join(HERE, "sprites.base.png");
-const REFERENCE = join(HERE, "sprites.reference.png");
+const ENVIRONMENT_BOARD = join(
+  HERE,
+  "..",
+  "assets-src",
+  "production",
+  "environment-board.png",
+);
+const CHARACTER_BOARD = join(
+  HERE,
+  "..",
+  "assets-src",
+  "production",
+  "characters-board.png",
+);
+const SUPPLEMENTAL_BOARD = join(
+  HERE,
+  "..",
+  "assets-src",
+  "production",
+  "supplemental-board.png",
+);
 const OUT = join(HERE, "..", "app", "assets", "img", "sprites.png");
 
 const TILE = 32;
 const COLS = 16;
 const OUT_ROWS = 43;
-const base = decodePNG(readFileSync(BASE));
-const reference = decodePNG(readFileSync(REFERENCE));
+const environmentBoard = decodePNG(readFileSync(ENVIRONMENT_BOARD));
+const characterBoard = decodePNG(readFileSync(CHARACTER_BOARD));
+const supplementalBoard = decodePNG(readFileSync(SUPPLEMENTAL_BOARD));
 const W = COLS * TILE;
 const H = OUT_ROWS * TILE;
 const data = new Uint8Array(W * H * 4);
-data.set(base.data.subarray(0, Math.min(base.data.length, data.length)), 0);
 const frameOwners = new Map();
-const referenceSprites = {
-  "bone.png": { col: 9, row: 5 },
-  "butcher-knife.png": { col: 0, row: 5 },
-  "cookie.png": { col: 10, row: 5 },
-  "dog.png": { col: 1, row: 7 },
-  "dreadnaut.png": { col: 10, row: 12, cellsW: 2, cellsH: 2, preScaled: true },
-  "flutterbang.png": { col: 4, row: 7 },
-  "gyrojot-rifle.png": { col: 0, row: 3 },
-  "gyrojot-shotgun.png": { col: 3, row: 5 },
-  "gyrojot-smg.png": { col: 2, row: 5 },
-  "icky-lump.png": { col: 2, row: 7 },
-  "laser-gun.png": { col: 1, row: 5 },
-  "macrometal-armor.png": { col: 6, row: 5 },
-  "moppet.png": { col: 5, row: 7 },
-  "panic-button.png": { col: 7, row: 5 },
-  "powercell.png": { col: 8, row: 3 },
-  "snagglepuss.png": { col: 3, row: 7 },
-  "spider.png": { col: 0, row: 7 },
-  "tentacular-horror.png": {
-    col: 8,
-    row: 12,
-    cellsW: 2,
-    cellsH: 2,
-    preScaled: true,
-  },
-  "terrorist-collaborator.png": { col: 9, row: 7 },
-  "utility-bot.png": { col: 10, row: 2 },
-  "vending-machine.png": { col: 1, row: 6 },
-  "zyth.png": { col: 7, row: 7 },
-};
-
 // Rebuilding palette: colored separation replaces universal black contours.
 const C = {
   ink: [13, 32, 49],
@@ -304,42 +292,48 @@ function tile(col, row, base, accent, seed) {
   return c;
 }
 
-function drawReferenceSprite(col, row, filename, options = {}) {
+function drawProductionCell(
+  col,
+  row,
+  source,
+  sourceCol,
+  sourceRow,
+  options = {},
+) {
   const cellsW = options.cellsW ?? 1;
   const cellsH = options.cellsH ?? 1;
   const c = frame(col, row, cellsW, cellsH);
-  c.clear();
+  if (options.clear !== false) c.clear();
 
-  const sourceFrame = referenceSprites[filename];
-  if (!sourceFrame) {
-    throw new Error(`Unknown reference sprite: ${filename}`);
-  }
-  const source = reference;
-  const sourceStartX = sourceFrame.col * TILE;
-  const sourceStartY = sourceFrame.row * TILE;
-  const sourceEndX = sourceStartX + (sourceFrame.cellsW ?? 1) * TILE;
-  const sourceEndY = sourceStartY + (sourceFrame.cellsH ?? 1) * TILE;
-  const isVisible = (i) => {
-    const a = source.data[i + 3];
-    if (a <= 24) return false;
-    const r = source.data[i];
-    const g = source.data[i + 1];
-    const b = source.data[i + 2];
-    return !(r >= 245 && g >= 245 && b >= 245);
-  };
+  const sourceCellW = Math.floor(source.width / 6);
+  const sourceCellH = Math.floor(source.height / 4);
+  const cellX = sourceCol * sourceCellW;
+  const cellY = sourceRow * sourceCellH;
+  let minX = cellX;
+  let minY = cellY;
+  let maxX = cellX + sourceCellW - 1;
+  let maxY = cellY + sourceCellH - 1;
 
-  let minX = sourceEndX;
-  let minY = sourceEndY;
-  let maxX = -1;
-  let maxY = -1;
-  for (let y = sourceStartY; y < sourceEndY; y++) {
-    for (let x = sourceStartX; x < sourceEndX; x++) {
-      const i = (y * source.width + x) * 4;
-      if (!isVisible(i)) continue;
-      minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      maxX = Math.max(maxX, x);
-      maxY = Math.max(maxY, y);
+  if (options.crop) {
+    const [left, top, right, bottom] = options.crop;
+    minX = cellX + Math.round(sourceCellW * left);
+    minY = cellY + Math.round(sourceCellH * top);
+    maxX = cellX + Math.round(sourceCellW * right) - 1;
+    maxY = cellY + Math.round(sourceCellH * bottom) - 1;
+  } else {
+    minX = cellX + sourceCellW;
+    minY = cellY + sourceCellH;
+    maxX = cellX - 1;
+    maxY = cellY - 1;
+    for (let y = cellY; y < cellY + sourceCellH; y++) {
+      for (let x = cellX; x < cellX + sourceCellW; x++) {
+        const index = (y * source.width + x) * 4;
+        if (source.data[index + 3] <= 24) continue;
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
     }
   }
   if (maxX < minX || maxY < minY) return;
@@ -348,79 +342,55 @@ function drawReferenceSprite(col, row, filename, options = {}) {
   const spriteH = maxY - minY + 1;
   const targetW = cellsW * TILE;
   const targetH = cellsH * TILE;
-  const scale = sourceFrame.preScaled ? 1 : (options.scale ?? 1);
-  const drawW = Math.max(1, Math.round(spriteW * scale));
-  const drawH = Math.max(1, Math.round(spriteH * scale));
+  const padding = options.padding ?? 1;
+  const drawScale =
+    options.fill === true
+      ? null
+      : Math.min(
+          (targetW - padding * 2) / spriteW,
+          (targetH - padding * 2) / spriteH,
+        );
+  const drawW =
+    options.fill === true
+      ? targetW
+      : Math.max(1, Math.round(spriteW * drawScale));
+  const drawH =
+    options.fill === true
+      ? targetH
+      : Math.max(1, Math.round(spriteH * drawScale));
   const baseX =
-    options.x ??
     Math.floor((targetW - drawW) / 2) + Math.round(options.offsetX ?? 0);
   const baseY =
-    options.y ??
     Math.floor((targetH - drawH) / 2) + Math.round(options.offsetY ?? 0);
 
-  for (let ty = 0; ty < drawH; ty++) {
-    for (let tx = 0; tx < drawW; tx++) {
-      const sx = minX + Math.floor(tx / scale);
-      const sy = minY + Math.floor(ty / scale);
-      if (sx < minX || sy < minY || sx > maxX || sy > maxY) continue;
-      const i = (sy * source.width + sx) * 4;
-      if (!isVisible(i)) continue;
-      c.put(baseX + tx, baseY + ty, [
-        source.data[i],
-        source.data[i + 1],
-        source.data[i + 2],
-        source.data[i + 3],
+  for (let y = 0; y < drawH; y++) {
+    for (let x = 0; x < drawW; x++) {
+      const sourceX = minX + Math.floor((x / drawW) * spriteW);
+      const sourceY = minY + Math.floor((y / drawH) * spriteH);
+      const index = (sourceY * source.width + sourceX) * 4;
+      if (source.data[index + 3] <= 24) continue;
+      c.put(baseX + x, baseY + y, [
+        source.data[index],
+        source.data[index + 1],
+        source.data[index + 2],
+        source.data[index + 3],
       ]);
     }
   }
 }
 
-function drawBaseSprite(col, row, sourceCol, sourceRow, options = {}) {
-  const cellsW = options.cellsW ?? 1;
-  const cellsH = options.cellsH ?? 1;
-  const c = frame(col, row, cellsW, cellsH);
-  if (options.clear !== false) c.clear();
-
-  const sourceX = sourceCol * TILE;
-  const sourceY = sourceRow * TILE;
-  const sourceW = (options.sourceCellsW ?? 1) * TILE;
-  const sourceH = (options.sourceCellsH ?? 1) * TILE;
-  const scale = options.scale ?? 1;
-  const drawW = Math.max(1, Math.round(sourceW * scale));
-  const drawH = Math.max(1, Math.round(sourceH * scale));
-  const targetW = cellsW * TILE;
-  const targetH = cellsH * TILE;
-  const baseX =
-    options.x ??
-    Math.floor((targetW - drawW) / 2) + Math.round(options.offsetX ?? 0);
-  const baseY =
-    options.y ??
-    Math.floor((targetH - drawH) / 2) + Math.round(options.offsetY ?? 0);
-
-  for (let ty = 0; ty < drawH; ty++) {
-    for (let tx = 0; tx < drawW; tx++) {
-      const sx = sourceX + Math.floor(tx / scale);
-      const sy = sourceY + Math.floor(ty / scale);
-      if (sx < 0 || sy < 0 || sx >= base.width || sy >= base.height) continue;
-      const i = (sy * base.width + sx) * 4;
-      const a = base.data[i + 3];
-      if (a <= 24) continue;
-      c.put(baseX + tx, baseY + ty, [
-        base.data[i],
-        base.data[i + 1],
-        base.data[i + 2],
-        a,
-      ]);
-    }
-  }
-}
-
-function restoreBaseRows() {
-  for (let row = 0; row < Math.floor(base.height / TILE); row++) {
-    for (let col = 0; col < COLS; col++) {
-      drawBaseSprite(col, row, col, row);
-    }
-  }
+function drawProductionTile(col, row, sourceCol, sourceRow, variant = 0) {
+  const crops = [
+    [0.27, 0.25, 0.91, 0.89],
+    [0.16, 0.28, 0.8, 0.92],
+    [0.32, 0.14, 0.96, 0.78],
+  ];
+  drawProductionCell(col, row, environmentBoard, sourceCol, sourceRow, {
+    clear: false,
+    crop: crops[variant % crops.length],
+    fill: true,
+    padding: 0,
+  });
 }
 
 // ----- terrain ----------------------------------------------------------------
@@ -956,11 +926,8 @@ dread2.put(25, 16, C.red2);
 dread2.put(33, 16, C.red2);
 humanoid(4, 14, [118, 62, 45], [38, 73, 45], C.tan2, C.steel1);
 
-// Keep the original Mission Thunderbolt-style art for every legacy sprite.
-// The generated atlas starts from sprites.base.png, but the procedural pass
-// above intentionally touches many legacy cells while building the expanded
-// sheet. Restore those rows before applying the new 2.5D and item additions.
-restoreBaseRows();
+// Legacy source images are sampled only for named sprites that have not yet
+// received a production replacement. Unnamed legacy cells never enter the atlas.
 
 function tinyIcon(col, row, draw) {
   const c = frame(col, row);
@@ -982,21 +949,28 @@ function drawBaseRegion(
   destH,
   shade = 1,
 ) {
-  const atlasX = sourceCol * TILE + sourceX;
-  const atlasY = sourceRow * TILE + sourceY;
+  const isWood = sourceCol >= 10 && sourceCol <= 12;
+  const materialCol = isWood ? 0 : 5;
+  const materialRow = isWood ? 2 : 1;
+  const sourceCellW = Math.floor(environmentBoard.width / 6);
+  const sourceCellH = Math.floor(environmentBoard.height / 4);
+  const atlasX = materialCol * sourceCellW + Math.round(sourceCellW * 0.25);
+  const atlasY = materialRow * sourceCellH + Math.round(sourceCellH * 0.2);
+  const materialW = Math.round(sourceCellW * 0.62);
+  const materialH = Math.round(sourceCellH * 0.64);
   for (let y = 0; y < destH; y++) {
     for (let x = 0; x < destW; x++) {
       const sx =
-        atlasX + Math.min(sourceW - 1, Math.floor((x / destW) * sourceW));
+        atlasX + Math.min(materialW - 1, Math.floor((x / destW) * materialW));
       const sy =
-        atlasY + Math.min(sourceH - 1, Math.floor((y / destH) * sourceH));
-      const i = (sy * base.width + sx) * 4;
-      const alpha = base.data[i + 3];
+        atlasY + Math.min(materialH - 1, Math.floor((y / destH) * materialH));
+      const i = (sy * environmentBoard.width + sx) * 4;
+      const alpha = environmentBoard.data[i + 3];
       if (alpha <= 24) continue;
       c.put(destX + x, destY + y, [
-        Math.round(base.data[i] * shade),
-        Math.round(base.data[i + 1] * shade),
-        Math.round(base.data[i + 2] * shade),
+        Math.round(environmentBoard.data[i] * shade),
+        Math.round(environmentBoard.data[i + 1] * shade),
+        Math.round(environmentBoard.data[i + 2] * shade),
         alpha,
       ]);
     }
@@ -1371,14 +1345,6 @@ prototypeTree.rect(16, 16, 10, 7, [171, 220, 105]);
 prototypeTree.rect(38, 12, 9, 7, C.grass3);
 prototypeTree.rect(47, 31, 8, 6, C.grass1);
 
-drawBaseSprite(0, 10, 5, 4, { cellsW: 2, cellsH: 3, scale: 2, y: 25 });
-drawBaseSprite(2, 10, 6, 4, { cellsH: 2, y: 25 });
-drawBaseSprite(3, 10, 7, 4, { cellsH: 2, y: 28 });
-drawBaseSprite(4, 10, 9, 4, { cellsH: 2, y: 25 });
-drawBaseSprite(5, 10, 6, 4);
-drawBaseSprite(6, 10, 7, 4, { cellsH: 2, y: 28 });
-drawBaseSprite(7, 10, 7, 4, { cellsH: 2, y: 18 });
-
 // Missing non-reference items redrawn as tiny 1992-style icons.
 tinyIcon(4, 5, (c) => {
   c.line(13, 25, 23, 6, [0, 0, 0]);
@@ -1518,69 +1484,263 @@ tinyIcon(13, 16, (c) => {
   c.rect(20, 15, 4, 9, [100, 205, 235, 40]);
 });
 
-// Imported legacy silhouettes remain temporary subject references. The final
-// palette pass pulls their neutral black edges into the shared colored-shadow
-// vocabulary while bespoke outline-free replacements are authored family by
-// family.
-drawReferenceSprite(10, 5, "cookie.png");
-drawReferenceSprite(1, 7, "dog.png");
-drawReferenceSprite(2, 16, "dog.png");
-drawReferenceSprite(3, 16, "dog.png", { offsetY: 1 });
-drawReferenceSprite(4, 7, "flutterbang.png");
-drawReferenceSprite(8, 16, "flutterbang.png");
-drawReferenceSprite(9, 16, "flutterbang.png", { offsetY: -2 });
-drawReferenceSprite(0, 3, "gyrojot-rifle.png");
-drawReferenceSprite(3, 5, "gyrojot-shotgun.png");
-drawReferenceSprite(10, 12, "dreadnaut.png", {
-  cellsW: 2,
+// Production environment family. Tile samples use their quiet central cluster
+// so opposite edges remain seamless; props use alpha-trimmed authored bounds.
+drawProductionTile(1, 0, 3, 0);
+drawProductionCell(4, 0, environmentBoard, 3, 2, { padding: 1 });
+drawProductionCell(5, 0, environmentBoard, 3, 2, { padding: 1 });
+drawProductionTile(8, 0, 3, 0, 1);
+drawProductionTile(9, 0, 3, 0, 2);
+drawProductionTile(0, 4, 4, 0);
+drawProductionTile(1, 4, 5, 0);
+drawProductionTile(2, 4, 0, 0);
+drawProductionTile(3, 4, 1, 0);
+drawProductionTile(4, 4, 2, 0);
+drawProductionTile(9, 9, 4, 0, 1);
+drawProductionTile(10, 9, 5, 0, 1);
+drawProductionTile(11, 9, 1, 0, 1);
+drawProductionTile(12, 9, 1, 0, 2);
+drawProductionTile(0, 17, 0, 0);
+drawProductionTile(1, 17, 1, 0);
+drawProductionTile(2, 17, 2, 0);
+drawProductionTile(3, 17, 3, 0);
+drawProductionTile(4, 17, 0, 1);
+drawProductionTile(5, 17, 1, 1);
+drawProductionTile(12, 17, 0, 0, 1);
+drawProductionTile(13, 17, 2, 0, 1);
+drawProductionTile(14, 17, 3, 0, 1);
+drawProductionTile(15, 17, 0, 1, 1);
+
+drawProductionCell(6, 8, environmentBoard, 1, 2, {
   cellsH: 2,
-  scale: 1.7,
+  padding: 1,
 });
-drawReferenceSprite(2, 14, "dreadnaut.png", {
+drawProductionCell(7, 8, environmentBoard, 2, 2, {
+  cellsH: 2,
+  padding: 1,
+});
+drawProductionCell(8, 8, environmentBoard, 1, 2, {
+  cellsH: 2,
+  padding: 1,
+});
+drawProductionCell(0, 10, environmentBoard, 5, 2, {
+  cellsW: 2,
+  cellsH: 3,
+  padding: 2,
+});
+drawProductionCell(2, 10, environmentBoard, 5, 1, {
+  cellsH: 2,
+  padding: 1,
+});
+drawProductionCell(5, 10, environmentBoard, 0, 2, { padding: 0 });
+drawProductionCell(4, 10, environmentBoard, 1, 2, {
+  cellsH: 2,
+  padding: 1,
+});
+drawProductionCell(8, 10, environmentBoard, 0, 3, {
+  cellsH: 2,
+  padding: 2,
+});
+drawProductionCell(9, 10, environmentBoard, 1, 3, { padding: 1 });
+drawProductionCell(10, 10, environmentBoard, 2, 3, { padding: 2 });
+drawProductionCell(11, 10, environmentBoard, 3, 3, { padding: 2 });
+drawProductionCell(8, 18, environmentBoard, 2, 1, { padding: 0 });
+drawProductionCell(9, 18, environmentBoard, 3, 2, { padding: 0 });
+drawProductionCell(10, 18, environmentBoard, 4, 3, { padding: 0 });
+drawProductionCell(11, 18, environmentBoard, 5, 3, { padding: 4 });
+drawProductionCell(8, 20, environmentBoard, 5, 3, {
+  cellsW: 3,
+  cellsH: 3,
+  padding: 2,
+});
+drawProductionCell(11, 20, environmentBoard, 4, 2, {
   cellsW: 2,
   cellsH: 2,
-  scale: 1.7,
+  padding: 1,
+});
+drawProductionCell(13, 20, environmentBoard, 5, 2, {
+  cellsW: 2,
+  cellsH: 3,
+  padding: 2,
+});
+
+// Production character family. Repeated identity frames receive tiny offsets
+// only where the source board intentionally supplies one pose.
+for (const [atlasCol, sourceCol, offsetX] of [
+  [0, 0, 0],
+  [2, 0, -1],
+  [3, 0, 1],
+  [4, 1, 0],
+  [5, 2, 0],
+]) {
+  drawProductionCell(atlasCol, 1, characterBoard, sourceCol, 0, {
+    padding: 1,
+    offsetX,
+  });
+}
+drawProductionCell(6, 1, characterBoard, 3, 0, {
+  padding: 1,
+  offsetX: -1,
+});
+drawProductionCell(7, 1, characterBoard, 3, 0, {
+  padding: 1,
+  offsetX: 1,
+});
+
+drawProductionCell(10, 2, characterBoard, 0, 1, { padding: 2 });
+drawProductionCell(11, 2, characterBoard, 1, 1, {
+  padding: 2,
+  offsetX: -1,
+});
+drawProductionCell(12, 2, characterBoard, 1, 1, {
+  padding: 2,
+  offsetX: 1,
+});
+drawProductionCell(1, 7, characterBoard, 4, 0, { padding: 2 });
+drawProductionCell(2, 16, characterBoard, 5, 0, {
+  padding: 2,
+  offsetX: -1,
+});
+drawProductionCell(3, 16, characterBoard, 5, 0, {
+  padding: 2,
+  offsetX: 1,
+});
+drawProductionCell(5, 7, characterBoard, 2, 1, { padding: 1 });
+drawProductionCell(10, 16, characterBoard, 3, 1, {
+  padding: 1,
+  offsetX: -1,
+});
+drawProductionCell(11, 16, characterBoard, 3, 1, {
+  padding: 1,
+  offsetX: 1,
+});
+drawProductionCell(0, 7, characterBoard, 4, 1, { padding: 1 });
+drawProductionCell(0, 16, characterBoard, 5, 1, {
+  padding: 1,
+  offsetX: -1,
+});
+drawProductionCell(1, 16, characterBoard, 5, 1, {
+  padding: 1,
+  offsetX: 1,
+});
+drawProductionCell(1, 2, characterBoard, 0, 2, { padding: 3 });
+drawProductionCell(8, 2, characterBoard, 0, 2, {
+  padding: 3,
+  offsetX: -1,
+});
+drawProductionCell(9, 2, characterBoard, 0, 2, {
+  padding: 3,
+  offsetX: 1,
+});
+drawProductionCell(4, 7, characterBoard, 1, 2, { padding: 4 });
+drawProductionCell(8, 16, characterBoard, 1, 2, {
+  padding: 4,
+  offsetY: -1,
+});
+drawProductionCell(9, 16, characterBoard, 1, 2, {
+  padding: 4,
+  offsetY: 1,
+});
+drawProductionCell(2, 7, characterBoard, 2, 2, { padding: 2 });
+drawProductionCell(4, 16, characterBoard, 2, 2, {
+  padding: 2,
+  offsetX: -1,
+});
+drawProductionCell(5, 16, characterBoard, 2, 2, {
+  padding: 2,
+  offsetX: 1,
+});
+drawProductionCell(10, 12, characterBoard, 3, 2, {
+  cellsW: 2,
+  cellsH: 2,
+  padding: 2,
+});
+drawProductionCell(2, 14, characterBoard, 3, 2, {
+  cellsW: 2,
+  cellsH: 2,
+  padding: 2,
   offsetX: 2,
 });
-drawReferenceSprite(0, 5, "butcher-knife.png");
-drawReferenceSprite(9, 5, "bone.png");
-drawReferenceSprite(2, 5, "gyrojot-smg.png");
-drawReferenceSprite(2, 7, "icky-lump.png");
-drawReferenceSprite(4, 16, "icky-lump.png");
-drawReferenceSprite(5, 16, "icky-lump.png", { offsetY: 1 });
-drawReferenceSprite(1, 5, "laser-gun.png");
-drawReferenceSprite(6, 5, "macrometal-armor.png");
-drawReferenceSprite(5, 7, "moppet.png");
-drawReferenceSprite(10, 16, "moppet.png");
-drawReferenceSprite(11, 16, "moppet.png", { offsetY: -1 });
-drawReferenceSprite(7, 5, "panic-button.png");
-drawReferenceSprite(8, 3, "powercell.png");
-drawReferenceSprite(3, 7, "snagglepuss.png");
-drawReferenceSprite(6, 16, "snagglepuss.png");
-drawReferenceSprite(7, 16, "snagglepuss.png", { offsetY: -1 });
-drawReferenceSprite(0, 7, "spider.png");
-drawReferenceSprite(0, 16, "spider.png");
-drawReferenceSprite(1, 16, "spider.png", { offsetY: -1 });
-drawReferenceSprite(8, 12, "tentacular-horror.png", {
+
+drawProductionCell(0, 3, characterBoard, 4, 2, { padding: 6 });
+drawProductionCell(2, 3, characterBoard, 0, 3, { padding: 5 });
+drawProductionCell(3, 3, characterBoard, 2, 3, { padding: 6 });
+drawProductionCell(7, 3, characterBoard, 1, 3, { padding: 5 });
+drawProductionCell(8, 3, characterBoard, 1, 3, { padding: 5 });
+drawProductionCell(12, 5, characterBoard, 3, 3, { padding: 6 });
+drawProductionCell(3, 6, characterBoard, 5, 2, { padding: 4 });
+
+drawProductionCell(0, 2, supplementalBoard, 0, 0, { padding: 1 });
+drawProductionCell(6, 2, supplementalBoard, 1, 0, {
+  padding: 1,
+  offsetX: -1,
+});
+drawProductionCell(7, 2, supplementalBoard, 1, 0, {
+  padding: 1,
+  offsetX: 1,
+});
+drawProductionCell(3, 7, supplementalBoard, 2, 0, { padding: 1 });
+drawProductionCell(6, 16, supplementalBoard, 3, 0, {
+  padding: 1,
+  offsetX: -1,
+});
+drawProductionCell(7, 16, supplementalBoard, 3, 0, {
+  padding: 1,
+  offsetX: 1,
+});
+drawProductionCell(6, 7, supplementalBoard, 4, 0, { padding: 1 });
+drawProductionCell(12, 16, supplementalBoard, 5, 0, {
+  padding: 1,
+  offsetX: -1,
+});
+drawProductionCell(13, 16, supplementalBoard, 5, 0, {
+  padding: 1,
+  offsetX: 1,
+});
+drawProductionCell(7, 7, supplementalBoard, 0, 1, { padding: 1 });
+drawProductionCell(14, 16, supplementalBoard, 1, 1, {
+  padding: 1,
+  offsetX: -1,
+});
+drawProductionCell(15, 16, supplementalBoard, 1, 1, {
+  padding: 1,
+  offsetX: 1,
+});
+drawProductionCell(8, 12, supplementalBoard, 2, 1, {
   cellsW: 2,
   cellsH: 2,
-  scale: 1.55,
+  padding: 2,
 });
-drawReferenceSprite(0, 14, "tentacular-horror.png", {
+drawProductionCell(0, 14, supplementalBoard, 3, 1, {
   cellsW: 2,
   cellsH: 2,
-  scale: 1.55,
-  offsetX: -2,
+  padding: 2,
+  offsetX: 2,
 });
-drawReferenceSprite(9, 7, "terrorist-collaborator.png");
-drawReferenceSprite(4, 14, "terrorist-collaborator.png");
-drawReferenceSprite(10, 2, "utility-bot.png");
-drawReferenceSprite(11, 2, "utility-bot.png", { offsetY: -1 });
-drawReferenceSprite(12, 2, "utility-bot.png", { offsetY: 1 });
-drawReferenceSprite(1, 6, "vending-machine.png");
-drawReferenceSprite(7, 7, "zyth.png");
-drawReferenceSprite(14, 16, "zyth.png");
-drawReferenceSprite(15, 16, "zyth.png", { offsetY: -1 });
+drawProductionCell(9, 7, supplementalBoard, 4, 1, { padding: 1 });
+drawProductionCell(4, 14, supplementalBoard, 5, 1, {
+  padding: 1,
+  offsetX: 1,
+});
+
+for (const [atlasCol, sourceCol] of [
+  [0, 0],
+  [1, 1],
+  [2, 2],
+  [3, 3],
+  [4, 4],
+  [5, 5],
+]) {
+  drawProductionCell(atlasCol, 5, supplementalBoard, sourceCol, 2, {
+    padding: 5,
+  });
+}
+drawProductionCell(6, 5, supplementalBoard, 0, 3, { padding: 4 });
+drawProductionCell(7, 5, supplementalBoard, 1, 3, { padding: 5 });
+drawProductionCell(9, 5, supplementalBoard, 2, 3, { padding: 6 });
+drawProductionCell(10, 5, supplementalBoard, 3, 3, { padding: 5 });
+drawProductionCell(13, 5, supplementalBoard, 4, 3, { padding: 5 });
+drawProductionCell(1, 6, supplementalBoard, 5, 3, { padding: 1 });
 
 for (let i = 0; i < data.length; i += 4) {
   if (data[i + 3] === 0) continue;

@@ -18,6 +18,8 @@ Read these in order before making art:
 Source types:
 
 - `.aseprite` — reviewed pixel art, palettes, layers, tags, slices, and pivots.
+- `production/*.png` — reviewed transparent source boards with recorded prompts
+  and deterministic grid reconstruction.
 - `.tsj` — Tiled tileset and Wang/terrain metadata.
 - `.tmj` — Tiled semantic maps and prefab stamps.
 - `palettes/` — importable working palettes.
@@ -29,12 +31,12 @@ files use stable semantic keys documented in
 runtime manifests and validates image bounds, semantic families, masks, Wang
 metadata, semantic prefab layers, transforms, requirements, and markers.
 
-`legacy/dark-war.aseprite` is retained only as a recovery/reference source. It
-is disabled in `assets.json` and is not the approved visual target. Add new
-Aseprite family sources to `assets.json` with committed PNG/JSON destinations;
-the compiler exports active sources when `aseprite` is on `PATH` or `ASEPRITE`
-points to the executable. Replace the legacy source in playable family-sized
-increments.
+`legacy/dark-war.aseprite` is retained only as a recovery source. The old base
+and reference PNG sheets were removed after their final named sprites received
+production replacements. The atlas starts transparent, so unnamed and unused
+cells cannot ship accidentally. Add new Aseprite family sources to
+`assets.json` with committed PNG/JSON destinations; the compiler exports active
+sources when `aseprite` is on `PATH` or `ASEPRITE` points to the executable.
 
 The standard authoring loop is:
 

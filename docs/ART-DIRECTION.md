@@ -199,9 +199,12 @@ hand-built, adaptable, colorful, and worth improving.
 7. Validate masks, pivots, seams, and resolver metadata.
 8. Commit the `.aseprite` source and regenerate runtime outputs.
 
-Aseprite is the production source of truth. Photoshop is suitable for
-paintovers, concepts, and large illustrations. Tiled authors terrain metadata
-and semantic prefabs; it does not become the runtime world model.
+Aseprite is the preferred hand-authoring source of truth. Reviewed production
+pixel boards with recorded prompts and deterministic grid reconstruction are
+also permitted when they pass the same native-scale, seam, palette, identity,
+and footprint review. Photoshop is suitable for paintovers, concepts, and large
+illustrations. Tiled authors terrain metadata and semantic prefabs; it does not
+become the runtime world model.
 
 ## AI-assisted art
 
@@ -213,8 +216,10 @@ pixel decisions.
   prohibited traits—not only a list of game names.
 - Treat raster output as a concept or paintover source unless it passes the same
   grid, palette, seam, animation, and readability checks as hand-authored art.
-- Reconstruct retained work in Aseprite with controlled clusters and a known
-  palette. Do not downsample a painterly image and call it finished pixel art.
+- Reconstruct retained work in Aseprite, or generate it explicitly as a
+  consistent pixel-art family and rebuild it through the reviewed deterministic
+  sampler. Do not downsample arbitrary painterly concept art and call it
+  finished pixel art.
 - Preserve the prompt and source references beside every retained generated
   concept.
 - Never generate production art at runtime.

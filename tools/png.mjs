@@ -69,16 +69,16 @@ export function decodePNG(buffer) {
     off += 12 + len;
   }
 
-  if (bitDepth !== 8 || colorType !== 6) {
+  if (bitDepth !== 8 || (colorType !== 6 && colorType !== 2)) {
     throw new Error(
       `unsupported PNG (bitDepth ${bitDepth}, colorType ${colorType})`,
     );
   }
 
   const raw = zlib.inflateSync(Buffer.concat(idat));
-  const bpp = 4; // RGBA
+  const bpp = colorType === 6 ? 4 : 3;
   const stride = width * bpp;
-  const out = new Uint8Array(width * height * bpp);
+  const filtered = new Uint8Array(width * height * bpp);
 
   // Reverse the per-scanline filters.
   let pos = 0;
@@ -87,9 +87,9 @@ export function decodePNG(buffer) {
     const rowStart = y * stride;
     for (let x = 0; x < stride; x++) {
       const value = raw[pos++];
-      const a = x >= bpp ? out[rowStart + x - bpp] : 0;
-      const b = y > 0 ? out[rowStart - stride + x] : 0;
-      const c = x >= bpp && y > 0 ? out[rowStart - stride + x - bpp] : 0;
+      const a = x >= bpp ? filtered[rowStart + x - bpp] : 0;
+      const b = y > 0 ? filtered[rowStart - stride + x] : 0;
+      const c = x >= bpp && y > 0 ? filtered[rowStart - stride + x - bpp] : 0;
       let recon;
       switch (filter) {
         case 0:
@@ -110,11 +110,20 @@ export function decodePNG(buffer) {
         default:
           throw new Error(`bad PNG filter ${filter}`);
       }
-      out[rowStart + x] = recon & 0xff;
+      filtered[rowStart + x] = recon & 0xff;
     }
   }
 
-  return { width, height, data: out };
+  if (colorType === 6) return { width, height, data: filtered };
+
+  const rgba = new Uint8Array(width * height * 4);
+  for (let source = 0, target = 0; source < filtered.length; source += 3) {
+    rgba[target++] = filtered[source];
+    rgba[target++] = filtered[source + 1];
+    rgba[target++] = filtered[source + 2];
+    rgba[target++] = 255;
+  }
+  return { width, height, data: rgba };
 }
 
 /**
