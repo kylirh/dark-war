@@ -19,7 +19,7 @@ import {
   WallSet,
   LevelKind,
 } from "../types";
-import { createOutsideLevel } from "./outside-level";
+import { createOutsideLevel, OUTSIDE_CAVE_MOUTH } from "./outside-level";
 import { EntityManager } from "./entity-manager";
 import { TileSource } from "./tile-source";
 import { generateDungeon } from "./dungeon-generator";
@@ -43,6 +43,7 @@ import {
   worldAddressForDepth,
   worldAddressKey,
 } from "./world-space";
+import { CAVE_ENTRY_ADDRESS, createParkGrotto } from "./world-space-content";
 import {
   createWorldPlaneFromTiles,
   deserializeWorldPlane,
@@ -220,7 +221,7 @@ export class Game {
       mapDirty: false,
       tiles: outside?.worldPlane ?? dungeonLevel!.worldPlane,
       worldPlane: outside?.worldPlane ?? dungeonLevel!.worldPlane,
-      portals: createProgressionPortals(
+      portals: this.createPortalsForGeneratedLevel(
         address,
         depth,
         dungeon.stairsDown,
@@ -888,6 +889,83 @@ export class Game {
     };
   }
 
+  /** Build any known plane from its stable semantic address. */
+  private buildWorld(address: {
+    spaceId: string;
+    planeId: string;
+  }): LevelSnapshot {
+    const progressionDepth = depthForWorldAddress(address);
+    if (progressionDepth !== null) return this.buildNewLevel(progressionDepth);
+    if (
+      address.spaceId === CAVE_ENTRY_ADDRESS.spaceId &&
+      address.planeId === CAVE_ENTRY_ADDRESS.planeId
+    ) {
+      const cave = createParkGrotto();
+      return {
+        depth: cave.depth,
+        worldSpaceId: cave.address.spaceId,
+        worldPlaneId: cave.address.planeId,
+        levelKind: "dungeon",
+        mapWidth: cave.width,
+        mapHeight: cave.height,
+        floorVariant: cave.floorVariant,
+        wallSet: cave.wallSet,
+        explored: new Set(),
+        exploredByPlayer: new Map(
+          this.state.players.map((player) => [player.id, new Set<number>()]),
+        ),
+        entities: [],
+        stairsDown: cave.stairsDown,
+        stairsUp: cave.stairsUp,
+        enhancedVision: false,
+        worldPlane: cave.worldPlane,
+        portals: cave.portals,
+      };
+    }
+    throw new Error(`Unknown world plane: ${worldAddressKey(address)}`);
+  }
+
+  /** Reset directly into one independently addressable plane. */
+  public resetToWorld(address: { spaceId: string; planeId: string }): void {
+    const progressionDepth = depthForWorldAddress(address);
+    if (progressionDepth !== null) {
+      this.reset(progressionDepth);
+      return;
+    }
+    this.reset(0);
+    this.levels.clear();
+    const snapshot = this.buildWorld(address);
+    this.applyLevelSnapshot(snapshot, snapshot.stairsUp ?? snapshot.stairsDown);
+    this.updateFOV();
+  }
+
+  private createPortalsForGeneratedLevel(
+    address: { spaceId: string; planeId: string },
+    depth: number,
+    stairsDown: readonly [number, number],
+    stairsUp: readonly [number, number] | null,
+  ): WorldPortal[] {
+    const portals = createProgressionPortals(
+      address,
+      depth,
+      stairsDown,
+      stairsUp,
+    );
+    if (depth === 0) {
+      portals.push({
+        id: "outside/surface:park-grotto",
+        kind: "cave-mouth",
+        source: {
+          ...address,
+          x: OUTSIDE_CAVE_MOUTH[0],
+          y: OUTSIDE_CAVE_MOUTH[1],
+        },
+        destination: { ...CAVE_ENTRY_ADDRESS, entry: "start" },
+      });
+    }
+    return portals;
+  }
+
   private spawnLevelEntities(
     source: TileSource,
     start: [number, number],
@@ -1081,7 +1159,7 @@ export class Game {
     this.saveCurrentLevelSnapshot();
 
     const existingLevel = this.levels.get(worldAddressKey(destination));
-    const snapshot = existingLevel ?? this.buildNewLevel(nextDepth);
+    const snapshot = existingLevel ?? this.buildWorld(destination);
     // Deposit anything that fell through a hole onto this depth.
     this.injectPendingDrops(snapshot, nextDepth);
 

@@ -166,13 +166,18 @@ state and presentation.
 
 ## Milestone 6 — WorldSpaces, WorldPlanes, and portals
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 
-Stable `WorldAddress` identities are implemented first: the surface is
+Stable `WorldAddress` identities now drive the system: the surface is
 `outside/surface`, facility levels are `megacorp/floor-N`, runtime snapshots and
 saves carry both IDs, offline caches and the multiplayer server key worlds by
 address, and clients require a keyframe when identity changes even if dimensions
-and progression depth happen to match.
+and progression depth happen to match. Typed portal records own their source,
+destination, entry policy, and transition kind. The park grotto is the first
+independent cave plane and round-trips through a visible cave-mouth portal;
+MegaCorp floors remain the first building planes. Offline and authoritative
+multiplayer transitions resolve the same portal contracts. Empty server planes
+remain frozen and every client renders only its active plane.
 
 - Generalize per-depth worlds into stable world-space and plane identities.
 - Generalize stairs and hole falls into portal transitions.

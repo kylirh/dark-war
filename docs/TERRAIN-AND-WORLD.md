@@ -59,6 +59,12 @@ World
 - This generalizes today's per-depth `LevelWorld` behavior without pushing a
   `z` coordinate through every physics, FOV, pathfinding, and rendering call.
 
+This model is implemented in `world-space.ts`: snapshots, saves, deltas, and the
+server use stable `WorldAddress` keys and typed `WorldPortal` records. The
+surface, MegaCorp floors, and `caves/park-grotto` are independently generated
+planes. The grotto cave mouth is the first non-depth portal and proves reversible
+offline and multiplayer travel without adding a global z-axis.
+
 ### Cells are compositional and stored as structures of arrays
 
 A single `TileType` cannot represent grass under a tree, water under a bridge,

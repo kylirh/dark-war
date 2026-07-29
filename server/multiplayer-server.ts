@@ -22,7 +22,10 @@ import {
   swapInventorySlots,
 } from "../src/engine/utils/inventory";
 import {
+  depthForWorldAddress,
+  portalAt,
   WorldAddress,
+  WorldPortalDestination,
   worldAddressForDepth,
   worldAddressKey,
 } from "../src/engine/core/world-space";
@@ -195,11 +198,8 @@ class RoomSession {
     const existing = this.worlds.get(key);
     if (existing) return existing;
 
-    // Walk a fresh game down to `depth` so the level is generated with proper
-    // up/down stairs, then strip the placeholder player it created.
     const game = new Game({ mode: "online" });
-    game.reset(0);
-    for (let d = 1; d <= depth; d++) game.descend();
+    game.resetToWorld(address);
     const placeholderId = game.getState().player?.id;
     if (placeholderId) game.detachPlayer(placeholderId);
 
@@ -227,7 +227,7 @@ class RoomSession {
   /** Move a player to another depth, carrying their stats and forcing a keyframe. */
   private migratePlayer(
     playerId: string,
-    toDepth: number,
+    destination: WorldPortalDestination,
     mode: "descend" | "ascend" | "hole",
   ): void {
     const from = this.worldOfPlayer(playerId);
@@ -237,18 +237,25 @@ class RoomSession {
     from.players.delete(playerId);
     from.physics.rebuildAll(from.game.getState());
 
-    const to = this.getOrCreateDepthWorld(toDepth);
+    const toDepth = depthForWorldAddress(destination) ?? from.depth;
+    const to = this.getOrCreateWorld(destination, toDepth);
     const toState = to.game.getState();
     let position: [number, number];
-    if (mode === "descend") {
+    if (
+      typeof destination.x === "number" &&
+      typeof destination.y === "number"
+    ) {
+      position = [destination.x, destination.y];
+    } else if (destination.entry === "same" || mode === "hole") {
+      position = [player.gridX, player.gridY];
+    } else if (destination.entry === "stairs-up" || mode === "descend") {
       position = toState.stairsUp ?? toState.playerStart;
-    } else if (mode === "ascend") {
+    } else if (destination.entry === "stairs-down" || mode === "ascend") {
       position = toState.stairsDown ?? toState.playerStart;
     } else {
-      // Fall through a hole — land at the same spot and take fall damage.
-      position = [player.gridX, player.gridY];
-      player.hp = Math.max(0, player.hp - HOLE_FALL_DAMAGE);
+      position = toState.playerStart;
     }
+    if (mode === "hole") player.hp = Math.max(0, player.hp - HOLE_FALL_DAMAGE);
 
     to.game.attachExistingPlayer(player, position);
     to.players.add(playerId);
@@ -651,22 +658,49 @@ class RoomSession {
   private tryDescend(playerId: string): void {
     const world = this.worldOfPlayer(playerId);
     if (!world) return;
-    if (this.tileUnderPlayer(world, playerId) !== TileType.STAIRS_DOWN) return;
-    this.migratePlayer(playerId, world.depth + 1, "descend");
+    const state = world.game.getState();
+    const player = world.game.getPlayerById(playerId);
+    if (!player) return;
+    const portal = portalAt(
+      state.portals,
+      world.address,
+      player.gridX,
+      player.gridY,
+    );
+    if (
+      !portal ||
+      this.tileUnderPlayer(world, playerId) !== TileType.STAIRS_DOWN
+    )
+      return;
+    this.migratePlayer(playerId, portal.destination, "descend");
   }
 
   private tryAscend(playerId: string): void {
     const world = this.worldOfPlayer(playerId);
-    if (!world || world.depth <= 0) return;
-    if (this.tileUnderPlayer(world, playerId) !== TileType.STAIRS_UP) return;
-    this.migratePlayer(playerId, world.depth - 1, "ascend");
+    if (!world) return;
+    const state = world.game.getState();
+    const player = world.game.getPlayerById(playerId);
+    if (!player) return;
+    const portal = portalAt(
+      state.portals,
+      world.address,
+      player.gridX,
+      player.gridY,
+    );
+    if (!portal || this.tileUnderPlayer(world, playerId) !== TileType.STAIRS_UP)
+      return;
+    this.migratePlayer(playerId, portal.destination, "ascend");
   }
 
   /** After a world steps, drop any player standing on a hole to the next depth. */
   private handleHoleFalls(world: LevelWorld): void {
     for (const playerId of [...world.players]) {
       if (this.tileUnderPlayer(world, playerId) === TileType.HOLE) {
-        this.migratePlayer(playerId, world.depth + 1, "hole");
+        this.migratePlayer(
+          playerId,
+          { ...worldAddressForDepth(world.depth + 1), entry: "same" },
+          "hole",
+        );
       }
     }
   }

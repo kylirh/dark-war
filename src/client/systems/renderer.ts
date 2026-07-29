@@ -561,6 +561,7 @@ export class Renderer {
     const floorCoord =
       FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
     const damage = getStateDamageAtIndex(state, tileIndex);
+    const fixture = state.worldPlane.layers.fixture[tileIndex] as FixtureType;
     let baseCoord: { x: number; y: number } | null = null;
     let overlayCoord: { x: number; y: number } | null = null;
     let tileCoord: { x: number; y: number } | null = null;
@@ -604,9 +605,11 @@ export class Renderer {
         TileType.FLOOR,
       );
       tileCoord =
-        state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
-          ? SPRITE_COORDS.megacorp_entrance
-          : SPRITE_COORDS[tileType];
+        fixture === FixtureType.CAVE_MOUTH
+          ? SPRITE_COORDS.prototype_cave_mouth
+          : state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
+            ? SPRITE_COORDS.megacorp_entrance
+            : SPRITE_COORDS[tileType];
     } else if (tileType === TileType.WALL) {
       const isWood = state.wallSet === "wood";
       const wallSpriteKey =
@@ -689,9 +692,11 @@ export class Renderer {
           ? state.wallSet === "wood"
             ? "wall_wood"
             : TileType.WALL
-          : state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
-            ? "megacorp_entrance"
-            : tileType;
+          : fixture === FixtureType.CAVE_MOUTH
+            ? "prototype_cave_mouth"
+            : state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
+              ? "megacorp_entrance"
+              : tileType;
       this.drawPreviewSprite(
         context,
         tileCoord,
@@ -1517,7 +1522,9 @@ export class Renderer {
           tileType === TileType.STAIRS_UP
         ) {
           renderGround(TileType.FLOOR, floorCoord);
-          if (
+          if (productionFixture === FixtureType.CAVE_MOUTH) {
+            renderDepthTile("prototype_cave_mouth");
+          } else if (
             state.levelKind === "outside" &&
             tileType === TileType.STAIRS_DOWN
           ) {

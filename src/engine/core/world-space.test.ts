@@ -2,6 +2,8 @@
 
 import { describe, expect, it } from "vitest";
 import { Game } from "./game";
+import { setPositionFromGrid } from "../utils/helpers";
+import { OUTSIDE_CAVE_MOUTH } from "./outside-level";
 import {
   createProgressionPortals,
   depthForWorldAddress,
@@ -70,5 +72,31 @@ describe("world addresses", () => {
       entry: "stairs-down",
     });
     expect(portalAt(portals, address, 4, 4)).toBeNull();
+  });
+
+  it("moves between the surface and an independently addressed cave", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(0);
+    const outside = game.getState();
+    setPositionFromGrid(
+      outside.player,
+      OUTSIDE_CAVE_MOUTH[0],
+      OUTSIDE_CAVE_MOUTH[1],
+    );
+    outside.pendingPortalId = "outside/surface:park-grotto";
+
+    game.descend();
+    const cave = game.getState();
+    expect([cave.worldSpaceId, cave.worldPlaneId]).toEqual([
+      "caves",
+      "park-grotto",
+    ]);
+
+    cave.pendingPortalId = "caves/park-grotto:exit";
+    game.ascend();
+    expect([
+      game.getState().worldSpaceId,
+      game.getState().worldPlaneId,
+    ]).toEqual(["outside", "surface"]);
   });
 });

@@ -23,6 +23,7 @@ export interface OutsideLevelData extends Omit<DungeonData, "map"> {
 
 const WIDTH = OUTSIDE_MAP_WIDTH;
 const HEIGHT = OUTSIDE_MAP_HEIGHT;
+export const OUTSIDE_CAVE_MOUTH: readonly [number, number] = [35, 39];
 
 /**
  * Build the hand-authored level 0 city outside the Megacorp facility.
@@ -132,6 +133,12 @@ export function createOutsideLevel(): OutsideLevelData {
     wraps: true,
   });
   addNaturalTerrain(worldPlane);
+  worldPlane.editCell(OUTSIDE_CAVE_MOUTH[0], OUTSIDE_CAVE_MOUTH[1], {
+    ground: GroundType.GRASS,
+    structure: StructureType.NONE,
+    fixture: FixtureType.CAVE_MOUTH,
+    elevation: 0,
+  });
   return {
     width: WIDTH,
     height: HEIGHT,

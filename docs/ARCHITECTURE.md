@@ -69,9 +69,10 @@ feeds simulation; it can always be rebuilt from semantic layers.
 authoring keys, complete current-tile classification, and the conversion boundary
 used as procedural generators move onto `WorldPlane`.
 
-The server owns one `LevelWorld` per numeric depth. Players migrate independently
-between depths on stairs or through holes. This is working current behavior, not
-the final world vocabulary.
+The server owns one `LevelWorld` per stable `WorldAddress`. Players migrate
+independently through typed doors, stairs, ladders, cave mouths, and holes.
+Unoccupied planes do not simulate. The surface, numbered MegaCorp floors, and
+the park grotto cave are the current concrete world spaces.
 
 ## Approved world direction
 
@@ -98,7 +99,8 @@ transitions. Static water is terrain, not a fluid simulation.
 
 This is a deliberate breaking rewrite. There is no requirement to load old saves
 or communicate with old clients. The layered serialization and delta conversion
-bumped `PROTOCOL_VERSION`; version 7 adds authoritative terrain-shaping actions.
+bumped `PROTOCOL_VERSION`; version 8 carries stable world identities, portals,
+and authoritative terrain-shaping actions.
 The superseded scalar runtime fields have been deleted.
 
 ## Authoring boundary
@@ -119,9 +121,8 @@ State broadcasts use keyframes and deltas. The protocol deliberately rejects
 mismatched versions. During the world rewrite, compatibility with previous
 protocol versions is not required.
 
-The next world milestone keys simulated worlds by world-space and plane identity
-rather than only numeric depth. Empty planes remain frozen. Players may occupy
-different planes and migrate independently.
+Simulated worlds are keyed by world-space and plane identity. Empty planes
+remain frozen; players may occupy different planes and migrate independently.
 
 ## Build variants
 
