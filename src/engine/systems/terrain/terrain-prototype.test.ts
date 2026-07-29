@@ -9,7 +9,6 @@ import {
   PrototypeGround,
   PrototypeStructure,
   setTerrainPrototypeTransitionMode,
-  TERRAIN_LOWER_FIXTURE,
   TERRAIN_PROTOTYPE_HEIGHT,
   TERRAIN_PROTOTYPE_WIDTH,
   TerrainPrototypeTransitionMode,
@@ -98,7 +97,7 @@ describe("terrain prototype edits", () => {
 
   it("updates one semantic cell and only its 3x3 visual dependency area", () => {
     const plane = createTerrainPrototypePlane();
-    const [x, y] = TERRAIN_LOWER_FIXTURE;
+    const [x, y] = [22, 14] as const;
     const editedIndex = x + y * plane.width;
     const untouchedIndex = 1 + plane.width;
     const untouchedVisual = {
@@ -128,7 +127,7 @@ describe("terrain prototype edits", () => {
 
   it("supports repeated signed edits without expanding resolver work", () => {
     const plane = createTerrainPrototypePlane();
-    const [x, y] = TERRAIN_LOWER_FIXTURE;
+    const [x, y] = [22, 14] as const;
 
     const first = applyTerrainPrototypeElevationEdit(plane, x, y, -1);
     const second = applyTerrainPrototypeElevationEdit(plane, x, y, -5);

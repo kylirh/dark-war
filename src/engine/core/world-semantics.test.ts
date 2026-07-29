@@ -53,6 +53,32 @@ describe("world semantic vocabulary", () => {
     expect(cell.ground).toBe(GroundType.WATER_DEEP);
   });
 
+  it("blocks movement through static water without blocking sight", () => {
+    for (const ground of [
+      GroundType.WATER_SHALLOW,
+      GroundType.WATER_DEEP,
+      GroundType.WATER_RIVER,
+    ]) {
+      const semantics = resolveSemanticCell({
+        ground,
+        structure: StructureType.NONE,
+        fixture: FixtureType.NONE,
+      });
+      expect(semantics.passable).toBe(false);
+      expect(semantics.opaque).toBe(false);
+    }
+  });
+
+  it("keeps workshop collision footprints invisible to sight", () => {
+    const semantics = resolveSemanticCell({
+      ground: GroundType.GRASS,
+      structure: StructureType.WORKSHOP_FOOTPRINT,
+      fixture: FixtureType.NONE,
+    });
+    expect(semantics.passable).toBe(false);
+    expect(semantics.opaque).toBe(false);
+  });
+
   it("allows level terrain, blocks cliffs, and crosses one-step stairs", () => {
     const plane = createWorldPlaneFromTiles(
       [TileType.FLOOR, TileType.FLOOR, TileType.FLOOR],

@@ -27,8 +27,6 @@ import {
 
 export const TERRAIN_PROTOTYPE_WIDTH = 40;
 export const TERRAIN_PROTOTYPE_HEIGHT = 30;
-export const TERRAIN_LOWER_FIXTURE = [22, 14] as const;
-export const TERRAIN_RAISE_FIXTURE = [23, 14] as const;
 
 export enum PrototypeGround {
   GRASS,
@@ -458,7 +456,9 @@ export function createTerrainPrototypePlane(): TerrainPrototypePlane {
     resolvePrototypeCell,
     undefined,
     (worldLayers, fromIndex, toIndex, deltaX, deltaY) => {
-      if (!resolvePrototypeCell(worldLayers, toIndex, 0, 0).passable) {
+      const toX = toIndex % TERRAIN_PROTOTYPE_WIDTH;
+      const toY = Math.floor(toIndex / TERRAIN_PROTOTYPE_WIDTH);
+      if (!resolvePrototypeCell(worldLayers, toIndex, toX, toY).passable) {
         return false;
       }
       const difference =

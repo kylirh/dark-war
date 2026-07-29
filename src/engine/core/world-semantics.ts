@@ -344,10 +344,17 @@ export function resolveSemanticCell(cell: SemanticCellIds): WorldCellSemantics {
     tile = TileType.FLOOR;
   }
   const definition = TILE_DEFINITIONS[tile];
+  const isStaticWater =
+    cell.ground === GroundType.WATER_SHALLOW ||
+    cell.ground === GroundType.WATER_DEEP ||
+    cell.ground === GroundType.WATER_RIVER;
+  const isInvisibleWorkshopFootprint =
+    cell.structure === StructureType.WORKSHOP_FOOTPRINT;
   return {
     tile,
     passable: !definition.block,
-    opaque: definition.opaque,
+    opaque:
+      !isStaticWater && !isInvisibleWorkshopFootprint && definition.opaque,
     destructible:
       cell.structure === StructureType.WALL ||
       cell.structure === StructureType.TREE ||

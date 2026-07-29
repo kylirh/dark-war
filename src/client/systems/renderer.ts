@@ -54,8 +54,6 @@ import {
   PrototypeGround,
   PrototypeGroundVisual,
   PrototypeStructure,
-  TERRAIN_LOWER_FIXTURE,
-  TERRAIN_RAISE_FIXTURE,
   TerrainPrototypeTransitionMode,
 } from "../../engine/systems/terrain/terrain-prototype";
 import {
@@ -1169,8 +1167,8 @@ export class Renderer {
     }
 
     // Clear previous frame
-    this.mapContainer.removeChildren();
-    this.entityContainer.removeChildren();
+    this.destroyFrameChildren(this.mapContainer);
+    this.destroyFrameChildren(this.entityContainer);
 
     // Window top-left in world pixels. Bounded levels clamp so the camera never
     // shows past the map edge; the wrapping world is free (the seam is hidden by
@@ -1423,16 +1421,12 @@ export class Renderer {
           } else if (prototypeStructure === PrototypeStructure.CAVE_MOUTH) {
             renderDecoration("prototype_cave_mouth");
           }
-          const isLowerFixture =
-            mx === TERRAIN_LOWER_FIXTURE[0] && my === TERRAIN_LOWER_FIXTURE[1];
-          const isRaiseFixture =
-            mx === TERRAIN_RAISE_FIXTURE[0] && my === TERRAIN_RAISE_FIXTURE[1];
           const isDirty =
             prototype.editFeedback.dirtyCellIndices.has(prototypeIndex);
-          if (isLowerFixture || isRaiseFixture || isDirty) {
+          if (isDirty) {
             const isEdited =
               prototype.editFeedback.editedCellIndex === prototypeIndex;
-            const fixtureColor = isLowerFixture ? 0xffb35c : 0x5de2c2;
+            const fixtureColor = 0x5de2c2;
             const highlight = new Graphics();
             highlight
               .rect(screenX, screenY, CELL_CONFIG.w, CELL_CONFIG.h)
@@ -1442,7 +1436,7 @@ export class Renderer {
               })
               .stroke({
                 color: isEdited ? 0xfff1a8 : fixtureColor,
-                width: isEdited || isLowerFixture || isRaiseFixture ? 2 : 1,
+                width: isEdited ? 2 : 1,
                 alpha: isEdited ? 0.95 : isDirty ? 0.5 : 0.8,
               });
             highlight.zIndex = tileSortY + 0.5;
@@ -2173,6 +2167,14 @@ export class Renderer {
       // Hard snap (level change / respawn) so the camera doesn't sweep.
       this.cameraWorldX = playerWorldX;
       this.cameraWorldY = playerWorldY;
+    }
+  }
+
+  /** Release transient display objects allocated for the previous frame. */
+  private destroyFrameChildren(container: Container): void {
+    const children = container.removeChildren();
+    for (const child of children) {
+      child.destroy({ children: true });
     }
   }
 

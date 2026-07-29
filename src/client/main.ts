@@ -58,10 +58,6 @@ import {
 } from "../engine/content/block-defs";
 import { itemName } from "../engine/content/item-defs";
 import { idxFor, inBoundsFor } from "../engine/utils/helpers";
-import {
-  TERRAIN_LOWER_FIXTURE,
-  TERRAIN_RAISE_FIXTURE,
-} from "../engine/systems/terrain/terrain-prototype";
 
 function weaponToItemType(weapon: WeaponType): ItemType | null {
   switch (weapon) {
@@ -2181,15 +2177,16 @@ class DarkWar {
     this.game.toggleFOV();
   }
 
-  /** Raise/lower prototype fixtures or the active manipulator cursor cell. */
+  /** Raise/lower the terrain below the active cursor. */
   private handlePrototypeElevationEdit(direction: "lower" | "raise"): boolean {
     const state = this.game.getState();
     if (state.terrainPrototype) {
-      const fixture =
-        direction === "lower" ? TERRAIN_LOWER_FIXTURE : TERRAIN_RAISE_FIXTURE;
+      const world = this.mouseTracker.getWorldPosition();
+      const tile = this.cursorTileFromWorld(world.x, world.y);
+      if (!tile) return false;
       this.game.editTerrainPrototypeElevation(
-        fixture[0],
-        fixture[1],
+        tile.tileX,
+        tile.tileY,
         direction === "lower" ? -1 : 1,
       );
       return true;
