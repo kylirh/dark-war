@@ -25,6 +25,8 @@ export interface TileSource {
   inBounds(x: number, y: number): boolean;
   /** Whether (x, y) is in bounds and not a blocking tile. */
   passable(x: number, y: number): boolean;
+  /** Whether (x, y) blocks sight. */
+  opaque(x: number, y: number): boolean;
   /** Whether an actor can cross directly between neighboring cells. */
   canTraverse(fromX: number, fromY: number, toX: number, toY: number): boolean;
 }
@@ -79,6 +81,11 @@ export class FlatTileSource implements TileSource {
   passable(x: number, y: number): boolean {
     if (!this.inBounds(x, y)) return false;
     return tileIsPassable(this.getTile(x, y));
+  }
+
+  opaque(x: number, y: number): boolean {
+    if (!this.inBounds(x, y)) return true;
+    return TILE_DEFINITIONS[this.getTile(x, y)]?.opaque ?? true;
   }
 
   canTraverse(

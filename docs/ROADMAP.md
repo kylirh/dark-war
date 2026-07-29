@@ -147,7 +147,8 @@ knockback, client prediction, and authoritative server physics.
 
 The outside world contains deterministic signed terraces, a shallow/deep pond,
 a directional static river outlet, and a bridge that preserves water beneath
-it. Static water blocks movement without blocking sight. Cached shore, river,
+it. Dedicated water tile classifications block movement without blocking sight
+and leave room for later swimming without inheriting wall behavior. Cached shore, river,
 and bounded cliff classifications drive cheerful water, edge, face, stair, and
 shadow presentation. The Matter Manipulator raises and
 lowers eligible clear terrain at the cursor with `[` and `]`; offline and online

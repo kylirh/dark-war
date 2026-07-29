@@ -168,6 +168,12 @@ export function semanticCellForTile(tile: TileType): SemanticCellIds {
         structure: StructureType.NONE,
         fixture: FixtureType.LIGHT,
       };
+    case TileType.WATER_SHALLOW:
+      return { ...FLOOR_CELL, ground: GroundType.WATER_SHALLOW };
+    case TileType.WATER_DEEP:
+      return { ...FLOOR_CELL, ground: GroundType.WATER_DEEP };
+    case TileType.WATER_RIVER:
+      return { ...FLOOR_CELL, ground: GroundType.WATER_RIVER };
   }
 }
 
@@ -367,10 +373,13 @@ export function resolveSemanticCell(cell: SemanticCellIds): WorldCellSemantics {
 function tileForGround(ground: GroundType): TileType {
   switch (ground) {
     case GroundType.VOID:
-    case GroundType.WATER_SHALLOW:
-    case GroundType.WATER_DEEP:
-    case GroundType.WATER_RIVER:
       return TileType.WALL;
+    case GroundType.WATER_SHALLOW:
+      return TileType.WATER_SHALLOW;
+    case GroundType.WATER_DEEP:
+      return TileType.WATER_DEEP;
+    case GroundType.WATER_RIVER:
+      return TileType.WATER_RIVER;
     case GroundType.FLOOR:
     case GroundType.DIRT:
     case GroundType.STONE:

@@ -20,6 +20,9 @@ export const MINED_ITEM_FOR_TILE: Partial<Record<TileType, ItemType>> = {
   [TileType.TREE]: ItemType.TREE_ITEM,
   [TileType.RUBBLE]: ItemType.RUBBLE_CHUNK,
   [TileType.LIGHT]: ItemType.LIGHT_FIXTURE,
+  [TileType.WATER_SHALLOW]: ItemType.WATER,
+  [TileType.WATER_DEEP]: ItemType.WATER,
+  [TileType.WATER_RIVER]: ItemType.WATER,
 };
 
 export const PLACED_TILE_FOR_ITEM: Partial<Record<ItemType, TileType>> = {
@@ -30,6 +33,7 @@ export const PLACED_TILE_FOR_ITEM: Partial<Record<ItemType, TileType>> = {
   [ItemType.DOOR]: TileType.DOOR_CLOSED,
   [ItemType.TREE_ITEM]: TileType.TREE,
   [ItemType.LIGHT_FIXTURE]: TileType.LIGHT,
+  [ItemType.WATER]: TileType.WATER_SHALLOW,
 };
 
 /** The item a fixture tile drops when mined, or null if it can't be mined. */

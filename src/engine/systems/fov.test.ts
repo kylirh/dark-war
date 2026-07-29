@@ -3,6 +3,12 @@ import { TileType, Player } from "../types";
 import { FlatTileSource } from "../core/tile-source";
 import { computeFOVFrom, computeFOV } from "./fov";
 import { idxFor } from "../utils/helpers";
+import {
+  createWorldPlaneFromTiles,
+  GroundType,
+  StructureType,
+  FixtureType,
+} from "../core/world-semantics";
 
 const W = 11;
 const H = 11;
@@ -25,6 +31,23 @@ describe("computeFOVFrom", () => {
     const visible = computeFOVFrom(src, 5, 5, 6);
     // The tile two steps past the wall should be hidden.
     expect(visible.has(idxFor(9, 5, W))).toBe(false);
+  });
+
+  it("sees across blocking semantic water", () => {
+    const source = createWorldPlaneFromTiles(
+      new Array(W * H).fill(TileType.FLOOR),
+      W,
+      H,
+    );
+    source.editCell(7, 5, {
+      ground: GroundType.WATER_SHALLOW,
+      structure: StructureType.NONE,
+      fixture: FixtureType.NONE,
+    });
+    const visible = computeFOVFrom(source, 5, 5, 6);
+    expect(source.passable(7, 5)).toBe(false);
+    expect(source.opaque(7, 5)).toBe(false);
+    expect(visible.has(idxFor(9, 5, W))).toBe(true);
   });
 
   it("does not wrap sight across the seam when wraps is false", () => {

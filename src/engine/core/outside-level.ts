@@ -150,6 +150,9 @@ function addNaturalTerrain(plane: WorldPlane): void {
     }
   }
   for (const [x, y, elevation] of [
+    [53, hillCenterY, 1],
+    [57, hillCenterY, 2],
+    [59, hillCenterY, 3],
     [71, hillCenterY, 1],
     [67, hillCenterY, 2],
     [65, hillCenterY, 3],

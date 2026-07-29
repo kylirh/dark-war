@@ -214,6 +214,11 @@ export const ITEM_DEFS: Record<ItemType, ItemDef> = {
     category: "block",
     stackable: true,
   },
+  [ItemType.WATER]: {
+    name: "Water",
+    category: "block",
+    stackable: true,
+  },
   [ItemType.BLOOD_SPLATTER]: {
     name: "Blood Splatter",
     category: "organic-remains",

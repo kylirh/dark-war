@@ -210,6 +210,36 @@ describe("Matter Manipulator", () => {
     expect(tileAt(game, px, py)).toBe(TileType.LIGHT);
   });
 
+  it("mines water as water and can place it again", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    state.player.hasMatterManipulator = true;
+    const tileX = state.player.gridX + 1;
+    const tileY = state.player.gridY;
+    state.worldPlane.editCell(tileX, tileY, {
+      ground: GroundType.WATER_DEEP,
+      structure: StructureType.NONE,
+      fixture: FixtureType.NONE,
+    });
+
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.WATER_DEEP);
+    mine(game, tileX, tileY);
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.FLOOR);
+    expect(
+      state.entities.some(
+        (entity) =>
+          "type" in entity &&
+          (entity as { type: ItemType }).type === ItemType.WATER,
+      ),
+    ).toBe(true);
+
+    state.player.itemCounts[ItemType.WATER] = 1;
+    place(game, tileX, tileY, ItemType.WATER);
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.WATER_SHALLOW);
+    expect(state.player.itemCounts[ItemType.WATER] ?? 0).toBe(0);
+  });
+
   it("puts lights on the surface but never generates them in dungeons", () => {
     const game = new Game({ mode: "offline" });
     game.reset(0);

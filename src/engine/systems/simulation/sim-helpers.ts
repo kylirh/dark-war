@@ -7,7 +7,6 @@ import {
   EntityKind,
   Monster,
   Player,
-  TILE_DEFINITIONS,
   CELL_CONFIG,
 } from "../../types";
 import { TileSource } from "../../core/tile-source";
@@ -245,8 +244,7 @@ export function hasClearLineOfSight(
   let y = gridY1;
 
   while (true) {
-    const tile = tiles.getTile(x, y);
-    if (TILE_DEFINITIONS[tile]?.opaque) {
+    if (tiles.opaque(x, y)) {
       if ((x !== gridX1 || y !== gridY1) && (x !== gridX2 || y !== gridY2)) {
         return false;
       }

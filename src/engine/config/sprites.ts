@@ -118,6 +118,9 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [TileType.RUBBLE]: { x: 8, y: 4 },
   [TileType.HOLOWALL]: { x: 7, y: 6 },
   [TileType.LIGHT]: { x: 8, y: 10 }, // shares the streetlight sprite
+  [TileType.WATER_SHALLOW]: { x: 4, y: 17 },
+  [TileType.WATER_DEEP]: { x: 5, y: 17 },
+  [TileType.WATER_RIVER]: { x: 15, y: 17 },
   megacorp_entrance: { x: 4, y: 10 },
   streetlight: { x: 8, y: 10 },
   terminal: { x: 9, y: 10 },
@@ -225,6 +228,7 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [ItemType.DOOR]: { x: 8, y: 6 },
   [ItemType.TREE_ITEM]: { x: 9, y: 6 },
   [ItemType.LIGHT_FIXTURE]: { x: 10, y: 6 },
+  [ItemType.WATER]: { x: 4, y: 17 },
 
   // ========================================
   // Row 7 - New monsters

@@ -29,6 +29,10 @@ export enum TileType {
   HOLOWALL = 17,
   /** A streetlight fixture: walkable, casts a warm glow. Surface-only source. */
   LIGHT = 18,
+  /** Static water terrain: blocks walking, remains transparent to sight. */
+  WATER_SHALLOW = 19,
+  WATER_DEEP = 20,
+  WATER_RIVER = 21,
 }
 
 export interface TileDefinition {
@@ -107,6 +111,8 @@ export enum ItemType {
   DOOR = "door",
   TREE_ITEM = "tree-item",
   LIGHT_FIXTURE = "light-fixture",
+  /** A captured static-water cell placed by the Matter Manipulator. */
+  WATER = "water",
   BLOOD_SPLATTER = "blood-splatter",
   CORPSE = "corpse",
   ENTRAILS = "entrails",
@@ -194,6 +200,7 @@ export const STACKABLE_ITEMS: ItemType[] = [
   ItemType.DOOR,
   ItemType.TREE_ITEM,
   ItemType.LIGHT_FIXTURE,
+  ItemType.WATER,
 ];
 
 export interface Player extends BaseEntity {
@@ -813,6 +820,27 @@ export const TILE_DEFINITIONS: Record<TileType, TileDefinition> = {
     color: "#ffd670",
     bg: "#2c302d",
     block: false,
+    opaque: false,
+  },
+  [TileType.WATER_SHALLOW]: {
+    ch: "~",
+    color: "#58c7d8",
+    bg: "#174e69",
+    block: true,
+    opaque: false,
+  },
+  [TileType.WATER_DEEP]: {
+    ch: "≈",
+    color: "#3da8c7",
+    bg: "#123b59",
+    block: true,
+    opaque: false,
+  },
+  [TileType.WATER_RIVER]: {
+    ch: "~",
+    color: "#6bd8df",
+    bg: "#174e69",
+    block: true,
     opaque: false,
   },
 };

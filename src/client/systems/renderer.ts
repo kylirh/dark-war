@@ -2184,7 +2184,7 @@ export class Renderer {
   private destroyFrameChildren(container: Container): void {
     const children = container.removeChildren();
     for (const child of children) {
-      child.destroy({ children: true });
+      child.destroy({ children: true, context: true });
     }
   }
 

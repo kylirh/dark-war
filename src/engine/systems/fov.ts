@@ -1,5 +1,5 @@
 import { FOV } from "rot-js";
-import { TILE_DEFINITIONS, Player } from "../types";
+import { Player } from "../types";
 import { TileSource } from "../core/tile-source";
 import { idxFor } from "../utils/helpers";
 import { wrapValue } from "../utils/wrap";
@@ -34,8 +34,7 @@ export function computeFOVFrom(
       return false;
     }
     // Return true if the tile is transparent (light passes through).
-    const def = TILE_DEFINITIONS[tiles.getTile(tx, ty)];
-    return !!def && !def.opaque;
+    return !tiles.opaque(tx, ty);
   });
 
   fov.compute(x, y, radius, (cx, cy) => {

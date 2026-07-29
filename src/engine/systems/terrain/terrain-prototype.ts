@@ -466,9 +466,8 @@ export function createTerrainPrototypePlane(): TerrainPrototypePlane {
       if (difference === 0) return true;
       if (deltaX !== 0 && deltaY !== 0) return false;
       return (
-        Math.abs(difference) === 1 &&
-        (worldLayers.structure[fromIndex] === PrototypeStructure.STAIRS ||
-          worldLayers.structure[toIndex] === PrototypeStructure.STAIRS)
+        worldLayers.structure[fromIndex] === PrototypeStructure.STAIRS ||
+        worldLayers.structure[toIndex] === PrototypeStructure.STAIRS
       );
     },
   );

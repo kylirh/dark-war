@@ -28,6 +28,17 @@ describe("createTerrainPrototypePlane", () => {
     ).toBe(true);
   });
 
+  it("crosses authored stairs between laboratory terraces", () => {
+    const plane = createTerrainPrototypePlane();
+    expect(plane.elevation[19 + 17 * plane.width]).toBe(5);
+    expect(plane.elevation[19 + 16 * plane.width]).toBe(8);
+    expect(plane.structure[19 + 17 * plane.width]).toBe(
+      PrototypeStructure.STAIRS,
+    );
+    expect(plane.world.canTraverse(19, 17, 19, 16)).toBe(true);
+    expect(plane.world.canTraverse(19, 16, 19, 17)).toBe(true);
+  });
+
   it("creates aligned structure-of-arrays layers", () => {
     const plane = createTerrainPrototypePlane();
     const cellCount = TERRAIN_PROTOTYPE_WIDTH * TERRAIN_PROTOTYPE_HEIGHT;

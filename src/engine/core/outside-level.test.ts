@@ -137,7 +137,7 @@ describe("createOutsideLevel", () => {
       level.worldPlane.layers.fixture.filter(
         (fixture) => fixture === FixtureType.STAIRS,
       ),
-    ).toHaveLength(3);
+    ).toHaveLength(6);
     expect(reachable(level.worldPlane, level.start, OUTSIDE_CAVE_MOUTH)).toBe(
       true,
     );
