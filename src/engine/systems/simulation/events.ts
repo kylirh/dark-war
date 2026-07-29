@@ -23,6 +23,7 @@ import { weaponTypeForItem, removeFromInventory } from "../../utils/inventory";
 import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
+import { setStateTileAtIndex } from "../../utils/state-tiles";
 import {
   equippedMonsterWeaponItem,
   isAdaptiveWeaponMonster,
@@ -784,7 +785,7 @@ function processDoorOpenEvent(state: GameState, event: GameEvent): void {
 
   if (tile === TileType.DOOR_CLOSED || tile === TileType.DOOR_LOCKED) {
     // Open the door
-    state.map[i] = TileType.DOOR_OPEN;
+    setStateTileAtIndex(state, i, TileType.DOOR_OPEN);
     state.pendingSounds.push({
       effect: SoundEffect.DOOR_OPEN,
       worldX: data.x * CELL_CONFIG.w,
@@ -795,7 +796,7 @@ function processDoorOpenEvent(state: GameState, event: GameEvent): void {
     state.changedTiles.add(i);
   } else if (tile === TileType.DOOR_OPEN) {
     // Close the door
-    state.map[i] = TileType.DOOR_CLOSED;
+    setStateTileAtIndex(state, i, TileType.DOOR_CLOSED);
     state.pendingSounds.push({
       effect: SoundEffect.DOOR_CLOSE,
       worldX: data.x * CELL_CONFIG.w,

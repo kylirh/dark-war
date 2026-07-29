@@ -9,6 +9,7 @@ import { isWallLikeTile } from "../core/tile-source";
 import { ItemEntity } from "../entities/item-entity";
 import { RNG } from "./rng";
 import { idxFor, inBoundsFor } from "./helpers";
+import { setStateDamageAtIndex, setStateTileAtIndex } from "./state-tiles";
 
 /** A destroyed wall leaves rubble behind (and sometimes a throwable rock). */
 function spawnRubble(state: GameState, x: number, y: number): void {
@@ -51,19 +52,19 @@ export function applyWallDamageAtIndex(
   const current = wallDamage[tileIndex] ?? 0;
   const maxDamage = isFloor ? FLOOR_MAX_DAMAGE : WALL_MAX_DAMAGE;
   const next = Math.min(maxDamage, current + amount);
-  wallDamage[tileIndex] = next;
+  setStateDamageAtIndex(state, tileIndex, next);
 
   if (next >= maxDamage) {
     if (isFloor) {
-      state.map[tileIndex] = TileType.HOLE;
+      setStateTileAtIndex(state, tileIndex, TileType.HOLE);
       if (!state.holeCreatedTiles) {
         state.holeCreatedTiles = new Set();
       }
       state.holeCreatedTiles.add(tileIndex);
     } else {
-      state.map[tileIndex] = TileType.FLOOR;
+      setStateTileAtIndex(state, tileIndex, TileType.FLOOR);
     }
-    wallDamage[tileIndex] = 0;
+    setStateDamageAtIndex(state, tileIndex, 0);
     if (isWallLike) {
       state.mapDirty = true;
       spawnRubble(state, x, y);

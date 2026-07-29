@@ -17,9 +17,9 @@ import {
   passableFor,
   tileAtFor,
   inBoundsFor,
-  setTileFor,
   idxFor,
 } from "../../utils/helpers";
+import { setStateDamageAtIndex, setStateTile } from "../../utils/state-tiles";
 import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
 import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
@@ -1055,8 +1055,8 @@ function resolveMineCommand(state: GameState, cmd: Command): void {
   }
 
   const idx = idxFor(tileX, tileY, state.mapWidth);
-  setTileFor(state.map, tileX, tileY, state.mapWidth, TileType.FLOOR);
-  if (idx >= 0 && idx < state.wallDamage.length) state.wallDamage[idx] = 0;
+  setStateTile(state, tileX, tileY, TileType.FLOOR);
+  setStateDamageAtIndex(state, idx, 0);
   state.mapDirty = true;
   state.changedTiles?.add(idx);
 
@@ -1129,8 +1129,8 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
   }
 
   const idx = idxFor(tileX, tileY, state.mapWidth);
-  setTileFor(state.map, tileX, tileY, state.mapWidth, tileType);
-  if (idx >= 0 && idx < state.wallDamage.length) state.wallDamage[idx] = 0;
+  setStateTile(state, tileX, tileY, tileType);
+  setStateDamageAtIndex(state, idx, 0);
   state.mapDirty = true;
   state.changedTiles?.add(idx);
 
@@ -1271,8 +1271,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
         msg(state, "Something's in the way.");
         return;
       }
-      setTileFor(state.map, tx, ty, state.mapWidth, TileType.HOLOWALL);
-      state.changedTiles?.add(idxFor(tx, ty, state.mapWidth));
+      setStateTile(state, tx, ty, TileType.HOLOWALL);
       state.mapDirty = true;
       consumeOne(player, ItemType.HOLOWALL);
       state.pendingSounds.push({ effect: SoundEffect.PLACE_WALL });

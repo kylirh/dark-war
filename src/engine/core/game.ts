@@ -39,6 +39,7 @@ import {
 import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { SoundEffect } from "../content/sound-effects";
+import { WorldPlane } from "./world-plane";
 import {
   applyTerrainPrototypeElevationEdit,
   createTerrainPrototypePlane,
@@ -69,6 +70,7 @@ interface LevelSnapshot {
   stairsDown: [number, number];
   stairsUp: [number, number] | null;
   enhancedVision: boolean;
+  worldPlane?: WorldPlane;
 }
 
 /**
@@ -200,7 +202,10 @@ export class Game {
         outside?.wallDamage ??
         new Array(dungeon.width * dungeon.height).fill(0),
       mapDirty: false,
-      tiles: new FlatTileSource(dungeon.map, dungeon.width, dungeon.height),
+      tiles:
+        outside?.worldPlane ??
+        new FlatTileSource(dungeon.map, dungeon.width, dungeon.height),
+      worldPlane: outside?.worldPlane,
       visible: new Set(),
       explored,
       accessible: new Set(),
@@ -375,6 +380,7 @@ export class Game {
       0,
     );
     this.state.tiles = prototype.world;
+    this.state.worldPlane = prototype.world;
     this.state.terrainPrototype = prototype;
     this.state.stairsDown = [31, 8];
     this.state.stairsUp = null;
@@ -722,6 +728,7 @@ export class Game {
       stairsDown: this.state.stairsDown,
       stairsUp: this.state.stairsUp,
       enhancedVision: this.state.enhancedVision,
+      worldPlane: this.state.worldPlane,
     };
     this.levels.set(currentDepth, snapshot);
   }
@@ -732,11 +739,13 @@ export class Game {
    * map; the layered WorldPlane rewrite will replace this refresh path.
    */
   private refreshTileSource(): void {
-    this.state.tiles = new FlatTileSource(
-      this.state.map,
-      this.state.mapWidth,
-      this.state.mapHeight,
-    );
+    this.state.tiles =
+      this.state.worldPlane ??
+      new FlatTileSource(
+        this.state.map,
+        this.state.mapWidth,
+        this.state.mapHeight,
+      );
   }
 
   private applyLevelSnapshot(
@@ -745,12 +754,14 @@ export class Game {
   ): void {
     this.state.playerStart = [playerEntry[0], playerEntry[1]];
     this.state.map = snapshot.map;
+    this.state.worldPlane = undefined;
     this.state.levelKind = snapshot.levelKind;
     this.state.mapWidth = snapshot.mapWidth;
     this.state.mapHeight = snapshot.mapHeight;
     this.state.floorVariant = snapshot.floorVariant;
     this.state.wallSet = snapshot.wallSet;
     this.state.wallDamage = snapshot.wallDamage;
+    this.state.worldPlane = snapshot.worldPlane;
     this.refreshTileSource();
     this.state.explored = new Set(snapshot.explored);
     this.state.exploredByPlayer = this.cloneExploredByPlayerMap(

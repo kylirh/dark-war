@@ -87,6 +87,12 @@ the current scalar tile vocabulary and can convert generator output into a
 writable authoritative plane. This conversion is an implementation boundary for
 current generators, not a save-format compatibility mechanism.
 
+The outside generator is the first production world migrated through that
+boundary. `GameState.worldPlane` owns its semantics, `state.tiles` references the
+plane directly, and `utils/state-tiles.ts` is the required runtime mutation path.
+The derived scalar projection remains synchronized for renderer and simulation
+reads that have not yet moved to direct layer queries.
+
 This interface is illustrative; fields may change when the visual slice proves
 what is required. The durable decisions are compositional semantic layers,
 typed-array storage, and sparse records for exceptional state. A `WorldCell`

@@ -7,6 +7,7 @@ import { stepSimulationTick } from "../systems/simulation/tick";
 import { BulletEntity } from "../entities/bullet-entity";
 import { SoundEffect } from "../content/sound-effects";
 import { TerrainPrototypeTransitionMode } from "../systems/terrain/terrain-prototype";
+import { setStateTile } from "../utils/state-tiles";
 
 describe("Game serialize/deserialize round-trip", () => {
   beforeEach(() => RNG.reseed(424242));
@@ -94,6 +95,28 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(state.mapWidth).toBe(128);
     expect(state.tiles.getTile(state.stairsDown[0], state.stairsDown[1])).toBe(
       TileType.STAIRS_DOWN,
+    );
+  });
+
+  it("restores the authoritative outside WorldPlane after a depth round-trip", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(0);
+    const outside = game.getState();
+    const editX = outside.player.gridX + 1;
+    const editY = outside.player.gridY;
+    setStateTile(outside, editX, editY, TileType.DOOR_LOCKED);
+    const outsidePlane = outside.worldPlane;
+
+    game.descend();
+    expect(game.getState().worldPlane).toBeUndefined();
+    game.ascend();
+
+    const restored = game.getState();
+    expect(restored.worldPlane).toBe(outsidePlane);
+    expect(restored.tiles).toBe(outsidePlane);
+    expect(restored.tiles.getTile(editX, editY)).toBe(TileType.DOOR_LOCKED);
+    expect(restored.map[editX + editY * restored.mapWidth]).toBe(
+      TileType.DOOR_LOCKED,
     );
   });
 

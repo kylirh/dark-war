@@ -526,6 +526,8 @@ export interface GameState {
   // above. Gameplay logic should prefer it over raw array access so the
   // approved layered WorldPlane rewrite can replace the backing model.
   tiles: TileSource;
+  /** Authoritative layered storage when this level has completed migration. */
+  worldPlane?: import("./core/world-plane").WorldPlane;
   visible: Set<number>;
   explored: Set<number>;
   accessible: Set<number>;

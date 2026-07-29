@@ -1,6 +1,7 @@
 import { GameState, TileType } from "../types";
 import { isWallLikeTile } from "../core/tile-source";
 import { idxFor, inBoundsFor } from "./helpers";
+import { setStateDamageAtIndex, setStateTileAtIndex } from "./state-tiles";
 
 /** A tile worth repairing: a hole, or a damaged floor / wall-like tile. */
 function isRepairable(tile: TileType, damage: number): boolean {
@@ -18,8 +19,8 @@ export function applyRepairAt(
   const tile = state.map[tileIndex];
 
   if (tile === TileType.HOLE) {
-    state.map[tileIndex] = TileType.FLOOR;
-    state.wallDamage[tileIndex] = 0;
+    setStateTileAtIndex(state, tileIndex, TileType.FLOOR);
+    setStateDamageAtIndex(state, tileIndex, 0);
     state.mapDirty = true;
     return "hole";
   }
@@ -34,7 +35,7 @@ export function applyRepairAt(
 
   const repairAmount = 3;
   const newDamage = Math.max(0, damage - repairAmount);
-  state.wallDamage[tileIndex] = newDamage;
+  setStateDamageAtIndex(state, tileIndex, newDamage);
 
   // If we fully repaired a wall-like tile, update mapDirty so physics syncs
   if (isWallLike && newDamage === 0) {

@@ -46,14 +46,13 @@ read-only derived coordinates and must never be assigned.
 
 ## Current world implementation
 
-Ordinary levels remain bounded flat `TileType[]` maps exposed through
-`FlatTileSource` while Milestone 2 proceeds. The terrain laboratory is the first
-authoritative `WorldPlane`: it owns aligned semantic typed arrays and exposes a
-derived scalar projection only to consumers awaiting migration. The outside is
-a 128×72 toroidal map; dungeons are bounded 128×96 maps with sealed borders.
-Legacy tile identity still mixes ground, structures, fixtures, and presentation
-concerns. Rendering contains specialized wall, hole, terrain, and tall-sprite
-selection logic.
+The 128×72 toroidal outside and the terrain laboratory now use authoritative
+`WorldPlane` storage. They own aligned semantic typed arrays and expose a derived
+scalar projection only to consumers awaiting migration. Runtime tile mutations
+flow through `utils/state-tiles.ts`, keeping both views synchronized. Dungeons
+remain bounded 128×96 scalar maps with sealed borders while their generator,
+persistence, and netcode conversion proceeds. Legacy tile identity still mixes
+ground, structures, fixtures, and presentation concerns in those paths.
 
 `core/world-semantics.ts` owns the shared ground/structure/fixture IDs, stable
 authoring keys, complete current-tile classification, and the conversion boundary

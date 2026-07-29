@@ -67,6 +67,12 @@ classifies every current `TileType`, preserves meaningful bases such as grass
 under trees and sidewalk under lights, and provides a tested conversion boundary
 for existing procedural generators.
 
+The outside generator now emits an authoritative `WorldPlane`. Runtime door,
+building, mining, destruction, hole, repair, and damage mutations use one
+canonical helper that keeps semantic layers, derived scalar projection, and
+physics invalidation synchronized. Depth snapshots retain the same outside
+plane. Dungeon generation and persistence/netcode remain to migrate.
+
 - Replace the scalar tile model with a structure-of-arrays plane model.
 - Classify current `TileType` use into ground, structure, and fixture semantics.
 - Centralize synthesized passability, opacity, and destructibility.

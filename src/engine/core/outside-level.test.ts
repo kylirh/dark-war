@@ -12,6 +12,10 @@ describe("createOutsideLevel", () => {
     expect(lvl.width).toBe(OUTSIDE_MAP_WIDTH);
     expect(lvl.height).toBe(OUTSIDE_MAP_HEIGHT);
     expect(lvl.map).toHaveLength(OUTSIDE_MAP_WIDTH * OUTSIDE_MAP_HEIGHT);
+    expect(lvl.map).toBe(lvl.worldPlane.legacyTiles);
+    expect(lvl.worldPlane.layers.ground).toHaveLength(
+      OUTSIDE_MAP_WIDTH * OUTSIDE_MAP_HEIGHT,
+    );
   });
 
   it("spawns the player start on a passable tile", () => {
