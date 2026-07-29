@@ -18,7 +18,7 @@ import {
 import { ItemEntity } from "../../entities/item-entity";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { ITEM_DEFS, itemName } from "../../content/item-defs";
-import { idxFor, passableFor, setPositionFromGrid } from "../../utils/helpers";
+import { idxFor, setPositionFromGrid } from "../../utils/helpers";
 import { weaponTypeForItem, removeFromInventory } from "../../utils/inventory";
 import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
@@ -745,7 +745,7 @@ function teleportMonsterNearby(state: GameState, monster: Monster): void {
     if (Math.abs(dx) + Math.abs(dy) < 3) continue;
     const nx = monster.gridX + dx;
     const ny = monster.gridY + dy;
-    if (!passableFor(state.map, nx, ny, state.mapWidth, state.mapHeight)) {
+    if (!state.tiles.passable(nx, ny)) {
       continue;
     }
     const occupied = state.entities.some(
@@ -781,7 +781,7 @@ function processMessageEvent(state: GameState, event: GameEvent): void {
 function processDoorOpenEvent(state: GameState, event: GameEvent): void {
   const data = event.data as { type: "DOOR_OPEN"; x: number; y: number };
   const i = idxFor(data.x, data.y, state.mapWidth);
-  const tile = state.map[i];
+  const tile = state.tiles.getTile(data.x, data.y);
 
   if (tile === TileType.DOOR_CLOSED || tile === TileType.DOOR_LOCKED) {
     // Open the door

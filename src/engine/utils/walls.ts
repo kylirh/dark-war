@@ -11,6 +11,7 @@ import { RNG } from "./rng";
 import { idxFor, inBoundsFor } from "./helpers";
 import {
   getStateDamageAtIndex,
+  getStateTileAtIndex,
   setStateDamageAtIndex,
   setStateTileAtIndex,
 } from "./state-tiles";
@@ -30,7 +31,9 @@ export function applyWallDamageAtIndex(
   tileIndex: number,
   amount: number,
 ): boolean {
-  if (tileIndex < 0 || tileIndex >= state.map.length) return false;
+  if (tileIndex < 0 || tileIndex >= state.mapWidth * state.mapHeight) {
+    return false;
+  }
   const width = state.mapWidth;
   const height = state.mapHeight;
   const x = tileIndex % width;
@@ -38,7 +41,7 @@ export function applyWallDamageAtIndex(
   if (x === 0 || y === 0 || x === width - 1 || y === height - 1) {
     return false;
   }
-  const tile = state.map[tileIndex];
+  const tile = getStateTileAtIndex(state, tileIndex);
   // Holowalls are indestructible — no damage ever accrues. Callers that want to
   // surface "The holowall vibrates and shimmers." should check the tile first.
   if (tile === TileType.HOLOWALL) return false;

@@ -82,7 +82,10 @@ clients, and legacy scalar saves are intentionally unsupported. Remaining work
 has begun: damage now reads and writes `WorldPlane.layers.damage` directly, and
 the duplicate `state.wallDamage`/level-snapshot arrays have been deleted. The
 remaining work is migrating tile readers away from derived `state.map` so that
-projection and residual `FlatTileSource` setup paths can be deleted.
+projection and residual `FlatTileSource` setup paths can be deleted. Production
+gameplay, pathfinding, client interaction, repair, AI, and exploration now read
+through `TileSource`; `state.map` remains only in level lifecycle bookkeeping,
+the projection updater, and tests awaiting fixture conversion.
 
 - Replace the scalar tile model with a structure-of-arrays plane model.
 - Classify current `TileType` use into ground, structure, and fixture semantics.

@@ -10,7 +10,6 @@ import {
   TILE_DEFINITIONS,
   CELL_CONFIG,
 } from "../../types";
-import { passableFor } from "../../utils/helpers";
 import { TileSource } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
 import {
@@ -70,7 +69,7 @@ export function isMonsterMoveCandidateClear(
   const nx = monster.gridX + dx;
   const ny = monster.gridY + dy;
 
-  if (!passableFor(state.map, nx, ny, state.mapWidth, state.mapHeight)) {
+  if (!state.tiles.passable(nx, ny)) {
     return false;
   }
 

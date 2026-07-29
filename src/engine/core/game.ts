@@ -1611,15 +1611,7 @@ export class Game {
       visited.add(index);
       accessible.add(index);
 
-      if (
-        !passableFor(
-          this.state.map,
-          x,
-          y,
-          this.state.mapWidth,
-          this.state.mapHeight,
-        )
-      ) {
+      if (!this.state.tiles.passable(x, y)) {
         continue;
       }
 
@@ -1675,15 +1667,7 @@ export class Game {
       this.state.exploredByPlayer.get(this.state.multiplayer.localPlayerId) ??
       this.state.explored;
 
-    if (
-      !passableFor(
-        this.state.map,
-        player.gridX,
-        player.gridY,
-        this.state.mapWidth,
-        this.state.mapHeight,
-      )
-    ) {
+    if (!this.state.tiles.passable(player.gridX, player.gridY)) {
       return;
     }
 
@@ -1765,15 +1749,7 @@ export class Game {
     startY: number,
   ): Set<number> {
     const reachable = new Set<number>();
-    if (
-      !passableFor(
-        this.state.map,
-        startX,
-        startY,
-        this.state.mapWidth,
-        this.state.mapHeight,
-      )
-    ) {
+    if (!this.state.tiles.passable(startX, startY)) {
       return reachable;
     }
 
@@ -1792,15 +1768,7 @@ export class Game {
 
       const index = x + y * this.state.mapWidth;
       if (reachable.has(index)) continue;
-      if (
-        !passableFor(
-          this.state.map,
-          x,
-          y,
-          this.state.mapWidth,
-          this.state.mapHeight,
-        )
-      ) {
+      if (!this.state.tiles.passable(x, y)) {
         continue;
       }
 
@@ -1835,16 +1803,7 @@ export class Game {
     let head = 0;
     while (head < queue.length) {
       const [x, y] = queue[head++];
-      if (
-        passableFor(
-          this.state.map,
-          x,
-          y,
-          this.state.mapWidth,
-          this.state.mapHeight,
-        ) &&
-        !this.isActorOccupied(x, y)
-      ) {
+      if (this.state.tiles.passable(x, y) && !this.isActorOccupied(x, y)) {
         return [x, y];
       }
       enqueue(x + 1, y);

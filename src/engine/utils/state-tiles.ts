@@ -2,6 +2,16 @@
 
 import { GameState, TileType } from "../types";
 
+export function getStateTileAtIndex(state: GameState, index: number): TileType {
+  if (index < 0 || index >= state.mapWidth * state.mapHeight) {
+    return TileType.WALL;
+  }
+  return state.tiles.getTile(
+    index % state.mapWidth,
+    Math.floor(index / state.mapWidth),
+  );
+}
+
 export function setStateTile(
   state: GameState,
   x: number,

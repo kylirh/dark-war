@@ -13,14 +13,12 @@ import {
   WeaponType,
   CELL_CONFIG,
 } from "../../types";
-import {
-  idxFor,
-  inBoundsFor,
-  passableFor,
-  tileAtFor,
-} from "../../utils/helpers";
+import { idxFor, inBoundsFor } from "../../utils/helpers";
 import { applyWallDamageAt } from "../../utils/walls";
-import { getStateDamageAtIndex } from "../../utils/state-tiles";
+import {
+  getStateDamageAtIndex,
+  getStateTileAtIndex,
+} from "../../utils/state-tiles";
 import { TILE_DEFINITIONS } from "../../types";
 import { isWallLikeTile } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
@@ -79,15 +77,12 @@ function botNextStep(
   toX: number,
   toY: number,
 ): [number, number] | null {
-  const { map, mapWidth: w, mapHeight: h } = state;
+  const { mapWidth: w, mapHeight: h, tiles } = state;
 
   // If target is impassable (or a hole), find the closest adjacent passable tile
   let goalX = toX,
     goalY = toY;
-  if (
-    !passableFor(map, toX, toY, w, h) ||
-    map[idxFor(toX, toY, w)] === TileType.HOLE
-  ) {
+  if (!tiles.passable(toX, toY) || tiles.getTile(toX, toY) === TileType.HOLE) {
     let bestDsq = Infinity;
     for (const [dx, dy] of [
       [-1, 0],
@@ -97,7 +92,7 @@ function botNextStep(
     ] as [number, number][]) {
       const nx = toX + dx,
         ny = toY + dy;
-      if (inBoundsFor(nx, ny, w, h) && passableFor(map, nx, ny, w, h)) {
+      if (inBoundsFor(nx, ny, w, h) && tiles.passable(nx, ny)) {
         const dsq = (nx - fromX) ** 2 + (ny - fromY) ** 2;
         if (dsq < bestDsq) {
           bestDsq = dsq;
@@ -138,8 +133,8 @@ function botNextStep(
       if (!inBoundsFor(nx, ny, w, h)) continue;
       const nIdx = idxFor(nx, ny, w);
       if (parent.has(nIdx)) continue;
-      if (!passableFor(map, nx, ny, w, h)) continue;
-      if (map[nIdx] === TileType.HOLE) continue;
+      if (!tiles.passable(nx, ny)) continue;
+      if (tiles.getTile(nx, ny) === TileType.HOLE) continue;
       parent.set(nIdx, cur);
       if (nIdx === goalIdx) {
         found = true;
@@ -209,10 +204,10 @@ function findNearestReachableRepairTarget(
   fromX: number,
   fromY: number,
 ): [number, number] | null {
-  const { map, mapWidth: w, mapHeight: h } = state;
+  const { mapWidth: w, mapHeight: h, tiles } = state;
 
   const isRepairable = (idx: number): boolean => {
-    const tile = map[idx];
+    const tile = getStateTileAtIndex(state, idx);
     const damage = getStateDamageAtIndex(state, idx);
     return (
       tile === TileType.HOLE ||
@@ -252,7 +247,7 @@ function findNearestReachableRepairTarget(
       if (isRepairable(nIdx)) return [nx, ny];
 
       // Traverse through passable, non-hole floor tiles only
-      if (passableFor(map, nx, ny, w, h) && map[nIdx] !== TileType.HOLE) {
+      if (tiles.passable(nx, ny) && tiles.getTile(nx, ny) !== TileType.HOLE) {
         queue.push(nIdx);
       }
     }
@@ -323,7 +318,7 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
       const [cx, cy] = m.currentRepairTarget as [number, number];
       if (inBoundsFor(cx, cy, state.mapWidth, state.mapHeight)) {
         const cidx = idxFor(cx, cy, state.mapWidth);
-        const ctile = state.map[cidx];
+        const ctile = getStateTileAtIndex(state, cidx);
         const cdmg = getStateDamageAtIndex(state, cidx);
         const stillRepairable =
           ctile === TileType.HOLE ||
@@ -1091,16 +1086,10 @@ function smashWallTowardPlayer(state: GameState, monster: Monster): void {
     if (dx === 0 && dy === 0) continue;
     const tx = monster.gridX + dx;
     const ty = monster.gridY + dy;
-    const tile = tileAtFor(state.map, tx, ty, state.mapWidth, state.mapHeight);
+    const tile = state.tiles.getTile(tx, ty);
     if (TILE_DEFINITIONS[tile]?.block && isWallLikeTile(tile)) {
       applyWallDamageAt(state, tx, ty, monster.dmg);
-      const remainingTile = tileAtFor(
-        state.map,
-        tx,
-        ty,
-        state.mapWidth,
-        state.mapHeight,
-      );
+      const remainingTile = state.tiles.getTile(tx, ty);
       if (remainingTile !== tile) {
         state.pendingSounds.push({
           effect: SoundEffect.DREADNAUGHT_OBLITERATE,
@@ -1408,7 +1397,7 @@ function decideUtilityBotCommand(
   for (const [tx, ty] of adjacent) {
     if (!inBoundsFor(tx, ty, state.mapWidth, state.mapHeight)) continue;
     const idx = idxFor(tx, ty, state.mapWidth);
-    const tile = state.map[idx];
+    const tile = getStateTileAtIndex(state, idx);
     const damage = getStateDamageAtIndex(state, idx);
     const repairable =
       tile === TileType.HOLE ||
@@ -1696,7 +1685,7 @@ function decideMonsterCommand(
     const nx = monster.gridX + testX;
     const ny = monster.gridY + testY;
 
-    if (!passableFor(state.map, nx, ny, state.mapWidth, state.mapHeight)) {
+    if (!state.tiles.passable(nx, ny)) {
       return false;
     }
 

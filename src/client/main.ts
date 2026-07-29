@@ -57,7 +57,7 @@ import {
   minedItemForTile,
 } from "../engine/content/block-defs";
 import { itemName } from "../engine/content/item-defs";
-import { idxFor, inBoundsFor, tileAtFor } from "../engine/utils/helpers";
+import { idxFor, inBoundsFor } from "../engine/utils/helpers";
 import {
   TERRAIN_LOWER_FIXTURE,
   TERRAIN_RAISE_FIXTURE,
@@ -1197,8 +1197,7 @@ class DarkWar {
       );
     const shouldPickupOnArrive = wantsPickup && hasItemOnTile;
 
-    const tileIdx = idxFor(tileX, tileY, state.mapWidth);
-    const tileType = state.map[tileIdx];
+    const tileType = state.tiles.getTile(tileX, tileY);
 
     const isHole = tileType === TileType.HOLE;
     const isStairsDown = tileType === TileType.STAIRS_DOWN;
@@ -1256,11 +1255,9 @@ class DarkWar {
       state.player.gridY,
       tileX,
       tileY,
-      state.map,
+      state.tiles,
       state.explored,
       state.entities,
-      state.mapWidth,
-      state.mapHeight,
     );
 
     if (path && path.length > 1) {
@@ -1739,9 +1736,8 @@ class DarkWar {
           holeTarget.gridY === player.gridY
         ) {
           const holeTile =
-            state.map[
-              idxFor(holeTarget.gridX, holeTarget.gridY, state.mapWidth)
-            ] === TileType.HOLE;
+            state.tiles.getTile(holeTarget.gridX, holeTarget.gridY) ===
+            TileType.HOLE;
           // Online the server drops the player once they're on the hole tile;
           // offline we queue the deliberate hole jump locally.
           if (holeTile && !this.isOnlineMode()) {
@@ -2349,13 +2345,7 @@ class DarkWar {
     if (idx === this.mmLastMinedIdx) return; // already handled this tile
     this.mmLastMinedIdx = idx;
 
-    const t = tileAtFor(
-      state.map,
-      tile.tileX,
-      tile.tileY,
-      state.mapWidth,
-      state.mapHeight,
-    );
+    const t = state.tiles.getTile(tile.tileX, tile.tileY);
     const isHolowall = t === TileType.HOLOWALL;
     // Nothing minable and not a holowall → skip silently (avoids log spam while
     // dragging across open floor).

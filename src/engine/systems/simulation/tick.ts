@@ -11,7 +11,7 @@ import {
   HOLE_FALL_DAMAGE,
   EventType,
 } from "../../types";
-import { idxFor, tileAtFor, passableFor } from "../../utils/helpers";
+import { idxFor } from "../../utils/helpers";
 import { RNG } from "../../utils/rng";
 import { wrapDelta } from "../../utils/wrap";
 import { ITEM_DEFS } from "../../content/item-defs";
@@ -412,7 +412,7 @@ export function processMonsterAbilities(state: GameState): void {
     const [dx, dy] = dirs[RNG.int(dirs.length)];
     const nx = lump.gridX + dx;
     const ny = lump.gridY + dy;
-    if (!passableFor(state.map, nx, ny, state.mapWidth, state.mapHeight)) {
+    if (!state.tiles.passable(nx, ny)) {
       continue;
     }
     const occupied = state.entities.some(
@@ -477,13 +477,7 @@ function processHoleFalls(state: GameState): void {
       continue;
     }
 
-    const tile = tileAtFor(
-      state.map,
-      monster.gridX,
-      monster.gridY,
-      state.mapWidth,
-      state.mapHeight,
-    );
+    const tile = state.tiles.getTile(monster.gridX, monster.gridY);
     if (tile !== TileType.HOLE) continue;
 
     const movedOntoHole =
@@ -502,13 +496,7 @@ function processHoleFalls(state: GameState): void {
   const fallenItemIds = new Set<string>();
   for (const entity of state.entities) {
     if (entity.kind !== EntityKind.ITEM) continue;
-    const tile = tileAtFor(
-      state.map,
-      entity.gridX,
-      entity.gridY,
-      state.mapWidth,
-      state.mapHeight,
-    );
+    const tile = state.tiles.getTile(entity.gridX, entity.gridY);
     if (tile !== TileType.HOLE) continue;
     fallenItemIds.add(entity.id);
     if (offline) {

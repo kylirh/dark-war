@@ -374,7 +374,9 @@ class MusicPlayer {
       return clamp01(exploredReachable / reachableCount);
     }
 
-    return clamp01(state.explored.size / Math.max(1, state.map.length));
+    return clamp01(
+      state.explored.size / Math.max(1, state.mapWidth * state.mapHeight),
+    );
   }
 
   private sceneForGameState(

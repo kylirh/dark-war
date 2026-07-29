@@ -3,6 +3,7 @@ import { isWallLikeTile } from "../core/tile-source";
 import { idxFor, inBoundsFor } from "./helpers";
 import {
   getStateDamageAtIndex,
+  getStateTileAtIndex,
   setStateDamageAtIndex,
   setStateTileAtIndex,
 } from "./state-tiles";
@@ -20,7 +21,7 @@ export function applyRepairAt(
 ): "hole" | "damaged" | false {
   if (!inBoundsFor(x, y, state.mapWidth, state.mapHeight)) return false;
   const tileIndex = idxFor(x, y, state.mapWidth);
-  const tile = state.map[tileIndex];
+  const tile = getStateTileAtIndex(state, tileIndex);
 
   if (tile === TileType.HOLE) {
     setStateTileAtIndex(state, tileIndex, TileType.FLOOR);
@@ -67,7 +68,7 @@ export function findNearestRepairTarget(
   for (let ty = y0; ty <= y1; ty++) {
     for (let tx = x0; tx <= x1; tx++) {
       const idx = idxFor(tx, ty, state.mapWidth);
-      const tile = state.map[idx];
+      const tile = getStateTileAtIndex(state, idx);
       const damage = getStateDamageAtIndex(state, idx);
       if (!isRepairable(tile, damage)) continue;
 
@@ -86,8 +87,13 @@ export function findNearestRepairTarget(
 
 /** Scan the entire level for any repairable tile. */
 export function hasAnyRepairTarget(state: GameState): boolean {
-  for (let i = 0; i < state.map.length; i++) {
-    if (isRepairable(state.map[i], getStateDamageAtIndex(state, i)))
+  for (let i = 0; i < state.mapWidth * state.mapHeight; i++) {
+    if (
+      isRepairable(
+        getStateTileAtIndex(state, i),
+        getStateDamageAtIndex(state, i),
+      )
+    )
       return true;
   }
   return false;

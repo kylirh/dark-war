@@ -210,8 +210,9 @@ if (entity.kind === EntityKind.MONSTER) {
   impenetrable border. Deterministic from a per-level seed; full connectivity is
   unit-tested.
 - **Derived flat array:** `state.map` is a synchronized `TileType[]` projection
-  sized `mapWidth × mapHeight` (outside is 128×72). It temporarily supports
-  systems awaiting semantic-query migration; it is not serialized authority.
+  sized `mapWidth × mapHeight` (outside is 128×72). Production gameplay reads
+  use `state.tiles`; the array remains only for temporary lifecycle/test
+  scaffolding and is not serialized authority.
 - **Persistence/network:** `SerializedWorldPlane` carries all five semantic
   layers. Multiplayer deltas diff each layer independently. Legacy scalar saves
   and pre-v6 clients are intentionally unsupported.

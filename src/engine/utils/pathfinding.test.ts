@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { TileType, Entity, EntityKind } from "../types";
 import { findPath, findPathToClosestReachable } from "./pathfinding";
 import { idxFor } from "./helpers";
+import { FlatTileSource } from "../core/tile-source";
 
 const W = 8;
 const H = 8;
@@ -17,6 +18,10 @@ function openMap(): TileType[] {
     map[W - 1 + y * W] = TileType.WALL;
   }
   return map;
+}
+
+function source(map: TileType[] = openMap()): FlatTileSource {
+  return new FlatTileSource(map, W, H);
 }
 
 function fullyExplored(): Set<number> {
@@ -36,7 +41,7 @@ function monsterAt(x: number, y: number): Entity {
 
 describe("findPath", () => {
   it("finds a path across open floor", () => {
-    const path = findPath(1, 1, 5, 5, openMap(), fullyExplored(), [], W, H);
+    const path = findPath(1, 1, 5, 5, source(), fullyExplored(), []);
     expect(path).not.toBeNull();
     expect(path![0]).toEqual([1, 1]);
     expect(path![path!.length - 1]).toEqual([5, 5]);
@@ -44,13 +49,11 @@ describe("findPath", () => {
 
   it("returns null for an unexplored destination", () => {
     const explored = new Set<number>([idxFor(1, 1, W)]);
-    expect(findPath(1, 1, 5, 5, openMap(), explored, [], W, H)).toBeNull();
+    expect(findPath(1, 1, 5, 5, source(), explored, [])).toBeNull();
   });
 
   it("returns null when the destination is a wall", () => {
-    expect(
-      findPath(1, 1, 0, 0, openMap(), fullyExplored(), [], W, H),
-    ).toBeNull();
+    expect(findPath(1, 1, 0, 0, source(), fullyExplored(), [])).toBeNull();
   });
 });
 
@@ -61,11 +64,9 @@ describe("findPathToClosestReachable", () => {
       1,
       6,
       6,
-      openMap(),
+      source(),
       fullyExplored(),
       [],
-      W,
-      H,
     );
     expect(path).not.toBeNull();
     expect(path![path!.length - 1]).toEqual([6, 6]);
@@ -82,11 +83,9 @@ describe("findPathToClosestReachable", () => {
       1,
       6,
       6,
-      map,
+      source(map),
       fullyExplored(),
       [],
-      W,
-      H,
     );
     // A path is still returned, ending somewhere other than the blocked target.
     expect(path).not.toBeNull();
@@ -103,11 +102,9 @@ describe("findPathToClosestReachable", () => {
       1,
       6,
       1,
-      map,
+      source(map),
       fullyExplored(),
       blockers,
-      W,
-      H,
     );
     expect(path).not.toBeNull();
     // The path must not step onto a monster tile.

@@ -13,12 +13,7 @@ import {
   WeaponType,
   CELL_CONFIG,
 } from "../../types";
-import {
-  passableFor,
-  tileAtFor,
-  inBoundsFor,
-  idxFor,
-} from "../../utils/helpers";
+import { inBoundsFor, idxFor } from "../../utils/helpers";
 import { setStateDamageAtIndex, setStateTile } from "../../utils/state-tiles";
 import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
@@ -215,7 +210,7 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
   }
 
   // Check passability
-  if (!passableFor(state.map, nx, ny, state.mapWidth, state.mapHeight)) {
+  if (!state.tiles.passable(nx, ny)) {
     return false;
   }
 
@@ -458,13 +453,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           const dy = Math.round(Math.sin(angle));
           const targetX = player.gridX + dx;
           const targetY = player.gridY + dy;
-          const targetTile = tileAtFor(
-            state.map,
-            targetX,
-            targetY,
-            state.mapWidth,
-            state.mapHeight,
-          );
+          const targetTile = state.tiles.getTile(targetX, targetY);
           const hitWall =
             isWallLikeTile(targetTile) &&
             applyWallDamageAt(state, targetX, targetY, 2);
@@ -733,13 +722,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         const [dx, dy] = directionFromAngle(angle);
         const targetX = player.gridX + dx;
         const targetY = player.gridY + dy;
-        const canPlace = passableFor(
-          state.map,
-          targetX,
-          targetY,
-          state.mapWidth,
-          state.mapHeight,
-        );
+        const canPlace = state.tiles.passable(targetX, targetY);
         const placeX = canPlace ? targetX : player.gridX;
         const placeY = canPlace ? targetY : player.gridY;
 
@@ -1037,13 +1020,7 @@ function resolveMineCommand(state: GameState, cmd: Command): void {
     return;
   }
 
-  const tile = tileAtFor(
-    state.map,
-    tileX,
-    tileY,
-    state.mapWidth,
-    state.mapHeight,
-  );
+  const tile = state.tiles.getTile(tileX, tileY);
   if (tile === TileType.HOLOWALL) {
     msg(state, "The holowall vibrates and shimmers.", cmd.id);
     return;
@@ -1099,13 +1076,7 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
 
   // Only build on open, walkable ground — never overwrite walls, doors,
   // stairs, or holes.
-  const existing = tileAtFor(
-    state.map,
-    tileX,
-    tileY,
-    state.mapWidth,
-    state.mapHeight,
-  );
+  const existing = state.tiles.getTile(tileX, tileY);
   const buildable =
     tileIsPassable(existing) &&
     existing !== TileType.HOLE &&
@@ -1254,10 +1225,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
         msg(state, "You can't place that there.");
         return;
       }
-      if (
-        tileAtFor(state.map, tx, ty, state.mapWidth, state.mapHeight) !==
-        TileType.FLOOR
-      ) {
+      if (state.tiles.getTile(tx, ty) !== TileType.FLOOR) {
         msg(state, "The holowall needs open floor.");
         return;
       }
@@ -1452,13 +1420,7 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
   if (!actor) return;
 
   const data = cmd.data as { type: "INTERACT"; x: number; y: number };
-  const tile = tileAtFor(
-    state.map,
-    data.x,
-    data.y,
-    state.mapWidth,
-    state.mapHeight,
-  );
+  const tile = state.tiles.getTile(data.x, data.y);
 
   if (tile === TileType.DOOR_CLOSED || tile === TileType.DOOR_OPEN) {
     // Toggle door open/closed

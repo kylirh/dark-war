@@ -55,6 +55,11 @@ layers directly. Runtime damage also uses the plane layer exclusively; there is
 no duplicate damage array. Legacy scalar saves and clients are intentionally
 rejected.
 
+Production gameplay reads now use `state.tiles` rather than `state.map`,
+including AI, commands/events, repair, pathfinding, exploration, and client
+interaction. The derived map survives only as temporary lifecycle/test
+scaffolding and is the next field scheduled for deletion.
+
 `core/world-semantics.ts` owns the shared ground/structure/fixture IDs, stable
 authoring keys, complete current-tile classification, and the conversion boundary
 used as procedural generators move onto `WorldPlane`.
