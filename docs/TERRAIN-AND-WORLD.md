@@ -56,7 +56,7 @@ World
 - Doors, stairs, ladders, cave mouths, and holes are portals between planes.
 - Normally only an occupied plane simulates, and the client renders only the
   local player's plane.
-- This generalizes today's per-depth `LevelWorld` behavior without pushing a
+- This generalizes the original per-depth `LevelWorld` behavior without pushing a
   `z` coordinate through every physics, FOV, pathfinding, and rendering call.
 
 This model is implemented in `world-space.ts`: snapshots, saves, deltas, and the

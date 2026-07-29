@@ -1,8 +1,11 @@
 # Terrain Slice Specification
 
+**Status: COMPLETE / RETAINED DEVELOPMENT FIXTURE**
+
 This is the fixed acceptance scene for Milestones 0 and 1 of
 `docs/ROADMAP.md`. It is a development fixture, not a production level. Keep its
-semantic layout stable while comparing art and resolver approaches.
+semantic layout stable for regression comparisons. The production implementation
+and current decisions live in `docs/TERRAIN-AND-WORLD.md`.
 
 ## Purpose
 

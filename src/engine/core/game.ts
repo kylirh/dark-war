@@ -1423,43 +1423,27 @@ export class Game {
    * Load game state from serialized data
    */
   public deserialize(data: SerializedState): void {
-    const partial = data as Partial<SerializedState>;
-    if (!partial.plane) {
+    if (!data.plane) {
       throw new Error("Invalid save: missing world plane");
     }
-    const serializedPlayers =
-      Array.isArray(partial.players) && partial.players.length > 0
-        ? partial.players
-        : partial.player
-          ? [partial.player]
-          : [];
-    if (serializedPlayers.length === 0) {
+    if (!Array.isArray(data.players) || data.players.length === 0) {
       throw new Error("Invalid save: missing player data");
     }
-    const serializedEntities = Array.isArray(partial.entities)
-      ? partial.entities
-      : [];
-    const exploredTiles = Array.isArray(partial.explored)
-      ? partial.explored
-      : [];
-    const sim = partial.sim ?? { nowTick: 0, mode: "REALTIME" as const };
-    const floorVariant =
-      typeof data.floorVariant === "number" ? data.floorVariant : RNG.int(3);
-    const wallSet = data.wallSet === "wood" ? "wood" : "concrete";
-    const levelKind =
-      data.levelKind ?? (data.depth === 0 ? "outside" : "dungeon");
-    const address =
-      data.worldSpaceId && data.worldPlaneId
-        ? { spaceId: data.worldSpaceId, planeId: data.worldPlaneId }
-        : worldAddressForDepth(data.depth);
+    const serializedPlayers = data.players;
+    const serializedEntities = data.entities;
+    const exploredTiles = data.explored;
+    const address = {
+      spaceId: data.worldSpaceId,
+      planeId: data.worldPlaneId,
+    };
     const worldPlane = deserializeWorldPlane(data.plane, {
-      wraps: levelKind === "outside",
+      wraps: data.levelKind === "outside",
       variantSeed: data.depth,
     });
     const mapWidth = worldPlane.width;
     const mapHeight = worldPlane.height;
     const players = this.hydratePlayers(serializedPlayers, data.depth);
-    const localPlayerId = data.multiplayer?.localPlayerId ?? players[0].id;
+    const localPlayerId = data.multiplayer.localPlayerId;
     this.localPlayerId = localPlayerId;
     const player =
       players.find((candidate) => candidate.id === localPlayerId) ?? players[0];
@@ -1484,41 +1468,40 @@ export class Game {
       depth: data.depth,
       worldSpaceId: address.spaceId,
       worldPlaneId: address.planeId,
-      levelKind,
+      levelKind: data.levelKind,
       mapWidth,
       mapHeight,
-      floorVariant,
-      wallSet,
+      floorVariant: data.floorVariant,
+      wallSet: data.wallSet,
       mapDirty: false,
       tiles: worldPlane,
       worldPlane,
       portals: data.portals,
-      stairsDown: data.stairsDown ??
-        (data as { stairs?: [number, number] }).stairs ?? [0, 0],
-      stairsUp: data.stairsUp ?? null,
-      playerStart: data.stairsUp ?? data.stairsDown ?? [0, 0],
+      stairsDown: data.stairsDown,
+      stairsUp: data.stairsUp,
+      playerStart: data.stairsUp ?? data.stairsDown,
       visible: new Set(),
       explored: new Set(exploredTiles),
       accessible: new Set(),
-      enhancedVision: data.enhancedVision ?? false,
+      enhancedVision: data.enhancedVision,
       visibilityByPlayer,
       exploredByPlayer,
       entities,
       entityManager: new EntityManager(entities),
       players,
       player,
-      story: data.story || [],
-      options: { fov: true, godMode: data.godMode ?? false },
-      effects: data.effects || [],
+      story: data.story,
+      options: { fov: true, godMode: data.godMode },
+      effects: data.effects,
       multiplayer: {
-        mode: data.multiplayer?.mode ?? this.multiplayerMode,
+        mode: data.multiplayer.mode,
         localPlayerId,
       },
       sim: {
-        nowTick: sim.nowTick,
-        mode: sim.mode,
-        timeScale: sim.timeScale ?? 1.0,
-        targetTimeScale: sim.targetTimeScale ?? 1.0,
+        nowTick: data.sim.nowTick,
+        mode: data.sim.mode,
+        timeScale: data.sim.timeScale,
+        targetTimeScale: data.sim.targetTimeScale,
         accumulatorMs: 0,
         lastFrameMs: performance.now(),
         pauseReasons: new Set(),
@@ -1534,34 +1517,32 @@ export class Game {
     };
 
     this.levels = new Map();
-    for (const level of data.levels ?? []) {
-      const levelKind =
-        level.levelKind ?? (level.depth === 0 ? "outside" : "dungeon");
-      const levelAddress =
-        level.worldSpaceId && level.worldPlaneId
-          ? { spaceId: level.worldSpaceId, planeId: level.worldPlaneId }
-          : worldAddressForDepth(level.depth);
+    for (const level of data.levels) {
+      const levelAddress = {
+        spaceId: level.worldSpaceId,
+        planeId: level.worldPlaneId,
+      };
       const levelPlane = deserializeWorldPlane(level.plane, {
-        wraps: levelKind === "outside",
+        wraps: level.levelKind === "outside",
         variantSeed: level.depth,
       });
       this.levels.set(worldAddressKey(levelAddress), {
         depth: level.depth,
         worldSpaceId: levelAddress.spaceId,
         worldPlaneId: levelAddress.planeId,
-        levelKind,
+        levelKind: level.levelKind,
         mapWidth: levelPlane.width,
         mapHeight: levelPlane.height,
         floorVariant: level.floorVariant,
-        wallSet: level.wallSet === "wood" ? "wood" : "concrete",
+        wallSet: level.wallSet,
         stairsDown: level.stairsDown,
-        stairsUp: level.stairsUp ?? null,
+        stairsUp: level.stairsUp,
         explored: new Set(level.explored),
         exploredByPlayer: this.deserializeExploredByPlayer(
           level.exploredByPlayer,
         ),
         entities: this.hydrateEntities(level.entities, level.depth),
-        enhancedVision: level.enhancedVision ?? false,
+        enhancedVision: level.enhancedVision,
         worldPlane: levelPlane,
         portals: level.portals,
       });

@@ -150,18 +150,18 @@ npm run build:web     # ③ static web client → apps/web/dist  (apps/web)
 The web client is single-player plus join-a-server-by-address; it can't host or
 auto-discover LAN games (a browser has no listening/UDP sockets).
 
-## Current Roadmap
+## Terrain and World Foundation
 
-The active program is the world and terrain foundation: compositional semantic
+The completed world and terrain foundation provides compositional semantic
 tile layers, authored elevation, static water, automatic visual resolution,
 portal-linked interiors/caves, and a reproducible Aseprite + Tiled workflow.
-Procedural and handcrafted content will compile into the same semantic model so
-they can meet without graphical or gameplay seams.
+Procedural and handcrafted content compile into the same semantic model so they
+meet without graphical or gameplay seams.
 
 See [`docs/TERRAIN-AND-WORLD.md`](docs/TERRAIN-AND-WORLD.md) for the accepted
-design and [`docs/ROADMAP.md`](docs/ROADMAP.md) for milestones and cross-branch
-handoffs. Dark War is unreleased; this program may deliberately break old saves,
-worlds, and multiplayer protocol versions in favor of a clean implementation.
+design and [`docs/ROADMAP.md`](docs/ROADMAP.md) for the completed milestones and
+future handoffs. Dark War is unreleased; old saves, worlds, and multiplayer
+protocol versions are intentionally unsupported.
 
 ## Project Structure
 

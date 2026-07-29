@@ -527,7 +527,7 @@ export interface GameState {
   mapDirty: boolean;
   // Canonical tile accessor. Generated levels expose their WorldPlane here.
   tiles: TileSource;
-  /** Authoritative layered storage when this level has completed migration. */
+  /** Authoritative compositional storage for the active world plane. */
   worldPlane: import("./core/world-plane").WorldPlane;
   portals: import("./core/world-space").WorldPortal[];
   visible: Set<number>;
@@ -590,23 +590,23 @@ export interface SerializedState {
   depth: number;
   worldSpaceId: string;
   worldPlaneId: string;
-  levelKind?: LevelKind;
+  levelKind: LevelKind;
   plane: SerializedWorldPlane;
   portals: import("./core/world-space").WorldPortal[];
-  floorVariant?: number;
-  wallSet?: WallSet;
+  floorVariant: number;
+  wallSet: WallSet;
   stairsDown: [number, number];
-  stairsUp?: [number, number] | null;
+  stairsUp: [number, number] | null;
   player: Player;
-  players?: Player[];
+  players: Player[];
   entities: Entity[];
   explored: number[];
-  enhancedVision?: boolean;
-  godMode?: boolean;
-  exploredByPlayer?: Record<string, number[]>;
+  enhancedVision: boolean;
+  godMode: boolean;
+  exploredByPlayer: Record<string, number[]>;
   story: string[];
-  levels?: SerializedLevelState[];
-  multiplayer?: {
+  levels: SerializedLevelState[];
+  multiplayer: {
     mode: MultiplayerMode;
     localPlayerId: string;
   };
@@ -614,28 +614,28 @@ export interface SerializedState {
   sim: {
     nowTick: number;
     mode: "PLANNING" | "REALTIME";
-    timeScale?: number;
-    targetTimeScale?: number;
+    timeScale: number;
+    targetTimeScale: number;
   };
-  sounds?: SoundCue[]; // Sound effects to play on receiving client
-  effects?: Effect[]; // Visual effects (explosions, etc.)
+  sounds: SoundCue[]; // Sound effects to play on receiving client
+  effects: Effect[]; // Visual effects (explosions, etc.)
 }
 
 export interface SerializedLevelState {
   depth: number;
   worldSpaceId: string;
   worldPlaneId: string;
-  levelKind?: LevelKind;
+  levelKind: LevelKind;
   plane: SerializedWorldPlane;
   portals: import("./core/world-space").WorldPortal[];
   floorVariant: number;
-  wallSet?: WallSet;
+  wallSet: WallSet;
   stairsDown: [number, number];
   stairsUp: [number, number] | null;
   explored: number[];
-  exploredByPlayer?: Record<string, number[]>;
+  exploredByPlayer: Record<string, number[]>;
   entities: Entity[];
-  enhancedVision?: boolean;
+  enhancedVision: boolean;
 }
 
 export interface SerializedWorldPlane {

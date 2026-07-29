@@ -1,7 +1,6 @@
 # Dark War Architecture
 
-This document describes the architecture that exists today and the approved
-direction for the world rewrite. Detailed terrain decisions live in
+This document describes the current Dark War architecture. Detailed terrain decisions live in
 [`TERRAIN-AND-WORLD.md`](TERRAIN-AND-WORLD.md); ordered work and branch handoffs
 live in [`ROADMAP.md`](ROADMAP.md).
 
@@ -67,7 +66,7 @@ feeds simulation; it can always be rebuilt from semantic layers.
 
 `core/world-semantics.ts` owns the shared ground/structure/fixture IDs, stable
 authoring keys, complete current-tile classification, and the conversion boundary
-used as procedural generators move onto `WorldPlane`.
+used by scalar-layout procedural generators before runtime.
 
 The server owns one `LevelWorld` per stable `WorldAddress`. Players migrate
 independently through typed doors, stairs, ladders, cave mouths, and holes.
@@ -97,7 +96,7 @@ Collision, opacity, destructibility, and visuals are synthesized from semantic
 layers. WorldPlanes remain 2D; portals generalize today's stairs and hole-fall
 transitions. Static water is terrain, not a fluid simulation.
 
-This is a deliberate breaking rewrite. There is no requirement to load old saves
+This was a deliberate breaking rewrite. There is no requirement to load old saves
 or communicate with old clients. The layered serialization and delta conversion
 bumped `PROTOCOL_VERSION`; version 8 carries stable world identities, portals,
 and authoritative terrain-shaping actions.
@@ -122,7 +121,7 @@ sequence. Movement-only client prediction is reconciled against authoritative
 snapshots. Firing and hits remain server-authoritative.
 
 State broadcasts use keyframes and deltas. The protocol deliberately rejects
-mismatched versions. During the world rewrite, compatibility with previous
+mismatched versions. While the game is unreleased, compatibility with previous
 protocol versions is not required.
 
 Simulated worlds are keyed by world-space and plane identity. Empty planes

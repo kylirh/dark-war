@@ -74,9 +74,9 @@ art, UI, effects, animation, and visual content decisions.
 
 - Electron app: shipping desktop variant. Can host an embedded LAN server, browse
   LAN games through UDP discovery, and join manual WebSocket servers.
-- Headless server: shipping authoritative WebSocket host with rooms, per-depth
-  worlds, authoritative simulation, player migration between depths, respawn
-  handling, and delta-compressed broadcasts.
+- Headless server: shipping authoritative WebSocket host with rooms,
+  per-`WorldAddress` planes, authoritative simulation, independent portal
+  migration, respawn handling, and delta-compressed broadcasts.
 - Web client: shipping static browser build. Single-player works; browser clients
   can join `ws://` / `wss://` servers by address but cannot host or UDP-discover
   LAN games.

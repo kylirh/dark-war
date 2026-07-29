@@ -532,9 +532,7 @@
           "name": "rest-stop-loot",
           "x": 6,
           "y": 5,
-          "properties": {
-            "darkwar.spawn": "loot.cave-rest-stop"
-          }
+          "properties": { "darkwar.spawn": "loot.cave-rest-stop" }
         },
         {
           "id": 4,
@@ -851,9 +849,7 @@
           "name": "future-builder",
           "x": 6,
           "y": 6,
-          "properties": {
-            "darkwar.spawn": "npc.builder"
-          }
+          "properties": { "darkwar.spawn": "npc.builder" }
         }
       ]
     }

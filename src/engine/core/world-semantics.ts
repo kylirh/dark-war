@@ -173,7 +173,7 @@ export function semanticCellForTile(tile: TileType): SemanticCellIds {
 
 /**
  * Convert a generated scalar layout into an authoritative layered plane.
- * This is a generator migration boundary, not a persistent compatibility path.
+ * This is the generator-to-runtime boundary, not a persistent compatibility path.
  */
 export function createWorldPlaneFromTiles(
   tiles: readonly TileType[],

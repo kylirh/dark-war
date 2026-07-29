@@ -1,14 +1,13 @@
 # apps/server — headless dedicated server (variant 2)
 
 Runs Dark War games on a box with no display. Authoritative simulation, multi-room
-(per `roomId`), per-depth `LevelWorld`s, delta-compressed broadcasts, player
+(per `roomId`), per-`WorldAddress` `LevelWorld`s, delta-compressed broadcasts, player
 join/leave/migration. This is the same server the Electron app embeds for LAN play
 (`electron/server-manager.js` forks the bundled `app/server-bundle.js`).
 
-Per-depth worlds describe the current implementation. The approved terrain/world
-program will generalize them into WorldSpaces and WorldPlanes; see
+Stable WorldSpaces and WorldPlanes are the current implementation; see
 [`../../docs/TERRAIN-AND-WORLD.md`](../../docs/TERRAIN-AND-WORLD.md). Old protocol
-versions do not require compatibility during that rewrite.
+versions are intentionally unsupported.
 
 Although the server has no presentation layer, authoritative semantics should
 support the rebuilding, cultivation, repair, and community focus recorded in
@@ -34,7 +33,7 @@ client over HTTPS.
 
 ## Status
 
-- Multi-room hosting and per-depth worlds already work.
+- Multi-room hosting and independently addressed world planes work.
 - Public-service operations such as room limits, idle timeouts, and metrics are
-  deferred while the authoritative world representation is being replaced. See
+  deferred as separate product work. See
   [`../../docs/ROADMAP.md`](../../docs/ROADMAP.md).

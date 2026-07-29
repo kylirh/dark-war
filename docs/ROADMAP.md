@@ -14,12 +14,12 @@ playable and validated, but allow deliberate save resets and protocol breaks.
 - **NEXT** — approved next work; safe to pick up.
 - **IN PROGRESS** — currently owned; coordinate before overlapping it.
 - **PLANNED** — ordered but depends on earlier work.
-- **DEFERRED** — intentionally outside the active program.
-- **DONE** — merged and verified.
+- **DEFERRED** — intentionally outside the completed foundation program.
+- **COMPLETE** — implemented and verified.
 
 ## Milestone 0 — Architecture record and slice specification
 
-**Status: DONE**
+**Status: COMPLETE**
 
 - Keep `docs/TERRAIN-AND-WORLD.md` authoritative.
 - Specify the prototype scene and its semantic inputs.
@@ -151,9 +151,9 @@ it. Cached shore, river, and bounded cliff classifications drive cheerful water,
 edge, face, stair, and shadow presentation. The Matter Manipulator raises and
 lowers eligible clear terrain at the cursor with `[` and `]`; offline and online
 commands mutate the same semantic layer, invalidate at most a 3×3 neighborhood,
-and replicate through per-layer elevation deltas. Protocol version 7 carries the
-new authoritative action. Existing holes remain the chasm/fall behavior until
-their transition is generalized as a portal in Milestone 6.
+and replicate through per-layer elevation deltas. Protocol version 7 introduced
+the authoritative action; the current version 8 also carries stable world and
+portal identities. Holes now transition through the same world-plane system.
 
 - Add `Int16` elevation to world planes.
 - Add elevation-aware collision, traversal, stairs/ramps, raising, and lowering.
@@ -248,8 +248,7 @@ foundation.
 - WFC.
 - LDtk integration.
 - Runtime AI-generated assets.
-- Public-server operations and the arcade variant until the terrain/world program
-  no longer needs foundational changes.
+- Public-server operations and the arcade variant remain separate product work.
 
 ## Cross-branch coordination
 
@@ -265,10 +264,7 @@ files without coordination. Before starting:
 
 ### Handoff ledger
 
-| Milestone | Branch/owner               | Scope                                            | Status      | Dependencies/notes                 |
-| --------- | -------------------------- | ------------------------------------------------ | ----------- | ---------------------------------- |
-| M0        | `codex/terrain-foundation` | Architecture, slice specification, semantic keys | done        | Initial elevation classifier added |
-| M1        | `codex/terrain-foundation` | Art reset, visual slice, elevation topology      | in progress | Production tile families remain    |
-| M2        | unassigned                 | Layered semantic storage                         | blocked     | M1 field requirements              |
-| M3        | unassigned                 | Production visual resolver                       | blocked     | M1 and M2                          |
-| M4        | unassigned                 | Aseprite/Tiled compiler                          | blocked     | M1 asset conventions               |
+| Milestones | Branch/owner               | Scope                                       | Status | Notes                              |
+| ---------- | -------------------------- | ------------------------------------------- | ------ | ---------------------------------- |
+| M0–M8      | `codex/terrain-foundation` | Complete terrain/world foundation program   | done   | Tests, docs, and authoring sources |
+| Next       | unassigned                 | Ordinary game content and product expansion | open   | Build on the completed foundation  |

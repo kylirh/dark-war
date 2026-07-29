@@ -214,7 +214,7 @@ if (entity.kind === EntityKind.MONSTER) {
   writes. Raw arrays exist only inside procedural generator implementation.
 - **Persistence/network:** `SerializedWorldPlane` carries all five semantic
   layers. Multiplayer deltas diff each layer independently. Legacy scalar saves
-  and pre-v6 clients are intentionally unsupported.
+  and pre-v8 clients are intentionally unsupported.
 - **Resolved visuals:** `WorldPlane.visuals` is a derived typed-array cache.
   Semantic tile edits refresh a bounded 3×3 neighborhood. Never serialize it or
   use it for simulation decisions.
@@ -223,11 +223,9 @@ if (entity.kind === EntityKind.MONSTER) {
 - **Check passable:** `passableFor(map, x, y, width, height)`
 - **Set tile:** `setTileFor(map, x, y, width, TileType.FLOOR)`
 
-This is current implementation guidance, not the target architecture. The active
-program replaces the scalar `TileType[]` with compositional typed-array layers on
-2D WorldPlanes, signed discrete elevation, static water, and portal-linked
-WorldSpaces. Do not extend the scalar enum with new ground/structure/fixture
-combinations when the approved layered model is the appropriate solution.
+This is the implemented architecture. Do not reintroduce a scalar runtime map or
+extend the scalar enum with new ground/structure/fixture combinations when the
+layered model is the appropriate solution.
 
 ### Rendering, Camera & Wrap-Around
 
@@ -301,9 +299,9 @@ The simulation is split into domain modules under `src/engine/systems/simulation
 
 - Two modes: `offline` (default) and `online`
 - In `online` mode, server is authoritative (runs Game + Physics), always real time (no CTDM/time dilation)
-- **Per-depth worlds:** one `LevelWorld` (Game + Physics) per depth, shared by everyone on that depth; players migrate individually on stairs/holes via `Game.detachPlayer`/`attachExistingPlayer` (only the acting player moves)
+- **Addressed worlds:** one `LevelWorld` (Game + Physics) per stable `WorldAddress`, shared by everyone on that plane; players migrate individually through typed portals via `Game.detachPlayer`/`attachExistingPlayer` (only the acting player moves)
 - Wire format is versioned (`src/net/protocol.ts`, `PROTOCOL_VERSION`); mismatched clients are rejected
-- Protocol breaks are allowed during the approved world rewrite. Bump the
+- Protocol breaks are allowed while the game is unreleased. Bump the
   version and replace the old encoding; do not maintain compatibility branches.
 - Clients send velocity/actions stamped with a monotonic `seq`; the server echoes the processed seq as `ackSeq`
 - **Client-side prediction** (movement-only): the local player is predicted immediately and reconciled against server snapshots (`src/client/main.ts`, `Physics.predictLocalMovement`). Firing/hits stay server-authoritative
