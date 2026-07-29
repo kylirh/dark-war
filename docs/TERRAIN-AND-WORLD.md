@@ -81,6 +81,12 @@ The terrain laboratory is the first authoritative consumer. Its `TileType[]`
 view exists only as a derived bridge for physics and other scalar consumers
 during Milestone 2; semantic layers remain authoritative.
 
+`src/engine/core/world-semantics.ts` defines the initial compact runtime
+vocabulary and dotted authoring-key correspondence. It exhaustively classifies
+the current scalar tile vocabulary and can convert generator output into a
+writable authoritative plane. This conversion is an implementation boundary for
+current generators, not a save-format compatibility mechanism.
+
 This interface is illustrative; fields may change when the visual slice proves
 what is required. The durable decisions are compositional semantic layers,
 typed-array storage, and sparse records for exceptional state. A `WorldCell`

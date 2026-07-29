@@ -62,6 +62,11 @@ are implemented. The terrain laboratory now uses it authoritatively; its scalar
 collision map is a derived projection. Ordinary dungeon/outside generation,
 mutation, saves, and netcode still require coordinated conversion.
 
+The shared `GroundType`, `StructureType`, and `FixtureType` vocabulary now
+classifies every current `TileType`, preserves meaningful bases such as grass
+under trees and sidewalk under lights, and provides a tested conversion boundary
+for existing procedural generators.
+
 - Replace the scalar tile model with a structure-of-arrays plane model.
 - Classify current `TileType` use into ground, structure, and fixture semantics.
 - Centralize synthesized passability, opacity, and destructibility.

@@ -55,6 +55,10 @@ Legacy tile identity still mixes ground, structures, fixtures, and presentation
 concerns. Rendering contains specialized wall, hole, terrain, and tall-sprite
 selection logic.
 
+`core/world-semantics.ts` owns the shared ground/structure/fixture IDs, stable
+authoring keys, complete current-tile classification, and the conversion boundary
+used as procedural generators move onto `WorldPlane`.
+
 The server owns one `LevelWorld` per numeric depth. Players migrate independently
 between depths on stairs or through holes. This is working current behavior, not
 the final world vocabulary.
