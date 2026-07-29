@@ -20,6 +20,8 @@ export interface InputCallbacks {
   onToggleCTDM: () => void;
   onToggleMatterManipulator: () => void;
   onToggleGodMode: () => void;
+  onPrototypeLower: () => boolean;
+  onPrototypeRaise: () => boolean;
   onResumePause: (reason: string) => void;
   onNewGame: () => void;
   onSave: () => void;
@@ -88,6 +90,19 @@ export class InputHandler {
     }
 
     if (isModalOpen) return;
+
+    if (code === "BracketLeft") {
+      if (this.callbacks.onPrototypeLower()) {
+        e.preventDefault();
+        return;
+      }
+    }
+    if (code === "BracketRight") {
+      if (this.callbacks.onPrototypeRaise()) {
+        e.preventDefault();
+        return;
+      }
+    }
 
     const preferences = this.getPreferences();
 

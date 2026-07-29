@@ -58,6 +58,10 @@ import {
 } from "../engine/content/block-defs";
 import { itemName } from "../engine/content/item-defs";
 import { idxFor, inBoundsFor, tileAtFor } from "../engine/utils/helpers";
+import {
+  TERRAIN_LOWER_FIXTURE,
+  TERRAIN_RAISE_FIXTURE,
+} from "../engine/systems/terrain/terrain-prototype";
 
 function weaponToItemType(weapon: WeaponType): ItemType | null {
   switch (weapon) {
@@ -553,6 +557,8 @@ class DarkWar {
       onToggleCTDM: () => this.handleToggleCTDM(),
       onToggleMatterManipulator: () => this.handleToggleMatterManipulator(),
       onToggleGodMode: () => this.handleToggleGodMode(),
+      onPrototypeLower: () => this.handlePrototypeElevationEdit("lower"),
+      onPrototypeRaise: () => this.handlePrototypeElevationEdit("raise"),
       onResumePause: (reason) => this.game.resumeFromPause(reason),
       onNewGame: () => this.handleNewGame(),
       onSave: () => this.handleSave(),
@@ -2175,6 +2181,21 @@ class DarkWar {
       return;
     }
     this.game.toggleFOV();
+  }
+
+  /** Exercise bounded semantic terrain edits in the fixed prototype scene. */
+  private handlePrototypeElevationEdit(direction: "lower" | "raise"): boolean {
+    if (this.isOnlineMode()) return false;
+    const state = this.game.getState();
+    if (!state.terrainPrototype) return false;
+    const fixture =
+      direction === "lower" ? TERRAIN_LOWER_FIXTURE : TERRAIN_RAISE_FIXTURE;
+    this.game.editTerrainPrototypeElevation(
+      fixture[0],
+      fixture[1],
+      direction === "lower" ? -1 : 1,
+    );
+    return true;
   }
 
   /**

@@ -39,7 +39,11 @@ import {
 import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { SoundEffect } from "../content/sound-effects";
-import { createTerrainPrototypePlane } from "../systems/terrain/terrain-prototype";
+import {
+  applyTerrainPrototypeElevationEdit,
+  createTerrainPrototypePlane,
+  TerrainPrototypeEditResult,
+} from "../systems/terrain/terrain-prototype";
 
 const EXPLORATION_COMPLETION_THRESHOLD = 0.9;
 const MIN_COMPLETION_REACHABLE_TILES = 50;
@@ -390,7 +394,28 @@ export class Game {
     this.addStory(
       "Terrain laboratory: rebuild the bright world one tile at a time.",
     );
+    this.addStory("Prototype edits: [ lowers gold; ] raises mint.");
     this.updateFOV();
+  }
+
+  /** Edit prototype elevation and expose its bounded visual/physics footprint. */
+  public editTerrainPrototypeElevation(
+    x: number,
+    y: number,
+    delta: number,
+  ): TerrainPrototypeEditResult | null {
+    const prototype = this.state.terrainPrototype;
+    if (!prototype) return null;
+
+    const result = applyTerrainPrototypeElevationEdit(prototype, x, y, delta);
+    if (!result) return null;
+    for (const index of result.dirtyCellIndices) {
+      this.state.changedTiles?.add(index);
+    }
+    this.addStory(
+      `Terrain elevation ${result.previousElevation} → ${result.nextElevation}; ${result.dirtyCellIndices.length} visual cells resolved.`,
+    );
+    return result;
   }
 
   /**

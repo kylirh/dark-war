@@ -37,16 +37,17 @@ import {
 import { wrapValue, nearestWrappedImage } from "../../engine/utils/wrap";
 import { cardinalAutotileMask } from "../../engine/utils/autotile";
 import {
-  PrototypeGround,
+  PrototypeCliffVisual,
+  PrototypeGroundVisual,
   PrototypeStructure,
+  TERRAIN_LOWER_FIXTURE,
+  TERRAIN_RAISE_FIXTURE,
 } from "../../engine/systems/terrain/terrain-prototype";
 import {
-  cliffMagnitudeForDrop,
   ELEVATION_EAST,
   ELEVATION_NORTH,
   ELEVATION_SOUTH,
   ELEVATION_WEST,
-  resolveElevationVisualContext,
 } from "../../engine/systems/terrain/elevation-resolver";
 
 type RenderFrame = SpriteFrame & { key: string };
@@ -1276,68 +1277,47 @@ export class Renderer {
         const prototype = state.terrainPrototype;
         if (prototype) {
           const prototypeIndex = mx + my * prototype.width;
-          const prototypeGround = prototype.ground[
-            prototypeIndex
-          ] as PrototypeGround;
-          const groundKeyByType: Record<PrototypeGround, string> = {
-            [PrototypeGround.GRASS]:
-              hashTile(mx, my, 81) % 17 === 0
-                ? "prototype_grass_flowers"
-                : hashTile(mx, my, 82) % 2 === 0
-                  ? "prototype_grass"
-                  : "prototype_grass_alt",
-            [PrototypeGround.DIRT]:
-              hashTile(mx, my, 83) % 2 === 0
-                ? "prototype_dirt"
-                : "prototype_dirt_alt",
-            [PrototypeGround.STONE]:
-              hashTile(mx, my, 84) % 2 === 0
-                ? "prototype_stone"
-                : "prototype_stone_alt",
-            [PrototypeGround.WATER_SHALLOW]:
-              hashTile(mx, my, 85) % 2 === 0
-                ? "prototype_water_shallow"
-                : "prototype_water_alt",
-            [PrototypeGround.WATER_DEEP]: "prototype_water_deep",
+          const groundKeyByVisual: Record<PrototypeGroundVisual, string> = {
+            [PrototypeGroundVisual.GRASS]: "prototype_grass",
+            [PrototypeGroundVisual.GRASS_ALT]: "prototype_grass_alt",
+            [PrototypeGroundVisual.GRASS_FLOWERS]: "prototype_grass_flowers",
+            [PrototypeGroundVisual.DIRT]: "prototype_dirt",
+            [PrototypeGroundVisual.DIRT_ALT]: "prototype_dirt_alt",
+            [PrototypeGroundVisual.STONE]: "prototype_stone",
+            [PrototypeGroundVisual.STONE_ALT]: "prototype_stone_alt",
+            [PrototypeGroundVisual.WATER_SHALLOW]: "prototype_water_shallow",
+            [PrototypeGroundVisual.WATER_SHALLOW_ALT]: "prototype_water_alt",
+            [PrototypeGroundVisual.WATER_DEEP]: "prototype_water_deep",
           };
-          renderGround(groundKeyByType[prototypeGround]);
-
-          const elevationAt = (x: number, y: number): number => {
-            if (
-              x < 0 ||
-              y < 0 ||
-              x >= prototype.width ||
-              y >= prototype.height
-            ) {
-              return prototype.elevation[prototypeIndex];
-            }
-            return prototype.elevation[x + y * prototype.width];
-          };
-          const elevationContext = resolveElevationVisualContext(
-            mx,
-            my,
-            elevationAt,
+          renderGround(
+            groundKeyByVisual[
+              prototype.visuals.ground[prototypeIndex] as PrototypeGroundVisual
+            ],
           );
 
           // A lower cell directly south of a higher terrace carries the visible
           // face. Arbitrary height differences collapse to one bounded sprite.
-          if (elevationContext.higherNeighborMask & ELEVATION_NORTH) {
+          const cliffVisual = prototype.visuals.cliff[
+            prototypeIndex
+          ] as PrototypeCliffVisual;
+          const cliffEdgeMask = prototype.visuals.cliffEdgeMask[prototypeIndex];
+          if (cliffVisual !== PrototypeCliffVisual.NONE) {
             renderGround(
-              cliffMagnitudeForDrop(elevationContext.maximumRise) === "tall"
+              cliffVisual === PrototypeCliffVisual.TALL
                 ? "prototype_cliff_tall"
                 : "prototype_cliff_step",
             );
           } else {
-            if (elevationContext.lowerNeighborMask & ELEVATION_NORTH) {
+            if (cliffEdgeMask & ELEVATION_NORTH) {
               renderGround("prototype_cliff_edge_north");
             }
-            if (elevationContext.lowerNeighborMask & ELEVATION_EAST) {
+            if (cliffEdgeMask & ELEVATION_EAST) {
               renderGround("prototype_cliff_edge_east");
             }
-            if (elevationContext.lowerNeighborMask & ELEVATION_SOUTH) {
+            if (cliffEdgeMask & ELEVATION_SOUTH) {
               renderGround("prototype_cliff_edge_south");
             }
-            if (elevationContext.lowerNeighborMask & ELEVATION_WEST) {
+            if (cliffEdgeMask & ELEVATION_WEST) {
               renderGround("prototype_cliff_edge_west");
             }
           }
@@ -1361,6 +1341,31 @@ export class Renderer {
             renderDecoration("prototype_workshop");
           } else if (prototypeStructure === PrototypeStructure.CAVE_MOUTH) {
             renderDecoration("prototype_cave_mouth");
+          }
+          const isLowerFixture =
+            mx === TERRAIN_LOWER_FIXTURE[0] && my === TERRAIN_LOWER_FIXTURE[1];
+          const isRaiseFixture =
+            mx === TERRAIN_RAISE_FIXTURE[0] && my === TERRAIN_RAISE_FIXTURE[1];
+          const isDirty =
+            prototype.editFeedback.dirtyCellIndices.has(prototypeIndex);
+          if (isLowerFixture || isRaiseFixture || isDirty) {
+            const isEdited =
+              prototype.editFeedback.editedCellIndex === prototypeIndex;
+            const fixtureColor = isLowerFixture ? 0xffb35c : 0x5de2c2;
+            const highlight = new Graphics();
+            highlight
+              .rect(screenX, screenY, CELL_CONFIG.w, CELL_CONFIG.h)
+              .fill({
+                color: isEdited ? 0xffd166 : fixtureColor,
+                alpha: isDirty ? 0.16 : 0.06,
+              })
+              .stroke({
+                color: isEdited ? 0xfff1a8 : fixtureColor,
+                width: isEdited || isLowerFixture || isRaiseFixture ? 2 : 1,
+                alpha: isEdited ? 0.95 : isDirty ? 0.5 : 0.8,
+              });
+            highlight.zIndex = tileSortY + 0.5;
+            this.entityContainer.addChild(highlight);
           }
           continue;
         }

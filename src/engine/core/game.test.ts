@@ -246,6 +246,21 @@ describe("Game multiplayer player management", () => {
     expect(state.options.fov).toBe(false);
   });
 
+  it("publishes bounded terrain prototype edits to tile consumers", () => {
+    const prototypeGame = new Game();
+    prototypeGame.reset(0);
+    prototypeGame.loadTerrainPrototype();
+    prototypeGame.getState().mapDirty = false;
+
+    const result = prototypeGame.editTerrainPrototypeElevation(22, 14, -1);
+    const state = prototypeGame.getState();
+
+    expect(result?.dirtyCellIndices).toHaveLength(9);
+    expect(state.changedTiles).toEqual(new Set(result?.dirtyCellIndices));
+    expect(state.mapDirty).toBe(false);
+    expect(state.story[0]).toContain("9 visual cells resolved");
+  });
+
   it("detaches a player and re-attaches it to another world with stats intact", () => {
     const from = new Game({ mode: "online" });
     from.reset(1);

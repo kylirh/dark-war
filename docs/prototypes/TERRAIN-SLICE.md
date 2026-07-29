@@ -28,6 +28,11 @@ for ground, structure, and signed elevation, while a generated scalar collision
 map temporarily connects the fixture to today's physics and pathfinding. The
 normal outside and dungeon generators are unchanged.
 
+Press `[` to lower the marked test cell and `]` to raise its neighboring test
+cell. The edited cell is highlighted in warm gold; the rest of the reclassified
+3×3 dependency area is highlighted in mint. The story log reports the before
+and after elevation and the exact number of visual cells resolved.
+
 The generated direction boards under
 `assets-src/references/art-direction/` are mood, color, and shape references
 only. They are not tilesheets, sources of gameplay identity, or exact rendering
@@ -166,8 +171,14 @@ work and no material regression from the current fixed scene.
 - Browser visual inspection passed without console errors. Ground repetition was
   reduced after the first render by adding deterministic variants and removing
   per-tile highlight bands.
-- Frame-time and dirty-edit measurements remain pending until edit fixtures and
-  resolver caching land.
+- The initial resolved cache uses three aligned 1,200-byte arrays: ground
+  variant, cliff magnitude, and cliff edge mask (3,600 bytes total).
+- Each raise/lower action mutates one semantic cell and reclassifies a clipped
+  radius-one neighborhood: 9 cells in the fixture, with no full-map visual or
+  collision rebuild.
+- Browser interaction verified both edit controls and their `8 → 7` / `8 → 9`
+  story telemetry without console warnings or errors.
+- Frame-time, sprite-retarget, and atlas-switch measurements remain pending.
 
 ## Acceptance checklist
 
@@ -177,7 +188,7 @@ work and no material regression from the current fixed scene.
 - [x] Static water, river, and bridge compose in the fixed scene; authored shore
       masks remain pending.
 - [x] Trees retain ground underneath them.
-- [ ] Raising/lowering repairs nearby visuals without a full-map pass.
+- [x] Raising/lowering repairs nearby visuals without a full-map pass.
 - [ ] Cave entry moves between planes without simultaneous plane rendering.
 - [ ] The scene satisfies the review checklist in `docs/ART-DIRECTION.md`.
 - [ ] Resolver-family decisions are recorded below.
@@ -187,11 +198,11 @@ work and no material regression from the current fixed scene.
 Fill this table after the visual comparison rather than assuming one global
 autotiler.
 
-| Family       | Candidates                        | Selected | Evidence |
-| ------------ | --------------------------------- | -------- | -------- |
-| Soft ground  | corner/dual-grid, blob            | pending  | pending  |
-| Walls/fences | four-cardinal                     | pending  | pending  |
-| Shorelines   | mixed Wang, blob                  | pending  | pending  |
-| Roads/rivers | directional edges                 | pending  | pending  |
-| Cliffs       | elevation topology + authored set | pending  | pending  |
-| Decoration   | deterministic hash                | pending  | pending  |
+| Family       | Candidates                        | Selected | Evidence                                                                     |
+| ------------ | --------------------------------- | -------- | ---------------------------------------------------------------------------- |
+| Soft ground  | corner/dual-grid, blob            | pending  | pending                                                                      |
+| Walls/fences | four-cardinal                     | pending  | pending                                                                      |
+| Shorelines   | mixed Wang, blob                  | pending  | pending                                                                      |
+| Roads/rivers | directional edges                 | pending  | pending                                                                      |
+| Cliffs       | elevation topology + authored set | selected | Arbitrary drops collapse to step/tall visuals; a one-cell edit resolves 3×3. |
+| Decoration   | deterministic hash                | selected | Stable variants are cached once and remain unchanged outside dirty cells.    |

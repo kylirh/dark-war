@@ -3,11 +3,15 @@
 import { describe, expect, it } from "vitest";
 import { TileType } from "../../types";
 import {
+  applyTerrainPrototypeElevationEdit,
   createTerrainPrototypePlane,
+  PrototypeCliffVisual,
   PrototypeGround,
   PrototypeStructure,
+  TERRAIN_LOWER_FIXTURE,
   TERRAIN_PROTOTYPE_HEIGHT,
   TERRAIN_PROTOTYPE_WIDTH,
+  terrainDirtyNeighborhood,
 } from "./terrain-prototype";
 
 describe("createTerrainPrototypePlane", () => {
@@ -56,5 +60,55 @@ describe("createTerrainPrototypePlane", () => {
     expect(structures).toContain(PrototypeStructure.CAVE_MOUTH);
     expect(structures).toContain(PrototypeStructure.FLOWERS);
     expect(structures).toContain(PrototypeStructure.TREE);
+  });
+});
+
+describe("terrain prototype edits", () => {
+  it("clips dirty neighborhoods at plane boundaries", () => {
+    expect(terrainDirtyNeighborhood(10, 10, 40, 30)).toHaveLength(9);
+    expect(terrainDirtyNeighborhood(0, 0, 40, 30)).toEqual([0, 1, 40, 41]);
+  });
+
+  it("updates one semantic cell and only its 3x3 visual dependency area", () => {
+    const plane = createTerrainPrototypePlane();
+    const [x, y] = TERRAIN_LOWER_FIXTURE;
+    const editedIndex = x + y * plane.width;
+    const untouchedIndex = 1 + plane.width;
+    const untouchedVisual = {
+      ground: plane.visuals.ground[untouchedIndex],
+      cliff: plane.visuals.cliff[untouchedIndex],
+      edge: plane.visuals.cliffEdgeMask[untouchedIndex],
+    };
+
+    const result = applyTerrainPrototypeElevationEdit(plane, x, y, -1);
+
+    expect(result).not.toBeNull();
+    expect(result?.editedCellIndex).toBe(editedIndex);
+    expect(result?.previousElevation).toBe(8);
+    expect(result?.nextElevation).toBe(7);
+    expect(result?.dirtyCellIndices).toHaveLength(9);
+    expect(plane.editFeedback.dirtyCellIndices.size).toBe(9);
+    expect(plane.editFeedback.editedCellIndex).toBe(editedIndex);
+    expect(plane.editFeedback.revision).toBe(1);
+    expect(plane.visuals.cliff[editedIndex]).toBe(PrototypeCliffVisual.STEP);
+    expect(plane.collisionMap[editedIndex]).toBe(TileType.WALL);
+    expect({
+      ground: plane.visuals.ground[untouchedIndex],
+      cliff: plane.visuals.cliff[untouchedIndex],
+      edge: plane.visuals.cliffEdgeMask[untouchedIndex],
+    }).toEqual(untouchedVisual);
+  });
+
+  it("supports repeated signed edits without expanding resolver work", () => {
+    const plane = createTerrainPrototypePlane();
+    const [x, y] = TERRAIN_LOWER_FIXTURE;
+
+    const first = applyTerrainPrototypeElevationEdit(plane, x, y, -1);
+    const second = applyTerrainPrototypeElevationEdit(plane, x, y, -5);
+
+    expect(first?.dirtyCellIndices).toHaveLength(9);
+    expect(second?.dirtyCellIndices).toHaveLength(9);
+    expect(second?.nextElevation).toBe(2);
+    expect(plane.editFeedback.revision).toBe(2);
   });
 });
