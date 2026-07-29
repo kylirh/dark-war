@@ -7,6 +7,8 @@ import {
 } from "../types";
 import { applyWallDamageAt, applyWallDamageAtIndex } from "./walls";
 import { idxFor } from "./helpers";
+import { createWorldPlaneFromTiles } from "../core/world-semantics";
+import { getStateDamageAtIndex } from "./state-tiles";
 
 const W = 5;
 const H = 5;
@@ -22,11 +24,13 @@ function fakeState(fill: TileType = TileType.WALL): GameState {
     map[y * W] = TileType.WALL;
     map[W - 1 + y * W] = TileType.WALL;
   }
+  const worldPlane = createWorldPlaneFromTiles(map, W, H);
   return {
-    map,
+    map: worldPlane.legacyTiles,
     mapWidth: W,
     mapHeight: H,
-    wallDamage: new Array(W * H).fill(0),
+    tiles: worldPlane,
+    worldPlane,
     mapDirty: false,
     holeCreatedTiles: new Set<number>(),
   } as unknown as GameState;
@@ -47,7 +51,7 @@ describe("applyWallDamageAt", () => {
     expect(state.map[idxFor(2, 2, W)]).toBe(TileType.WALL); // not yet destroyed
     applyWallDamageAt(state, 2, 2, 1);
     expect(state.map[idxFor(2, 2, W)]).toBe(TileType.FLOOR);
-    expect(state.wallDamage[idxFor(2, 2, W)]).toBe(0);
+    expect(getStateDamageAtIndex(state, idxFor(2, 2, W))).toBe(0);
     expect(state.mapDirty).toBe(true);
   });
 

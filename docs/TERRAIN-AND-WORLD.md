@@ -98,7 +98,8 @@ layout generation and stair placement. All freshly generated gameplay planes
 are therefore layered. Saves and multiplayer payloads serialize the five layers
 directly; multiplayer deltas send changed indices per layer. Old scalar saves
 and protocol versions are not supported. The derived scalar projection remains
-only as a temporary adapter for runtime consumers still being migrated.
+only as a temporary adapter for tile consumers still being migrated. Damage is
+already read and written directly on `WorldPlane.layers.damage`.
 
 This interface is illustrative; fields may change when the visual slice proves
 what is required. The durable decisions are compositional semantic layers,

@@ -51,7 +51,9 @@ Fresh outside, dungeon, and terrain-laboratory levels now use authoritative
 scalar projection only to consumers awaiting migration. Runtime tile mutations
 flow through `utils/state-tiles.ts`, keeping both views synchronized. Save files,
 multiplayer keyframes, and multiplayer deltas now serialize all five semantic
-layers directly. Legacy scalar saves and clients are intentionally rejected.
+layers directly. Runtime damage also uses the plane layer exclusively; there is
+no duplicate damage array. Legacy scalar saves and clients are intentionally
+rejected.
 
 `core/world-semantics.ts` owns the shared ground/structure/fixture IDs, stable
 authoring keys, complete current-tile classification, and the conversion boundary

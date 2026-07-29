@@ -13,7 +13,6 @@ import { WorldPlane } from "./world-plane";
 
 export interface OutsideLevelData extends DungeonData {
   entities: ItemEntity[];
-  wallDamage: number[];
   worldPlane: WorldPlane;
 }
 
@@ -124,8 +123,7 @@ export function createOutsideLevel(): OutsideLevelData {
     new ItemEntity(15, 58, ItemType.MATTER_MANIPULATOR),
   ];
 
-  const wallDamage = new Array(WIDTH * HEIGHT).fill(0);
-  const worldPlane = createWorldPlaneFromTiles(map, WIDTH, HEIGHT, wallDamage);
+  const worldPlane = createWorldPlaneFromTiles(map, WIDTH, HEIGHT);
   return {
     map: worldPlane.legacyTiles,
     width: WIDTH,
@@ -136,7 +134,6 @@ export function createOutsideLevel(): OutsideLevelData {
     stairsDown,
     rooms: [],
     entities,
-    wallDamage,
     worldPlane,
   };
 }

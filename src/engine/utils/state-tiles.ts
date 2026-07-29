@@ -41,8 +41,10 @@ export function setStateDamageAtIndex(
 ): void {
   if (index < 0 || index >= state.mapWidth * state.mapHeight) return;
   const clamped = Math.max(0, Math.min(255, damage));
-  state.wallDamage[index] = clamped;
-  if (state.worldPlane) {
-    state.worldPlane.layers.damage[index] = clamped;
-  }
+  state.worldPlane.layers.damage[index] = clamped;
+}
+
+export function getStateDamageAtIndex(state: GameState, index: number): number {
+  if (index < 0 || index >= state.mapWidth * state.mapHeight) return 0;
+  return state.worldPlane.layers.damage[index] ?? 0;
 }

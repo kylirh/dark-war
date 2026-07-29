@@ -21,7 +21,6 @@ import {
 } from "../types";
 import { createOutsideLevel } from "./outside-level";
 import { EntityManager } from "./entity-manager";
-import { FlatTileSource } from "./tile-source";
 import { generateDungeon } from "./dungeon-generator";
 import { PlayerEntity } from "../entities/player-entity";
 import { MonsterEntity } from "../entities/monster-entity";
@@ -68,14 +67,13 @@ interface LevelSnapshot {
   mapHeight: number;
   floorVariant: number;
   wallSet: WallSet;
-  wallDamage: number[];
   explored: Set<number>;
   exploredByPlayer: Map<string, Set<number>>;
   entities: Entity[];
   stairsDown: [number, number];
   stairsUp: [number, number] | null;
   enhancedVision: boolean;
-  worldPlane?: WorldPlane;
+  worldPlane: WorldPlane;
 }
 
 /**
@@ -116,21 +114,26 @@ export class Game {
     ]);
 
     const entities: Entity[] = [];
-    const map: TileType[] = new Array(MAP_WIDTH * MAP_HEIGHT).fill(
+    const initialMap: TileType[] = new Array(MAP_WIDTH * MAP_HEIGHT).fill(
       TileType.WALL,
+    );
+    const worldPlane = createWorldPlaneFromTiles(
+      initialMap,
+      MAP_WIDTH,
+      MAP_HEIGHT,
     );
 
     return {
       depth: 0,
       levelKind: "outside",
-      map,
+      map: worldPlane.legacyTiles,
       mapWidth: MAP_WIDTH,
       mapHeight: MAP_HEIGHT,
       floorVariant: 0,
       wallSet: "concrete",
-      wallDamage: new Array(MAP_WIDTH * MAP_HEIGHT).fill(0),
       mapDirty: false,
-      tiles: new FlatTileSource(map, MAP_WIDTH, MAP_HEIGHT),
+      tiles: worldPlane,
+      worldPlane,
       visible: new Set(),
       explored,
       accessible: new Set(),
@@ -203,15 +206,9 @@ export class Game {
       mapHeight: dungeon.height,
       floorVariant: dungeon.floorVariant,
       wallSet: dungeon.wallSet,
-      wallDamage:
-        outside?.wallDamage ??
-        new Array(dungeon.width * dungeon.height).fill(0),
       mapDirty: false,
-      tiles:
-        outside?.worldPlane ??
-        dungeonLevel?.worldPlane ??
-        new FlatTileSource(dungeon.map, dungeon.width, dungeon.height),
-      worldPlane: outside?.worldPlane ?? dungeonLevel?.worldPlane,
+      tiles: outside?.worldPlane ?? dungeonLevel!.worldPlane,
+      worldPlane: outside?.worldPlane ?? dungeonLevel!.worldPlane,
       visible: new Set(),
       explored,
       accessible: new Set(),
@@ -382,9 +379,6 @@ export class Game {
     this.state.mapHeight = prototype.height;
     this.state.floorVariant = 0;
     this.state.wallSet = "wood";
-    this.state.wallDamage = new Array(prototype.width * prototype.height).fill(
-      0,
-    );
     this.state.tiles = prototype.world;
     this.state.worldPlane = prototype.world;
     this.state.terrainPrototype = prototype;
@@ -723,7 +717,6 @@ export class Game {
       mapHeight: this.state.mapHeight,
       floorVariant: this.state.floorVariant,
       wallSet: this.state.wallSet,
-      wallDamage: this.state.wallDamage,
       explored: new Set(this.state.explored),
       exploredByPlayer: this.cloneExploredByPlayerMap(
         this.state.exploredByPlayer,
@@ -741,17 +734,10 @@ export class Game {
 
   /**
    * Rebuild the canonical tile accessor after the backing map array or its
-   * dimensions are swapped (level transitions). This currently wraps the flat
-   * map; the layered WorldPlane rewrite will replace this refresh path.
+   * dimensions are swapped during level transitions.
    */
   private refreshTileSource(): void {
-    this.state.tiles =
-      this.state.worldPlane ??
-      new FlatTileSource(
-        this.state.map,
-        this.state.mapWidth,
-        this.state.mapHeight,
-      );
+    this.state.tiles = this.state.worldPlane;
   }
 
   private applyLevelSnapshot(
@@ -760,13 +746,11 @@ export class Game {
   ): void {
     this.state.playerStart = [playerEntry[0], playerEntry[1]];
     this.state.map = snapshot.map;
-    this.state.worldPlane = undefined;
     this.state.levelKind = snapshot.levelKind;
     this.state.mapWidth = snapshot.mapWidth;
     this.state.mapHeight = snapshot.mapHeight;
     this.state.floorVariant = snapshot.floorVariant;
     this.state.wallSet = snapshot.wallSet;
-    this.state.wallDamage = snapshot.wallDamage;
     this.state.worldPlane = snapshot.worldPlane;
     this.refreshTileSource();
     this.state.explored = new Set(snapshot.explored);
@@ -850,7 +834,6 @@ export class Game {
       mapHeight: level.height,
       floorVariant: level.floorVariant,
       wallSet: level.wallSet,
-      wallDamage: new Array(level.width * level.height).fill(0),
       explored: new Set(),
       exploredByPlayer: new Map(
         this.state.players.map((player) => [player.id, new Set<number>()]),
@@ -1323,7 +1306,6 @@ export class Game {
     const worldPlane = deserializeWorldPlane(data.plane);
     const mapWidth = worldPlane.width;
     const mapHeight = worldPlane.height;
-    const wallDamage = Array.from(worldPlane.layers.damage);
     const players = this.hydratePlayers(serializedPlayers, data.depth);
     const localPlayerId = data.multiplayer?.localPlayerId ?? players[0].id;
     this.localPlayerId = localPlayerId;
@@ -1354,7 +1336,6 @@ export class Game {
       mapHeight,
       floorVariant,
       wallSet,
-      wallDamage,
       mapDirty: false,
       tiles: worldPlane,
       worldPlane,
@@ -1410,7 +1391,6 @@ export class Game {
         mapHeight: levelPlane.height,
         floorVariant: level.floorVariant,
         wallSet: level.wallSet === "wood" ? "wood" : "concrete",
-        wallDamage: Array.from(levelPlane.layers.damage),
         stairsDown: level.stairsDown,
         stairsUp: level.stairsUp ?? null,
         explored: new Set(level.explored),

@@ -6,16 +6,21 @@ import {
   hasAnyRepairTarget,
 } from "./repair";
 import { idxFor } from "./helpers";
+import { createWorldPlaneFromTiles } from "../core/world-semantics";
+import { getStateDamageAtIndex, setStateDamageAtIndex } from "./state-tiles";
 
 const W = 7;
 const H = 7;
 
 function fakeState(): GameState {
+  const map = new Array(W * H).fill(TileType.FLOOR);
+  const worldPlane = createWorldPlaneFromTiles(map, W, H);
   return {
-    map: new Array(W * H).fill(TileType.FLOOR),
+    map: worldPlane.legacyTiles,
     mapWidth: W,
     mapHeight: H,
-    wallDamage: new Array(W * H).fill(0),
+    tiles: worldPlane,
+    worldPlane,
     mapDirty: false,
   } as unknown as GameState;
 }
@@ -34,9 +39,9 @@ describe("applyRepairAt", () => {
     const state = fakeState();
     const i = idxFor(3, 3, W);
     state.map[i] = TileType.WALL;
-    state.wallDamage[i] = 9;
+    setStateDamageAtIndex(state, i, 9);
     expect(applyRepairAt(state, 3, 3)).toBe("damaged");
-    expect(state.wallDamage[i]).toBe(6); // repairs by 3
+    expect(getStateDamageAtIndex(state, i)).toBe(6); // repairs by 3
     expect(state.mapDirty).toBe(false); // not fully repaired
   });
 
@@ -44,9 +49,9 @@ describe("applyRepairAt", () => {
     const state = fakeState();
     const i = idxFor(3, 3, W);
     state.map[i] = TileType.WALL;
-    state.wallDamage[i] = 2;
+    setStateDamageAtIndex(state, i, 2);
     expect(applyRepairAt(state, 3, 3)).toBe("damaged");
-    expect(state.wallDamage[i]).toBe(0);
+    expect(getStateDamageAtIndex(state, i)).toBe(0);
     expect(state.mapDirty).toBe(true);
   });
 
@@ -68,7 +73,7 @@ describe("findNearestRepairTarget / hasAnyRepairTarget", () => {
     const state = fakeState();
     state.map[idxFor(5, 3, W)] = TileType.HOLE; // distance 2
     state.map[idxFor(4, 3, W)] = TileType.WALL; // distance 1
-    state.wallDamage[idxFor(4, 3, W)] = 4;
+    setStateDamageAtIndex(state, idxFor(4, 3, W), 4);
     expect(findNearestRepairTarget(state, 3, 3, 4)).toEqual([4, 3]);
     expect(hasAnyRepairTarget(state)).toBe(true);
   });

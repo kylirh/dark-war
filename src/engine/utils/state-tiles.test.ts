@@ -5,6 +5,7 @@ import { Game } from "../core/game";
 import { StructureType } from "../core/world-semantics";
 import { TileType } from "../types";
 import {
+  getStateDamageAtIndex,
   setStateDamageAtIndex,
   setStateTile,
   setStateTileAtIndex,
@@ -23,14 +24,14 @@ describe("state tile mutations", () => {
     expect(setStateTile(state, x, y, TileType.DOOR_LOCKED)).toBe(true);
     expect(state.tiles.getTile(x, y)).toBe(TileType.DOOR_LOCKED);
     expect(state.map[index]).toBe(TileType.DOOR_LOCKED);
-    expect(state.worldPlane!.layers.structure[index]).toBe(
+    expect(state.worldPlane.layers.structure[index]).toBe(
       StructureType.DOOR_LOCKED,
     );
     expect(state.changedTiles).toContain(index);
 
     setStateDamageAtIndex(state, index, 7);
-    expect(state.wallDamage[index]).toBe(7);
-    expect(state.worldPlane!.layers.damage[index]).toBe(7);
+    expect(getStateDamageAtIndex(state, index)).toBe(7);
+    expect(state.worldPlane.layers.damage[index]).toBe(7);
   });
 
   it("mutates authoritative dungeon layers through the same API", () => {
@@ -45,7 +46,7 @@ describe("state tile mutations", () => {
       TileType.HOLOWALL,
     );
     expect(state.map[index]).toBe(TileType.HOLOWALL);
-    expect(state.worldPlane!.layers.structure[index]).toBe(
+    expect(state.worldPlane.layers.structure[index]).toBe(
       StructureType.HOLOWALL,
     );
   });

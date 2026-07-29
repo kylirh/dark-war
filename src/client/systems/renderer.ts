@@ -36,6 +36,7 @@ import {
 } from "../../engine/config/sprites";
 import { wrapValue, nearestWrappedImage } from "../../engine/utils/wrap";
 import { cardinalAutotileMask } from "../../engine/utils/autotile";
+import { getStateDamageAtIndex } from "../../engine/utils/state-tiles";
 import {
   PrototypeCliffVisual,
   PrototypeGround,
@@ -547,7 +548,7 @@ export class Renderer {
     const floorVariant = state.floorVariant ?? 0;
     const floorCoord =
       FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
-    const damage = state.wallDamage[tileIndex] || 0;
+    const damage = getStateDamageAtIndex(state, tileIndex);
     let baseCoord: { x: number; y: number } | null = null;
     let overlayCoord: { x: number; y: number } | null = null;
     let tileCoord: { x: number; y: number } | null = null;
@@ -1206,7 +1207,7 @@ export class Renderer {
         const floorVariant = state.floorVariant ?? 0;
         const floorCoord =
           FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
-        const damage = state.wallDamage[tileIndex] || 0;
+        const damage = getStateDamageAtIndex(state, tileIndex);
 
         const applyFovAlpha = (sprite: Sprite): void => {
           if (!isVisible && usingShadowFov) {

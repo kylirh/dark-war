@@ -116,7 +116,6 @@ describe("Physics.updateBullets (anti-tunnel)", () => {
       entityManager: new EntityManager(entities),
       effects: [],
       eventQueue: [],
-      wallDamage: new Array(map.length).fill(0),
       map,
       mapWidth: W,
       mapHeight: H,

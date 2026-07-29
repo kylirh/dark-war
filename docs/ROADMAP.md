@@ -79,8 +79,10 @@ in-memory depth snapshots therefore use `WorldPlane` on every ordinary level.
 Save files and multiplayer keyframes now contain the five plane layers, and
 multiplayer deltas diff each layer independently. Protocol version 6 rejects old
 clients, and legacy scalar saves are intentionally unsupported. Remaining work
-is migrating runtime readers away from the derived `map` and `wallDamage` views
-so those fields and `FlatTileSource` setup paths can be deleted.
+has begun: damage now reads and writes `WorldPlane.layers.damage` directly, and
+the duplicate `state.wallDamage`/level-snapshot arrays have been deleted. The
+remaining work is migrating tile readers away from derived `state.map` so that
+projection and residual `FlatTileSource` setup paths can be deleted.
 
 - Replace the scalar tile model with a structure-of-arrays plane model.
 - Classify current `TileType` use into ground, structure, and fixture semantics.

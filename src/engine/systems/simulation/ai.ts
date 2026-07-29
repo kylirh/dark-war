@@ -20,6 +20,7 @@ import {
   tileAtFor,
 } from "../../utils/helpers";
 import { applyWallDamageAt } from "../../utils/walls";
+import { getStateDamageAtIndex } from "../../utils/state-tiles";
 import { TILE_DEFINITIONS } from "../../types";
 import { isWallLikeTile } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
@@ -208,11 +209,11 @@ function findNearestReachableRepairTarget(
   fromX: number,
   fromY: number,
 ): [number, number] | null {
-  const { map, mapWidth: w, mapHeight: h, wallDamage } = state;
+  const { map, mapWidth: w, mapHeight: h } = state;
 
   const isRepairable = (idx: number): boolean => {
     const tile = map[idx];
-    const damage = wallDamage[idx] ?? 0;
+    const damage = getStateDamageAtIndex(state, idx);
     return (
       tile === TileType.HOLE ||
       ((tile === TileType.FLOOR ||
@@ -323,7 +324,7 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
       if (inBoundsFor(cx, cy, state.mapWidth, state.mapHeight)) {
         const cidx = idxFor(cx, cy, state.mapWidth);
         const ctile = state.map[cidx];
-        const cdmg = state.wallDamage[cidx] ?? 0;
+        const cdmg = getStateDamageAtIndex(state, cidx);
         const stillRepairable =
           ctile === TileType.HOLE ||
           ((ctile === TileType.FLOOR ||
@@ -1408,7 +1409,7 @@ function decideUtilityBotCommand(
     if (!inBoundsFor(tx, ty, state.mapWidth, state.mapHeight)) continue;
     const idx = idxFor(tx, ty, state.mapWidth);
     const tile = state.map[idx];
-    const damage = state.wallDamage[idx] ?? 0;
+    const damage = getStateDamageAtIndex(state, idx);
     const repairable =
       tile === TileType.HOLE ||
       ((tile === TileType.FLOOR ||
