@@ -1239,9 +1239,13 @@ export class Game {
 
     this.updateFOV();
     this.addStory(
-      nextDepth === 1
-        ? "You enter the Megacorp research facility."
-        : `You descend into level ${this.state.depth}.`,
+      destination.spaceId === WORKSHOP_INTERIOR_ADDRESS.spaceId
+        ? "You enter the park workshop — part greenhouse, part community repair shop."
+        : destination.spaceId === CAVE_ENTRY_ADDRESS.spaceId
+          ? "You enter the cool shelter of the park grotto."
+          : nextDepth === 1
+            ? "You enter the Megacorp research facility."
+            : `You descend into level ${this.state.depth}.`,
     );
   }
 

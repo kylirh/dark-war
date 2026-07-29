@@ -1659,7 +1659,15 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
   // Trigger level change (handled by Game.ts after tick completes)
   pushEvent(state, {
     type: EventType.MESSAGE,
-    data: { type: "MESSAGE", message: "You descend deeper..." },
+    data: {
+      type: "MESSAGE",
+      message:
+        portal.kind === "door"
+          ? "You step through the doorway..."
+          : portal.kind === "cave-mouth"
+            ? "You enter the grotto..."
+            : "You descend deeper...",
+    },
   });
 
   // Set flag for Game.ts to handle
@@ -1694,7 +1702,15 @@ function resolveAscendCommand(state: GameState, cmd: Command): void {
 
   pushEvent(state, {
     type: EventType.MESSAGE,
-    data: { type: "MESSAGE", message: "You ascend..." },
+    data: {
+      type: "MESSAGE",
+      message:
+        portal.kind === "door"
+          ? "You step back through the doorway..."
+          : portal.kind === "cave-mouth"
+            ? "You climb toward daylight..."
+            : "You ascend...",
+    },
   });
 
   state.pendingPortalId = portal.id;
