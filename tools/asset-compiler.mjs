@@ -153,6 +153,146 @@ export function compileTiledTileset(
   };
 }
 
+function semanticGidsForMap(tmj, sourcePath, allowedSemanticKeys) {
+  const gids = new Map();
+  for (const reference of tmj.tilesets ?? []) {
+    if (typeof reference.source !== "string") {
+      throw new Error(`${sourcePath}: embedded tilesets are not supported`);
+    }
+    const tilesetPath = resolve(sourcePath, "..", reference.source);
+    const tileset = readJson(tilesetPath);
+    for (const tile of tileset.tiles ?? []) {
+      const semanticKey = propertiesFor(tile)["darkwar.semanticKey"];
+      if (typeof semanticKey !== "string") continue;
+      if (!allowedSemanticKeys.has(semanticKey)) {
+        throw new Error(`${sourcePath}: unknown semantic key ${semanticKey}`);
+      }
+      gids.set(reference.firstgid + tile.id, semanticKey);
+    }
+  }
+  return gids;
+}
+
+/** Compile one standard Tiled JSON map into an editor-independent prefab. */
+export function compileTiledPrefab(
+  tmj,
+  sourcePath,
+  rootDirectory,
+  allowedSemanticKeys,
+) {
+  if (tmj.type !== "map" || tmj.orientation !== "orthogonal") {
+    throw new Error(`${sourcePath}: prefab must be an orthogonal Tiled map`);
+  }
+  const width = requireInteger(tmj.width, `${sourcePath}: width`);
+  const height = requireInteger(tmj.height, `${sourcePath}: height`);
+  const tileWidth = requireInteger(tmj.tilewidth, `${sourcePath}: tilewidth`);
+  const tileHeight = requireInteger(
+    tmj.tileheight,
+    `${sourcePath}: tileheight`,
+  );
+  const mapProperties = propertiesFor(tmj);
+  const key = mapProperties["darkwar.prefabKey"];
+  if (typeof key !== "string" || key.length === 0) {
+    throw new Error(`${sourcePath}: missing darkwar.prefabKey`);
+  }
+  const gids = semanticGidsForMap(tmj, sourcePath, allowedSemanticKeys);
+  const cellCount = width * height;
+  const layers = {
+    ground: new Array(cellCount).fill(null),
+    structure: new Array(cellCount).fill(null),
+    fixture: new Array(cellCount).fill(null),
+    elevation: new Array(cellCount).fill(null),
+  };
+  const markers = [];
+
+  for (const layer of tmj.layers ?? []) {
+    const layerProperties = propertiesFor(layer);
+    const semanticLayer =
+      layerProperties["darkwar.semanticLayer"] ?? layer.name;
+    if (layer.type === "tilelayer" && semanticLayer in layers) {
+      if (!Array.isArray(layer.data) || layer.data.length !== cellCount) {
+        throw new Error(`${sourcePath}: ${layer.name} must be finite CSV data`);
+      }
+      if (semanticLayer === "elevation") {
+        throw new Error(`${sourcePath}: elevation uses rectangle objects`);
+      }
+      for (let index = 0; index < cellCount; index++) {
+        const rawGid = layer.data[index];
+        if (rawGid === 0) continue;
+        const gid = rawGid & 0x1fffffff;
+        const semanticKey = gids.get(gid);
+        if (!semanticKey) {
+          throw new Error(
+            `${sourcePath}: ${layer.name} has unmapped gid ${gid}`,
+          );
+        }
+        if (!semanticKey.startsWith(`${semanticLayer}.`)) {
+          throw new Error(
+            `${sourcePath}: ${semanticKey} cannot appear on ${semanticLayer}`,
+          );
+        }
+        layers[semanticLayer][index] = semanticKey;
+      }
+      continue;
+    }
+    if (layer.type !== "objectgroup") continue;
+    for (const object of layer.objects ?? []) {
+      const objectProperties = propertiesFor(object);
+      const kind = object.class || object.type || layer.name;
+      const x = Math.floor(object.x / tileWidth);
+      const y = Math.floor(object.y / tileHeight);
+      if (kind === "elevation") {
+        const value = objectProperties["darkwar.elevation"];
+        requireInteger(value, `${sourcePath}: elevation value`);
+        const objectWidth = Math.max(1, Math.round(object.width / tileWidth));
+        const objectHeight = Math.max(
+          1,
+          Math.round(object.height / tileHeight),
+        );
+        for (let yy = y; yy < y + objectHeight; yy++) {
+          for (let xx = x; xx < x + objectWidth; xx++) {
+            if (xx < 0 || yy < 0 || xx >= width || yy >= height) {
+              throw new Error(
+                `${sourcePath}: elevation rectangle is out of bounds`,
+              );
+            }
+            layers.elevation[xx + yy * width] = value;
+          }
+        }
+        continue;
+      }
+      if (!["spawn", "portal", "socket", "require"].includes(kind)) {
+        throw new Error(`${sourcePath}: unsupported marker kind ${kind}`);
+      }
+      if (x < 0 || y < 0 || x >= width || y >= height) {
+        throw new Error(`${sourcePath}: ${kind} marker is out of bounds`);
+      }
+      markers.push({
+        id: object.id,
+        kind,
+        name: object.name || "",
+        x,
+        y,
+        properties: objectProperties,
+      });
+    }
+  }
+
+  const transforms = String(mapProperties["darkwar.transforms"] ?? "identity")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return {
+    source: relative(rootDirectory, sourcePath),
+    key,
+    width,
+    height,
+    transforms,
+    layers,
+    markers: markers.sort((a, b) => a.id - b.id),
+  };
+}
+
 function commandAvailable(command) {
   return spawnSync(command, ["--version"], { stdio: "ignore" }).status === 0;
 }
@@ -272,6 +412,17 @@ export function compileAssetManifest(rootDirectory, options = {}) {
     config,
     options.asepritePath,
   );
+  const prefabs = filesWithExtension(
+    join(rootDirectory, "assets-src"),
+    ".tmj",
+  ).map((path) =>
+    compileTiledPrefab(
+      readJson(path),
+      path,
+      rootDirectory,
+      allowedSemanticKeys,
+    ),
+  );
 
   const semanticIds = Object.fromEntries(
     semanticKeys.map((semanticKey, index) => [semanticKey, index]),
@@ -282,5 +433,5 @@ export function compileAssetManifest(rootDirectory, options = {}) {
     }
   }
 
-  return { version: 1, semanticKeys, atlases, aseprite, tilesets };
+  return { version: 1, semanticKeys, atlases, aseprite, tilesets, prefabs };
 }

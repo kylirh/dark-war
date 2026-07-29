@@ -1,0 +1,74 @@
+{
+  "columns": 16,
+  "image": "../../app/assets/img/sprites.png",
+  "imageheight": 1376,
+  "imagewidth": 512,
+  "name": "dark-war-semantic-palette",
+  "tilecount": 688,
+  "tileheight": 32,
+  "tilewidth": 32,
+  "tiles": [
+    {
+      "id": 1,
+      "properties": [
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.floor"
+        }
+      ]
+    },
+    {
+      "id": 72,
+      "properties": [
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.rubble"
+        }
+      ]
+    },
+    {
+      "id": 170,
+      "properties": [
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "fixture.crate"
+        }
+      ]
+    },
+    {
+      "id": 275,
+      "properties": [
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.stone"
+        }
+      ]
+    },
+    {
+      "id": 288,
+      "properties": [
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.wall"
+        }
+      ]
+    },
+    {
+      "id": 299,
+      "properties": [
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "fixture.flowers"
+        }
+      ]
+    }
+  ],
+  "type": "tileset",
+  "version": "1.10"
+}

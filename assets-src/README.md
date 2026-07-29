@@ -10,6 +10,8 @@ Read these in order before making art:
 2. [`STYLE.md`](STYLE.md) — compact Aseprite production checklist.
 3. [`docs/TERRAIN-AND-WORLD.md`](../docs/TERRAIN-AND-WORLD.md) — semantic world,
    terrain, elevation, and authoring architecture.
+4. [`PREFABS.md`](PREFABS.md) — exact Tiled map, layer, marker, and transform
+   contract.
 
 Source types:
 
@@ -22,8 +24,8 @@ Source types:
 Never use an editor tile ID or atlas coordinate as gameplay identity. Authoring
 files use stable semantic keys documented in
 `docs/prototypes/TERRAIN-SLICE.md`; `npm run gen:visual-assets` generates the
-runtime manifest and validates image bounds, semantic families, masks, and Wang
-metadata.
+runtime manifests and validates image bounds, semantic families, masks, Wang
+metadata, semantic prefab layers, transforms, requirements, and markers.
 
 `legacy/dark-war.aseprite` is retained only as a recovery/reference source. It
 is disabled in `assets.json` and is not the approved visual target. Add new
@@ -37,5 +39,6 @@ The standard authoring loop is:
 1. Edit an active `.aseprite` source and/or `.tsj` in this directory.
 2. Run `npm run gen:visual-assets`.
 3. Review `app/assets/img/sprites.png` and
-   `app/assets/data/visual-manifest.json`.
+   `app/assets/data/visual-manifest.json`; prefab changes also regenerate
+   `src/generated/semantic-prefabs.json`.
 4. Run `npm test` before committing source and generated output together.

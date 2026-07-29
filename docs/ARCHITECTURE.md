@@ -109,6 +109,10 @@ Aseprite sources and Tiled tilesets/maps are authoring inputs. A build-time asse
 compiler produces atlases, visual manifests, and semantic prefabs. Editor tile
 IDs and atlas coordinates never become gameplay state. Runtime edits pass through
 deterministic per-family visual resolvers and update bounded dirty neighborhoods.
+Compiled prefabs support validated requirements, rotations/reflection, edge
+sockets, spawn and portal markers, and deterministic `WorldPlane` stamping. The
+Tiled-authored cave rest stop is composed into a procedurally carved cave as the
+reference integration.
 
 ## Multiplayer
 

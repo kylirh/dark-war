@@ -1,0 +1,197 @@
+{
+  "compressionlevel": -1,
+  "height": 10,
+  "infinite": false,
+  "layers": [
+    {
+      "data": [
+        276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276,
+        276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276,
+        276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276,
+        276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276,
+        276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276,
+        276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276,
+        276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276,
+        276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276, 276,
+        276, 276, 276, 276, 276, 276, 276, 276
+      ],
+      "height": 10,
+      "id": 1,
+      "name": "ground",
+      "type": "tilelayer",
+      "width": 12,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "data": [
+        289, 289, 289, 289, 289, 289, 289, 289, 289, 289, 289, 289, 289, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 289, 289, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 289,
+        289, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 289, 0, 0, 0, 0, 73, 0, 0, 0, 73, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 289, 0, 0, 0, 0, 73, 0, 0, 0,
+        73, 0, 0, 289, 289, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 289, 289, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 289, 289, 289, 289, 289, 289, 289, 289, 289, 289, 289,
+        289
+      ],
+      "height": 10,
+      "id": 2,
+      "name": "structure",
+      "type": "tilelayer",
+      "width": 12,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "data": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 171, 0, 0, 0, 300, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0
+      ],
+      "height": 10,
+      "id": 3,
+      "name": "fixture",
+      "type": "tilelayer",
+      "width": 12,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "draworder": "topdown",
+      "id": 4,
+      "name": "markers",
+      "objects": [
+        {
+          "class": "socket",
+          "id": 1,
+          "name": "west",
+          "point": true,
+          "properties": [
+            { "name": "darkwar.direction", "type": "string", "value": "west" },
+            {
+              "name": "darkwar.socket",
+              "type": "string",
+              "value": "cave-passage"
+            }
+          ],
+          "x": 0,
+          "y": 160
+        },
+        {
+          "class": "socket",
+          "id": 2,
+          "name": "east",
+          "point": true,
+          "properties": [
+            { "name": "darkwar.direction", "type": "string", "value": "east" },
+            {
+              "name": "darkwar.socket",
+              "type": "string",
+              "value": "cave-passage"
+            }
+          ],
+          "x": 352,
+          "y": 160
+        },
+        {
+          "class": "spawn",
+          "id": 3,
+          "name": "rest-stop-loot",
+          "point": true,
+          "properties": [
+            {
+              "name": "darkwar.spawn",
+              "type": "string",
+              "value": "loot.cave-rest-stop"
+            }
+          ],
+          "x": 192,
+          "y": 160
+        },
+        {
+          "class": "portal",
+          "id": 4,
+          "name": "optional-tunnel",
+          "point": true,
+          "properties": [
+            { "name": "darkwar.kind", "type": "string", "value": "cave-mouth" },
+            {
+              "name": "darkwar.targetPlane",
+              "type": "string",
+              "value": "deep-grotto"
+            },
+            {
+              "name": "darkwar.targetSpace",
+              "type": "string",
+              "value": "caves"
+            }
+          ],
+          "x": 32,
+          "y": 160
+        },
+        {
+          "class": "require",
+          "id": 5,
+          "name": "floor-anchor",
+          "point": true,
+          "properties": [
+            { "name": "darkwar.layer", "type": "string", "value": "ground" },
+            {
+              "name": "darkwar.semanticKey",
+              "type": "string",
+              "value": "ground.floor"
+            }
+          ],
+          "x": 192,
+          "y": 160
+        }
+      ],
+      "type": "objectgroup"
+    },
+    {
+      "draworder": "topdown",
+      "id": 5,
+      "name": "elevation",
+      "objects": [
+        {
+          "class": "elevation",
+          "height": 64,
+          "id": 6,
+          "properties": [
+            { "name": "darkwar.elevation", "type": "int", "value": -1 }
+          ],
+          "width": 64,
+          "x": 160,
+          "y": 128
+        }
+      ],
+      "type": "objectgroup"
+    }
+  ],
+  "nextlayerid": 6,
+  "nextobjectid": 7,
+  "orientation": "orthogonal",
+  "properties": [
+    {
+      "name": "darkwar.prefabKey",
+      "type": "string",
+      "value": "cave.rest-stop"
+    },
+    {
+      "name": "darkwar.transforms",
+      "type": "string",
+      "value": "identity,rotate90,rotate180,rotate270,reflectX"
+    }
+  ],
+  "renderorder": "right-down",
+  "tileheight": 32,
+  "tilesets": [
+    { "firstgid": 1, "source": "../tilesets/dark-war-semantic-palette.tsj" }
+  ],
+  "tilewidth": 32,
+  "type": "map",
+  "version": "1.10",
+  "width": 12
+}

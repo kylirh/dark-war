@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { compileTiledTileset } from "./asset-compiler.mjs";
+import { compileTiledPrefab, compileTiledTileset } from "./asset-compiler.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const source = join(root, "assets-src", "tilesets", "dark-war-terrain.tsj");
@@ -51,5 +51,30 @@ test("rejects unknown gameplay semantics", () => {
   assert.throws(
     () => compileTiledTileset(tileset, source, root, allowedSemanticKeys),
     /unknown semantic key ground\.not-real/,
+  );
+});
+
+test("compiles semantic prefab layers and typed markers", () => {
+  const prefabSource = join(
+    root,
+    "assets-src",
+    "prefabs",
+    "cave-rest-stop.tmj",
+  );
+  const registry = JSON.parse(
+    readFileSync(join(root, "assets-src", "semantic-keys.json"), "utf8"),
+  );
+  const prefab = compileTiledPrefab(
+    JSON.parse(readFileSync(prefabSource, "utf8")),
+    prefabSource,
+    root,
+    new Set(registry.keys),
+  );
+  assert.equal(prefab.key, "cave.rest-stop");
+  assert.equal(prefab.layers.ground.length, 120);
+  assert.equal(prefab.layers.elevation.filter(Number.isInteger).length, 4);
+  assert.deepEqual(
+    prefab.markers.map((marker) => marker.kind),
+    ["socket", "socket", "spawn", "portal", "require"],
   );
 });

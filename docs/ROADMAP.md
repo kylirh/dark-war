@@ -189,7 +189,16 @@ offline and multiplayer games.
 
 ## Milestone 7 — Semantic prefabs
 
-**Status: PLANNED**
+**Status: COMPLETE**
+
+The asset compiler now converts finite orthogonal Tiled `.tmj` maps into
+editor-independent semantic prefab data. `stampSemanticPrefab` validates the
+whole footprint and required surroundings before mutation; supports four
+rotations and reflection; transforms socket directions; preserves spawn,
+portal, and socket markers; and writes through `WorldPlane.editCell` for bounded
+derived-state repair. The canonical cave rest stop is authored in Tiled and
+stamped into the procedural park grotto, proving authored/procedural composition
+through the same semantic and visual resolvers.
 
 - Import Tiled `.tmj` content as semantic prefab stamps.
 - Add rotations, reflections, portals, spawn markers, required surroundings,

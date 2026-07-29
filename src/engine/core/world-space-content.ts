@@ -6,6 +6,7 @@ import { WorldPlane } from "./world-plane";
 import { createWorldPlaneFromTiles } from "./world-semantics";
 import { WorldAddress, WorldPortal } from "./world-space";
 import { OUTSIDE_CAVE_MOUTH } from "./outside-level";
+import { semanticPrefab, stampSemanticPrefab } from "./semantic-prefab";
 
 export const CAVE_ENTRY_ADDRESS: WorldAddress = {
   spaceId: "caves",
@@ -57,6 +58,7 @@ export function createParkGrotto(): AuthoredWorldPlaneData {
   const worldPlane = createWorldPlaneFromTiles(map, width, height, undefined, {
     variantSeed: 0xca7e,
   });
+  stampSemanticPrefab(worldPlane, semanticPrefab("cave.rest-stop"), 24, 10);
   const outsideAddress: WorldAddress = {
     spaceId: "outside",
     planeId: "surface",
