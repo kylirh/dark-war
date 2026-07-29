@@ -166,7 +166,13 @@ state and presentation.
 
 ## Milestone 6 — WorldSpaces, WorldPlanes, and portals
 
-**Status: PLANNED**
+**Status: IN PROGRESS**
+
+Stable `WorldAddress` identities are implemented first: the surface is
+`outside/surface`, facility levels are `megacorp/floor-N`, runtime snapshots and
+saves carry both IDs, offline caches and the multiplayer server key worlds by
+address, and clients require a keyframe when identity changes even if dimensions
+and progression depth happen to match.
 
 - Generalize per-depth worlds into stable world-space and plane identities.
 - Generalize stairs and hole falls into portal transitions.

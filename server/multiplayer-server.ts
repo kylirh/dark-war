@@ -21,6 +21,11 @@ import {
   getWeaponForSlot,
   swapInventorySlots,
 } from "../src/engine/utils/inventory";
+import {
+  WorldAddress,
+  worldAddressForDepth,
+  worldAddressKey,
+} from "../src/engine/core/world-space";
 
 // Force a fresh keyframe at least this often (in broadcasts) so a client that
 // somehow drifted re-baselines within a few seconds. ~5s at 20 broadcasts/sec.
@@ -150,6 +155,7 @@ function isIncomingMessage(value: unknown): value is IncomingMessage2 {
 class LevelWorld {
   readonly players = new Set<string>();
   constructor(
+    readonly address: WorldAddress,
     readonly depth: number,
     readonly game: Game,
     readonly physics: Physics,
@@ -160,8 +166,8 @@ class LevelWorld {
 
 class RoomSession {
   private readonly id: string;
-  private readonly worlds = new Map<number, LevelWorld>();
-  private readonly playerDepth = new Map<string, number>();
+  private readonly worlds = new Map<string, LevelWorld>();
+  private readonly playerLocation = new Map<string, string>();
   // Ticks remaining before a dead player respawns (infinite lives).
   private readonly respawnTimers = new Map<string, number>();
   private readonly clients = new Map<WebSocket, RoomClient>();
@@ -174,14 +180,19 @@ class RoomSession {
     this.id = id;
     this.closeRoom = closeRoom;
     // Pre-create the entry world (the outside city, depth 0).
-    this.getOrCreateWorld(0);
+    this.getOrCreateDepthWorld(0);
   }
 
   // ── Private: world management ────────────────────────────────────────────────
 
   /** Get the world for a depth, generating it (player-free) on first visit. */
-  private getOrCreateWorld(depth: number): LevelWorld {
-    const existing = this.worlds.get(depth);
+  private getOrCreateDepthWorld(depth: number): LevelWorld {
+    return this.getOrCreateWorld(worldAddressForDepth(depth), depth);
+  }
+
+  private getOrCreateWorld(address: WorldAddress, depth: number): LevelWorld {
+    const key = worldAddressKey(address);
+    const existing = this.worlds.get(key);
     if (existing) return existing;
 
     // Walk a fresh game down to `depth` so the level is generated with proper
@@ -195,22 +206,21 @@ class RoomSession {
     const physics = new Physics();
     physics.rebuildAll(game.getState());
 
-    const world = new LevelWorld(depth, game, physics);
-    this.worlds.set(depth, world);
+    const world = new LevelWorld(address, depth, game, physics);
+    this.worlds.set(key, world);
     return world;
   }
 
   private worldOfPlayer(playerId: string): LevelWorld | undefined {
-    const depth = this.playerDepth.get(playerId);
-    if (depth === undefined) return undefined;
-    return this.worlds.get(depth);
+    const location = this.playerLocation.get(playerId);
+    return location ? this.worlds.get(location) : undefined;
   }
 
   private addPlayerToWorld(playerId: string, depth: number): void {
-    const world = this.getOrCreateWorld(depth);
+    const world = this.getOrCreateDepthWorld(depth);
     world.game.addNetworkPlayer(playerId);
     world.players.add(playerId);
-    this.playerDepth.set(playerId, depth);
+    this.playerLocation.set(playerId, worldAddressKey(world.address));
     world.physics.rebuildAll(world.game.getState());
   }
 
@@ -227,7 +237,7 @@ class RoomSession {
     from.players.delete(playerId);
     from.physics.rebuildAll(from.game.getState());
 
-    const to = this.getOrCreateWorld(toDepth);
+    const to = this.getOrCreateDepthWorld(toDepth);
     const toState = to.game.getState();
     let position: [number, number];
     if (mode === "descend") {
@@ -242,7 +252,7 @@ class RoomSession {
 
     to.game.attachExistingPlayer(player, position);
     to.players.add(playerId);
-    this.playerDepth.set(playerId, toDepth);
+    this.playerLocation.set(playerId, worldAddressKey(to.address));
     to.physics.rebuildAll(toState);
 
     const client = this.clientByPlayerId(playerId);
@@ -307,7 +317,9 @@ class RoomSession {
     });
 
     this.broadcastLobbyUpdate();
-    this.getOrCreateWorld(0).game.addStory(`${name} joined room ${this.id}.`);
+    this.getOrCreateDepthWorld(0).game.addStory(
+      `${name} joined room ${this.id}.`,
+    );
   }
 
   public removeClient(socket: WebSocket): void {
@@ -323,7 +335,7 @@ class RoomSession {
         world.players.delete(client.playerId);
         world.physics.rebuildAll(world.game.getState());
       }
-      this.playerDepth.delete(client.playerId);
+      this.playerLocation.delete(client.playerId);
     }
 
     // Transfer host if needed
@@ -334,7 +346,7 @@ class RoomSession {
       }
     }
 
-    this.getOrCreateWorld(0).game.addStory(
+    this.getOrCreateDepthWorld(0).game.addStory(
       `${client.name} left room ${this.id}.`,
     );
 
@@ -617,8 +629,8 @@ class RoomSession {
 
     // Tear every world down and start fresh from the entry world.
     this.worlds.clear();
-    this.playerDepth.clear();
-    this.getOrCreateWorld(0).game.addStory("New game started.");
+    this.playerLocation.clear();
+    this.getOrCreateDepthWorld(0).game.addStory("New game started.");
     for (const playerId of clientIds) this.addPlayerToWorld(playerId, 0);
 
     for (const client of this.clients.values()) client.needsKeyframe = true;
@@ -683,8 +695,8 @@ class RoomSession {
    * at the entry world after a short delay, keeping their gear, fully healed.
    */
   private handleRespawns(): void {
-    for (const [playerId, depth] of [...this.playerDepth]) {
-      const world = this.worlds.get(depth);
+    for (const [playerId, location] of [...this.playerLocation]) {
+      const world = this.worlds.get(location);
       const player = world?.game.getPlayerById(playerId);
       if (!player) continue;
 
@@ -721,10 +733,10 @@ class RoomSession {
     from.physics.rebuildAll(from.game.getState());
 
     player.hp = player.hpMax;
-    const to = this.getOrCreateWorld(0);
+    const to = this.getOrCreateDepthWorld(0);
     to.game.attachExistingPlayer(player, to.game.getState().playerStart);
     to.players.add(playerId);
-    this.playerDepth.set(playerId, 0);
+    this.playerLocation.set(playerId, worldAddressKey(to.address));
     to.physics.rebuildAll(to.game.getState());
     to.game.addStory("You wake up back at the entrance.");
 

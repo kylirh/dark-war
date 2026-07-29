@@ -517,6 +517,8 @@ export interface DungeonData {
 
 export interface GameState {
   depth: number;
+  worldSpaceId: string;
+  worldPlaneId: string;
   levelKind: LevelKind;
   mapWidth: number;
   mapHeight: number;
@@ -584,6 +586,8 @@ export interface GameState {
 
 export interface SerializedState {
   depth: number;
+  worldSpaceId: string;
+  worldPlaneId: string;
   levelKind?: LevelKind;
   plane: SerializedWorldPlane;
   floorVariant?: number;
@@ -616,6 +620,8 @@ export interface SerializedState {
 
 export interface SerializedLevelState {
   depth: number;
+  worldSpaceId: string;
+  worldPlaneId: string;
   levelKind?: LevelKind;
   plane: SerializedWorldPlane;
   floorVariant: number;

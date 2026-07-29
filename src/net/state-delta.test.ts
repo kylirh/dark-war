@@ -37,6 +37,8 @@ function player(id: string, x: number, hp = 100): SerializedState["player"] {
 function baseState(): SerializedState {
   return {
     depth: 1,
+    worldSpaceId: "megacorp",
+    worldPlaneId: "floor-1",
     levelKind: "dungeon",
     plane: {
       width: 2,
@@ -190,6 +192,13 @@ describe("requiresKeyframe", () => {
   it("requires a keyframe when depth changes", () => {
     const next = baseState();
     next.depth = 2;
+    expect(requiresKeyframe(baseState(), next)).toBe(true);
+  });
+
+  it("requires a keyframe when identity changes at the same depth", () => {
+    const next = baseState();
+    next.worldSpaceId = "caves";
+    next.worldPlaneId = "entry";
     expect(requiresKeyframe(baseState(), next)).toBe(true);
   });
 

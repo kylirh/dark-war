@@ -35,6 +35,7 @@ import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { SoundEffect } from "../content/sound-effects";
 import { WorldPlane } from "./world-plane";
+import { worldAddressForDepth, worldAddressKey } from "./world-space";
 import {
   createWorldPlaneFromTiles,
   deserializeWorldPlane,
@@ -57,6 +58,8 @@ const DUNGEON_HEIGHT = 96;
 
 interface LevelSnapshot {
   depth: number;
+  worldSpaceId: string;
+  worldPlaneId: string;
   levelKind: LevelKind;
   mapWidth: number;
   mapHeight: number;
@@ -78,7 +81,7 @@ interface LevelSnapshot {
 export class Game {
   private state: GameState;
   private isDead = false;
-  private levels = new Map<number, LevelSnapshot>();
+  private levels = new Map<string, LevelSnapshot>();
   private multiplayerMode: MultiplayerMode;
   private localPlayerId?: string;
   /** Items that fell through holes, awaiting deposit onto a deeper level. */
@@ -117,9 +120,12 @@ export class Game {
       MAP_WIDTH,
       MAP_HEIGHT,
     );
+    const initialAddress = worldAddressForDepth(0);
 
     return {
       depth: 0,
+      worldSpaceId: initialAddress.spaceId,
+      worldPlaneId: initialAddress.planeId,
       levelKind: "outside",
       mapWidth: MAP_WIDTH,
       mapHeight: MAP_HEIGHT,
@@ -191,9 +197,12 @@ export class Game {
     ]);
 
     const entities: Entity[] = [];
+    const address = worldAddressForDepth(depth);
 
     this.state = {
       depth,
+      worldSpaceId: address.spaceId,
+      worldPlaneId: address.planeId,
       levelKind: depth === 0 ? "outside" : "dungeon",
       mapWidth: dungeon.width,
       mapHeight: dungeon.height,
@@ -362,6 +371,8 @@ export class Game {
     const player = this.state.player;
 
     this.state.depth = 0;
+    this.state.worldSpaceId = "development";
+    this.state.worldPlaneId = "terrain-laboratory";
     this.state.levelKind = "dungeon";
     this.state.mapWidth = prototype.width;
     this.state.mapHeight = prototype.height;
@@ -695,6 +706,8 @@ export class Game {
     const currentDepth = this.state.depth;
     const snapshot: LevelSnapshot = {
       depth: currentDepth,
+      worldSpaceId: this.state.worldSpaceId,
+      worldPlaneId: this.state.worldPlaneId,
       levelKind: this.state.levelKind,
       mapWidth: this.state.mapWidth,
       mapHeight: this.state.mapHeight,
@@ -712,7 +725,13 @@ export class Game {
       enhancedVision: this.state.enhancedVision,
       worldPlane: this.state.worldPlane,
     };
-    this.levels.set(currentDepth, snapshot);
+    this.levels.set(
+      worldAddressKey({
+        spaceId: snapshot.worldSpaceId,
+        planeId: snapshot.worldPlaneId,
+      }),
+      snapshot,
+    );
   }
 
   /**
@@ -728,6 +747,8 @@ export class Game {
     playerEntry: [number, number],
   ): void {
     this.state.playerStart = [playerEntry[0], playerEntry[1]];
+    this.state.worldSpaceId = snapshot.worldSpaceId;
+    this.state.worldPlaneId = snapshot.worldPlaneId;
     this.state.levelKind = snapshot.levelKind;
     this.state.mapWidth = snapshot.mapWidth;
     this.state.mapHeight = snapshot.mapHeight;
@@ -811,9 +832,12 @@ export class Game {
 
   private buildNewLevel(depth: number): LevelSnapshot {
     const level = this.createDungeonLevel(depth);
+    const address = worldAddressForDepth(depth);
 
     return {
       depth,
+      worldSpaceId: address.spaceId,
+      worldPlaneId: address.planeId,
       levelKind: "dungeon",
       mapWidth: level.width,
       mapHeight: level.height,
@@ -1015,7 +1039,8 @@ export class Game {
     this.saveCurrentLevelSnapshot();
     this.state.depth = nextDepth;
 
-    const existingLevel = this.levels.get(nextDepth);
+    const nextAddress = worldAddressForDepth(nextDepth);
+    const existingLevel = this.levels.get(worldAddressKey(nextAddress));
     const snapshot = existingLevel ?? this.buildNewLevel(nextDepth);
     // Deposit anything that fell through a hole onto this depth.
     this.injectPendingDrops(snapshot, nextDepth);
@@ -1063,7 +1088,8 @@ export class Game {
     this.saveCurrentLevelSnapshot();
     this.state.depth = previousDepth;
 
-    const snapshot = this.levels.get(previousDepth);
+    const previousAddress = worldAddressForDepth(previousDepth);
+    const snapshot = this.levels.get(worldAddressKey(previousAddress));
     if (!snapshot) {
       return;
     }
@@ -1185,6 +1211,8 @@ export class Game {
       }
       return {
         depth: snapshot.depth,
+        worldSpaceId: snapshot.worldSpaceId,
+        worldPlaneId: snapshot.worldPlaneId,
         levelKind: snapshot.levelKind,
         plane: serializeWorldPlane(snapshot.worldPlane),
         floorVariant: snapshot.floorVariant,
@@ -1213,6 +1241,8 @@ export class Game {
 
     return {
       depth: this.state.depth,
+      worldSpaceId: this.state.worldSpaceId,
+      worldPlaneId: this.state.worldPlaneId,
       levelKind: this.state.levelKind,
       plane: serializeWorldPlane(this.state.worldPlane),
       floorVariant: this.state.floorVariant,
@@ -1275,6 +1305,10 @@ export class Game {
     const wallSet = data.wallSet === "wood" ? "wood" : "concrete";
     const levelKind =
       data.levelKind ?? (data.depth === 0 ? "outside" : "dungeon");
+    const address =
+      data.worldSpaceId && data.worldPlaneId
+        ? { spaceId: data.worldSpaceId, planeId: data.worldPlaneId }
+        : worldAddressForDepth(data.depth);
     const worldPlane = deserializeWorldPlane(data.plane, {
       wraps: levelKind === "outside",
       variantSeed: data.depth,
@@ -1305,6 +1339,8 @@ export class Game {
 
     this.state = {
       depth: data.depth,
+      worldSpaceId: address.spaceId,
+      worldPlaneId: address.planeId,
       levelKind,
       mapWidth,
       mapHeight,
@@ -1357,12 +1393,18 @@ export class Game {
     for (const level of data.levels ?? []) {
       const levelKind =
         level.levelKind ?? (level.depth === 0 ? "outside" : "dungeon");
+      const levelAddress =
+        level.worldSpaceId && level.worldPlaneId
+          ? { spaceId: level.worldSpaceId, planeId: level.worldPlaneId }
+          : worldAddressForDepth(level.depth);
       const levelPlane = deserializeWorldPlane(level.plane, {
         wraps: levelKind === "outside",
         variantSeed: level.depth,
       });
-      this.levels.set(level.depth, {
+      this.levels.set(worldAddressKey(levelAddress), {
         depth: level.depth,
+        worldSpaceId: levelAddress.spaceId,
+        worldPlaneId: levelAddress.planeId,
         levelKind,
         mapWidth: levelPlane.width,
         mapHeight: levelPlane.height,

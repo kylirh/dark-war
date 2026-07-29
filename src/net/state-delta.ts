@@ -44,6 +44,8 @@ export interface StateDelta {
 
   // Whole-value fields, present only when changed since the baseline.
   depth?: number;
+  worldSpaceId?: string;
+  worldPlaneId?: string;
   levelKind?: LevelKind;
   floorVariant?: number;
   wallSet?: WallSet;
@@ -76,6 +78,8 @@ export function requiresKeyframe(
 ): boolean {
   return (
     base.depth !== next.depth ||
+    base.worldSpaceId !== next.worldSpaceId ||
+    base.worldPlaneId !== next.worldPlaneId ||
     base.plane.width !== next.plane.width ||
     base.plane.height !== next.plane.height ||
     !planeLayerLengthsEqual(base.plane, next.plane)
@@ -97,6 +101,10 @@ export function computeStateDelta(
   };
 
   if (base.depth !== next.depth) delta.depth = next.depth;
+  if (base.worldSpaceId !== next.worldSpaceId)
+    delta.worldSpaceId = next.worldSpaceId;
+  if (base.worldPlaneId !== next.worldPlaneId)
+    delta.worldPlaneId = next.worldPlaneId;
   if (base.levelKind !== next.levelKind) delta.levelKind = next.levelKind;
   if (base.floorVariant !== next.floorVariant)
     delta.floorVariant = next.floorVariant;
@@ -148,6 +156,8 @@ export function applyStateDelta(
   };
 
   if (delta.depth !== undefined) next.depth = delta.depth;
+  if (delta.worldSpaceId !== undefined) next.worldSpaceId = delta.worldSpaceId;
+  if (delta.worldPlaneId !== undefined) next.worldPlaneId = delta.worldPlaneId;
   if (delta.levelKind !== undefined) next.levelKind = delta.levelKind;
   if (delta.floorVariant !== undefined) next.floorVariant = delta.floorVariant;
   if (delta.wallSet !== undefined) next.wallSet = delta.wallSet;
