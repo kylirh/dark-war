@@ -29,9 +29,11 @@ describe("state tile mutations", () => {
     );
     expect(state.changedTiles).toContain(index);
 
+    state.changedTiles?.clear();
     setStateDamageAtIndex(state, index, 7);
     expect(getStateDamageAtIndex(state, index)).toBe(7);
     expect(state.worldPlane.layers.damage[index]).toBe(7);
+    expect(state.changedTiles).toEqual(new Set());
   });
 
   it("mutates authoritative dungeon layers through the same API", () => {

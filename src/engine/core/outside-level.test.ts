@@ -4,7 +4,7 @@ import { RNG } from "../utils/rng";
 import {
   createOutsideLevel,
   OUTSIDE_CAVE_MOUTH,
-  PARK_WORKSHOP_DOOR,
+  parkWorkshopDoor,
 } from "./outside-level";
 import { FixtureType, GroundType, StructureType } from "./world-semantics";
 import { WorldPlane } from "./world-plane";
@@ -108,6 +108,7 @@ describe("createOutsideLevel", () => {
 
   it("composes the Tiled-authored rebuilding vignette", () => {
     const level = createOutsideLevel();
+    const workshopDoor = parkWorkshopDoor();
     expect(
       level.worldPlane.layers.structure.includes(StructureType.WORKSHOP),
     ).toBe(true);
@@ -116,12 +117,12 @@ describe("createOutsideLevel", () => {
         StructureType.WORKSHOP_FOOTPRINT,
       ),
     ).toBe(true);
-    expect(level.worldPlane.getTile(...PARK_WORKSHOP_DOOR)).toBe(
+    expect(level.workshopDoor).toEqual(workshopDoor);
+    expect(level.worldPlane.getTile(...workshopDoor)).toBe(
       TileType.STAIRS_DOWN,
     );
-    expect(reachable(level.worldPlane, level.start, PARK_WORKSHOP_DOOR)).toBe(
-      true,
-    );
+    expect(level.worldPlane.passable(...workshopDoor)).toBe(true);
+    expect(reachable(level.worldPlane, level.start, workshopDoor)).toBe(true);
   });
 
   it("builds a substantial, reachable pond and grotto away from Megacorp", () => {

@@ -10,7 +10,7 @@ import {
   StructureType,
 } from "./world-semantics";
 import { WorldAddress, WorldPortal } from "./world-space";
-import { OUTSIDE_CAVE_MOUTH, PARK_WORKSHOP_DOOR } from "./outside-level";
+import { OUTSIDE_CAVE_MOUTH, parkWorkshopDoor } from "./outside-level";
 import { semanticPrefab, stampSemanticPrefab } from "./semantic-prefab";
 
 export const CAVE_ENTRY_ADDRESS: WorldAddress = {
@@ -153,6 +153,7 @@ export function createWorkshopInterior(): AuthoredWorldPlaneData {
     spaceId: "outside",
     planeId: "surface",
   };
+  const workshopDoor = parkWorkshopDoor();
   return {
     address: WORKSHOP_INTERIOR_ADDRESS,
     depth: 0,
@@ -172,8 +173,8 @@ export function createWorkshopInterior(): AuthoredWorldPlaneData {
         destination: {
           ...outsideAddress,
           entry: "start",
-          x: PARK_WORKSHOP_DOOR[0],
-          y: PARK_WORKSHOP_DOOR[1] + 1,
+          x: workshopDoor[0],
+          y: workshopDoor[1] + 1,
         },
       },
     ],

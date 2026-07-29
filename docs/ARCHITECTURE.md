@@ -96,6 +96,10 @@ The physical layout is a structure of typed arrays, not an object per cell.
 Collision, opacity, destructibility, and visuals are synthesized from semantic
 layers. WorldPlanes remain 2D; portals generalize today's stairs and hole-fall
 transitions. Static water is terrain, not a fluid simulation.
+Resolved gameplay flags are cached in compact arrays on each `WorldPlane`, so
+per-tick FOV and pathfinding do not allocate semantic cell objects. The local
+reachable-region flood fill is likewise cached per player until the plane's
+semantic revision invalidates it.
 
 This was a deliberate breaking rewrite. There is no requirement to load old saves
 or communicate with old clients. The layered serialization and delta conversion

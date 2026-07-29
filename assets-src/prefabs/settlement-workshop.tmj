@@ -81,13 +81,34 @@
           ],
           "x": 192,
           "y": 192
+        },
+        {
+          "class": "portal",
+          "id": 3,
+          "name": "workshop-entrance",
+          "point": true,
+          "properties": [
+            { "name": "darkwar.kind", "type": "string", "value": "door" },
+            {
+              "name": "darkwar.targetPlane",
+              "type": "string",
+              "value": "park-workshop"
+            },
+            {
+              "name": "darkwar.targetSpace",
+              "type": "string",
+              "value": "settlement"
+            }
+          ],
+          "x": 96,
+          "y": 128
         }
       ],
       "type": "objectgroup"
     }
   ],
   "nextlayerid": 5,
-  "nextobjectid": 3,
+  "nextobjectid": 4,
   "orientation": "orthogonal",
   "properties": [
     {

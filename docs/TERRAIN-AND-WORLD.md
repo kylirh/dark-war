@@ -115,7 +115,9 @@ This interface is illustrative; fields may change when the visual slice proves
 what is required. The durable decisions are compositional semantic layers,
 typed-array storage, and sparse records for exceptional state. A `WorldCell`
 may be exposed as a convenient view, but hot paths must not allocate an object
-per cell.
+per cell. `WorldPlane` therefore caches its resolved tile plus compact passable,
+opaque, and destructible flags. FOV, collision, and pathfinding query those
+arrays directly; only explicit semantic inspection constructs a cell view.
 
 Use compact layers for common grid-aligned state that affects terrain,
 navigation, collision, or neighboring visuals: ground, walls, fences, trees,
@@ -186,6 +188,10 @@ Prefabs may contain semantic layers, elevation, portals, spawn markers, rotation
 rules, required surroundings, and edge/socket contracts. Procedural generation
 places the same semantics. Both pass through the same runtime visual resolver;
 that shared resolver is what removes seams.
+
+Portal coordinates belong to authored prefab markers. Runtime world portals are
+derived from each marker and the stamp origin, so moving an entrance in Tiled
+cannot leave behind a disconnected hardcoded transition.
 
 Begin with deterministic sockets and boundary repair. Wave Function Collapse and
 LDtk are explicitly deferred until a demonstrated content problem justifies the

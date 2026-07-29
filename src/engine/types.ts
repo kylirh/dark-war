@@ -570,7 +570,8 @@ export interface GameState {
   shouldAscend: boolean;
   descendTarget?: [number, number];
   pendingPortalId?: string;
-  changedTiles?: Set<number>; // Track tiles that changed for physics updates
+  /** Transient topology changes awaiting physics-collider synchronization. */
+  changedTiles?: Set<number>;
   holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
   /** Sound effects queued during simulation for local or network playback. */
   pendingSounds: SoundCue[];

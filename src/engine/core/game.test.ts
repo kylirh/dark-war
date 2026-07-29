@@ -82,6 +82,20 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(before.plane.damage[10]).not.toBe(after.plane.damage[10]);
   });
 
+  it("reuses each accessibility flood fill until its plane changes", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    game.updateFOV();
+    const cachedAccessible = state.accessible;
+    game.updateFOV();
+    expect(state.accessible).toBe(cachedAccessible);
+
+    state.worldPlane.editCell(0, 0, { damage: 1 });
+    game.updateFOV();
+    expect(state.accessible).not.toBe(cachedAccessible);
+  });
+
   it("generates a large bounded dungeon in full, with the player on floor", () => {
     RNG.reseed(2024);
     const game = new Game({ mode: "offline" });

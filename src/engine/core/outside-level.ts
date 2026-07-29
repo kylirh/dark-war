@@ -20,13 +20,28 @@ import { semanticPrefab, stampSemanticPrefab } from "./semantic-prefab";
 export interface OutsideLevelData extends Omit<DungeonData, "map"> {
   entities: ItemEntity[];
   worldPlane: WorldPlane;
+  workshopDoor: [number, number];
 }
 
 const WIDTH = OUTSIDE_MAP_WIDTH;
 const HEIGHT = OUTSIDE_MAP_HEIGHT;
 export const OUTSIDE_CAVE_MOUTH: readonly [number, number] = [62, 40];
 export const PARK_WORKSHOP_ORIGIN: readonly [number, number] = [57, 56];
-export const PARK_WORKSHOP_DOOR: readonly [number, number] = [60, 60];
+
+/** Resolve the workshop entrance from its Tiled-authored portal marker. */
+export function parkWorkshopDoor(): [number, number] {
+  const marker = semanticPrefab("settlement.workshop-garden").markers.find(
+    (candidate) =>
+      candidate.kind === "portal" && candidate.name === "workshop-entrance",
+  );
+  if (!marker) {
+    throw new Error("Workshop prefab is missing its entrance portal marker");
+  }
+  return [
+    PARK_WORKSHOP_ORIGIN[0] + marker.x,
+    PARK_WORKSHOP_ORIGIN[1] + marker.y,
+  ];
+}
 
 /**
  * Build the hand-authored level 0 city outside the Megacorp facility.
@@ -121,6 +136,7 @@ export function createOutsideLevel(): OutsideLevelData {
     PARK_WORKSHOP_ORIGIN[0],
     PARK_WORKSHOP_ORIGIN[1],
   );
+  const workshopDoor = parkWorkshopDoor();
   return {
     width: WIDTH,
     height: HEIGHT,
@@ -131,6 +147,7 @@ export function createOutsideLevel(): OutsideLevelData {
     rooms: [],
     entities,
     worldPlane,
+    workshopDoor,
   };
 }
 

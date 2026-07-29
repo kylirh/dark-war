@@ -19,11 +19,7 @@ import {
   WallSet,
   LevelKind,
 } from "../types";
-import {
-  createOutsideLevel,
-  OUTSIDE_CAVE_MOUTH,
-  PARK_WORKSHOP_DOOR,
-} from "./outside-level";
+import { createOutsideLevel, OUTSIDE_CAVE_MOUTH } from "./outside-level";
 import { EntityManager } from "./entity-manager";
 import { TileSource } from "./tile-source";
 import { generateDungeon } from "./dungeon-generator";
@@ -97,6 +93,14 @@ interface LevelSnapshot {
  * Orchestrates all systems and manages state
  */
 export class Game {
+  private readonly accessibilityCache = new Map<
+    string,
+    {
+      plane: WorldPlane;
+      revision: number;
+      reachable: Set<number>;
+    }
+  >();
   private state: GameState;
   private isDead = false;
   private levels = new Map<string, LevelSnapshot>();
@@ -235,6 +239,7 @@ export class Game {
         depth,
         dungeon.stairsDown,
         dungeonLevel ? dungeonLevel.stairsUp : null,
+        outside?.workshopDoor ?? null,
       ),
       visible: new Set(),
       explored,
@@ -507,18 +512,32 @@ export class Game {
       this.state.exploredByPlayer.set(playerId, explored);
     }
 
-    const accessible = this.computeAccessibleTiles(player.gridX, player.gridY);
+    const isLocalPlayer = playerId === this.state.multiplayer.localPlayerId;
+    const playerIndex =
+      player.gridX + player.gridY * this.state.worldPlane.width;
+    const cachedAccessibility = this.accessibilityCache.get(playerId);
+    const accessible =
+      cachedAccessibility?.plane === this.state.worldPlane &&
+      cachedAccessibility.revision === this.state.worldPlane.semanticRevision &&
+      cachedAccessibility.reachable.has(playerIndex)
+        ? cachedAccessibility.reachable
+        : this.computeReachablePassableTiles(player.gridX, player.gridY);
+    this.accessibilityCache.set(playerId, {
+      plane: this.state.worldPlane,
+      revision: this.state.worldPlane.semanticRevision,
+      reachable: accessible,
+    });
     const wraps = this.state.levelKind === "outside";
     let visible = computeFOV(this.state.tiles, player, explored, wraps);
 
-    if (this.checkExplorationCompletion(player, explored)) {
+    if (this.checkExplorationCompletion(player, explored, accessible)) {
       explored = this.completeLevelExploration(player);
       visible = computeFOV(this.state.tiles, player, explored, wraps);
     }
 
     this.state.visibilityByPlayer.set(playerId, visible);
 
-    if (playerId === this.state.multiplayer.localPlayerId) {
+    if (isLocalPlayer) {
       this.state.visible = visible;
       this.state.explored = explored;
       this.state.accessible = accessible;
@@ -580,6 +599,7 @@ export class Game {
     if (!player) return null;
     this.state.players = this.state.players.filter((p) => p.id !== playerId);
     this.state.entityManager.destroy(playerId);
+    this.accessibilityCache.delete(playerId);
     this.state.exploredByPlayer.delete(playerId);
     this.state.visibilityByPlayer.delete(playerId);
     if (this.state.player?.id === playerId) {
@@ -979,6 +999,7 @@ export class Game {
     depth: number,
     stairsDown: readonly [number, number],
     stairsUp: readonly [number, number] | null,
+    workshopDoor: readonly [number, number] | null,
   ): WorldPortal[] {
     const portals = createProgressionPortals(
       address,
@@ -997,16 +1018,18 @@ export class Game {
         },
         destination: { ...CAVE_ENTRY_ADDRESS, entry: "start" },
       });
-      portals.push({
-        id: "outside/surface:park-workshop",
-        kind: "door",
-        source: {
-          ...address,
-          x: PARK_WORKSHOP_DOOR[0],
-          y: PARK_WORKSHOP_DOOR[1],
-        },
-        destination: { ...WORKSHOP_INTERIOR_ADDRESS, entry: "start" },
-      });
+      if (workshopDoor) {
+        portals.push({
+          id: "outside/surface:park-workshop",
+          kind: "door",
+          source: {
+            ...address,
+            x: workshopDoor[0],
+            y: workshopDoor[1],
+          },
+          destination: { ...WORKSHOP_INTERIOR_ADDRESS, entry: "start" },
+        });
+      }
     }
     return portals;
   }
@@ -1197,8 +1220,6 @@ export class Game {
       ...worldAddressForDepth(this.state.depth + 1),
       entry: "stairs-up",
     };
-    const nextDepth = depthForWorldAddress(destination) ?? this.state.depth + 1;
-
     const followingBots = this.pluckNearbyUtilityBots();
 
     this.saveCurrentLevelSnapshot();
@@ -1206,7 +1227,7 @@ export class Game {
     const existingLevel = this.levels.get(worldAddressKey(destination));
     const snapshot = existingLevel ?? this.buildWorld(destination);
     // Deposit anything that fell through a hole onto this depth.
-    this.injectPendingDrops(snapshot, nextDepth);
+    this.injectPendingDrops(snapshot, snapshot.depth);
 
     // If falling through a hole, land at nearest passable tile to fall position
     // Otherwise, land at stairs (normal stair descent)
@@ -1243,7 +1264,7 @@ export class Game {
         ? "You enter the park workshop — part greenhouse, part community repair shop."
         : destination.spaceId === CAVE_ENTRY_ADDRESS.spaceId
           ? "You enter the cool shelter of the park grotto."
-          : nextDepth === 1
+          : snapshot.depth === 1
             ? "You enter the Megacorp research facility."
             : `You descend into level ${this.state.depth}.`,
     );
@@ -1780,56 +1801,15 @@ export class Game {
     return exploredByPlayer;
   }
 
-  private computeAccessibleTiles(startX: number, startY: number): Set<number> {
-    const accessible = new Set<number>();
-    const queue: Array<[number, number]> = [[startX, startY]];
-    const visited = new Set<number>();
-
-    let head = 0;
-    while (head < queue.length) {
-      const [x, y] = queue[head++];
-
-      if (
-        x < 0 ||
-        y < 0 ||
-        x >= this.state.mapWidth ||
-        y >= this.state.mapHeight
-      ) {
-        continue;
-      }
-
-      const index = x + y * this.state.mapWidth;
-      if (visited.has(index)) {
-        continue;
-      }
-      visited.add(index);
-      accessible.add(index);
-
-      if (!this.state.tiles.passable(x, y)) {
-        continue;
-      }
-
-      queue.push([x + 1, y]);
-      queue.push([x - 1, y]);
-      queue.push([x, y + 1]);
-      queue.push([x, y - 1]);
-    }
-
-    return accessible;
-  }
-
   private checkExplorationCompletion(
     player: Player,
     explored: Set<number>,
+    reachable: Set<number>,
   ): boolean {
     if (this.state.enhancedVision) {
       return false;
     }
 
-    const reachable = this.computeReachablePassableTiles(
-      player.gridX,
-      player.gridY,
-    );
     const reachableCount = reachable.size;
     if (reachableCount < MIN_COMPLETION_REACHABLE_TILES) return false;
 

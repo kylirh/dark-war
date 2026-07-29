@@ -63,6 +63,9 @@ export function setStateDamageAtIndex(
   if (index < 0 || index >= state.mapWidth * state.mapHeight) return;
   const clamped = Math.max(0, Math.min(255, damage));
   state.worldPlane.layers.damage[index] = clamped;
+  // Damage is replicated and rendered from its semantic layer, but it does not
+  // change collision by itself. Destruction separately calls setStateTile(),
+  // which marks the affected collider neighborhood dirty.
 }
 
 export function getStateDamageAtIndex(state: GameState, index: number): number {

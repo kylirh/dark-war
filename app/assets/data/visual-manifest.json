@@ -1207,6 +1207,18 @@
           "x": 6,
           "y": 6,
           "properties": { "darkwar.spawn": "npc.builder" }
+        },
+        {
+          "id": 3,
+          "kind": "portal",
+          "name": "workshop-entrance",
+          "x": 3,
+          "y": 4,
+          "properties": {
+            "darkwar.kind": "door",
+            "darkwar.targetPlane": "park-workshop",
+            "darkwar.targetSpace": "settlement"
+          }
         }
       ]
     }

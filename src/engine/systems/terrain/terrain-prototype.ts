@@ -456,11 +456,6 @@ export function createTerrainPrototypePlane(): TerrainPrototypePlane {
     resolvePrototypeCell,
     undefined,
     (worldLayers, fromIndex, toIndex, deltaX, deltaY) => {
-      const toX = toIndex % TERRAIN_PROTOTYPE_WIDTH;
-      const toY = Math.floor(toIndex / TERRAIN_PROTOTYPE_WIDTH);
-      if (!resolvePrototypeCell(worldLayers, toIndex, toX, toY).passable) {
-        return false;
-      }
       const difference =
         worldLayers.elevation[toIndex] - worldLayers.elevation[fromIndex];
       if (difference === 0) return true;

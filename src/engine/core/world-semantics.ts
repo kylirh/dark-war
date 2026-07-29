@@ -312,12 +312,6 @@ export function resolveSemanticTraversal(
   deltaX: number,
   deltaY: number,
 ): boolean {
-  const target = resolveSemanticCell({
-    ground: layers.ground[toIndex] as GroundType,
-    structure: layers.structure[toIndex] as StructureType,
-    fixture: layers.fixture[toIndex] as FixtureType,
-  });
-  if (!target.passable) return false;
   const elevationDifference =
     layers.elevation[toIndex] - layers.elevation[fromIndex];
   if (elevationDifference === 0) return true;

@@ -68,6 +68,33 @@ describe("WorldPlane", () => {
     expect(plane.getTile(0, 0)).toBe(TileType.FLOOR);
   });
 
+  it("answers hot semantic queries from caches without rerunning the resolver", () => {
+    const layers = createWorldPlaneLayers(3, 1);
+    layers.ground.fill(GROUND_GRASS);
+    let resolverCalls = 0;
+    const resolver: WorldCellResolver = (source, index) => {
+      resolverCalls += 1;
+      return resolveTestCell(source, index, index, 0);
+    };
+    const plane = new WorldPlane(3, 1, layers, resolver);
+    expect(resolverCalls).toBe(3);
+
+    expect(plane.getTile(1, 0)).toBe(TileType.FLOOR);
+    expect(plane.passable(1, 0)).toBe(true);
+    expect(plane.opaque(1, 0)).toBe(false);
+    expect(plane.destructible(1, 0)).toBe(false);
+    expect(plane.canTraverse(0, 0, 1, 0)).toBe(true);
+    expect(resolverCalls).toBe(3);
+
+    layers.structure[1] = STRUCTURE_TREE;
+    plane.refreshResolvedTile(1);
+    expect(resolverCalls).toBe(4);
+    expect(plane.passable(1, 0)).toBe(false);
+    expect(plane.opaque(1, 0)).toBe(true);
+    expect(plane.canTraverse(0, 0, 1, 0)).toBe(false);
+    expect(resolverCalls).toBe(4);
+  });
+
   it("rejects misaligned layers", () => {
     const layers = createWorldPlaneLayers(2, 2);
     const invalidLayers = { ...layers, damage: new Uint8Array(3) };

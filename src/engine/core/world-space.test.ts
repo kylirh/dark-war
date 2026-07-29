@@ -2,8 +2,10 @@
 
 import { describe, expect, it } from "vitest";
 import { Game } from "./game";
+import { ItemEntity } from "../entities/item-entity";
 import { setPositionFromGrid } from "../utils/helpers";
-import { OUTSIDE_CAVE_MOUTH, PARK_WORKSHOP_DOOR } from "./outside-level";
+import { ItemType } from "../types";
+import { OUTSIDE_CAVE_MOUTH, parkWorkshopDoor } from "./outside-level";
 import { WORKSHOP_INTERIOR_ADDRESS } from "./world-space-content";
 import {
   createProgressionPortals,
@@ -105,11 +107,10 @@ describe("world addresses", () => {
     const game = new Game({ mode: "offline" });
     game.reset(0);
     const outside = game.getState();
-    setPositionFromGrid(
-      outside.player,
-      PARK_WORKSHOP_DOOR[0],
-      PARK_WORKSHOP_DOOR[1],
-    );
+    outside.itemsFellThrough = [{ type: ItemType.ROCK }];
+    game.harvestFallenItems();
+    const workshopDoor = parkWorkshopDoor();
+    setPositionFromGrid(outside.player, workshopDoor[0], workshopDoor[1]);
     outside.pendingPortalId = "outside/surface:park-workshop";
 
     game.descend();
@@ -118,6 +119,13 @@ describe("world addresses", () => {
       WORKSHOP_INTERIOR_ADDRESS.spaceId,
       WORKSHOP_INTERIOR_ADDRESS.planeId,
     ]);
+    expect(workshop.depth).toBe(0);
+    expect(
+      workshop.entities.some(
+        (entity) =>
+          entity instanceof ItemEntity && entity.type === ItemType.ROCK,
+      ),
+    ).toBe(false);
     expect(workshop.worldPlane.passable(...workshop.stairsUp!)).toBe(true);
 
     workshop.pendingPortalId = "settlement/park-workshop:exit";
@@ -129,6 +137,6 @@ describe("world addresses", () => {
     expect([
       game.getState().player.gridX,
       game.getState().player.gridY,
-    ]).toEqual([PARK_WORKSHOP_DOOR[0], PARK_WORKSHOP_DOOR[1] + 1]);
+    ]).toEqual([workshopDoor[0], workshopDoor[1] + 1]);
   });
 });

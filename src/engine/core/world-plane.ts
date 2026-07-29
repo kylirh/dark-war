@@ -51,6 +51,10 @@ export type WorldTraversalResolver = (
   deltaY: number,
 ) => boolean;
 
+const CELL_PASSABLE = 1 << 0;
+const CELL_OPAQUE = 1 << 1;
+const CELL_DESTRUCTIBLE = 1 << 2;
+
 /** Allocate aligned typed arrays for a fixed-size plane. */
 export function createWorldPlaneLayers(
   width: number,
@@ -69,6 +73,8 @@ export function createWorldPlaneLayers(
 /** A compositional plane that also satisfies current TileSource consumers. */
 export class WorldPlane implements TileSource {
   private readonly resolvedTileCache: Uint16Array;
+  private readonly resolvedFlagCache: Uint8Array;
+  private semanticRevisionValue = 0;
   private visualState?: WorldVisualState;
 
   constructor(
@@ -86,6 +92,7 @@ export class WorldPlane implements TileSource {
       }
     }
     this.resolvedTileCache = new Uint16Array(cellCount);
+    this.resolvedFlagCache = new Uint8Array(cellCount);
     this.refreshAllResolvedTiles();
   }
 
@@ -99,6 +106,11 @@ export class WorldPlane implements TileSource {
 
   get visuals(): WorldVisualState | undefined {
     return this.visualState;
+  }
+
+  /** Monotonic invalidation token for systems derived from semantic layers. */
+  get semanticRevision(): number {
+    return this.semanticRevisionValue;
   }
 
   attachVisualState(visualState: WorldVisualState): void {
@@ -115,7 +127,13 @@ export class WorldPlane implements TileSource {
       };
     }
     const index = this.indexFor(x, y);
-    return this.resolveCell(this.layers, index, x, y);
+    const flags = this.resolvedFlagCache[index];
+    return {
+      tile: this.resolvedTileCache[index] as TileType,
+      passable: (flags & CELL_PASSABLE) !== 0,
+      opaque: (flags & CELL_OPAQUE) !== 0,
+      destructible: (flags & CELL_DESTRUCTIBLE) !== 0,
+    };
   }
 
   getTile(x: number, y: number): TileType {
@@ -135,7 +153,10 @@ export class WorldPlane implements TileSource {
   }
 
   passable(x: number, y: number): boolean {
-    return this.semanticsAt(x, y).passable;
+    return (
+      this.inBounds(x, y) &&
+      (this.resolvedFlagCache[this.indexFor(x, y)] & CELL_PASSABLE) !== 0
+    );
   }
 
   canTraverse(fromX: number, fromY: number, toX: number, toY: number): boolean {
@@ -145,6 +166,7 @@ export class WorldPlane implements TileSource {
     if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1) return false;
     const fromIndex = this.indexFor(fromX, fromY);
     const toIndex = this.indexFor(toX, toY);
+    if ((this.resolvedFlagCache[toIndex] & CELL_PASSABLE) === 0) return false;
     if (this.resolveTraversal) {
       return this.resolveTraversal(
         this.layers,
@@ -154,10 +176,7 @@ export class WorldPlane implements TileSource {
         deltaY,
       );
     }
-    return (
-      this.passable(toX, toY) &&
-      this.layers.elevation[fromIndex] === this.layers.elevation[toIndex]
-    );
+    return this.layers.elevation[fromIndex] === this.layers.elevation[toIndex];
   }
 
   /** Apply one compositional cell edit and refresh all bounded derived state. */
@@ -185,11 +204,17 @@ export class WorldPlane implements TileSource {
   }
 
   opaque(x: number, y: number): boolean {
-    return this.semanticsAt(x, y).opaque;
+    return (
+      !this.inBounds(x, y) ||
+      (this.resolvedFlagCache[this.indexFor(x, y)] & CELL_OPAQUE) !== 0
+    );
   }
 
   destructible(x: number, y: number): boolean {
-    return this.semanticsAt(x, y).destructible;
+    return (
+      this.inBounds(x, y) &&
+      (this.resolvedFlagCache[this.indexFor(x, y)] & CELL_DESTRUCTIBLE) !== 0
+    );
   }
 
   /** Refresh one presentation tile after a direct semantic-layer edit. */
@@ -197,12 +222,13 @@ export class WorldPlane implements TileSource {
     if (index < 0 || index >= this.resolvedTileCache.length) return;
     const x = index % this.width;
     const y = Math.floor(index / this.width);
-    this.resolvedTileCache[index] = this.resolveCell(
-      this.layers,
-      index,
-      x,
-      y,
-    ).tile;
+    const semantics = this.resolveCell(this.layers, index, x, y);
+    this.resolvedTileCache[index] = semantics.tile;
+    this.resolvedFlagCache[index] =
+      (semantics.passable ? CELL_PASSABLE : 0) |
+      (semantics.opaque ? CELL_OPAQUE : 0) |
+      (semantics.destructible ? CELL_DESTRUCTIBLE : 0);
+    this.semanticRevisionValue += 1;
   }
 
   private refreshAllResolvedTiles(): void {
