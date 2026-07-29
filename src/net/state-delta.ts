@@ -49,6 +49,7 @@ export interface StateDelta {
   levelKind?: LevelKind;
   floorVariant?: number;
   wallSet?: WallSet;
+  portals?: SerializedState["portals"];
   stairsDown?: [number, number];
   stairsUp?: [number, number] | null;
   enhancedVision?: boolean;
@@ -109,6 +110,9 @@ export function computeStateDelta(
   if (base.floorVariant !== next.floorVariant)
     delta.floorVariant = next.floorVariant;
   if (base.wallSet !== next.wallSet) delta.wallSet = next.wallSet;
+  if (!shallowJsonEqual(base.portals, next.portals)) {
+    delta.portals = next.portals;
+  }
   if (!pairEqual(base.stairsDown, next.stairsDown))
     delta.stairsDown = next.stairsDown;
   if (!pairEqual(base.stairsUp ?? null, next.stairsUp ?? null)) {
@@ -161,6 +165,7 @@ export function applyStateDelta(
   if (delta.levelKind !== undefined) next.levelKind = delta.levelKind;
   if (delta.floorVariant !== undefined) next.floorVariant = delta.floorVariant;
   if (delta.wallSet !== undefined) next.wallSet = delta.wallSet;
+  if (delta.portals !== undefined) next.portals = delta.portals;
   if (delta.stairsDown !== undefined) next.stairsDown = delta.stairsDown;
   if (delta.stairsUp !== undefined) next.stairsUp = delta.stairsUp;
   if (delta.enhancedVision !== undefined)

@@ -3,7 +3,9 @@
 import { describe, expect, it } from "vitest";
 import { Game } from "./game";
 import {
+  createProgressionPortals,
   depthForWorldAddress,
+  portalAt,
   worldAddressForDepth,
   worldAddressKey,
 } from "./world-space";
@@ -43,5 +45,30 @@ describe("world addresses", () => {
         worldPlaneId: "surface",
       }),
     );
+    expect(serialized.portals).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "megacorp/floor-1:stairs-down",
+          kind: "stairs",
+        }),
+      ]),
+    );
+  });
+
+  it("creates reversible progression portals discoverable by source cell", () => {
+    const address = worldAddressForDepth(2);
+    const portals = createProgressionPortals(address, 2, [8, 9], [2, 3]);
+
+    expect(portalAt(portals, address, 8, 9)?.destination).toEqual({
+      spaceId: "megacorp",
+      planeId: "floor-3",
+      entry: "stairs-up",
+    });
+    expect(portalAt(portals, address, 2, 3)?.destination).toEqual({
+      spaceId: "megacorp",
+      planeId: "floor-1",
+      entry: "stairs-down",
+    });
+    expect(portalAt(portals, address, 4, 4)).toBeNull();
   });
 });

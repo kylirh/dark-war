@@ -529,6 +529,7 @@ export interface GameState {
   tiles: TileSource;
   /** Authoritative layered storage when this level has completed migration. */
   worldPlane: import("./core/world-plane").WorldPlane;
+  portals: import("./core/world-space").WorldPortal[];
   visible: Set<number>;
   explored: Set<number>;
   accessible: Set<number>;
@@ -561,6 +562,7 @@ export interface GameState {
   shouldDescend: boolean;
   shouldAscend: boolean;
   descendTarget?: [number, number];
+  pendingPortalId?: string;
   changedTiles?: Set<number>; // Track tiles that changed for physics updates
   holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
   /** Sound effects queued during simulation for local or network playback. */
@@ -590,6 +592,7 @@ export interface SerializedState {
   worldPlaneId: string;
   levelKind?: LevelKind;
   plane: SerializedWorldPlane;
+  portals: import("./core/world-space").WorldPortal[];
   floorVariant?: number;
   wallSet?: WallSet;
   stairsDown: [number, number];
@@ -624,6 +627,7 @@ export interface SerializedLevelState {
   worldPlaneId: string;
   levelKind?: LevelKind;
   plane: SerializedWorldPlane;
+  portals: import("./core/world-space").WorldPortal[];
   floorVariant: number;
   wallSet?: WallSet;
   stairsDown: [number, number];

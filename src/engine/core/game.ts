@@ -35,7 +35,14 @@ import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { SoundEffect } from "../content/sound-effects";
 import { WorldPlane } from "./world-plane";
-import { worldAddressForDepth, worldAddressKey } from "./world-space";
+import {
+  createProgressionPortals,
+  depthForWorldAddress,
+  WorldPortal,
+  WorldPortalDestination,
+  worldAddressForDepth,
+  worldAddressKey,
+} from "./world-space";
 import {
   createWorldPlaneFromTiles,
   deserializeWorldPlane,
@@ -72,6 +79,7 @@ interface LevelSnapshot {
   stairsUp: [number, number] | null;
   enhancedVision: boolean;
   worldPlane: WorldPlane;
+  portals: WorldPortal[];
 }
 
 /**
@@ -134,6 +142,7 @@ export class Game {
       mapDirty: false,
       tiles: worldPlane,
       worldPlane,
+      portals: createProgressionPortals(initialAddress, 0, [0, 0], null),
       visible: new Set(),
       explored,
       accessible: new Set(),
@@ -211,6 +220,12 @@ export class Game {
       mapDirty: false,
       tiles: outside?.worldPlane ?? dungeonLevel!.worldPlane,
       worldPlane: outside?.worldPlane ?? dungeonLevel!.worldPlane,
+      portals: createProgressionPortals(
+        address,
+        depth,
+        dungeon.stairsDown,
+        dungeonLevel ? dungeonLevel.stairsUp : null,
+      ),
       visible: new Set(),
       explored,
       accessible: new Set(),
@@ -380,6 +395,7 @@ export class Game {
     this.state.wallSet = "wood";
     this.state.tiles = prototype.world;
     this.state.worldPlane = prototype.world;
+    this.state.portals = [];
     this.state.terrainPrototype = prototype;
     this.state.stairsDown = [31, 8];
     this.state.stairsUp = null;
@@ -724,6 +740,11 @@ export class Game {
       stairsUp: this.state.stairsUp,
       enhancedVision: this.state.enhancedVision,
       worldPlane: this.state.worldPlane,
+      portals: this.state.portals.map((portal) => ({
+        ...portal,
+        source: { ...portal.source },
+        destination: { ...portal.destination },
+      })),
     };
     this.levels.set(
       worldAddressKey({
@@ -746,6 +767,7 @@ export class Game {
     snapshot: LevelSnapshot,
     playerEntry: [number, number],
   ): void {
+    this.state.depth = snapshot.depth;
     this.state.playerStart = [playerEntry[0], playerEntry[1]];
     this.state.worldSpaceId = snapshot.worldSpaceId;
     this.state.worldPlaneId = snapshot.worldPlaneId;
@@ -755,6 +777,11 @@ export class Game {
     this.state.floorVariant = snapshot.floorVariant;
     this.state.wallSet = snapshot.wallSet;
     this.state.worldPlane = snapshot.worldPlane;
+    this.state.portals = snapshot.portals.map((portal) => ({
+      ...portal,
+      source: { ...portal.source },
+      destination: { ...portal.destination },
+    }));
     this.refreshTileSource();
     this.state.explored = new Set(snapshot.explored);
     this.state.exploredByPlayer = this.cloneExploredByPlayerMap(
@@ -852,6 +879,12 @@ export class Game {
       stairsUp: level.stairsUp,
       enhancedVision: false,
       worldPlane: level.worldPlane,
+      portals: createProgressionPortals(
+        address,
+        depth,
+        level.stairsDown,
+        level.stairsUp,
+      ),
     };
   }
 
@@ -1031,16 +1064,23 @@ export class Game {
   }
 
   public descend(): void {
-    const nextDepth = this.state.depth + 1;
     const fallPosition = this.state.descendTarget;
+    const portal = this.state.pendingPortalId
+      ? this.state.portals.find(
+          (candidate) => candidate.id === this.state.pendingPortalId,
+        )
+      : undefined;
+    const destination: WorldPortalDestination = portal?.destination ?? {
+      ...worldAddressForDepth(this.state.depth + 1),
+      entry: "stairs-up",
+    };
+    const nextDepth = depthForWorldAddress(destination) ?? this.state.depth + 1;
 
     const followingBots = this.pluckNearbyUtilityBots();
 
     this.saveCurrentLevelSnapshot();
-    this.state.depth = nextDepth;
 
-    const nextAddress = worldAddressForDepth(nextDepth);
-    const existingLevel = this.levels.get(worldAddressKey(nextAddress));
+    const existingLevel = this.levels.get(worldAddressKey(destination));
     const snapshot = existingLevel ?? this.buildNewLevel(nextDepth);
     // Deposit anything that fell through a hole onto this depth.
     this.injectPendingDrops(snapshot, nextDepth);
@@ -1048,17 +1088,26 @@ export class Game {
     // If falling through a hole, land at nearest passable tile to fall position
     // Otherwise, land at stairs (normal stair descent)
     let landingPosition: [number, number];
-    if (fallPosition) {
+    if (
+      typeof destination.x === "number" &&
+      typeof destination.y === "number"
+    ) {
+      landingPosition = [destination.x, destination.y];
+    } else if (fallPosition || destination.entry === "same") {
       const nearestTile = this.findNearestPassableTile(
         snapshot.worldPlane,
-        fallPosition,
+        fallPosition ?? [this.state.player.gridX, this.state.player.gridY],
       );
       landingPosition = nearestTile ?? snapshot.stairsUp ?? snapshot.stairsDown;
+    } else if (destination.entry === "stairs-down") {
+      landingPosition = snapshot.stairsDown;
     } else {
       landingPosition = snapshot.stairsUp ?? snapshot.stairsDown;
     }
 
     this.applyLevelSnapshot(snapshot, landingPosition);
+    this.state.pendingPortalId = undefined;
+    this.state.descendTarget = undefined;
 
     for (const bot of followingBots) {
       setPositionFromGrid(bot, landingPosition[0], landingPosition[1]);
@@ -1077,26 +1126,40 @@ export class Game {
    * Ascend to previous level (called after tick completes with ascend flag)
    */
   public ascend(): void {
-    if (this.state.depth <= 0) {
-      return;
-    }
-
-    const previousDepth = this.state.depth - 1;
+    const portal = this.state.pendingPortalId
+      ? this.state.portals.find(
+          (candidate) => candidate.id === this.state.pendingPortalId,
+        )
+      : undefined;
+    if (!portal && this.state.depth <= 0) return;
+    const destination: WorldPortalDestination = portal?.destination ?? {
+      ...worldAddressForDepth(this.state.depth - 1),
+      entry: "stairs-down",
+    };
+    const previousDepth =
+      depthForWorldAddress(destination) ?? Math.max(0, this.state.depth - 1);
 
     const followingBots = this.pluckNearbyUtilityBots();
 
     this.saveCurrentLevelSnapshot();
-    this.state.depth = previousDepth;
 
-    const previousAddress = worldAddressForDepth(previousDepth);
-    const snapshot = this.levels.get(worldAddressKey(previousAddress));
+    const snapshot = this.levels.get(worldAddressKey(destination));
     if (!snapshot) {
       return;
     }
 
-    this.applyLevelSnapshot(snapshot, snapshot.stairsDown);
+    const landingPosition: [number, number] =
+      typeof destination.x === "number" && typeof destination.y === "number"
+        ? [destination.x, destination.y]
+        : destination.entry === "stairs-up"
+          ? (snapshot.stairsUp ?? snapshot.stairsDown)
+          : destination.entry === "same"
+            ? [this.state.player.gridX, this.state.player.gridY]
+            : snapshot.stairsDown;
+    this.applyLevelSnapshot(snapshot, landingPosition);
+    this.state.pendingPortalId = undefined;
 
-    const landingPos = snapshot.stairsDown ?? snapshot.stairsUp;
+    const landingPos = landingPosition;
     if (landingPos) {
       for (const bot of followingBots) {
         setPositionFromGrid(bot, landingPos[0], landingPos[1]);
@@ -1227,6 +1290,7 @@ export class Game {
           this.stripRuntimeEntityState(entity),
         ),
         enhancedVision: snapshot.enhancedVision,
+        portals: snapshot.portals,
       };
     });
 
@@ -1245,6 +1309,7 @@ export class Game {
       worldPlaneId: this.state.worldPlaneId,
       levelKind: this.state.levelKind,
       plane: serializeWorldPlane(this.state.worldPlane),
+      portals: this.state.portals,
       floorVariant: this.state.floorVariant,
       wallSet: this.state.wallSet,
       stairsDown: this.state.stairsDown,
@@ -1349,6 +1414,7 @@ export class Game {
       mapDirty: false,
       tiles: worldPlane,
       worldPlane,
+      portals: data.portals,
       stairsDown: data.stairsDown ??
         (data as { stairs?: [number, number] }).stairs ?? [0, 0],
       stairsUp: data.stairsUp ?? null,
@@ -1419,6 +1485,7 @@ export class Game {
         entities: this.hydrateEntities(level.entities, level.depth),
         enhancedVision: level.enhancedVision ?? false,
         worldPlane: levelPlane,
+        portals: level.portals,
       });
     }
 

@@ -32,6 +32,7 @@ import { SoundEffect } from "../../content/sound-effects";
 import { BulletEntity } from "../../entities/bullet-entity";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
 import { isWallLikeTile } from "../../core/tile-source";
+import { portalAt } from "../../core/world-space";
 import {
   FixtureType,
   GroundType,
@@ -1620,10 +1621,14 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
   const player = actor as Player;
-  if (
-    player.gridX !== state.stairsDown[0] ||
-    player.gridY !== state.stairsDown[1]
-  ) {
+  const portal = portalAt(
+    state.portals,
+    { spaceId: state.worldSpaceId, planeId: state.worldPlaneId },
+    player.gridX,
+    player.gridY,
+    ["stairs", "ladder", "cave-mouth", "door"],
+  );
+  if (!portal) {
     pushEvent(state, {
       type: EventType.MESSAGE,
       data: { type: "MESSAGE", message: "No stairs here." },
@@ -1639,6 +1644,7 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
 
   // Set flag for Game.ts to handle
   state.descendTarget = undefined;
+  state.pendingPortalId = portal.id;
   state.shouldDescend = true;
 }
 
@@ -1651,11 +1657,14 @@ function resolveAscendCommand(state: GameState, cmd: Command): void {
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
   const player = actor as Player;
-  if (
-    !state.stairsUp ||
-    player.gridX !== state.stairsUp[0] ||
-    player.gridY !== state.stairsUp[1]
-  ) {
+  const portal = portalAt(
+    state.portals,
+    { spaceId: state.worldSpaceId, planeId: state.worldPlaneId },
+    player.gridX,
+    player.gridY,
+    ["stairs", "ladder", "cave-mouth", "door"],
+  );
+  if (!portal) {
     pushEvent(state, {
       type: EventType.MESSAGE,
       data: { type: "MESSAGE", message: "No stairs here." },
@@ -1668,5 +1677,6 @@ function resolveAscendCommand(state: GameState, cmd: Command): void {
     data: { type: "MESSAGE", message: "You ascend..." },
   });
 
+  state.pendingPortalId = portal.id;
   state.shouldAscend = true;
 }

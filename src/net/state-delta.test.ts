@@ -40,6 +40,7 @@ function baseState(): SerializedState {
     worldSpaceId: "megacorp",
     worldPlaneId: "floor-1",
     levelKind: "dungeon",
+    portals: [],
     plane: {
       width: 2,
       height: 2,
