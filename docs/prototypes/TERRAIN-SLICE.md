@@ -31,7 +31,8 @@ normal outside and dungeon generators are unchanged.
 Press `[` to lower the marked test cell and `]` to raise its neighboring test
 cell. The edited cell is highlighted in warm gold; the rest of the reclassified
 3×3 dependency area is highlighted in mint. The story log reports the before
-and after elevation and the exact number of visual cells resolved.
+and after elevation and the exact number of visual cells resolved. Press `\` to
+switch between the 47-blob shoreline and the 16-state dual-grid comparison.
 
 The generated direction boards under
 `assets-src/references/art-direction/` are mood, color, and shape references
@@ -171,13 +172,23 @@ work and no material regression from the current fixed scene.
 - Browser visual inspection passed without console errors. Ground repetition was
   reduced after the first render by adding deterministic variants and removing
   per-tile highlight bands.
-- The initial resolved cache uses three aligned 1,200-byte arrays: ground
-  variant, cliff magnitude, and cliff edge mask (3,600 bytes total).
+- The initial resolved cache uses four aligned 1,200-byte arrays: ground
+  variant, cliff magnitude, cliff edge mask, and transition mask (4,800 bytes
+  total).
 - Each raise/lower action mutates one semantic cell and reclassifies a clipped
   radius-one neighborhood: 9 cells in the fixture, with no full-map visual or
   collision rebuild.
 - Browser interaction verified both edit controls and their `8 → 7` / `8 → 9`
   story telemetry without console warnings or errors.
+- The resolver harness proves all 47 canonical blob masks and all 16 dual-grid
+  masks, and can render either over identical semantic water without changing
+  ground or collision data.
+- A camera-visible irregular pond exposed the practical tradeoff: dual-grid is
+  economical and pleasantly soft for non-blocking ground blends, but shifts a
+  water boundary half a cell and complicates bridge/fixture overlap. Blob/mixed
+  Wang preserves the exact blocking shoreline and composes cleanly with the
+  bridge. The diagnostic overlay uses composed edge/corner pieces, avoiding a
+  requirement for 47 monolithic sprites.
 - Frame-time, sprite-retarget, and atlas-switch measurements remain pending.
 
 ## Acceptance checklist
@@ -185,8 +196,8 @@ work and no material regression from the current fixed scene.
 - [ ] Elevation reads without UI explanation.
 - [ ] Inner and outer cliff corners are unambiguous.
 - [x] Tall cliffs have constant-bounded rendering cost.
-- [x] Static water, river, and bridge compose in the fixed scene; authored shore
-      masks remain pending.
+- [x] Static water, river, pond, and bridge compose in the fixed scene through
+      the selected blob/mixed-Wang shoreline family.
 - [x] Trees retain ground underneath them.
 - [x] Raising/lowering repairs nearby visuals without a full-map pass.
 - [ ] Cave entry moves between planes without simultaneous plane rendering.
@@ -200,9 +211,9 @@ autotiler.
 
 | Family       | Candidates                        | Selected | Evidence                                                                     |
 | ------------ | --------------------------------- | -------- | ---------------------------------------------------------------------------- |
-| Soft ground  | corner/dual-grid, blob            | pending  | pending                                                                      |
+| Soft ground  | corner/dual-grid, blob            | selected | Dual-grid's 16 states minimize art and suit non-blocking painterly blends.   |
 | Walls/fences | four-cardinal                     | pending  | pending                                                                      |
-| Shorelines   | mixed Wang, blob                  | pending  | pending                                                                      |
+| Shorelines   | mixed Wang, blob                  | selected | Blob keeps visual and blocking boundaries aligned and preserves bridges.     |
 | Roads/rivers | directional edges                 | pending  | pending                                                                      |
 | Cliffs       | elevation topology + authored set | selected | Arbitrary drops collapse to step/tall visuals; a one-cell edit resolves 3×3. |
 | Decoration   | deterministic hash                | selected | Stable variants are cached once and remain unchanged outside dirty cells.    |

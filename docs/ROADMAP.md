@@ -45,6 +45,11 @@ questions.
 - Choose a resolver family per content category based on art cost and failure
   cases, not micro-performance.
 
+Current prototype decision: use 16-state dual-grid transitions for soft,
+non-blocking ground blends and canonical blob/mixed-Wang transitions for static
+water shorelines. The runtime comparison remains available in the fixed scene
+so authored art can be reevaluated without changing semantics.
+
 Exit: the scene reads as the hopeful, outline-free Dark War direction, terrain
 edits repair without seams, and tall drops do not scale draw work with height.
 

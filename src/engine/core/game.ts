@@ -42,7 +42,9 @@ import { SoundEffect } from "../content/sound-effects";
 import {
   applyTerrainPrototypeElevationEdit,
   createTerrainPrototypePlane,
+  setTerrainPrototypeTransitionMode,
   TerrainPrototypeEditResult,
+  TerrainPrototypeTransitionMode,
 } from "../systems/terrain/terrain-prototype";
 
 const EXPLORATION_COMPLETION_THRESHOLD = 0.9;
@@ -394,7 +396,9 @@ export class Game {
     this.addStory(
       "Terrain laboratory: rebuild the bright world one tile at a time.",
     );
-    this.addStory("Prototype edits: [ lowers gold; ] raises mint.");
+    this.addStory(
+      "Prototype: [ lowers gold; ] raises mint; \\ compares shore resolvers.",
+    );
     this.updateFOV();
   }
 
@@ -416,6 +420,24 @@ export class Game {
       `Terrain elevation ${result.previousElevation} → ${result.nextElevation}; ${result.dirtyCellIndices.length} visual cells resolved.`,
     );
     return result;
+  }
+
+  /** Toggle the two candidate shoreline resolvers in the fixed test scene. */
+  public toggleTerrainPrototypeTransitionMode(): TerrainPrototypeTransitionMode | null {
+    const prototype = this.state.terrainPrototype;
+    if (!prototype) return null;
+    const nextMode =
+      prototype.transitionMode === TerrainPrototypeTransitionMode.BLOB_47
+        ? TerrainPrototypeTransitionMode.DUAL_GRID
+        : TerrainPrototypeTransitionMode.BLOB_47;
+    const resolvedCells = setTerrainPrototypeTransitionMode(
+      prototype,
+      nextMode,
+    );
+    this.addStory(
+      `Shore resolver: ${nextMode}; ${resolvedCells} comparison-cache cells rebuilt.`,
+    );
+    return nextMode;
   }
 
   /**

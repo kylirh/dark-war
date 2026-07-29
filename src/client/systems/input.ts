@@ -22,6 +22,7 @@ export interface InputCallbacks {
   onToggleGodMode: () => void;
   onPrototypeLower: () => boolean;
   onPrototypeRaise: () => boolean;
+  onPrototypeToggleTransitions: () => boolean;
   onResumePause: (reason: string) => void;
   onNewGame: () => void;
   onSave: () => void;
@@ -99,6 +100,12 @@ export class InputHandler {
     }
     if (code === "BracketRight") {
       if (this.callbacks.onPrototypeRaise()) {
+        e.preventDefault();
+        return;
+      }
+    }
+    if (code === "Backslash") {
+      if (this.callbacks.onPrototypeToggleTransitions()) {
         e.preventDefault();
         return;
       }

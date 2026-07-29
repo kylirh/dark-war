@@ -6,6 +6,7 @@ import { enqueueCommand } from "../systems/simulation/commands";
 import { stepSimulationTick } from "../systems/simulation/tick";
 import { BulletEntity } from "../entities/bullet-entity";
 import { SoundEffect } from "../content/sound-effects";
+import { TerrainPrototypeTransitionMode } from "../systems/terrain/terrain-prototype";
 
 describe("Game serialize/deserialize round-trip", () => {
   beforeEach(() => RNG.reseed(424242));
@@ -259,6 +260,22 @@ describe("Game multiplayer player management", () => {
     expect(state.changedTiles).toEqual(new Set(result?.dirtyCellIndices));
     expect(state.mapDirty).toBe(false);
     expect(state.story[0]).toContain("9 visual cells resolved");
+  });
+
+  it("toggles the development shoreline comparison without changing semantics", () => {
+    const prototypeGame = new Game();
+    prototypeGame.reset(0);
+    prototypeGame.loadTerrainPrototype();
+    const state = prototypeGame.getState();
+    const groundBefore = state.terrainPrototype!.ground.slice();
+
+    expect(prototypeGame.toggleTerrainPrototypeTransitionMode()).toBe(
+      TerrainPrototypeTransitionMode.DUAL_GRID,
+    );
+    expect(state.terrainPrototype!.ground).toEqual(groundBefore);
+    expect(prototypeGame.toggleTerrainPrototypeTransitionMode()).toBe(
+      TerrainPrototypeTransitionMode.BLOB_47,
+    );
   });
 
   it("detaches a player and re-attaches it to another world with stats intact", () => {

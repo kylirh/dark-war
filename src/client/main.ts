@@ -559,6 +559,8 @@ class DarkWar {
       onToggleGodMode: () => this.handleToggleGodMode(),
       onPrototypeLower: () => this.handlePrototypeElevationEdit("lower"),
       onPrototypeRaise: () => this.handlePrototypeElevationEdit("raise"),
+      onPrototypeToggleTransitions: () =>
+        this.handlePrototypeTransitionToggle(),
       onResumePause: (reason) => this.game.resumeFromPause(reason),
       onNewGame: () => this.handleNewGame(),
       onSave: () => this.handleSave(),
@@ -2196,6 +2198,12 @@ class DarkWar {
       direction === "lower" ? -1 : 1,
     );
     return true;
+  }
+
+  /** Toggle the shoreline resolver comparison without changing semantics. */
+  private handlePrototypeTransitionToggle(): boolean {
+    if (this.isOnlineMode()) return false;
+    return this.game.toggleTerrainPrototypeTransitionMode() !== null;
   }
 
   /**

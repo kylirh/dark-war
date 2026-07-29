@@ -15,6 +15,10 @@ import {
   ELEVATION_WEST,
   resolveElevationVisualContext,
 } from "./elevation-resolver";
+import {
+  resolveBlobTransitionMask,
+  resolveDualGridTransitionMask,
+} from "./terrain-transition-resolver";
 
 export const TERRAIN_PROTOTYPE_WIDTH = 40;
 export const TERRAIN_PROTOTYPE_HEIGHT = 30;
@@ -61,10 +65,16 @@ export enum PrototypeCliffVisual {
   TALL,
 }
 
+export enum TerrainPrototypeTransitionMode {
+  BLOB_47 = "blob-47",
+  DUAL_GRID = "dual-grid",
+}
+
 export interface TerrainPrototypeVisualCache {
   readonly ground: Uint8Array;
   readonly cliff: Uint8Array;
   readonly cliffEdgeMask: Uint8Array;
+  readonly shoreMask: Uint8Array;
 }
 
 export interface TerrainPrototypeEditFeedback {
@@ -82,6 +92,7 @@ export interface TerrainPrototypePlane {
   readonly collisionMap: TileType[];
   readonly visuals: TerrainPrototypeVisualCache;
   readonly editFeedback: TerrainPrototypeEditFeedback;
+  transitionMode: TerrainPrototypeTransitionMode;
   readonly start: readonly [number, number];
 }
 
@@ -189,6 +200,27 @@ function refreshVisualCell(plane: TerrainPrototypePlane, index: number): void {
       ? 0
       : context.lowerNeighborMask &
         (ELEVATION_NORTH | ELEVATION_EAST | ELEVATION_SOUTH | ELEVATION_WEST);
+  const isWaterAt = (sampleX: number, sampleY: number): boolean => {
+    if (
+      sampleX < 0 ||
+      sampleY < 0 ||
+      sampleX >= plane.width ||
+      sampleY >= plane.height
+    ) {
+      return false;
+    }
+    const sampleGround = plane.ground[
+      indexFor(sampleX, sampleY, plane.width)
+    ] as PrototypeGround;
+    return (
+      sampleGround === PrototypeGround.WATER_SHALLOW ||
+      sampleGround === PrototypeGround.WATER_DEEP
+    );
+  };
+  plane.visuals.shoreMask[index] =
+    plane.transitionMode === TerrainPrototypeTransitionMode.BLOB_47
+      ? resolveBlobTransitionMask(x, y, isWaterAt)
+      : resolveDualGridTransitionMask(x, y, isWaterAt);
 }
 
 function refreshCollisionCell(
@@ -255,6 +287,20 @@ export function applyTerrainPrototypeElevationEdit(
     nextElevation,
     dirtyCellIndices,
   };
+}
+
+/** Switch comparison modes and rebuild the development-only resolved cache. */
+export function setTerrainPrototypeTransitionMode(
+  plane: TerrainPrototypePlane,
+  mode: TerrainPrototypeTransitionMode,
+): number {
+  if (plane.transitionMode === mode) return 0;
+  plane.transitionMode = mode;
+  const cellCount = plane.width * plane.height;
+  for (let index = 0; index < cellCount; index++) {
+    refreshVisualCell(plane, index);
+  }
+  return cellCount;
 }
 
 /** Build the fixed 40×30 visual acceptance scene. */
@@ -336,6 +382,17 @@ export function createTerrainPrototypePlane(): TerrainPrototypePlane {
   fillRect(16, 2, 8, 4, (x, y) => {
     setGround(x, y, PrototypeGround.WATER_DEEP);
   });
+
+  // Camera-visible comparison pond with convex and concave shoreline cases.
+  fillRect(31, 16, 6, 5, (x, y) => {
+    setGround(x, y, PrototypeGround.WATER_SHALLOW);
+  });
+  fillRect(33, 17, 3, 3, (x, y) => {
+    setGround(x, y, PrototypeGround.WATER_DEEP);
+  });
+  setGround(31, 16, PrototypeGround.GRASS);
+  setGround(36, 20, PrototypeGround.GRASS);
+  setGround(31, 20, PrototypeGround.GRASS);
 
   // Paths connect the homestead, bridge, stairs, and cave.
   fillRect(12, 12, 14, 2, (x, y) => setGround(x, y, PrototypeGround.DIRT));
@@ -422,12 +479,14 @@ export function createTerrainPrototypePlane(): TerrainPrototypePlane {
       ground: new Uint8Array(cellCount),
       cliff: new Uint8Array(cellCount),
       cliffEdgeMask: new Uint8Array(cellCount),
+      shoreMask: new Uint8Array(cellCount),
     },
     editFeedback: {
       dirtyCellIndices: new Set(),
       editedCellIndex: null,
       revision: 0,
     },
+    transitionMode: TerrainPrototypeTransitionMode.BLOB_47,
     start: [19, 14],
   };
   for (let index = 0; index < cellCount; index++) {

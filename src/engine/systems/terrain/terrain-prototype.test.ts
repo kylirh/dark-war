@@ -8,9 +8,11 @@ import {
   PrototypeCliffVisual,
   PrototypeGround,
   PrototypeStructure,
+  setTerrainPrototypeTransitionMode,
   TERRAIN_LOWER_FIXTURE,
   TERRAIN_PROTOTYPE_HEIGHT,
   TERRAIN_PROTOTYPE_WIDTH,
+  TerrainPrototypeTransitionMode,
   terrainDirtyNeighborhood,
 } from "./terrain-prototype";
 
@@ -28,6 +30,29 @@ describe("createTerrainPrototypePlane", () => {
     expect(plane.structure).toHaveLength(cellCount);
     expect(plane.elevation).toHaveLength(cellCount);
     expect(plane.collisionMap).toHaveLength(cellCount);
+    expect(plane.visuals.shoreMask).toHaveLength(cellCount);
+  });
+
+  it("switches shoreline comparison families deterministically", () => {
+    const plane = createTerrainPrototypePlane();
+    const waterIndex = 20 + 3 * plane.width;
+    const blobMask = plane.visuals.shoreMask[waterIndex];
+
+    expect(plane.transitionMode).toBe(TerrainPrototypeTransitionMode.BLOB_47);
+    expect(
+      setTerrainPrototypeTransitionMode(
+        plane,
+        TerrainPrototypeTransitionMode.DUAL_GRID,
+      ),
+    ).toBe(plane.width * plane.height);
+    expect(plane.transitionMode).toBe(TerrainPrototypeTransitionMode.DUAL_GRID);
+    expect(plane.visuals.shoreMask[waterIndex]).not.toBe(blobMask);
+    expect(
+      setTerrainPrototypeTransitionMode(
+        plane,
+        TerrainPrototypeTransitionMode.DUAL_GRID,
+      ),
+    ).toBe(0);
   });
 
   it("contains the required signed elevations and constant-cost tall drop", () => {

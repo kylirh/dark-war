@@ -38,10 +38,12 @@ import { wrapValue, nearestWrappedImage } from "../../engine/utils/wrap";
 import { cardinalAutotileMask } from "../../engine/utils/autotile";
 import {
   PrototypeCliffVisual,
+  PrototypeGround,
   PrototypeGroundVisual,
   PrototypeStructure,
   TERRAIN_LOWER_FIXTURE,
   TERRAIN_RAISE_FIXTURE,
+  TerrainPrototypeTransitionMode,
 } from "../../engine/systems/terrain/terrain-prototype";
 import {
   ELEVATION_EAST,
@@ -49,6 +51,20 @@ import {
   ELEVATION_SOUTH,
   ELEVATION_WEST,
 } from "../../engine/systems/terrain/elevation-resolver";
+import {
+  DUAL_GRID_NORTH_EAST,
+  DUAL_GRID_NORTH_WEST,
+  DUAL_GRID_SOUTH_EAST,
+  DUAL_GRID_SOUTH_WEST,
+  TRANSITION_EAST,
+  TRANSITION_NORTH,
+  TRANSITION_NORTH_EAST,
+  TRANSITION_NORTH_WEST,
+  TRANSITION_SOUTH,
+  TRANSITION_SOUTH_EAST,
+  TRANSITION_SOUTH_WEST,
+  TRANSITION_WEST,
+} from "../../engine/systems/terrain/terrain-transition-resolver";
 
 type RenderFrame = SpriteFrame & { key: string };
 
@@ -1491,6 +1507,124 @@ export class Renderer {
           }
         } else {
           renderGround(tileType);
+        }
+      }
+    }
+
+    // Development-only shoreline comparison. Both candidates consume the same
+    // cached semantic water field; only their display lattice and art burden
+    // differ. Keeping this pass separate prevents presentation from leaking
+    // back into authoritative ground IDs.
+    const terrainPrototype = state.terrainPrototype;
+    if (terrainPrototype) {
+      for (let tileY = startRow; tileY <= endRow; tileY++) {
+        for (let tileX = startCol; tileX <= endCol; tileX++) {
+          if (
+            tileX < 0 ||
+            tileY < 0 ||
+            tileX >= terrainPrototype.width ||
+            tileY >= terrainPrototype.height
+          ) {
+            continue;
+          }
+          const index = tileX + tileY * terrainPrototype.width;
+          const mask = terrainPrototype.visuals.shoreMask[index];
+          const screenX = offsetX + tileX * CELL_CONFIG.w;
+          const screenY = offsetY + tileY * CELL_CONFIG.h;
+
+          if (
+            terrainPrototype.transitionMode ===
+            TerrainPrototypeTransitionMode.DUAL_GRID
+          ) {
+            if (mask === 0 || mask === 15) continue;
+            const bridgeAt = (x: number, y: number): boolean =>
+              x >= 0 &&
+              y >= 0 &&
+              x < terrainPrototype.width &&
+              y < terrainPrototype.height &&
+              terrainPrototype.structure[x + y * terrainPrototype.width] ===
+                PrototypeStructure.BRIDGE_HORIZONTAL;
+            if (
+              bridgeAt(tileX - 1, tileY - 1) ||
+              bridgeAt(tileX, tileY - 1) ||
+              bridgeAt(tileX, tileY) ||
+              bridgeAt(tileX - 1, tileY)
+            ) {
+              continue;
+            }
+            const transition = new Graphics();
+            const drawQuadrant = (bit: number, x: number, y: number): void => {
+              if (!(mask & bit)) return;
+              transition.rect(screenX - 16 + x, screenY - 16 + y, 16, 16);
+            };
+            drawQuadrant(DUAL_GRID_NORTH_WEST, 0, 0);
+            drawQuadrant(DUAL_GRID_NORTH_EAST, 16, 0);
+            drawQuadrant(DUAL_GRID_SOUTH_EAST, 16, 16);
+            drawQuadrant(DUAL_GRID_SOUTH_WEST, 0, 16);
+            transition.fill({ color: 0x1fb8b4, alpha: 0.92 });
+            transition
+              .rect(screenX - 13, screenY - 13, 6, 2)
+              .rect(screenX + 5, screenY + 9, 8, 2)
+              .fill({ color: 0x86e7df, alpha: 0.7 });
+            this.mapContainer.addChild(transition);
+            continue;
+          }
+
+          const ground = terrainPrototype.ground[index] as PrototypeGround;
+          const isWater =
+            ground === PrototypeGround.WATER_SHALLOW ||
+            ground === PrototypeGround.WATER_DEEP;
+          if (
+            !isWater ||
+            terrainPrototype.structure[index] ===
+              PrototypeStructure.BRIDGE_HORIZONTAL
+          ) {
+            continue;
+          }
+          const shore = new Graphics();
+          if (!(mask & TRANSITION_NORTH)) {
+            shore.rect(screenX, screenY, 32, 4);
+          }
+          if (!(mask & TRANSITION_EAST)) {
+            shore.rect(screenX + 28, screenY, 4, 32);
+          }
+          if (!(mask & TRANSITION_SOUTH)) {
+            shore.rect(screenX, screenY + 28, 32, 4);
+          }
+          if (!(mask & TRANSITION_WEST)) {
+            shore.rect(screenX, screenY, 4, 32);
+          }
+          shore.fill({ color: 0x86e7df, alpha: 0.95 });
+          if (
+            mask & TRANSITION_NORTH &&
+            mask & TRANSITION_EAST &&
+            !(mask & TRANSITION_NORTH_EAST)
+          ) {
+            shore.rect(screenX + 25, screenY, 7, 7);
+          }
+          if (
+            mask & TRANSITION_EAST &&
+            mask & TRANSITION_SOUTH &&
+            !(mask & TRANSITION_SOUTH_EAST)
+          ) {
+            shore.rect(screenX + 25, screenY + 25, 7, 7);
+          }
+          if (
+            mask & TRANSITION_SOUTH &&
+            mask & TRANSITION_WEST &&
+            !(mask & TRANSITION_SOUTH_WEST)
+          ) {
+            shore.rect(screenX, screenY + 25, 7, 7);
+          }
+          if (
+            mask & TRANSITION_WEST &&
+            mask & TRANSITION_NORTH &&
+            !(mask & TRANSITION_NORTH_WEST)
+          ) {
+            shore.rect(screenX, screenY, 7, 7);
+          }
+          shore.fill({ color: 0x5de2d1, alpha: 0.9 });
+          this.mapContainer.addChild(shore);
         }
       }
     }
