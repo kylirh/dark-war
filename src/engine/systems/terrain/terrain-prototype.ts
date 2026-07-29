@@ -95,7 +95,6 @@ export interface TerrainPrototypePlane {
   readonly ground: Uint16Array;
   readonly structure: Uint16Array;
   readonly elevation: Int16Array;
-  readonly collisionMap: TileType[];
   readonly visuals: TerrainPrototypeVisualCache;
   readonly editFeedback: TerrainPrototypeEditFeedback;
   transitionMode: TerrainPrototypeTransitionMode;
@@ -233,7 +232,7 @@ function refreshCollisionCell(
   plane: TerrainPrototypePlane,
   index: number,
 ): void {
-  plane.world.refreshCell(index);
+  plane.world.refreshResolvedTile(index);
 }
 
 /** Apply a semantic elevation edit and resolve only its 3x3 dependency area. */
@@ -466,7 +465,6 @@ export function createTerrainPrototypePlane(): TerrainPrototypePlane {
     ground,
     structure,
     elevation,
-    collisionMap: world.legacyTiles,
     visuals: {
       ground: new Uint8Array(cellCount),
       cliff: new Uint8Array(cellCount),

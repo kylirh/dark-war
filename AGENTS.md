@@ -209,10 +209,9 @@ if (entity.kind === EntityKind.MONSTER) {
   by a Prim's MST with extra loop edges, doors at corridor pinches, and a sealed
   impenetrable border. Deterministic from a per-level seed; full connectivity is
   unit-tested.
-- **Derived flat array:** `state.map` is a synchronized `TileType[]` projection
-  sized `mapWidth × mapHeight` (outside is 128×72). Production gameplay reads
-  use `state.tiles`; the array remains only for temporary lifecycle/test
-  scaffolding and is not serialized authority.
+- **No runtime scalar map:** `GameState` and level snapshots do not contain
+  `TileType[]` maps. Use `state.tiles` for reads and `utils/state-tiles.ts` for
+  writes. Raw arrays exist only inside procedural generator implementation.
 - **Persistence/network:** `SerializedWorldPlane` carries all five semantic
   layers. Multiplayer deltas diff each layer independently. Legacy scalar saves
   and pre-v6 clients are intentionally unsupported.

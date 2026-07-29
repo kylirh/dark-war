@@ -8,7 +8,11 @@ import {
 import { applyWallDamageAt, applyWallDamageAtIndex } from "./walls";
 import { idxFor } from "./helpers";
 import { createWorldPlaneFromTiles } from "../core/world-semantics";
-import { getStateDamageAtIndex } from "./state-tiles";
+import {
+  getStateDamageAtIndex,
+  getStateTileAtIndex,
+  setStateTileAtIndex,
+} from "./state-tiles";
 
 const W = 5;
 const H = 5;
@@ -26,7 +30,6 @@ function fakeState(fill: TileType = TileType.WALL): GameState {
   }
   const worldPlane = createWorldPlaneFromTiles(map, W, H);
   return {
-    map: worldPlane.legacyTiles,
     mapWidth: W,
     mapHeight: H,
     tiles: worldPlane,
@@ -46,11 +49,11 @@ describe("applyWallDamageAt", () => {
 
   it("accumulates damage and destroys a wall into floor at max", () => {
     const state = fakeState();
-    state.map[idxFor(2, 2, W)] = TileType.WALL;
+    setStateTileAtIndex(state, idxFor(2, 2, W), TileType.WALL);
     expect(applyWallDamageAt(state, 2, 2, WALL_MAX_DAMAGE - 1)).toBe(true);
-    expect(state.map[idxFor(2, 2, W)]).toBe(TileType.WALL); // not yet destroyed
+    expect(getStateTileAtIndex(state, idxFor(2, 2, W))).toBe(TileType.WALL);
     applyWallDamageAt(state, 2, 2, 1);
-    expect(state.map[idxFor(2, 2, W)]).toBe(TileType.FLOOR);
+    expect(getStateTileAtIndex(state, idxFor(2, 2, W))).toBe(TileType.FLOOR);
     expect(getStateDamageAtIndex(state, idxFor(2, 2, W))).toBe(0);
     expect(state.mapDirty).toBe(true);
   });
@@ -58,16 +61,16 @@ describe("applyWallDamageAt", () => {
   it("turns a destroyed floor into a tracked hole", () => {
     const state = fakeState(TileType.FLOOR);
     const i = idxFor(2, 2, W);
-    state.map[i] = TileType.FLOOR;
+    setStateTileAtIndex(state, i, TileType.FLOOR);
     applyWallDamageAt(state, 2, 2, FLOOR_MAX_DAMAGE);
-    expect(state.map[i]).toBe(TileType.HOLE);
+    expect(getStateTileAtIndex(state, i)).toBe(TileType.HOLE);
     expect(state.holeCreatedTiles?.has(i)).toBe(true);
   });
 
   it("rejects non-damageable tiles", () => {
     const state = fakeState();
     const i = idxFor(2, 2, W);
-    state.map[i] = TileType.STAIRS_DOWN;
+    setStateTileAtIndex(state, i, TileType.STAIRS_DOWN);
     expect(applyWallDamageAtIndex(state, i, 5)).toBe(false);
   });
 

@@ -11,7 +11,7 @@ import { setTileFor } from "../utils/helpers";
 import { createWorldPlaneFromTiles } from "./world-semantics";
 import { WorldPlane } from "./world-plane";
 
-export interface OutsideLevelData extends DungeonData {
+export interface OutsideLevelData extends Omit<DungeonData, "map"> {
   entities: ItemEntity[];
   worldPlane: WorldPlane;
 }
@@ -125,7 +125,6 @@ export function createOutsideLevel(): OutsideLevelData {
 
   const worldPlane = createWorldPlaneFromTiles(map, WIDTH, HEIGHT);
   return {
-    map: worldPlane.legacyTiles,
     width: WIDTH,
     height: HEIGHT,
     floorVariant: 0,

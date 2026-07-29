@@ -21,6 +21,7 @@ import {
 } from "../types";
 import { createOutsideLevel } from "./outside-level";
 import { EntityManager } from "./entity-manager";
+import { TileSource } from "./tile-source";
 import { generateDungeon } from "./dungeon-generator";
 import { PlayerEntity } from "../entities/player-entity";
 import { MonsterEntity } from "../entities/monster-entity";
@@ -29,12 +30,7 @@ import { ItemEntity } from "../entities/item-entity";
 import { ExplosiveEntity } from "../entities/explosive-entity";
 import { BulletEntity } from "../entities/bullet-entity";
 import { RNG, RandomNumberGenerator } from "../utils/rng";
-import {
-  dist,
-  passableFor,
-  setPositionFromGrid,
-  setTileFor,
-} from "../utils/helpers";
+import { dist, setPositionFromGrid, setTileFor } from "../utils/helpers";
 import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { SoundEffect } from "../content/sound-effects";
@@ -62,7 +58,6 @@ const DUNGEON_HEIGHT = 96;
 interface LevelSnapshot {
   depth: number;
   levelKind: LevelKind;
-  map: TileType[];
   mapWidth: number;
   mapHeight: number;
   floorVariant: number;
@@ -126,7 +121,6 @@ export class Game {
     return {
       depth: 0,
       levelKind: "outside",
-      map: worldPlane.legacyTiles,
       mapWidth: MAP_WIDTH,
       mapHeight: MAP_HEIGHT,
       floorVariant: 0,
@@ -201,7 +195,6 @@ export class Game {
     this.state = {
       depth,
       levelKind: depth === 0 ? "outside" : "dungeon",
-      map: dungeon.map,
       mapWidth: dungeon.width,
       mapHeight: dungeon.height,
       floorVariant: dungeon.floorVariant,
@@ -274,11 +267,7 @@ export class Game {
     }
 
     // Get free tiles once, upfront (optimized for performance)
-    const freeTiles = this.getFreeTilesOptimized(
-      dungeon.map,
-      dungeon.width,
-      dungeon.height,
-    );
+    const freeTiles = this.getFreeTilesOptimized(dungeon.worldPlane);
 
     // Spawn monsters
     let ratCount = 0;
@@ -374,7 +363,6 @@ export class Game {
 
     this.state.depth = 0;
     this.state.levelKind = "dungeon";
-    this.state.map = prototype.collisionMap;
     this.state.mapWidth = prototype.width;
     this.state.mapHeight = prototype.height;
     this.state.floorVariant = 0;
@@ -445,15 +433,11 @@ export class Game {
   /**
    * Get all walkable tiles (optimized - doesn't check entities)
    */
-  private getFreeTilesOptimized(
-    map: TileType[],
-    width: number = this.state.mapWidth,
-    height: number = this.state.mapHeight,
-  ): [number, number][] {
+  private getFreeTilesOptimized(source: TileSource): [number, number][] {
     const tiles: [number, number][] = [];
-    for (let y = 1; y < height - 1; y++) {
-      for (let x = 1; x < width - 1; x++) {
-        if (passableFor(map, x, y, width, height)) {
+    for (let y = 1; y < source.height - 1; y++) {
+      for (let x = 1; x < source.width - 1; x++) {
+        if (source.passable(x, y)) {
           tiles.push([x, y]);
         }
       }
@@ -712,7 +696,6 @@ export class Game {
     const snapshot: LevelSnapshot = {
       depth: currentDepth,
       levelKind: this.state.levelKind,
-      map: this.state.map,
       mapWidth: this.state.mapWidth,
       mapHeight: this.state.mapHeight,
       floorVariant: this.state.floorVariant,
@@ -745,7 +728,6 @@ export class Game {
     playerEntry: [number, number],
   ): void {
     this.state.playerStart = [playerEntry[0], playerEntry[1]];
-    this.state.map = snapshot.map;
     this.state.levelKind = snapshot.levelKind;
     this.state.mapWidth = snapshot.mapWidth;
     this.state.mapHeight = snapshot.mapHeight;
@@ -791,7 +773,6 @@ export class Game {
    * marked as up-stairs so the player can climb back out.
    */
   private createDungeonLevel(depth: number): {
-    map: TileType[];
     width: number;
     height: number;
     floorVariant: number;
@@ -811,7 +792,6 @@ export class Game {
     setTileFor(d.map, d.start[0], d.start[1], d.width, TileType.STAIRS_UP);
     const worldPlane = createWorldPlaneFromTiles(d.map, d.width, d.height);
     return {
-      map: worldPlane.legacyTiles,
       width: d.width,
       height: d.height,
       floorVariant: d.floorVariant,
@@ -829,7 +809,6 @@ export class Game {
     return {
       depth,
       levelKind: "dungeon",
-      map: level.map,
       mapWidth: level.width,
       mapHeight: level.height,
       floorVariant: level.floorVariant,
@@ -838,13 +817,7 @@ export class Game {
       exploredByPlayer: new Map(
         this.state.players.map((player) => [player.id, new Set<number>()]),
       ),
-      entities: this.spawnLevelEntities(
-        level.map,
-        level.start,
-        depth,
-        level.width,
-        level.height,
-      ),
+      entities: this.spawnLevelEntities(level.worldPlane, level.start, depth),
       stairsDown: level.stairsDown,
       stairsUp: level.stairsUp,
       enhancedVision: false,
@@ -853,14 +826,12 @@ export class Game {
   }
 
   private spawnLevelEntities(
-    map: TileType[],
+    source: TileSource,
     start: [number, number],
     depth: number,
-    width: number = MAP_WIDTH,
-    height: number = MAP_HEIGHT,
   ): Entity[] {
     const entities: Entity[] = [];
-    const freeTiles = this.getFreeTilesOptimized(map, width, height);
+    const freeTiles = this.getFreeTilesOptimized(source);
     // Density scales with the amount of open floor so big levels feel populated
     // rather than empty. (~one monster per 70 floor tiles, plus a depth bump.)
     const floorTiles = freeTiles.length;
@@ -1016,11 +987,7 @@ export class Game {
   private injectPendingDrops(snapshot: LevelSnapshot, depth: number): void {
     const pending = this.pendingDropsByDepth.get(depth);
     if (!pending || pending.length === 0) return;
-    const freeTiles = this.getFreeTilesOptimized(
-      snapshot.map,
-      snapshot.mapWidth,
-      snapshot.mapHeight,
-    );
+    const freeTiles = this.getFreeTilesOptimized(snapshot.worldPlane);
     for (const drop of pending) {
       if (freeTiles.length === 0) break;
       const i = RNG.int(freeTiles.length);
@@ -1052,10 +1019,8 @@ export class Game {
     let landingPosition: [number, number];
     if (fallPosition) {
       const nearestTile = this.findNearestPassableTile(
-        snapshot.map,
+        snapshot.worldPlane,
         fallPosition,
-        snapshot.mapWidth,
-        snapshot.mapHeight,
       );
       landingPosition = nearestTile ?? snapshot.stairsUp ?? snapshot.stairsDown;
     } else {
@@ -1115,18 +1080,17 @@ export class Game {
   }
 
   private findNearestPassableTile(
-    map: TileType[],
+    source: TileSource,
     target: [number, number],
-    width: number,
-    height: number,
   ): [number, number] | null {
+    const { width, height } = source;
     const [startX, startY] = target;
     if (
       startX >= 0 &&
       startY >= 0 &&
       startX < width &&
       startY < height &&
-      passableFor(map, startX, startY, width, height)
+      source.passable(startX, startY)
     ) {
       return [startX, startY];
     }
@@ -1150,7 +1114,7 @@ export class Game {
     while (head < queue.length) {
       const [x, y] = queue[head++];
       if (x >= 0 && y >= 0 && x < width && y < height) {
-        if (passableFor(map, x, y, width, height)) {
+        if (source.passable(x, y)) {
           return [x, y];
         }
       }
@@ -1331,7 +1295,6 @@ export class Game {
     this.state = {
       depth: data.depth,
       levelKind: data.levelKind ?? (data.depth === 0 ? "outside" : "dungeon"),
-      map: worldPlane.legacyTiles,
       mapWidth,
       mapHeight,
       floorVariant,
@@ -1386,7 +1349,6 @@ export class Game {
         depth: level.depth,
         levelKind:
           level.levelKind ?? (level.depth === 0 ? "outside" : "dungeon"),
-        map: levelPlane.legacyTiles,
         mapWidth: levelPlane.width,
         mapHeight: levelPlane.height,
         floorVariant: level.floorVariant,

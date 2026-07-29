@@ -515,15 +515,12 @@ export interface DungeonData {
 export interface GameState {
   depth: number;
   levelKind: LevelKind;
-  map: TileType[];
   mapWidth: number;
   mapHeight: number;
   floorVariant: number;
   wallSet: WallSet;
   mapDirty: boolean;
   // Canonical tile accessor. Generated levels expose their WorldPlane here.
-  // above. Gameplay logic should prefer it over raw array access so the
-  // approved layered WorldPlane rewrite can replace the backing model.
   tiles: TileSource;
   /** Authoritative layered storage when this level has completed migration. */
   worldPlane: import("./core/world-plane").WorldPlane;

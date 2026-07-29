@@ -99,14 +99,12 @@ The renderer (`src/client/systems/renderer.ts`) uses **windowed rendering**: the
 
 Every generated level owns an authoritative semantic `WorldPlane` with ground,
 structure, fixture, signed elevation, and damage arrays. Saves, multiplayer
-keyframes, and deltas carry those layers directly. A synchronized flat
-`TileType[]` projection remains temporarily for runtime systems still awaiting
-migration; production gameplay reads already use `state.tiles`, while lifecycle
-bookkeeping and older test fixtures still expose `state.map`. Do not add new
-authority or readers to that projection. Index current planes with
-`idxFor(x, y, width)`.
+keyframes, and deltas carry those layers directly. `GameState` and level
+snapshots do not contain scalar maps or damage arrays. Use `state.tiles` for
+tile reads and the canonical state mutation helpers for writes. Index current
+planes with `idxFor(x, y, width)`.
 
-**Tile access** (`src/engine/core/tile-source.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). Generated levels expose their `WorldPlane` through this interface. `FlatTileSource` remains for focused tests and temporary setup paths. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors).
+**Tile access** (`src/engine/core/tile-source.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). Generated levels expose their `WorldPlane` through this interface. `FlatTileSource` remains only as a focused unit-test adapter. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors).
 
 ### Content & Assets
 

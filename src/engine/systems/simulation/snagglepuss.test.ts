@@ -12,6 +12,7 @@ import {
   EventType,
 } from "../../types";
 import { idxFor } from "../../utils/helpers";
+import { setStateTile } from "../../utils/state-tiles";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
@@ -81,8 +82,7 @@ describe("snagglepuss", () => {
 
     // Clear a floor lane so the pet can walk to the loot.
     for (let dx = 0; dx <= 5; dx++) {
-      state.map[idxFor(player.gridX + dx, player.gridY, state.mapWidth)] =
-        TileType.FLOOR;
+      setStateTile(state, player.gridX + dx, player.gridY, TileType.FLOOR);
     }
 
     const snagg = new MonsterEntity(

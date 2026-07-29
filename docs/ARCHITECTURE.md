@@ -47,18 +47,17 @@ read-only derived coordinates and must never be assigned.
 ## Current world implementation
 
 Fresh outside, dungeon, and terrain-laboratory levels now use authoritative
-`WorldPlane` storage. They own aligned semantic typed arrays and expose a derived
-scalar projection only to consumers awaiting migration. Runtime tile mutations
-flow through `utils/state-tiles.ts`, keeping both views synchronized. Save files,
+`WorldPlane` storage. They own aligned semantic typed arrays and resolve gameplay
+properties directly from those layers. Runtime tile mutations flow through
+`utils/state-tiles.ts`. Save files,
 multiplayer keyframes, and multiplayer deltas now serialize all five semantic
 layers directly. Runtime damage also uses the plane layer exclusively; there is
 no duplicate damage array. Legacy scalar saves and clients are intentionally
 rejected.
 
-Production gameplay reads now use `state.tiles` rather than `state.map`,
-including AI, commands/events, repair, pathfinding, exploration, and client
-interaction. The derived map survives only as temporary lifecycle/test
-scaffolding and is the next field scheduled for deletion.
+All runtime tile reads use `state.tiles`, including AI, commands/events, repair,
+pathfinding, exploration, client interaction, physics, FOV, and rendering.
+`GameState` and level snapshots have no scalar map or damage fields.
 
 `core/world-semantics.ts` owns the shared ground/structure/fixture IDs, stable
 authoring keys, complete current-tile classification, and the conversion boundary
@@ -70,7 +69,7 @@ the final world vocabulary.
 
 ## Approved world direction
 
-The scalar tile representation will be replaced rather than permanently wrapped:
+The scalar runtime representation has been replaced by this structure:
 
 ```text
 World
@@ -93,8 +92,8 @@ transitions. Static water is terrain, not a fluid simulation.
 
 This is a deliberate breaking rewrite. There is no requirement to load old saves
 or communicate with old clients. The layered serialization and delta conversion
-bumped `PROTOCOL_VERSION` to 6; remaining scalar runtime projections will be
-deleted as their consumers move to semantic queries.
+bumped `PROTOCOL_VERSION` to 6; the superseded scalar runtime fields have been
+deleted.
 
 ## Authoring boundary
 

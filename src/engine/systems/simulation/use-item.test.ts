@@ -15,6 +15,7 @@ import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
 import { applyWallDamageAt } from "../../utils/walls";
 import { SoundEffect } from "../../content/sound-effects";
+import { setStateTile } from "../../utils/state-tiles";
 
 function setActive(game: Game, type: ItemType) {
   const player = game.getState().player;
@@ -160,12 +161,12 @@ describe("holowall placement", () => {
     player.facingAngle = 0; // face +x
     const tx = player.gridX + 1;
     const ty = player.gridY;
-    state.map[tx + ty * state.mapWidth] = TileType.FLOOR; // ensure open floor
+    setStateTile(state, tx, ty, TileType.FLOOR);
     player.itemCounts[ItemType.HOLOWALL] = 1;
     setActive(game, ItemType.HOLOWALL);
 
     use(game);
-    expect(state.map[tx + ty * state.mapWidth]).toBe(TileType.HOLOWALL);
+    expect(state.tiles.getTile(tx, ty)).toBe(TileType.HOLOWALL);
     expect(player.itemCounts[ItemType.HOLOWALL] ?? 0).toBe(0);
     expect(state.mapDirty).toBe(true);
     expect(state.pendingSounds.at(-1)?.effect).toBe(SoundEffect.PLACE_WALL);
@@ -209,11 +210,11 @@ describe("panic button", () => {
     const state = game.getState();
     const tx = 5;
     const ty = 5;
-    state.map[tx + ty * state.mapWidth] = TileType.HOLOWALL;
+    setStateTile(state, tx, ty, TileType.HOLOWALL);
 
     const changed = applyWallDamageAt(state, tx, ty, WALL_MAX_DAMAGE * 2);
     expect(changed).toBe(false);
-    expect(state.map[tx + ty * state.mapWidth]).toBe(TileType.HOLOWALL);
+    expect(state.tiles.getTile(tx, ty)).toBe(TileType.HOLOWALL);
   });
 });
 

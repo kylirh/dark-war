@@ -62,7 +62,12 @@ describe("world semantic vocabulary", () => {
     ];
     const plane = createWorldPlaneFromTiles(source, 2, 2, [0, 12, 0, 4]);
 
-    expect(plane.legacyTiles).toEqual(source);
+    expect([
+      plane.getTile(0, 0),
+      plane.getTile(1, 0),
+      plane.getTile(0, 1),
+      plane.getTile(1, 1),
+    ]).toEqual(source);
     expect(plane.layers.damage).toEqual(new Uint8Array([0, 12, 0, 4]));
     plane.setTile(0, 0, TileType.DOOR_LOCKED);
     expect(plane.layers.ground[0]).toBe(GroundType.FLOOR);

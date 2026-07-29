@@ -29,7 +29,7 @@ describe("Game serialize/deserialize round-trip", () => {
     const after = restored.getState();
 
     expect(after.depth).toBe(before.depth);
-    expect(after.map).toEqual(before.map);
+    expect(after.worldPlane.layers).toEqual(before.worldPlane.layers);
     expect(after.mapWidth).toBe(before.mapWidth);
     expect(after.mapHeight).toBe(before.mapHeight);
     expect(after.player.gridX).toBe(before.player.gridX);
@@ -55,10 +55,10 @@ describe("Game serialize/deserialize round-trip", () => {
     const restored = new Game({ mode: "offline" });
     restored.deserialize(game.serialize());
     const state = restored.getState();
-    // tiles must reflect the restored map, not a stale array.
+    // tiles must reference the restored authoritative plane.
     expect(state.tiles.width).toBe(state.mapWidth);
     expect(state.tiles.getTile(state.player.gridX, state.player.gridY)).toBe(
-      state.map[state.player.gridX + state.player.gridY * state.mapWidth],
+      state.worldPlane.getTile(state.player.gridX, state.player.gridY),
     );
   });
 
@@ -95,7 +95,12 @@ describe("Game serialize/deserialize round-trip", () => {
     );
     // The whole level exists up front, with plenty of floor.
     expect(
-      state.map.filter((t) => t === TileType.FLOOR).length,
+      Array.from({ length: state.mapWidth * state.mapHeight }, (_, index) =>
+        state.tiles.getTile(
+          index % state.mapWidth,
+          Math.floor(index / state.mapWidth),
+        ),
+      ).filter((tile) => tile === TileType.FLOOR).length,
     ).toBeGreaterThan(800);
   });
 
@@ -110,7 +115,7 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(state.levelKind).toBe("dungeon");
     expect(state.mapWidth).toBe(128);
     expect(state.worldPlane).toBeDefined();
-    expect(state.map).toBe(state.worldPlane!.legacyTiles);
+    expect(state.tiles).toBe(state.worldPlane);
     expect([...state.worldPlane!.layers.structure]).toContain(
       StructureType.WALL,
     );
@@ -140,9 +145,7 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(restored.worldPlane).toBe(outsidePlane);
     expect(restored.tiles).toBe(outsidePlane);
     expect(restored.tiles.getTile(editX, editY)).toBe(TileType.DOOR_LOCKED);
-    expect(restored.map[editX + editY * restored.mapWidth]).toBe(
-      TileType.DOOR_LOCKED,
-    );
+    expect(restored.tiles.getTile(editX, editY)).toBe(TileType.DOOR_LOCKED);
   });
 
   it("spawns pistol bullets at the muzzle, in front of the shooter", () => {
@@ -287,7 +290,7 @@ describe("Game multiplayer player management", () => {
     expect(state.terrainPrototype).toBeDefined();
     expect(state.mapWidth).toBe(40);
     expect(state.mapHeight).toBe(30);
-    expect(state.map).toBe(state.terrainPrototype!.collisionMap);
+    expect(state.tiles).toBe(state.worldPlane);
     expect(state.tiles).toBe(state.terrainPrototype!.world);
     expect(state.tiles.getTile(20, 3)).toBe(TileType.WALL);
     expect(state.tiles.getTile(20, 6)).toBe(TileType.FLOOR);

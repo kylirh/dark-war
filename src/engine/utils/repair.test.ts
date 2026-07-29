@@ -7,7 +7,12 @@ import {
 } from "./repair";
 import { idxFor } from "./helpers";
 import { createWorldPlaneFromTiles } from "../core/world-semantics";
-import { getStateDamageAtIndex, setStateDamageAtIndex } from "./state-tiles";
+import {
+  getStateDamageAtIndex,
+  getStateTileAtIndex,
+  setStateDamageAtIndex,
+  setStateTileAtIndex,
+} from "./state-tiles";
 
 const W = 7;
 const H = 7;
@@ -16,7 +21,6 @@ function fakeState(): GameState {
   const map = new Array(W * H).fill(TileType.FLOOR);
   const worldPlane = createWorldPlaneFromTiles(map, W, H);
   return {
-    map: worldPlane.legacyTiles,
     mapWidth: W,
     mapHeight: H,
     tiles: worldPlane,
@@ -29,16 +33,16 @@ describe("applyRepairAt", () => {
   it("fills a hole back to floor", () => {
     const state = fakeState();
     const i = idxFor(3, 3, W);
-    state.map[i] = TileType.HOLE;
+    setStateTileAtIndex(state, i, TileType.HOLE);
     expect(applyRepairAt(state, 3, 3)).toBe("hole");
-    expect(state.map[i]).toBe(TileType.FLOOR);
+    expect(getStateTileAtIndex(state, i)).toBe(TileType.FLOOR);
     expect(state.mapDirty).toBe(true);
   });
 
   it("reduces damage on a damaged tile without fully repairing in one step", () => {
     const state = fakeState();
     const i = idxFor(3, 3, W);
-    state.map[i] = TileType.WALL;
+    setStateTileAtIndex(state, i, TileType.WALL);
     setStateDamageAtIndex(state, i, 9);
     expect(applyRepairAt(state, 3, 3)).toBe("damaged");
     expect(getStateDamageAtIndex(state, i)).toBe(6); // repairs by 3
@@ -48,7 +52,7 @@ describe("applyRepairAt", () => {
   it("marks mapDirty when a wall is fully repaired", () => {
     const state = fakeState();
     const i = idxFor(3, 3, W);
-    state.map[i] = TileType.WALL;
+    setStateTileAtIndex(state, i, TileType.WALL);
     setStateDamageAtIndex(state, i, 2);
     expect(applyRepairAt(state, 3, 3)).toBe("damaged");
     expect(getStateDamageAtIndex(state, i)).toBe(0);
@@ -71,8 +75,8 @@ describe("findNearestRepairTarget / hasAnyRepairTarget", () => {
 
   it("finds the nearest of several repairable tiles within radius", () => {
     const state = fakeState();
-    state.map[idxFor(5, 3, W)] = TileType.HOLE; // distance 2
-    state.map[idxFor(4, 3, W)] = TileType.WALL; // distance 1
+    setStateTileAtIndex(state, idxFor(5, 3, W), TileType.HOLE); // distance 2
+    setStateTileAtIndex(state, idxFor(4, 3, W), TileType.WALL); // distance 1
     setStateDamageAtIndex(state, idxFor(4, 3, W), 4);
     expect(findNearestRepairTarget(state, 3, 3, 4)).toEqual([4, 3]);
     expect(hasAnyRepairTarget(state)).toBe(true);
@@ -80,7 +84,7 @@ describe("findNearestRepairTarget / hasAnyRepairTarget", () => {
 
   it("respects the search radius", () => {
     const state = fakeState();
-    state.map[idxFor(6, 6, W)] = TileType.HOLE;
+    setStateTileAtIndex(state, idxFor(6, 6, W), TileType.HOLE);
     expect(findNearestRepairTarget(state, 0, 0, 2)).toBeNull();
     expect(hasAnyRepairTarget(state)).toBe(true); // full scan still finds it
   });

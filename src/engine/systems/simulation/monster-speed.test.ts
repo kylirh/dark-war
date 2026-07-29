@@ -3,7 +3,7 @@ import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { EntityKind, MonsterType, TileType, CELL_CONFIG } from "../../types";
 import { RNG } from "../../utils/rng";
-import { setTileFor } from "../../utils/helpers";
+import { setStateTile } from "../../utils/state-tiles";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { MONSTER_SPEED } from "./constants";
 import { updateMonsterSteering } from "./ai";
@@ -24,7 +24,7 @@ function chaseSpeed(type: MonsterType, tiles = 3): number {
   const gy = p.gridY;
   const gx = p.gridX + tiles;
   for (let x = p.gridX - 1; x <= gx + 1; x++) {
-    setTileFor(state.map, x, gy, state.mapWidth, TileType.FLOOR);
+    setStateTile(state, x, gy, TileType.FLOOR);
   }
 
   const m = new MonsterEntity(gx, gy, type, 1);

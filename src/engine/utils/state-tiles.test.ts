@@ -23,7 +23,7 @@ describe("state tile mutations", () => {
     expect(state.worldPlane).toBeDefined();
     expect(setStateTile(state, x, y, TileType.DOOR_LOCKED)).toBe(true);
     expect(state.tiles.getTile(x, y)).toBe(TileType.DOOR_LOCKED);
-    expect(state.map[index]).toBe(TileType.DOOR_LOCKED);
+    expect(state.tiles.getTile(x, y)).toBe(TileType.DOOR_LOCKED);
     expect(state.worldPlane.layers.structure[index]).toBe(
       StructureType.DOOR_LOCKED,
     );
@@ -45,7 +45,9 @@ describe("state tile mutations", () => {
     expect(state.tiles.getTile(state.player.gridX, state.player.gridY)).toBe(
       TileType.HOLOWALL,
     );
-    expect(state.map[index]).toBe(TileType.HOLOWALL);
+    expect(state.tiles.getTile(state.player.gridX, state.player.gridY)).toBe(
+      TileType.HOLOWALL,
+    );
     expect(state.worldPlane.layers.structure[index]).toBe(
       StructureType.HOLOWALL,
     );

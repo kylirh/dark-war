@@ -5,6 +5,7 @@ import { EntityKind, ItemType, TileType, CELL_CONFIG } from "../../types";
 import { RNG } from "../../utils/rng";
 import { stepSimulationTick } from "./tick";
 import { SoundEffect } from "../../content/sound-effects";
+import { setStateTile } from "../../utils/state-tiles";
 
 describe("player falls through a hole", () => {
   beforeEach(() => RNG.reseed(7));
@@ -84,7 +85,7 @@ describe("items fall through holes", () => {
     // Punch a hole a few tiles from the player and drop an item on it.
     const hx = state.player.gridX + 3;
     const hy = state.player.gridY;
-    state.map[hx + hy * state.mapWidth] = TileType.HOLE;
+    setStateTile(state, hx, hy, TileType.HOLE);
     const item = new ItemEntity(hx, hy, ItemType.AMMO);
     item.worldX = hx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     item.worldY = hy * CELL_CONFIG.h + CELL_CONFIG.h / 2;
@@ -107,7 +108,7 @@ describe("items fall through holes", () => {
     // A hole a few tiles from the player, with a uniquely-tagged item on it.
     const hx = state.player.gridX + 3;
     const hy = state.player.gridY;
-    state.map[hx + hy * state.mapWidth] = TileType.HOLE;
+    setStateTile(state, hx, hy, TileType.HOLE);
     const item = new ItemEntity(hx, hy, ItemType.AMMO, 777);
     state.entityManager.spawn(item);
 

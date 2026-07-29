@@ -49,12 +49,9 @@ export function createWorldPlaneLayers(
   };
 }
 
-/**
- * A compositional plane that also satisfies current TileSource consumers.
- * `legacyTiles` is a derived projection, never an authoritative semantic layer.
- */
+/** A compositional plane that also satisfies current TileSource consumers. */
 export class WorldPlane implements TileSource {
-  private readonly legacyTileCache: TileType[];
+  private readonly resolvedTileCache: Uint16Array;
 
   constructor(
     readonly width: number,
@@ -69,13 +66,8 @@ export class WorldPlane implements TileSource {
         throw new Error("WorldPlane layers must match width × height");
       }
     }
-    this.legacyTileCache = new Array<TileType>(cellCount);
-    this.refreshAll();
-  }
-
-  /** Derived scalar projection for systems not yet migrated to layer queries. */
-  get legacyTiles(): TileType[] {
-    return this.legacyTileCache;
+    this.resolvedTileCache = new Uint16Array(cellCount);
+    this.refreshAllResolvedTiles();
   }
 
   inBounds(x: number, y: number): boolean {
@@ -101,7 +93,7 @@ export class WorldPlane implements TileSource {
 
   getTile(x: number, y: number): TileType {
     if (!this.inBounds(x, y)) return TileType.WALL;
-    return this.legacyTileCache[this.indexFor(x, y)];
+    return this.resolvedTileCache[this.indexFor(x, y)] as TileType;
   }
 
   setTile(x: number, y: number, tile: TileType): void {
@@ -111,7 +103,7 @@ export class WorldPlane implements TileSource {
     }
     const index = this.indexFor(x, y);
     this.writeCell(this.layers, index, tile);
-    this.refreshCell(index);
+    this.refreshResolvedTile(index);
   }
 
   passable(x: number, y: number): boolean {
@@ -126,12 +118,12 @@ export class WorldPlane implements TileSource {
     return this.semanticsAt(x, y).destructible;
   }
 
-  /** Refresh one derived scalar cell after semantic layer mutation. */
-  refreshCell(index: number): void {
-    if (index < 0 || index >= this.legacyTileCache.length) return;
+  /** Refresh one presentation tile after a direct semantic-layer edit. */
+  refreshResolvedTile(index: number): void {
+    if (index < 0 || index >= this.resolvedTileCache.length) return;
     const x = index % this.width;
     const y = Math.floor(index / this.width);
-    this.legacyTileCache[index] = this.resolveCell(
+    this.resolvedTileCache[index] = this.resolveCell(
       this.layers,
       index,
       x,
@@ -139,10 +131,9 @@ export class WorldPlane implements TileSource {
     ).tile;
   }
 
-  /** Refresh the complete derived projection after bulk generation/import. */
-  refreshAll(): void {
-    for (let index = 0; index < this.legacyTileCache.length; index++) {
-      this.refreshCell(index);
+  private refreshAllResolvedTiles(): void {
+    for (let index = 0; index < this.resolvedTileCache.length; index++) {
+      this.refreshResolvedTile(index);
     }
   }
 }

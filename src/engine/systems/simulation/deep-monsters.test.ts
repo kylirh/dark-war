@@ -6,6 +6,10 @@ import { ItemEntity } from "../../entities/item-entity";
 import { EntityKind, MonsterType, ItemType, TileType } from "../../types";
 import { idxFor } from "../../utils/helpers";
 import { RNG } from "../../utils/rng";
+import {
+  getStateTileAtIndex,
+  setStateTileAtIndex,
+} from "../../utils/state-tiles";
 import { updateMonsterSteering } from "./ai";
 import { stepSimulationTick } from "./tick";
 
@@ -29,8 +33,12 @@ describe("dreadnaught smashes through walls", () => {
     const wx = player.gridX + 1;
     const wy = player.gridY;
     const wIdx = idxFor(wx, wy, state.mapWidth);
-    state.map[wIdx] = TileType.WALL;
-    state.map[idxFor(wx + 1, wy, state.mapWidth)] = TileType.FLOOR;
+    setStateTileAtIndex(state, wIdx, TileType.WALL);
+    setStateTileAtIndex(
+      state,
+      idxFor(wx + 1, wy, state.mapWidth),
+      TileType.FLOOR,
+    );
 
     const tank = new MonsterEntity(wx + 1, wy, MonsterType.DREADNAUGHT, 7);
     state.entityManager.spawn(tank);
@@ -38,7 +46,7 @@ describe("dreadnaught smashes through walls", () => {
     for (let i = 0; i < 40; i++) stepSimulationTick(state);
 
     // The wall has been smashed into floor (or at least heavily damaged).
-    expect(state.map[wIdx]).not.toBe(TileType.WALL);
+    expect(getStateTileAtIndex(state, wIdx)).not.toBe(TileType.WALL);
     expect(
       state.pendingSounds.some(
         (sound) => sound.effect === SoundEffect.DREADNAUGHT_OBLITERATE,

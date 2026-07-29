@@ -29,11 +29,9 @@ describe("createTerrainPrototypePlane", () => {
     expect(plane.ground).toHaveLength(cellCount);
     expect(plane.structure).toHaveLength(cellCount);
     expect(plane.elevation).toHaveLength(cellCount);
-    expect(plane.collisionMap).toHaveLength(cellCount);
     expect(plane.world.layers.ground).toBe(plane.ground);
     expect(plane.world.layers.structure).toBe(plane.structure);
     expect(plane.world.layers.elevation).toBe(plane.elevation);
-    expect(plane.world.legacyTiles).toBe(plane.collisionMap);
     expect(plane.visuals.shoreMask).toHaveLength(cellCount);
   });
 
@@ -73,11 +71,11 @@ describe("createTerrainPrototypePlane", () => {
     const indexFor = (x: number, y: number): number => x + y * plane.width;
 
     expect(plane.ground[indexFor(20, 3)]).toBe(PrototypeGround.WATER_DEEP);
-    expect(plane.collisionMap[indexFor(20, 3)]).toBe(TileType.WALL);
+    expect(plane.world.getTile(20, 3)).toBe(TileType.WALL);
     expect(plane.structure[indexFor(20, 6)]).toBe(
       PrototypeStructure.BRIDGE_HORIZONTAL,
     );
-    expect(plane.collisionMap[indexFor(20, 6)]).toBe(TileType.FLOOR);
+    expect(plane.world.getTile(20, 6)).toBe(TileType.FLOOR);
   });
 
   it("contains the authored rebuilding and portal landmarks", () => {
@@ -120,7 +118,7 @@ describe("terrain prototype edits", () => {
     expect(plane.editFeedback.editedCellIndex).toBe(editedIndex);
     expect(plane.editFeedback.revision).toBe(1);
     expect(plane.visuals.cliff[editedIndex]).toBe(PrototypeCliffVisual.STEP);
-    expect(plane.collisionMap[editedIndex]).toBe(TileType.WALL);
+    expect(plane.world.getTile(x, y)).toBe(TileType.WALL);
     expect({
       ground: plane.visuals.ground[untouchedIndex],
       cliff: plane.visuals.cliff[untouchedIndex],

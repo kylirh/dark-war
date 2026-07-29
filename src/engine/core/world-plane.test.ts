@@ -55,7 +55,7 @@ describe("WorldPlane", () => {
     expect(plane.destructible(2, 0)).toBe(true);
   });
 
-  it("refreshes only explicitly dirtied derived cells", () => {
+  it("refreshes only explicitly dirtied resolved presentation cells", () => {
     const layers = createWorldPlaneLayers(3, 3);
     layers.ground.fill(GROUND_GRASS);
     const plane = new WorldPlane(3, 3, layers, resolveTestCell);
@@ -63,7 +63,7 @@ describe("WorldPlane", () => {
 
     layers.structure[center] = STRUCTURE_TREE;
     expect(plane.getTile(1, 1)).toBe(TileType.FLOOR);
-    plane.refreshCell(center);
+    plane.refreshResolvedTile(center);
     expect(plane.getTile(1, 1)).toBe(TileType.WALL);
     expect(plane.getTile(0, 0)).toBe(TileType.FLOOR);
   });

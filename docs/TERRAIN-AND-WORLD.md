@@ -74,12 +74,11 @@ interface WorldPlaneLayers {
 }
 ```
 
-Implementation began in `src/engine/core/world-plane.ts`. `WorldPlane` owns
+`src/engine/core/world-plane.ts` implements the accepted storage. `WorldPlane` owns
 these aligned arrays, centralizes the cell resolver for tile projection,
 passability, opacity, and destructibility, and implements `TileSource` directly.
-The terrain laboratory is the first authoritative consumer. Its `TileType[]`
-view exists only as a derived bridge for physics and other scalar consumers
-during Milestone 2; semantic layers remain authoritative.
+Terrain laboratory, outside, and dungeon levels are authoritative consumers.
+There is no `GameState` scalar map or derived collision cache.
 
 `src/engine/core/world-semantics.ts` defines the initial compact runtime
 vocabulary and dotted authoring-key correspondence. It exhaustively classifies
@@ -90,16 +89,14 @@ current generators, not a save-format compatibility mechanism.
 The outside generator is the first production world migrated through that
 boundary. `GameState.worldPlane` owns its semantics, `state.tiles` references the
 plane directly, and `utils/state-tiles.ts` is the required runtime mutation path.
-The derived scalar projection remains synchronized for renderer and simulation
-reads that have not yet moved to direct layer queries.
+Renderer and simulation reads use `state.tiles` directly.
 
 The bounded dungeon generator now crosses the same boundary immediately after
 layout generation and stair placement. All freshly generated gameplay planes
 are therefore layered. Saves and multiplayer payloads serialize the five layers
 directly; multiplayer deltas send changed indices per layer. Old scalar saves
-and protocol versions are not supported. The derived scalar projection remains
-only as a temporary adapter for tile consumers still being migrated. Damage is
-already read and written directly on `WorldPlane.layers.damage`.
+and protocol versions are not supported. Damage is read and written directly on
+`WorldPlane.layers.damage`; no parallel scalar fields remain.
 
 This interface is illustrative; fields may change when the visual slice proves
 what is required. The durable decisions are compositional semantic layers,

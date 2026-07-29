@@ -1,15 +1,13 @@
 /**
  * Tile access abstraction.
  *
- * Legacy levels remain flat `TileType[]` maps while they are converted.
  * `TileSource` keeps FOV, pathfinding, physics, generation, and rendering
- * independent of whether the backing store is a `FlatTileSource` or the
- * compositional `WorldPlane`.
+ * independent of the compositional `WorldPlane` implementation.
  *
  * `FlatTileSource` wraps the existing flat representation with identical
  * semantics (out-of-bounds reads return WALL, passability is TILE_DEFINITIONS
- * driven). The production replacement is `WorldPlane` in `world-plane.ts`; the
- * fixed terrain laboratory already uses it as its canonical tile source.
+ * driven). Production worlds use `WorldPlane`; this adapter remains useful for
+ * small isolated unit-test fixtures.
  */
 
 import { TileType, TILE_DEFINITIONS } from "../types";

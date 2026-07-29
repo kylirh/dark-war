@@ -4,6 +4,21 @@ import { ItemType, CommandType, TileType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
+import { setStateTile } from "../../utils/state-tiles";
+
+function tileAt(game: Game, tileX: number, tileY: number): TileType {
+  return game.getState().tiles.getTile(tileX, tileY);
+}
+
+function findTile(game: Game, tile: TileType): number {
+  const state = game.getState();
+  for (let index = 0; index < state.mapWidth * state.mapHeight; index++) {
+    const x = index % state.mapWidth;
+    const y = Math.floor(index / state.mapWidth);
+    if (state.tiles.getTile(x, y) === tile) return index;
+  }
+  return -1;
+}
 
 function mine(game: Game, tileX: number, tileY: number) {
   const state = game.getState();
@@ -36,7 +51,7 @@ function wallBesidePlayer(game: Game): { tileX: number; tileY: number } {
   const state = game.getState();
   const tileX = state.player.gridX + 1;
   const tileY = state.player.gridY;
-  state.map[tileX + tileY * state.mapWidth] = TileType.WALL;
+  setStateTile(state, tileX, tileY, TileType.WALL);
   return { tileX, tileY };
 }
 
@@ -52,7 +67,7 @@ describe("Matter Manipulator", () => {
 
     mine(game, tileX, tileY);
 
-    expect(state.map[tileX + tileY * state.mapWidth]).toBe(TileType.FLOOR);
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.FLOOR);
     // The block is dropped in-place, NOT added to the inventory.
     expect(state.player.itemCounts[ItemType.WALL_BLOCK] ?? 0).toBe(0);
     const dropped = state.entities.filter(
@@ -79,8 +94,8 @@ describe("Matter Manipulator", () => {
     const doorY = state.player.gridY;
     const treeX = state.player.gridX;
     const treeY = state.player.gridY + 1;
-    state.map[doorX + doorY * state.mapWidth] = TileType.DOOR_CLOSED;
-    state.map[treeX + treeY * state.mapWidth] = TileType.TREE;
+    setStateTile(state, doorX, doorY, TileType.DOOR_CLOSED);
+    setStateTile(state, treeX, treeY, TileType.TREE);
 
     mine(game, doorX, doorY);
     mine(game, treeX, treeY);
@@ -101,11 +116,11 @@ describe("Matter Manipulator", () => {
 
     const tileX = state.player.gridX + 1;
     const tileY = state.player.gridY;
-    state.map[tileX + tileY * state.mapWidth] = TileType.FLOOR;
+    setStateTile(state, tileX, tileY, TileType.FLOOR);
 
     place(game, tileX, tileY, ItemType.WALL_BLOCK);
 
-    expect(state.map[tileX + tileY * state.mapWidth]).toBe(TileType.WALL);
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.WALL);
     expect(state.player.itemCounts[ItemType.WALL_BLOCK] ?? 0).toBe(1);
     expect(state.mapDirty).toBe(true);
   });
@@ -119,11 +134,11 @@ describe("Matter Manipulator", () => {
 
     const tileX = state.player.gridX + 1;
     const tileY = state.player.gridY;
-    state.map[tileX + tileY * state.mapWidth] = TileType.FLOOR;
+    setStateTile(state, tileX, tileY, TileType.FLOOR);
 
     place(game, tileX, tileY, ItemType.HOLOWALL);
 
-    expect(state.map[tileX + tileY * state.mapWidth]).toBe(TileType.HOLOWALL);
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.HOLOWALL);
     expect(state.player.itemCounts[ItemType.HOLOWALL] ?? 0).toBe(0);
   });
 
@@ -136,11 +151,11 @@ describe("Matter Manipulator", () => {
 
     const tileX = state.player.gridX + 1;
     const tileY = state.player.gridY;
-    state.map[tileX + tileY * state.mapWidth] = TileType.FLOOR;
+    setStateTile(state, tileX, tileY, TileType.FLOOR);
 
     place(game, tileX, tileY, ItemType.COOKIE);
 
-    expect(state.map[tileX + tileY * state.mapWidth]).toBe(TileType.FLOOR);
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.FLOOR);
     expect(state.player.itemCounts[ItemType.COOKIE] ?? 0).toBe(3);
   });
 
@@ -151,7 +166,7 @@ describe("Matter Manipulator", () => {
     state.player.hasMatterManipulator = true;
 
     // Find a real LIGHT tile on the surface (they line the avenues).
-    const lightIdx = state.map.findIndex((t) => t === TileType.LIGHT);
+    const lightIdx = findTile(game, TileType.LIGHT);
     expect(lightIdx).toBeGreaterThanOrEqual(0);
     const lx = lightIdx % state.mapWidth;
     const ly = Math.floor(lightIdx / state.mapWidth);
@@ -160,7 +175,7 @@ describe("Matter Manipulator", () => {
     state.player.worldY = ly * 32 + 16;
 
     mine(game, lx, ly);
-    expect(state.map[lightIdx]).not.toBe(TileType.LIGHT);
+    expect(state.tiles.getTile(lx, ly)).not.toBe(TileType.LIGHT);
     const drops = state.entities.filter(
       (e) =>
         "type" in e &&
@@ -172,18 +187,18 @@ describe("Matter Manipulator", () => {
     state.player.itemCounts[ItemType.LIGHT_FIXTURE] = 1;
     const px = state.player.gridX + 1;
     const py = state.player.gridY;
-    state.map[px + py * state.mapWidth] = TileType.FLOOR;
+    setStateTile(state, px, py, TileType.FLOOR);
     place(game, px, py, ItemType.LIGHT_FIXTURE);
-    expect(state.map[px + py * state.mapWidth]).toBe(TileType.LIGHT);
+    expect(tileAt(game, px, py)).toBe(TileType.LIGHT);
   });
 
   it("puts lights on the surface but never generates them in dungeons", () => {
     const game = new Game({ mode: "offline" });
     game.reset(0);
-    expect(game.getState().map.some((t) => t === TileType.LIGHT)).toBe(true);
+    expect(findTile(game, TileType.LIGHT)).toBeGreaterThanOrEqual(0);
 
     game.reset(1); // dungeon
-    expect(game.getState().map.some((t) => t === TileType.LIGHT)).toBe(false);
+    expect(findTile(game, TileType.LIGHT)).toBe(-1);
   });
 
   it("cannot mine a holowall — it stays intact", () => {
@@ -193,11 +208,11 @@ describe("Matter Manipulator", () => {
     state.player.hasMatterManipulator = true;
     const tileX = state.player.gridX + 1;
     const tileY = state.player.gridY;
-    state.map[tileX + tileY * state.mapWidth] = TileType.HOLOWALL;
+    setStateTile(state, tileX, tileY, TileType.HOLOWALL);
 
     mine(game, tileX, tileY);
 
-    expect(state.map[tileX + tileY * state.mapWidth]).toBe(TileType.HOLOWALL);
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.HOLOWALL);
     expect(state.player.itemCounts[ItemType.WALL_BLOCK] ?? 0).toBe(0);
   });
 
@@ -210,7 +225,7 @@ describe("Matter Manipulator", () => {
 
     mine(game, tileX, tileY);
 
-    expect(state.map[tileX + tileY * state.mapWidth]).toBe(TileType.WALL);
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.WALL);
   });
 
   it("won't place a block out of reach", () => {
@@ -222,11 +237,11 @@ describe("Matter Manipulator", () => {
 
     const tileX = state.player.gridX + 40;
     const tileY = state.player.gridY;
-    state.map[tileX + tileY * state.mapWidth] = TileType.FLOOR;
+    setStateTile(state, tileX, tileY, TileType.FLOOR);
 
     place(game, tileX, tileY, ItemType.WALL_BLOCK);
 
-    expect(state.map[tileX + tileY * state.mapWidth]).toBe(TileType.FLOOR);
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.FLOOR);
     expect(state.player.itemCounts[ItemType.WALL_BLOCK] ?? 0).toBe(1);
   });
 });

@@ -167,8 +167,8 @@ work and no material regression from the current fixed scene.
 
 - Fixed data size: 40×30, or 1,200 cells.
 - Semantic layer memory: 2,400-byte ground + 2,400-byte structure + 2,400-byte
-  fixture + 2,400-byte elevation + 1,200-byte damage = 10,800 bytes before the
-  temporary scalar projection.
+  fixture + 2,400-byte elevation + 1,200-byte damage = 10,800 bytes. The former
+  temporary scalar projection has since been removed.
 - Logical elevations present: `-4`, `0`, `2`, `5`, `8`, and `12`.
 - Tall-drop selection is constant-cost through `cliffMagnitudeForDrop`; a drop
   greater than one selects one authored tall-face sprite.

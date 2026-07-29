@@ -25,7 +25,6 @@ export function setStateTile(
   if (!inBounds) return false;
   tileSource?.setTile(x, y, tile);
   const index = x + y * state.mapWidth;
-  state.map[index] = tileSource?.getTile(x, y) ?? tile;
   state.changedTiles?.add(index);
   return true;
 }

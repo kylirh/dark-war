@@ -32,7 +32,7 @@ questions.
 
 ## Milestone 1 — Isolated visual terrain slice
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 
 - Establish the cheerful rebuilding art direction, role palette, and repo-owned
   environment/character boards.
@@ -55,12 +55,11 @@ edits repair without seams, and tall drops do not scale draw work with height.
 
 ## Milestone 2 — Layered semantic storage
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 
 The production `WorldPlane` SoA container and centralized cell-semantics resolver
 are implemented. Terrain-laboratory, dungeon, and outside levels use it
-authoritatively; their scalar collision maps are derived projections for
-remaining runtime consumers.
+authoritatively. `GameState` and level snapshots no longer contain scalar maps.
 
 The shared `GroundType`, `StructureType`, and `FixtureType` vocabulary now
 classifies every current `TileType`, preserves meaningful bases such as grass
@@ -69,30 +68,27 @@ for existing procedural generators.
 
 The outside generator now emits an authoritative `WorldPlane`. Runtime door,
 building, mining, destruction, hole, repair, and damage mutations use one
-canonical helper that keeps semantic layers, derived scalar projection, and
-physics invalidation synchronized. Depth snapshots retain the same outside
-plane. Persistence and netcode serialize that plane directly.
+canonical helper that updates semantic layers and physics invalidation. Depth
+snapshots retain the same outside plane. Persistence and netcode serialize that
+plane directly.
 
 Dungeon generation now also converts immediately into authoritative layered
 storage, including wall/door structures and stair fixtures. Fresh gameplay and
 in-memory depth snapshots therefore use `WorldPlane` on every ordinary level.
 Save files and multiplayer keyframes now contain the five plane layers, and
 multiplayer deltas diff each layer independently. Protocol version 6 rejects old
-clients, and legacy scalar saves are intentionally unsupported. Remaining work
-has begun: damage now reads and writes `WorldPlane.layers.damage` directly, and
-the duplicate `state.wallDamage`/level-snapshot arrays have been deleted. The
-remaining work is migrating tile readers away from derived `state.map` so that
-projection and residual `FlatTileSource` setup paths can be deleted. Production
-gameplay, pathfinding, client interaction, repair, AI, and exploration now read
-through `TileSource`; `state.map` remains only in level lifecycle bookkeeping,
-the projection updater, and tests awaiting fixture conversion.
+clients, and legacy scalar saves are intentionally unsupported. Damage reads and
+writes `WorldPlane.layers.damage` directly, with no duplicate runtime array.
+Gameplay, pathfinding, client interaction, repair, AI, exploration, tests, and
+level lifecycle all read through `TileSource`. `WorldPlane` retains only a
+private resolved-tile cache for hot presentation reads; it cannot become gameplay
+authority or be mutated externally.
 
-- Replace the scalar tile model with a structure-of-arrays plane model.
-- Classify current `TileType` use into ground, structure, and fixture semantics.
-- Centralize synthesized passability, opacity, and destructibility.
-- Update remaining physics, FOV, and renderer reads to use semantic queries.
-- Delete superseded scalar-map paths instead of retaining compatibility layers.
-- Remove derived scalar runtime fields after their final consumers migrate.
+- Structure-of-arrays plane storage is authoritative.
+- Current tiles are classified into ground, structure, and fixture semantics.
+- Passability, opacity, destructibility, and tile presentation are synthesized.
+- Physics, FOV, renderer, simulation, pathfinding, and tests use `TileSource`.
+- Superseded scalar map and damage fields are deleted.
 
 Exit: current gameplay works on the new semantic layers; type-checks and tests
 pass; old save files are intentionally unsupported.
