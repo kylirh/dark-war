@@ -23,13 +23,17 @@ describe("createTerrainPrototypePlane", () => {
 
     expect(plane.width).toBe(40);
     expect(plane.height).toBe(30);
-    expect(plane.ground).toBeInstanceOf(Uint8Array);
-    expect(plane.structure).toBeInstanceOf(Uint8Array);
+    expect(plane.ground).toBeInstanceOf(Uint16Array);
+    expect(plane.structure).toBeInstanceOf(Uint16Array);
     expect(plane.elevation).toBeInstanceOf(Int16Array);
     expect(plane.ground).toHaveLength(cellCount);
     expect(plane.structure).toHaveLength(cellCount);
     expect(plane.elevation).toHaveLength(cellCount);
     expect(plane.collisionMap).toHaveLength(cellCount);
+    expect(plane.world.layers.ground).toBe(plane.ground);
+    expect(plane.world.layers.structure).toBe(plane.structure);
+    expect(plane.world.layers.elevation).toBe(plane.elevation);
+    expect(plane.world.legacyTiles).toBe(plane.collisionMap);
     expect(plane.visuals.shoreMask).toHaveLength(cellCount);
   });
 

@@ -24,9 +24,11 @@ For the browser development build, run `npm run dev:web` and open
 
 The current implementation lives in
 `src/engine/systems/terrain/terrain-prototype.ts`. It uses aligned typed arrays
-for ground, structure, and signed elevation, while a generated scalar collision
-map temporarily connects the fixture to today's physics and pathfinding. The
-normal outside and dungeon generators are unchanged.
+owned by the production `WorldPlane` for ground, structure, fixture, signed
+elevation, and damage. `WorldPlane` is the canonical `TileSource`; its generated
+scalar collision projection temporarily connects the fixture to remaining
+physics and pathfinding consumers. The normal outside and dungeon generators are
+unchanged.
 
 Press `[` to lower the marked test cell and `]` to raise its neighboring test
 cell. The edited cell is highlighted in warm gold; the rest of the reclassified
@@ -164,8 +166,9 @@ work and no material regression from the current fixed scene.
 ### Initial visual baseline — 2026-07-28
 
 - Fixed data size: 40×30, or 1,200 cells.
-- Semantic layer memory: 1,200-byte ground + 1,200-byte structure + 2,400-byte
-  elevation = 4,800 bytes before the temporary collision adapter.
+- Semantic layer memory: 2,400-byte ground + 2,400-byte structure + 2,400-byte
+  fixture + 2,400-byte elevation + 1,200-byte damage = 10,800 bytes before the
+  temporary scalar projection.
 - Logical elevations present: `-4`, `0`, `2`, `5`, `8`, and `12`.
 - Tall-drop selection is constant-cost through `cliffMagnitudeForDrop`; a drop
   greater than one selects one authored tall-face sprite.

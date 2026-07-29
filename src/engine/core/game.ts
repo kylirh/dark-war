@@ -374,11 +374,7 @@ export class Game {
     this.state.wallDamage = new Array(prototype.width * prototype.height).fill(
       0,
     );
-    this.state.tiles = new FlatTileSource(
-      prototype.collisionMap,
-      prototype.width,
-      prototype.height,
-    );
+    this.state.tiles = prototype.world;
     this.state.terrainPrototype = prototype;
     this.state.stairsDown = [31, 8];
     this.state.stairsUp = null;

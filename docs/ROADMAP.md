@@ -55,7 +55,12 @@ edits repair without seams, and tall drops do not scale draw work with height.
 
 ## Milestone 2 — Layered semantic storage
 
-**Status: PLANNED**
+**Status: IN PROGRESS**
+
+The production `WorldPlane` SoA container and centralized cell-semantics resolver
+are implemented. The terrain laboratory now uses it authoritatively; its scalar
+collision map is a derived projection. Ordinary dungeon/outside generation,
+mutation, saves, and netcode still require coordinated conversion.
 
 - Replace the scalar tile model with a structure-of-arrays plane model.
 - Classify current `TileType` use into ground, structure, and fixture semantics.

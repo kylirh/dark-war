@@ -240,6 +240,7 @@ describe("Game multiplayer player management", () => {
     expect(state.mapWidth).toBe(40);
     expect(state.mapHeight).toBe(30);
     expect(state.map).toBe(state.terrainPrototype!.collisionMap);
+    expect(state.tiles).toBe(state.terrainPrototype!.world);
     expect(state.tiles.getTile(20, 3)).toBe(TileType.WALL);
     expect(state.tiles.getTile(20, 6)).toBe(TileType.FLOOR);
     expect([state.player.gridX, state.player.gridY]).toEqual([19, 14]);

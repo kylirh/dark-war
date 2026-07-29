@@ -8,6 +8,11 @@
 
 import { TileType } from "../../types";
 import {
+  createWorldPlaneLayers,
+  WorldCellResolver,
+  WorldPlane,
+} from "../../core/world-plane";
+import {
   cliffMagnitudeForDrop,
   ELEVATION_EAST,
   ELEVATION_NORTH,
@@ -84,10 +89,11 @@ export interface TerrainPrototypeEditFeedback {
 }
 
 export interface TerrainPrototypePlane {
+  readonly world: WorldPlane;
   readonly width: number;
   readonly height: number;
-  readonly ground: Uint8Array;
-  readonly structure: Uint8Array;
+  readonly ground: Uint16Array;
+  readonly structure: Uint16Array;
   readonly elevation: Int16Array;
   readonly collisionMap: TileType[];
   readonly visuals: TerrainPrototypeVisualCache;
@@ -227,30 +233,7 @@ function refreshCollisionCell(
   plane: TerrainPrototypePlane,
   index: number,
 ): void {
-  const x = index % plane.width;
-  const y = Math.floor(index / plane.width);
-  if (x === 0 || y === 0 || x === plane.width - 1 || y === plane.height - 1) {
-    plane.collisionMap[index] = TileType.WALL;
-    return;
-  }
-  const ground = plane.ground[index] as PrototypeGround;
-  const structure = plane.structure[index] as PrototypeStructure;
-  const northElevation = plane.elevation[indexFor(x, y - 1, plane.width)];
-  const blocks =
-    ground === PrototypeGround.WATER_SHALLOW ||
-    ground === PrototypeGround.WATER_DEEP ||
-    structure === PrototypeStructure.TREE ||
-    structure === PrototypeStructure.CAVE_MOUTH ||
-    structure === PrototypeStructure.WORKSHOP ||
-    structure === PrototypeStructure.WORKSHOP_FOOTPRINT ||
-    northElevation > plane.elevation[index];
-  plane.collisionMap[index] = blocks ? TileType.WALL : TileType.FLOOR;
-  if (
-    structure === PrototypeStructure.BRIDGE_HORIZONTAL ||
-    structure === PrototypeStructure.STAIRS
-  ) {
-    plane.collisionMap[index] = TileType.FLOOR;
-  }
+  plane.world.refreshCell(index);
 }
 
 /** Apply a semantic elevation edit and resolve only its 3x3 dependency area. */
@@ -306,10 +289,13 @@ export function setTerrainPrototypeTransitionMode(
 /** Build the fixed 40×30 visual acceptance scene. */
 export function createTerrainPrototypePlane(): TerrainPrototypePlane {
   const cellCount = TERRAIN_PROTOTYPE_WIDTH * TERRAIN_PROTOTYPE_HEIGHT;
-  const ground = new Uint8Array(cellCount).fill(PrototypeGround.GRASS);
-  const structure = new Uint8Array(cellCount).fill(PrototypeStructure.NONE);
-  const elevation = new Int16Array(cellCount);
-  const collisionMap: TileType[] = new Array(cellCount).fill(TileType.FLOOR);
+  const layers = createWorldPlaneLayers(
+    TERRAIN_PROTOTYPE_WIDTH,
+    TERRAIN_PROTOTYPE_HEIGHT,
+  );
+  const { ground, structure, elevation } = layers;
+  ground.fill(PrototypeGround.GRASS);
+  structure.fill(PrototypeStructure.NONE);
 
   const setGround = (x: number, y: number, value: PrototypeGround): void => {
     ground[indexFor(x, y, TERRAIN_PROTOTYPE_WIDTH)] = value;
@@ -334,20 +320,6 @@ export function createTerrainPrototypePlane(): TerrainPrototypePlane {
       }
     }
   };
-
-  // Bounded, quiet grass perimeter.
-  for (let x = 0; x < TERRAIN_PROTOTYPE_WIDTH; x++) {
-    collisionMap[indexFor(x, 0, TERRAIN_PROTOTYPE_WIDTH)] = TileType.WALL;
-    collisionMap[
-      indexFor(x, TERRAIN_PROTOTYPE_HEIGHT - 1, TERRAIN_PROTOTYPE_WIDTH)
-    ] = TileType.WALL;
-  }
-  for (let y = 0; y < TERRAIN_PROTOTYPE_HEIGHT; y++) {
-    collisionMap[indexFor(0, y, TERRAIN_PROTOTYPE_WIDTH)] = TileType.WALL;
-    collisionMap[
-      indexFor(TERRAIN_PROTOTYPE_WIDTH - 1, y, TERRAIN_PROTOTYPE_WIDTH)
-    ] = TileType.WALL;
-  }
 
   // Nested terraces: broad readable masses rather than per-cell height noise.
   fillRect(4, 3, 30, 22, (x, y) => {
@@ -438,43 +410,63 @@ export function createTerrainPrototypePlane(): TerrainPrototypePlane {
   ];
   for (const [x, y] of trees) setStructure(x, y, PrototypeStructure.TREE);
 
-  // The legacy map supplies temporary physics. Water, tree trunks, structures,
-  // and unbroken elevation faces block; bridges and explicit stairs override.
-  for (let y = 1; y < TERRAIN_PROTOTYPE_HEIGHT - 1; y++) {
-    for (let x = 1; x < TERRAIN_PROTOTYPE_WIDTH - 1; x++) {
-      const idx = indexFor(x, y, TERRAIN_PROTOTYPE_WIDTH);
-      const cellGround = ground[idx];
-      const cellStructure = structure[idx];
-      const northElevation =
-        elevation[indexFor(x, y - 1, TERRAIN_PROTOTYPE_WIDTH)];
-      const hasNorthCliff = northElevation > elevation[idx];
-      const blocksForGround =
-        cellGround === PrototypeGround.WATER_SHALLOW ||
-        cellGround === PrototypeGround.WATER_DEEP;
-      const blocksForStructure =
+  const resolvePrototypeCell: WorldCellResolver = (
+    semanticLayers,
+    index,
+    x,
+    y,
+  ) => {
+    const cellGround = semanticLayers.ground[index] as PrototypeGround;
+    const cellStructure = semanticLayers.structure[index] as PrototypeStructure;
+    const border =
+      x === 0 ||
+      y === 0 ||
+      x === TERRAIN_PROTOTYPE_WIDTH - 1 ||
+      y === TERRAIN_PROTOTYPE_HEIGHT - 1;
+    const hasNorthCliff =
+      y > 0 &&
+      semanticLayers.elevation[indexFor(x, y - 1, TERRAIN_PROTOTYPE_WIDTH)] >
+        semanticLayers.elevation[index];
+    const bridgeOrStairs =
+      cellStructure === PrototypeStructure.BRIDGE_HORIZONTAL ||
+      cellStructure === PrototypeStructure.STAIRS;
+    const blockingGround =
+      cellGround === PrototypeGround.WATER_SHALLOW ||
+      cellGround === PrototypeGround.WATER_DEEP;
+    const blockingStructure =
+      cellStructure === PrototypeStructure.TREE ||
+      cellStructure === PrototypeStructure.CAVE_MOUTH ||
+      cellStructure === PrototypeStructure.WORKSHOP ||
+      cellStructure === PrototypeStructure.WORKSHOP_FOOTPRINT;
+    const blocked =
+      border ||
+      (!bridgeOrStairs &&
+        (blockingGround || blockingStructure || hasNorthCliff));
+    return {
+      tile: blocked ? TileType.WALL : TileType.FLOOR,
+      passable: !blocked,
+      opaque: border || blockingStructure || hasNorthCliff,
+      destructible:
         cellStructure === PrototypeStructure.TREE ||
-        cellStructure === PrototypeStructure.CAVE_MOUTH ||
         cellStructure === PrototypeStructure.WORKSHOP ||
-        cellStructure === PrototypeStructure.WORKSHOP_FOOTPRINT;
-      if (blocksForGround || blocksForStructure || hasNorthCliff) {
-        collisionMap[idx] = TileType.WALL;
-      }
-      if (
-        cellStructure === PrototypeStructure.BRIDGE_HORIZONTAL ||
-        cellStructure === PrototypeStructure.STAIRS
-      ) {
-        collisionMap[idx] = TileType.FLOOR;
-      }
-    }
-  }
+        cellStructure === PrototypeStructure.WORKSHOP_FOOTPRINT,
+    };
+  };
+  const world = new WorldPlane(
+    TERRAIN_PROTOTYPE_WIDTH,
+    TERRAIN_PROTOTYPE_HEIGHT,
+    layers,
+    resolvePrototypeCell,
+  );
 
   const plane: TerrainPrototypePlane = {
+    world,
     width: TERRAIN_PROTOTYPE_WIDTH,
     height: TERRAIN_PROTOTYPE_HEIGHT,
     ground,
     structure,
     elevation,
-    collisionMap,
+    collisionMap: world.legacyTiles,
     visuals: {
       ground: new Uint8Array(cellCount),
       cliff: new Uint8Array(cellCount),

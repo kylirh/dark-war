@@ -1,15 +1,15 @@
 /**
  * Tile access abstraction.
  *
- * Today every level is a flat `TileType[]` of fixed `width × height`, accessed
- * through the `*For` helpers. `TileSource` centralizes semantic tile reads and
- * writes so FOV, pathfinding, physics, generation, and rendering do not need to
- * know the backing representation.
+ * Legacy levels remain flat `TileType[]` maps while they are converted.
+ * `TileSource` keeps FOV, pathfinding, physics, generation, and rendering
+ * independent of whether the backing store is a `FlatTileSource` or the
+ * compositional `WorldPlane`.
  *
  * `FlatTileSource` wraps the existing flat representation with identical
  * semantics (out-of-bounds reads return WALL, passability is TILE_DEFINITIONS
- * driven). The approved replacement is the compositional WorldPlane model in
- * `docs/TERRAIN-AND-WORLD.md`, not an unimplemented streaming tile source.
+ * driven). The production replacement is `WorldPlane` in `world-plane.ts`; the
+ * fixed terrain laboratory already uses it as its canonical tile source.
  */
 
 import { TileType, TILE_DEFINITIONS } from "../types";

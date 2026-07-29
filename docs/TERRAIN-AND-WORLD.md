@@ -74,6 +74,13 @@ interface WorldPlaneLayers {
 }
 ```
 
+Implementation began in `src/engine/core/world-plane.ts`. `WorldPlane` owns
+these aligned arrays, centralizes the cell resolver for tile projection,
+passability, opacity, and destructibility, and implements `TileSource` directly.
+The terrain laboratory is the first authoritative consumer. Its `TileType[]`
+view exists only as a derived bridge for physics and other scalar consumers
+during Milestone 2; semantic layers remain authoritative.
+
 This interface is illustrative; fields may change when the visual slice proves
 what is required. The durable decisions are compositional semantic layers,
 typed-array storage, and sparse records for exceptional state. A `WorldCell`

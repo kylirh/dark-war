@@ -46,11 +46,14 @@ read-only derived coordinates and must never be assigned.
 
 ## Current world implementation
 
-Today a level is a bounded flat `TileType[]`, exposed through `state.tiles` and a
-`FlatTileSource`. The outside is a 128×72 toroidal map; dungeons are bounded
-128×96 maps with sealed borders. Tile identity currently mixes ground,
-structures, fixtures, and presentation concerns. Rendering contains specialized
-wall, hole, terrain, and tall-sprite selection logic.
+Ordinary levels remain bounded flat `TileType[]` maps exposed through
+`FlatTileSource` while Milestone 2 proceeds. The terrain laboratory is the first
+authoritative `WorldPlane`: it owns aligned semantic typed arrays and exposes a
+derived scalar projection only to consumers awaiting migration. The outside is
+a 128×72 toroidal map; dungeons are bounded 128×96 maps with sealed borders.
+Legacy tile identity still mixes ground, structures, fixtures, and presentation
+concerns. Rendering contains specialized wall, hole, terrain, and tall-sprite
+selection logic.
 
 The server owns one `LevelWorld` per numeric depth. Players migrate independently
 between depths on stairs or through holes. This is working current behavior, not
