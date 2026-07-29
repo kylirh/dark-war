@@ -40,6 +40,8 @@ import { getStateDamageAtIndex } from "../../engine/utils/state-tiles";
 import {
   hashWorldVisualCoordinate,
   mixWorldVisualHash,
+  ResolvedBuildingPart,
+  ResolvedFenceOrientation,
 } from "../../engine/systems/terrain/world-visual-resolver";
 import {
   PrototypeCliffVisual,
@@ -628,6 +630,27 @@ export class Renderer {
           );
         });
       tileCoord = wallAutotileCoordinate(wallSpriteKey, wallMask);
+    } else if (tileType === TileType.BUILDING) {
+      const part =
+        state.worldPlane.visuals?.layers.buildingPart[tileIndex] ??
+        (state.tiles.getTile(mapX, mapY + 1) === TileType.BUILDING
+          ? ResolvedBuildingPart.ROOF
+          : ResolvedBuildingPart.FACADE);
+      tileCoord =
+        part === ResolvedBuildingPart.ROOF
+          ? SPRITE_COORDS.building_roof
+          : SPRITE_COORDS[TileType.BUILDING];
+    } else if (tileType === TileType.FENCE) {
+      const orientation =
+        state.worldPlane.visuals?.layers.fenceOrientation[tileIndex] ??
+        (state.tiles.getTile(mapX, mapY - 1) === TileType.FENCE ||
+        state.tiles.getTile(mapX, mapY + 1) === TileType.FENCE
+          ? ResolvedFenceOrientation.VERTICAL
+          : ResolvedFenceOrientation.HORIZONTAL);
+      tileCoord =
+        orientation === ResolvedFenceOrientation.VERTICAL
+          ? SPRITE_COORDS.fence_vertical
+          : SPRITE_COORDS.fence_horizontal;
     } else if (tileType !== TileType.FLOOR && tileType !== TileType.HOLE) {
       tileCoord = SPRITE_COORDS[tileType];
     }
@@ -1506,17 +1529,28 @@ export class Renderer {
           tileType === TileType.RUBBLE
         ) {
           if (tileType === TileType.BUILDING) {
-            const below = tileAtWindow(tileX, tileY + 1);
-            if (below === TileType.BUILDING) {
+            const part =
+              worldVisualLayers?.buildingPart[tileIndex] ??
+              (tileAtWindow(tileX, tileY + 1) === TileType.BUILDING
+                ? ResolvedBuildingPart.ROOF
+                : ResolvedBuildingPart.FACADE);
+            if (part === ResolvedBuildingPart.ROOF) {
               renderGround("building_roof");
             } else {
               renderDepthTile(TileType.BUILDING);
             }
           } else if (tileType === TileType.FENCE) {
-            const vertical =
-              tileAtWindow(tileX, tileY - 1) === TileType.FENCE ||
-              tileAtWindow(tileX, tileY + 1) === TileType.FENCE;
-            renderDepthTile(vertical ? "fence_vertical" : "fence_horizontal");
+            const orientation =
+              worldVisualLayers?.fenceOrientation[tileIndex] ??
+              (tileAtWindow(tileX, tileY - 1) === TileType.FENCE ||
+              tileAtWindow(tileX, tileY + 1) === TileType.FENCE
+                ? ResolvedFenceOrientation.VERTICAL
+                : ResolvedFenceOrientation.HORIZONTAL);
+            renderDepthTile(
+              orientation === ResolvedFenceOrientation.VERTICAL
+                ? "fence_vertical"
+                : "fence_horizontal",
+            );
           } else {
             renderDepthTile(tileType);
           }

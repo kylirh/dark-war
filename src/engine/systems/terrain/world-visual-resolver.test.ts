@@ -8,7 +8,9 @@ import {
 import { TileType } from "../../types";
 import {
   hashWorldVisualCoordinate,
+  ResolvedBuildingPart,
   ResolvedCliffMagnitude,
+  ResolvedFenceOrientation,
   WorldVisualState,
 } from "./world-visual-resolver";
 
@@ -64,6 +66,54 @@ describe("WorldVisualState", () => {
     expect(visuals.layers.shoreMask[center]).toBe(0);
     expect(visuals.layers.cliffMagnitude[center]).toBe(
       ResolvedCliffMagnitude.TALL,
+    );
+  });
+
+  it("repairs adjacent building and fence presentation after edits", () => {
+    const plane = createWorldPlaneFromTiles(
+      [
+        TileType.FLOOR,
+        TileType.BUILDING,
+        TileType.FLOOR,
+        TileType.FENCE,
+        TileType.BUILDING,
+        TileType.FENCE,
+        TileType.FLOOR,
+        TileType.FLOOR,
+        TileType.FLOOR,
+      ],
+      3,
+      3,
+    );
+    const visuals = plane.visuals;
+    if (!visuals) throw new Error("Expected production visual state");
+
+    expect(visuals.layers.buildingPart[plane.indexFor(1, 0)]).toBe(
+      ResolvedBuildingPart.ROOF,
+    );
+    expect(visuals.layers.buildingPart[plane.indexFor(1, 1)]).toBe(
+      ResolvedBuildingPart.FACADE,
+    );
+    expect(visuals.layers.fenceOrientation[plane.indexFor(0, 1)]).toBe(
+      ResolvedFenceOrientation.HORIZONTAL,
+    );
+
+    plane.setTile(1, 1, TileType.FENCE);
+
+    expect(visuals.layers.buildingPart[plane.indexFor(1, 0)]).toBe(
+      ResolvedBuildingPart.FACADE,
+    );
+    expect(visuals.layers.fenceOrientation[plane.indexFor(0, 1)]).toBe(
+      ResolvedFenceOrientation.HORIZONTAL,
+    );
+    expect(visuals.layers.fenceOrientation[plane.indexFor(1, 1)]).toBe(
+      ResolvedFenceOrientation.HORIZONTAL,
+    );
+
+    plane.setTile(0, 0, TileType.FENCE);
+
+    expect(visuals.layers.fenceOrientation[plane.indexFor(0, 1)]).toBe(
+      ResolvedFenceOrientation.VERTICAL,
     );
   });
 });

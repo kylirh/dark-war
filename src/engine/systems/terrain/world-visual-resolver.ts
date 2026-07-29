@@ -15,6 +15,18 @@ export enum ResolvedCliffMagnitude {
   TALL,
 }
 
+export enum ResolvedBuildingPart {
+  NONE,
+  FACADE,
+  ROOF,
+}
+
+export enum ResolvedFenceOrientation {
+  NONE,
+  HORIZONTAL,
+  VERTICAL,
+}
+
 export interface WorldVisualLayers {
   readonly coordinateHash: Uint32Array;
   readonly groundMask: Uint8Array;
@@ -24,6 +36,8 @@ export interface WorldVisualLayers {
   readonly lowerElevationMask: Uint8Array;
   readonly higherElevationMask: Uint8Array;
   readonly cliffMagnitude: Uint8Array;
+  readonly buildingPart: Uint8Array;
+  readonly fenceOrientation: Uint8Array;
 }
 
 export interface WorldVisualResolverOptions {
@@ -61,6 +75,8 @@ function allocateVisualLayers(cellCount: number): WorldVisualLayers {
     lowerElevationMask: new Uint8Array(cellCount),
     higherElevationMask: new Uint8Array(cellCount),
     cliffMagnitude: new Uint8Array(cellCount),
+    buildingPart: new Uint8Array(cellCount),
+    fenceOrientation: new Uint8Array(cellCount),
   };
 }
 
@@ -180,6 +196,21 @@ export class WorldVisualState {
         : magnitude === "step"
           ? ResolvedCliffMagnitude.STEP
           : ResolvedCliffMagnitude.NONE;
+
+    const tile = tileAt(x, y);
+    this.layers.buildingPart[index] =
+      tile === TileType.BUILDING
+        ? tileAt(x, y + 1) === TileType.BUILDING
+          ? ResolvedBuildingPart.ROOF
+          : ResolvedBuildingPart.FACADE
+        : ResolvedBuildingPart.NONE;
+    this.layers.fenceOrientation[index] =
+      tile === TileType.FENCE
+        ? tileAt(x, y - 1) === TileType.FENCE ||
+          tileAt(x, y + 1) === TileType.FENCE
+          ? ResolvedFenceOrientation.VERTICAL
+          : ResolvedFenceOrientation.HORIZONTAL
+        : ResolvedFenceOrientation.NONE;
   }
 
   private normalizeCoordinate(x: number, y: number): [number, number] | null {

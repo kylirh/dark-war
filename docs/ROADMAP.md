@@ -95,18 +95,20 @@ pass; old save files are intentionally unsupported.
 
 ## Milestone 3 — Deterministic visual resolver
 
-**Status: IN PROGRESS**
+**Status: COMPLETE**
 
-The production resolver foundation now derives typed-array caches for stable
+The production resolver derives typed-array caches for stable
 coordinate hashes, same-ground connectivity, wall/hole masks, shoreline masks,
-and bounded cliff context. Semantic edits refresh a clipped or wrapped 3×3
-neighborhood, and the renderer consumes cached wall/hole masks and deterministic
-variant hashes. These caches are presentation-only and are rebuilt rather than
-serialized.
+bounded cliff context, building roof/facade roles, and fence orientation.
+Semantic edits refresh a clipped or wrapped 3×3 neighborhood, and both live and
+preview renderers consume the cached classifications and deterministic variant
+hashes. These caches are presentation-only and are rebuilt rather than
+serialized. Production shoreline and cliff artwork lands with its semantic
+gameplay in Milestone 5; extending the resolver with another content family is
+now a data-oriented addition rather than renderer logic.
 
 - Extend per-family rules for ground, shores, roads/rivers, cliffs,
   roofs, and decoration as their assets become available.
-- Move remaining building/fence presentation classification out of the renderer.
 - Connect production shoreline and cliff artwork as those asset families land.
 
 Exit: a one-cell semantic edit performs bounded work and produces deterministic,
