@@ -33,6 +33,7 @@ export interface WorldVisualLayers {
   readonly wallMask: Uint8Array;
   readonly holeMask: Uint8Array;
   readonly shoreMask: Uint8Array;
+  readonly riverMask: Uint8Array;
   readonly lowerElevationMask: Uint8Array;
   readonly higherElevationMask: Uint8Array;
   readonly cliffMagnitude: Uint8Array;
@@ -44,6 +45,7 @@ export interface WorldVisualResolverOptions {
   readonly wraps?: boolean;
   readonly variantSeed?: number;
   readonly waterGroundIds?: readonly number[];
+  readonly riverGroundIds?: readonly number[];
 }
 
 /** Stable integer hash: identical semantic coordinates resolve identically. */
@@ -72,6 +74,7 @@ function allocateVisualLayers(cellCount: number): WorldVisualLayers {
     wallMask: new Uint8Array(cellCount),
     holeMask: new Uint8Array(cellCount),
     shoreMask: new Uint8Array(cellCount),
+    riverMask: new Uint8Array(cellCount),
     lowerElevationMask: new Uint8Array(cellCount),
     higherElevationMask: new Uint8Array(cellCount),
     cliffMagnitude: new Uint8Array(cellCount),
@@ -98,6 +101,7 @@ export class WorldVisualState {
   private readonly wraps: boolean;
   private readonly variantSeed: number;
   private readonly waterGroundIds: ReadonlySet<number>;
+  private readonly riverGroundIds: ReadonlySet<number>;
 
   constructor(
     private readonly plane: WorldPlane,
@@ -106,6 +110,7 @@ export class WorldVisualState {
     this.wraps = options.wraps ?? false;
     this.variantSeed = options.variantSeed ?? 0;
     this.waterGroundIds = new Set(options.waterGroundIds ?? []);
+    this.riverGroundIds = new Set(options.riverGroundIds ?? []);
     this.layers = allocateVisualLayers(plane.width * plane.height);
     this.refreshAll();
   }
@@ -183,6 +188,14 @@ export class WorldVisualState {
       (sampleX, sampleY) => {
         const sampleGround = groundAt(sampleX, sampleY);
         return sampleGround !== null && this.waterGroundIds.has(sampleGround);
+      },
+    );
+    this.layers.riverMask[index] = cardinalAutotileMask(
+      x,
+      y,
+      (sampleX, sampleY) => {
+        const sampleGround = groundAt(sampleX, sampleY);
+        return sampleGround !== null && this.riverGroundIds.has(sampleGround);
       },
     );
 

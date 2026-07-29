@@ -412,7 +412,7 @@ export function processMonsterAbilities(state: GameState): void {
     const [dx, dy] = dirs[RNG.int(dirs.length)];
     const nx = lump.gridX + dx;
     const ny = lump.gridY + dy;
-    if (!state.tiles.passable(nx, ny)) {
+    if (!state.tiles.canTraverse(lump.gridX, lump.gridY, nx, ny)) {
       continue;
     }
     const occupied = state.entities.some(

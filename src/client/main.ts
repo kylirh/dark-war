@@ -2181,18 +2181,42 @@ class DarkWar {
     this.game.toggleFOV();
   }
 
-  /** Exercise bounded semantic terrain edits in the fixed prototype scene. */
+  /** Raise/lower prototype fixtures or the active manipulator cursor cell. */
   private handlePrototypeElevationEdit(direction: "lower" | "raise"): boolean {
-    if (this.isOnlineMode()) return false;
     const state = this.game.getState();
-    if (!state.terrainPrototype) return false;
-    const fixture =
-      direction === "lower" ? TERRAIN_LOWER_FIXTURE : TERRAIN_RAISE_FIXTURE;
-    this.game.editTerrainPrototypeElevation(
-      fixture[0],
-      fixture[1],
-      direction === "lower" ? -1 : 1,
-    );
+    if (state.terrainPrototype) {
+      const fixture =
+        direction === "lower" ? TERRAIN_LOWER_FIXTURE : TERRAIN_RAISE_FIXTURE;
+      this.game.editTerrainPrototypeElevation(
+        fixture[0],
+        fixture[1],
+        direction === "lower" ? -1 : 1,
+      );
+      return true;
+    }
+    if (!this.isMatterManipulatorActive()) return false;
+    const world = this.mouseTracker.getWorldPosition();
+    const tile = this.cursorTileFromWorld(world.x, world.y);
+    if (!tile || !this.tileInManipulatorReach(tile.tileX, tile.tileY)) {
+      return false;
+    }
+    const delta = direction === "lower" ? -1 : 1;
+    this.cancelAutoMove();
+    if (this.isOnlineMode()) {
+      this.dispatchOnlineAction({
+        type: "SHAPE_TERRAIN",
+        tileX: tile.tileX,
+        tileY: tile.tileY,
+        delta,
+      });
+    } else {
+      this.runOfflinePlayerCommand(CommandType.SHAPE_TERRAIN, {
+        type: "SHAPE_TERRAIN",
+        tileX: tile.tileX,
+        tileY: tile.tileY,
+        delta,
+      });
+    }
     return true;
   }
 
@@ -2254,7 +2278,7 @@ class DarkWar {
     player.matterManipulatorActive = !player.matterManipulatorActive;
     state.story.unshift(
       player.matterManipulatorActive
-        ? "Matter Manipulator active — left-click mines, right-click places."
+        ? "Matter Manipulator active — mine/place with the mouse; [ lowers and ] raises terrain."
         : "Matter Manipulator stowed.",
     );
   }
@@ -2276,9 +2300,8 @@ class DarkWar {
     return { tileX, tileY };
   }
 
-  /** Whether the Matter Manipulator is equipped and active (offline only). */
+  /** Whether the current authoritative player has the tool equipped. */
   private isMatterManipulatorActive(): boolean {
-    if (this.isOnlineMode()) return false;
     const player = this.game.getState().player;
     return player.hasMatterManipulator && player.matterManipulatorActive;
   }

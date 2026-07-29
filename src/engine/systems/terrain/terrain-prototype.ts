@@ -456,6 +456,21 @@ export function createTerrainPrototypePlane(): TerrainPrototypePlane {
     TERRAIN_PROTOTYPE_HEIGHT,
     layers,
     resolvePrototypeCell,
+    undefined,
+    (worldLayers, fromIndex, toIndex, deltaX, deltaY) => {
+      if (!resolvePrototypeCell(worldLayers, toIndex, 0, 0).passable) {
+        return false;
+      }
+      const difference =
+        worldLayers.elevation[toIndex] - worldLayers.elevation[fromIndex];
+      if (difference === 0) return true;
+      if (deltaX !== 0 && deltaY !== 0) return false;
+      return (
+        Math.abs(difference) === 1 &&
+        (worldLayers.structure[fromIndex] === PrototypeStructure.STAIRS ||
+          worldLayers.structure[toIndex] === PrototypeStructure.STAIRS)
+      );
+    },
   );
 
   const plane: TerrainPrototypePlane = {

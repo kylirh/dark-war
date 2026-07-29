@@ -5,6 +5,11 @@ import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
 import { setStateTile } from "../../utils/state-tiles";
+import {
+  FixtureType,
+  GroundType,
+  StructureType,
+} from "../../core/world-semantics";
 
 function tileAt(game: Game, tileX: number, tileY: number): TileType {
   return game.getState().tiles.getTile(tileX, tileY);
@@ -40,6 +45,19 @@ function place(game: Game, tileX: number, tileY: number, itemType: ItemType) {
     actorId: state.player.id,
     type: CommandType.PLACE_BLOCK,
     data: { type: "PLACE_BLOCK", tileX, tileY, itemType },
+    priority: 0,
+    source: "PLAYER",
+  });
+  stepSimulationTick(state);
+}
+
+function shape(game: Game, tileX: number, tileY: number, delta: -1 | 1) {
+  const state = game.getState();
+  enqueueCommand(state, {
+    tick: state.sim.nowTick,
+    actorId: state.player.id,
+    type: CommandType.SHAPE_TERRAIN,
+    data: { type: "SHAPE_TERRAIN", tileX, tileY, delta },
     priority: 0,
     source: "PLAYER",
   });
@@ -243,5 +261,58 @@ describe("Matter Manipulator", () => {
 
     expect(tileAt(game, tileX, tileY)).toBe(TileType.FLOOR);
     expect(state.player.itemCounts[ItemType.WALL_BLOCK] ?? 0).toBe(1);
+  });
+
+  it("raises and lowers clear semantic terrain with bounded invalidation", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    state.player.hasMatterManipulator = true;
+    const tileX = state.player.gridX + 1;
+    const tileY = state.player.gridY;
+    state.worldPlane.editCell(tileX, tileY, {
+      ground: GroundType.DIRT,
+      structure: StructureType.NONE,
+      fixture: FixtureType.NONE,
+      elevation: -2,
+    });
+    state.changedTiles!.clear();
+
+    shape(game, tileX, tileY, 1);
+    expect(
+      state.worldPlane.layers.elevation[
+        state.worldPlane.indexFor(tileX, tileY)
+      ],
+    ).toBe(-1);
+    expect(state.changedTiles!.size).toBeLessThanOrEqual(9);
+
+    shape(game, tileX, tileY, -1);
+    expect(
+      state.worldPlane.layers.elevation[
+        state.worldPlane.indexFor(tileX, tileY)
+      ],
+    ).toBe(-2);
+  });
+
+  it("does not reshape static water", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    state.player.hasMatterManipulator = true;
+    const tileX = state.player.gridX + 1;
+    const tileY = state.player.gridY;
+    state.worldPlane.editCell(tileX, tileY, {
+      ground: GroundType.WATER_SHALLOW,
+      structure: StructureType.NONE,
+      fixture: FixtureType.NONE,
+      elevation: -3,
+    });
+
+    shape(game, tileX, tileY, 1);
+    expect(
+      state.worldPlane.layers.elevation[
+        state.worldPlane.indexFor(tileX, tileY)
+      ],
+    ).toBe(-3);
   });
 });

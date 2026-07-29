@@ -62,6 +62,7 @@ type IncomingAction =
   | { type: "WAIT" }
   | { type: "DESCEND" }
   | { type: "ASCEND" }
+  | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 }
   | { type: "TOGGLE_GOD_MODE" };
 
 type IncomingMessage2 =
@@ -531,6 +532,30 @@ class RoomSession {
         actorId: playerId,
         type: CommandType.INTERACT,
         data: { type: "INTERACT", x: player.gridX + dx, y: player.gridY + dy },
+        priority: 0,
+        source: "PLAYER",
+      });
+      return;
+    }
+
+    if (action.type === "SHAPE_TERRAIN") {
+      const tileX = toFiniteNumber(action.tileX);
+      const tileY = toFiniteNumber(action.tileY);
+      const delta = toFiniteNumber(action.delta);
+      if (
+        tileX === null ||
+        tileY === null ||
+        !Number.isInteger(tileX) ||
+        !Number.isInteger(tileY) ||
+        (delta !== -1 && delta !== 1)
+      ) {
+        return;
+      }
+      enqueueCommand(state, {
+        tick,
+        actorId: playerId,
+        type: CommandType.SHAPE_TERRAIN,
+        data: { type: "SHAPE_TERRAIN", tileX, tileY, delta },
         priority: 0,
         source: "PLAYER",
       });

@@ -134,6 +134,7 @@ function botNextStep(
       const nIdx = idxFor(nx, ny, w);
       if (parent.has(nIdx)) continue;
       if (!tiles.passable(nx, ny)) continue;
+      if (!tiles.canTraverse(cx, cy, nx, ny)) continue;
       if (tiles.getTile(nx, ny) === TileType.HOLE) continue;
       parent.set(nIdx, cur);
       if (nIdx === goalIdx) {
@@ -247,7 +248,10 @@ function findNearestReachableRepairTarget(
       if (isRepairable(nIdx)) return [nx, ny];
 
       // Traverse through passable, non-hole floor tiles only
-      if (tiles.passable(nx, ny) && tiles.getTile(nx, ny) !== TileType.HOLE) {
+      if (
+        tiles.canTraverse(cx, cy, nx, ny) &&
+        tiles.getTile(nx, ny) !== TileType.HOLE
+      ) {
         queue.push(nIdx);
       }
     }
@@ -1685,7 +1689,7 @@ function decideMonsterCommand(
     const nx = monster.gridX + testX;
     const ny = monster.gridY + testY;
 
-    if (!state.tiles.passable(nx, ny)) {
+    if (!state.tiles.canTraverse(monster.gridX, monster.gridY, nx, ny)) {
       return false;
     }
 

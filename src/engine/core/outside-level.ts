@@ -8,7 +8,12 @@ import {
 } from "../types";
 import { ItemEntity } from "../entities/item-entity";
 import { setTileFor } from "../utils/helpers";
-import { createWorldPlaneFromTiles } from "./world-semantics";
+import {
+  createWorldPlaneFromTiles,
+  FixtureType,
+  GroundType,
+  StructureType,
+} from "./world-semantics";
 import { WorldPlane } from "./world-plane";
 
 export interface OutsideLevelData extends Omit<DungeonData, "map"> {
@@ -126,6 +131,7 @@ export function createOutsideLevel(): OutsideLevelData {
   const worldPlane = createWorldPlaneFromTiles(map, WIDTH, HEIGHT, undefined, {
     wraps: true,
   });
+  addNaturalTerrain(worldPlane);
   return {
     width: WIDTH,
     height: HEIGHT,
@@ -137,6 +143,70 @@ export function createOutsideLevel(): OutsideLevelData {
     entities,
     worldPlane,
   };
+}
+
+/** Add the first production terraces, static pond, and walkable bridge. */
+function addNaturalTerrain(plane: WorldPlane): void {
+  const hillCenterX = 12;
+  const hillCenterY = 42;
+  for (let y = 34; y <= 50; y++) {
+    for (let x = 3; x <= 21; x++) {
+      const dx = (x - hillCenterX) / 9;
+      const dy = (y - hillCenterY) / 8;
+      const distance = dx * dx + dy * dy;
+      const elevation =
+        distance <= 0.08 ? 3 : distance <= 0.3 ? 2 : distance <= 1 ? 1 : 0;
+      if (elevation === 0) continue;
+      plane.editCell(x, y, { elevation });
+    }
+  }
+  for (const [x, y, elevation] of [
+    [hillCenterX, 49, 1],
+    [hillCenterX, 46, 2],
+    [hillCenterX, 44, 3],
+  ] as const) {
+    plane.editCell(x, y, { elevation, fixture: FixtureType.STAIRS });
+  }
+
+  const pondCenterX = 33;
+  const pondCenterY = 45;
+  for (let y = 41; y <= 49; y++) {
+    for (let x = 27; x <= 39; x++) {
+      const dx = (x - pondCenterX) / 6;
+      const dy = (y - pondCenterY) / 4;
+      const distance = dx * dx + dy * dy;
+      if (distance > 1) continue;
+      const index = plane.indexFor(x, y);
+      if (plane.layers.structure[index] !== StructureType.NONE) continue;
+      plane.editCell(x, y, {
+        ground:
+          distance < 0.38 ? GroundType.WATER_DEEP : GroundType.WATER_SHALLOW,
+        elevation: -1,
+        fixture: FixtureType.NONE,
+      });
+    }
+  }
+  for (let x = 27; x <= 39; x++) {
+    const index = plane.indexFor(x, pondCenterY);
+    if (
+      plane.layers.ground[index] !== GroundType.WATER_SHALLOW &&
+      plane.layers.ground[index] !== GroundType.WATER_DEEP
+    ) {
+      continue;
+    }
+    plane.editCell(x, pondCenterY, {
+      structure: StructureType.BRIDGE_HORIZONTAL,
+      elevation: 0,
+    });
+  }
+  for (let x = 39; x <= 42; x++) {
+    plane.editCell(x, pondCenterY + 1, {
+      ground: GroundType.WATER_RIVER,
+      structure: StructureType.NONE,
+      fixture: FixtureType.NONE,
+      elevation: -1,
+    });
+  }
 }
 
 function fillRect(

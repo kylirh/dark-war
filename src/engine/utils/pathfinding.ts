@@ -1,5 +1,4 @@
-import { Path } from "rot-js";
-import { Entity, EntityKind, TILE_DEFINITIONS } from "../types";
+import { Entity, EntityKind } from "../types";
 import { TileSource } from "../core/tile-source";
 import { idxFor } from "./helpers";
 
@@ -16,59 +15,17 @@ export function findPath(
   explored: Set<number>,
   entities: Entity[],
 ): [number, number][] | null {
-  const { width, height } = tiles;
-  // Check if target is in bounds, passable, and explored
-  if (!tiles.inBounds(endX, endY)) return null;
-  if (!tiles.passable(endX, endY)) return null;
-
-  // Check if destination is explored
-  const destIdx = idxFor(endX, endY, width);
-  if (!explored.has(destIdx)) return null;
-
-  // Passable callback for rot.js pathfinding
-  const passableCallback = (x: number, y: number): boolean => {
-    if (!tiles.inBounds(x, y)) return false;
-
-    // Check tile type - allow open doors, block closed/locked doors
-    const tileIdx = idxFor(x, y, width);
-    const tile = tiles.getTile(x, y);
-    if (TILE_DEFINITIONS[tile]?.block) {
-      return false;
-    }
-
-    // Only allow pathing through explored tiles
-    if (!explored.has(tileIdx)) return false;
-
-    // Check for monsters blocking the path (but allow destination to have a monster for attack)
-    const isDestination = x === endX && y === endY;
-    if (!isDestination) {
-      const monster = entities.find(
-        (e) => e.gridX === x && e.gridY === y && e.kind === EntityKind.MONSTER,
-      );
-      if (monster) return false;
-    }
-
-    return true;
-  };
-
-  // Create A* pathfinder - target is end position
-  const astar = new Path.AStar(endX, endY, passableCallback, {
-    topology: 8, // 8-directional movement
-  });
-
-  const path: [number, number][] = [];
-
-  // Compute path from start to end
-  astar.compute(startX, startY, (x, y) => {
-    path.push([x, y]);
-  });
-
-  // Path includes start position as first element
-  if (path.length > 1) {
-    return path;
-  }
-
-  return null;
+  const path = findPathToClosestReachable(
+    startX,
+    startY,
+    endX,
+    endY,
+    tiles,
+    explored,
+    entities,
+  );
+  const destination = path?.[path.length - 1];
+  return destination?.[0] === endX && destination[1] === endY ? path : null;
 }
 
 /**
@@ -100,10 +57,7 @@ export function findPathToClosestReachable(
     if (!tiles.inBounds(x, y)) return false;
     const tileIdx = idxFor(x, y, width);
 
-    const tile = tiles.getTile(x, y);
-    if (TILE_DEFINITIONS[tile]?.block) {
-      return false;
-    }
+    if (!tiles.passable(x, y)) return false;
 
     if (!explored.has(tileIdx)) return false;
 
@@ -145,6 +99,7 @@ export function findPathToClosestReachable(
       if (distance[nIdx] !== -1) continue;
 
       if (!isPassable(nx, ny)) continue;
+      if (!tiles.canTraverse(currentX, currentY, nx, ny)) continue;
 
       if (hasMonster(nx, ny) && !(nx === endX && ny === endY)) {
         continue;

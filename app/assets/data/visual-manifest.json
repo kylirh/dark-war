@@ -20,6 +20,7 @@
     "ground.stone",
     "ground.void",
     "ground.water.deep",
+    "ground.water.river",
     "ground.water.shallow",
     "ground.weeds",
     "structure.bridge.wood.horizontal",
@@ -292,7 +293,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -306,7 +307,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -320,7 +321,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -334,7 +335,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -348,7 +349,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -362,7 +363,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -376,7 +377,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -390,7 +391,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -404,7 +405,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -418,7 +419,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -432,7 +433,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -446,7 +447,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -460,7 +461,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -474,7 +475,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -488,7 +489,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         },
         {
           "semanticKey": "structure.wall",
@@ -502,7 +503,7 @@
             "width": 32,
             "height": 32
           },
-          "semanticId": 31
+          "semanticId": 32
         }
       ]
     }

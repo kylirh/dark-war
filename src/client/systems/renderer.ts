@@ -41,8 +41,14 @@ import {
   hashWorldVisualCoordinate,
   mixWorldVisualHash,
   ResolvedBuildingPart,
+  ResolvedCliffMagnitude,
   ResolvedFenceOrientation,
 } from "../../engine/systems/terrain/world-visual-resolver";
+import {
+  FixtureType,
+  GroundType,
+  StructureType,
+} from "../../engine/core/world-semantics";
 import {
   PrototypeCliffVisual,
   PrototypeGround,
@@ -1224,6 +1230,19 @@ export class Renderer {
             : visible.has(tileIndex)
           : true;
         const tileType = state.tiles.getTile(mx, my);
+        const productionGround = state.worldPlane.layers.ground[
+          tileIndex
+        ] as GroundType;
+        const productionStructure = state.worldPlane.layers.structure[
+          tileIndex
+        ] as StructureType;
+        const productionFixture = state.worldPlane.layers.fixture[
+          tileIndex
+        ] as FixtureType;
+        const isProductionWater =
+          productionGround === GroundType.WATER_SHALLOW ||
+          productionGround === GroundType.WATER_DEEP ||
+          productionGround === GroundType.WATER_RIVER;
 
         if (!isRevealed) continue;
 
@@ -1416,7 +1435,29 @@ export class Renderer {
           continue;
         }
 
-        if (tileType === TileType.FLOOR) {
+        if (isProductionWater) {
+          renderGround(
+            productionGround === GroundType.WATER_DEEP
+              ? "prototype_water_deep"
+              : mixWorldVisualHash(coordinateHash, 31) % 5 === 0
+                ? "prototype_water_alt"
+                : "prototype_water_shallow",
+          );
+          if (productionStructure === StructureType.BRIDGE_HORIZONTAL) {
+            renderGround("prototype_bridge_horizontal");
+          } else if (productionGround === GroundType.WATER_RIVER) {
+            const riverMask = worldVisualLayers?.riverMask[tileIndex] ?? 0;
+            const flow = new Graphics();
+            if ((riverMask & 5) !== 0) {
+              flow.rect(screenX + 14, screenY + 5, 3, 22);
+            } else {
+              flow.rect(screenX + 5, screenY + 14, 22, 3);
+            }
+            flow.fill({ color: 0xb8f3cf, alpha: isVisible ? 0.45 : 0.14 });
+            flow.zIndex = tileSortY + 0.05;
+            this.entityContainer.addChild(flow);
+          }
+        } else if (tileType === TileType.FLOOR) {
           renderGround(TileType.FLOOR, floorCoord);
           if (damage >= FLOOR_DAMAGE_THRESHOLDS[0]) {
             renderGround("floor_damaged");
@@ -1556,6 +1597,54 @@ export class Renderer {
           }
         } else {
           renderGround(tileType);
+        }
+
+        if (productionFixture === FixtureType.STAIRS && !isProductionWater) {
+          renderGround("prototype_stairs");
+        }
+
+        if (
+          isProductionWater &&
+          productionStructure !== StructureType.BRIDGE_HORIZONTAL
+        ) {
+          const mask = worldVisualLayers?.shoreMask[tileIndex] ?? 0;
+          const shore = new Graphics();
+          if (!(mask & TRANSITION_NORTH)) shore.rect(screenX, screenY, 32, 4);
+          if (!(mask & TRANSITION_EAST))
+            shore.rect(screenX + 28, screenY, 4, 32);
+          if (!(mask & TRANSITION_SOUTH))
+            shore.rect(screenX, screenY + 28, 32, 4);
+          if (!(mask & TRANSITION_WEST)) shore.rect(screenX, screenY, 4, 32);
+          shore.fill({
+            color:
+              productionGround === GroundType.WATER_DEEP ? 0x5de2d1 : 0xb8f3cf,
+            alpha: isVisible ? 0.9 : 0.28,
+          });
+          shore.zIndex = tileSortY + 0.1;
+          this.entityContainer.addChild(shore);
+        }
+
+        const lowerMask = worldVisualLayers?.lowerElevationMask[tileIndex] ?? 0;
+        if (lowerMask !== 0) {
+          const magnitude = worldVisualLayers?.cliffMagnitude[tileIndex] ?? 0;
+          const cliff = new Graphics();
+          const faceDepth = magnitude === ResolvedCliffMagnitude.TALL ? 12 : 7;
+          if (lowerMask & ELEVATION_NORTH) cliff.rect(screenX, screenY, 32, 3);
+          if (lowerMask & ELEVATION_EAST)
+            cliff.rect(screenX + 29, screenY, 3, 32);
+          if (lowerMask & ELEVATION_SOUTH)
+            cliff.rect(screenX, screenY + 32 - faceDepth, 32, faceDepth);
+          if (lowerMask & ELEVATION_WEST) cliff.rect(screenX, screenY, 3, 32);
+          cliff.fill({
+            color:
+              magnitude === ResolvedCliffMagnitude.TALL ? 0x6c4f62 : 0x9a6b57,
+            alpha: isVisible ? 0.95 : 0.32,
+          });
+          cliff
+            .rect(screenX + 2, screenY + 29 - faceDepth, 28, 2)
+            .fill({ color: 0xd48b62, alpha: isVisible ? 0.8 : 0.25 });
+          cliff.zIndex = tileSortY + 0.2;
+          this.entityContainer.addChild(cliff);
         }
       }
     }

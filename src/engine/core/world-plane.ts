@@ -35,6 +35,22 @@ export type WorldCellWriter = (
   tile: TileType,
 ) => void;
 
+export interface WorldCellLayerEdit {
+  readonly ground?: number;
+  readonly structure?: number;
+  readonly fixture?: number;
+  readonly elevation?: number;
+  readonly damage?: number;
+}
+
+export type WorldTraversalResolver = (
+  layers: WorldPlaneLayers,
+  fromIndex: number,
+  toIndex: number,
+  deltaX: number,
+  deltaY: number,
+) => boolean;
+
 /** Allocate aligned typed arrays for a fixed-size plane. */
 export function createWorldPlaneLayers(
   width: number,
@@ -61,6 +77,7 @@ export class WorldPlane implements TileSource {
     readonly layers: WorldPlaneLayers,
     private readonly resolveCell: WorldCellResolver,
     private readonly writeCell?: WorldCellWriter,
+    private readonly resolveTraversal?: WorldTraversalResolver,
   ) {
     const cellCount = width * height;
     for (const layer of Object.values(layers)) {
@@ -119,6 +136,52 @@ export class WorldPlane implements TileSource {
 
   passable(x: number, y: number): boolean {
     return this.semanticsAt(x, y).passable;
+  }
+
+  canTraverse(fromX: number, fromY: number, toX: number, toY: number): boolean {
+    if (!this.inBounds(fromX, fromY) || !this.inBounds(toX, toY)) return false;
+    const deltaX = toX - fromX;
+    const deltaY = toY - fromY;
+    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1) return false;
+    const fromIndex = this.indexFor(fromX, fromY);
+    const toIndex = this.indexFor(toX, toY);
+    if (this.resolveTraversal) {
+      return this.resolveTraversal(
+        this.layers,
+        fromIndex,
+        toIndex,
+        deltaX,
+        deltaY,
+      );
+    }
+    return (
+      this.passable(toX, toY) &&
+      this.layers.elevation[fromIndex] === this.layers.elevation[toIndex]
+    );
+  }
+
+  /** Apply one compositional cell edit and refresh all bounded derived state. */
+  editCell(x: number, y: number, edit: WorldCellLayerEdit): readonly number[] {
+    if (!this.inBounds(x, y)) return [];
+    const index = this.indexFor(x, y);
+    if (edit.ground !== undefined) this.layers.ground[index] = edit.ground;
+    if (edit.structure !== undefined)
+      this.layers.structure[index] = edit.structure;
+    if (edit.fixture !== undefined) this.layers.fixture[index] = edit.fixture;
+    if (edit.elevation !== undefined) {
+      this.layers.elevation[index] = Math.max(
+        -32768,
+        Math.min(32767, Math.trunc(edit.elevation)),
+      );
+    }
+    if (edit.damage !== undefined) {
+      this.layers.damage[index] = Math.max(
+        0,
+        Math.min(255, Math.trunc(edit.damage)),
+      );
+    }
+    this.refreshResolvedTile(index);
+    return this.visualState?.refreshNeighborhood(x, y) ?? [index];
   }
 
   opaque(x: number, y: number): boolean {

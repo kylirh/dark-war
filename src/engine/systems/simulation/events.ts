@@ -381,6 +381,14 @@ function applyDamageKnockback(
     const gx = Math.floor(candX / CELL_CONFIG.w);
     const gy = Math.floor(candY / CELL_CONFIG.h);
     if (!state.tiles.passable(gx, gy)) break;
+    const previousGridX = Math.floor(target.worldX / CELL_CONFIG.w);
+    const previousGridY = Math.floor(target.worldY / CELL_CONFIG.h);
+    if (
+      (gx !== previousGridX || gy !== previousGridY) &&
+      !state.tiles.canTraverse(previousGridX, previousGridY, gx, gy)
+    ) {
+      break;
+    }
     target.worldX = candX;
     target.worldY = candY;
   }

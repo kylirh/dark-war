@@ -6,6 +6,10 @@ import { BulletEntity } from "../entities/bullet-entity";
 import { EntityManager } from "../core/entity-manager";
 import { FlatTileSource } from "../core/tile-source";
 import { TileType, GameState, MonsterType, EventType, Entity } from "../types";
+import {
+  createWorldPlaneFromTiles,
+  FixtureType,
+} from "../core/world-semantics";
 
 const W = 10;
 const H = 10;
@@ -105,6 +109,46 @@ describe("Physics.predictLocalMovement", () => {
     expect(player.physicsBody).toBeUndefined();
     physics.predictLocalMovement(fakeState(map), player, 1 / 60);
     expect(player.physicsBody).toBeDefined();
+  });
+
+  it("creates cliff boundaries and removes a crossing at stairs", () => {
+    const physics = new Physics();
+    const map = makeMap();
+    map[4 + 3 * W] = TileType.FLOOR;
+    const plane = createWorldPlaneFromTiles(map, W, H);
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 4; x < W - 1; x++) {
+        plane.editCell(x, y, { elevation: 1 });
+      }
+    }
+    physics.initializeMap(plane);
+    const boundariesBefore = physics
+      .getSystem()
+      .all()
+      .filter((body: unknown) => (body as any).isTerrainBoundary).length;
+    expect(boundariesBefore).toBeGreaterThan(0);
+
+    const blockedPlayer = new PlayerEntity(3, 5);
+    blockedPlayer.velocityX = 300;
+    for (let index = 0; index < 10; index++) {
+      physics.predictLocalMovement(fakeState(map), blockedPlayer, 1 / 60);
+    }
+    expect(blockedPlayer.worldX).toBeLessThan(128);
+
+    plane.editCell(4, 5, { fixture: FixtureType.STAIRS });
+    physics.updateTile(plane, 4, 5);
+    const boundariesAfter = physics
+      .getSystem()
+      .all()
+      .filter((body: unknown) => (body as any).isTerrainBoundary).length;
+    expect(boundariesAfter).toBeLessThan(boundariesBefore);
+
+    const climbingPlayer = new PlayerEntity(3, 5);
+    climbingPlayer.velocityX = 300;
+    for (let index = 0; index < 10; index++) {
+      physics.predictLocalMovement(fakeState(map), climbingPlayer, 1 / 60);
+    }
+    expect(climbingPlayer.worldX).toBeGreaterThan(150);
   });
 });
 

@@ -14,7 +14,11 @@ import {
   CELL_CONFIG,
 } from "../../types";
 import { inBoundsFor, idxFor } from "../../utils/helpers";
-import { setStateDamageAtIndex, setStateTile } from "../../utils/state-tiles";
+import {
+  editStateCell,
+  setStateDamageAtIndex,
+  setStateTile,
+} from "../../utils/state-tiles";
 import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
 import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
@@ -28,6 +32,11 @@ import { SoundEffect } from "../../content/sound-effects";
 import { BulletEntity } from "../../entities/bullet-entity";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
 import { isWallLikeTile } from "../../core/tile-source";
+import {
+  FixtureType,
+  GroundType,
+  StructureType,
+} from "../../core/world-semantics";
 import {
   equippedMonsterWeaponType,
   isAdaptiveWeaponMonster,
@@ -179,6 +188,9 @@ export function resolveCommand(state: GameState, cmd: Command): void {
     case CommandType.PLACE_BLOCK:
       resolvePlaceBlockCommand(state, cmd);
       break;
+    case CommandType.SHAPE_TERRAIN:
+      resolveShapeTerrainCommand(state, cmd);
+      break;
     case CommandType.WAIT:
       break;
   }
@@ -210,7 +222,7 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
   }
 
   // Check passability
-  if (!state.tiles.passable(nx, ny)) {
+  if (!state.tiles.canTraverse(actor.gridX, actor.gridY, nx, ny)) {
     return false;
   }
 
@@ -1108,6 +1120,60 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
   consumeOne(player, itemType);
   state.pendingSounds.push({ effect: SoundEffect.REPAIR });
   msg(state, `You place a ${itemName(itemType)}.`, cmd.id);
+}
+
+function resolveShapeTerrainCommand(state: GameState, cmd: Command): void {
+  const actor = state.entities.find((entity) => entity.id === cmd.actorId);
+  if (!actor || actor.kind !== EntityKind.PLAYER) return;
+  const player = actor as Player;
+  if (cmd.data.type !== "SHAPE_TERRAIN") return;
+  if (!player.hasMatterManipulator) return;
+  const { tileX, tileY, delta } = cmd.data;
+  if (
+    !state.worldPlane.inBounds(tileX, tileY) ||
+    !withinManipulatorReach(player, tileX, tileY)
+  ) {
+    msg(state, "That's out of reach.");
+    return;
+  }
+  const index = state.worldPlane.indexFor(tileX, tileY);
+  const ground = state.worldPlane.layers.ground[index] as GroundType;
+  const structure = state.worldPlane.layers.structure[index] as StructureType;
+  const fixture = state.worldPlane.layers.fixture[index] as FixtureType;
+  const shapeableGround =
+    ground === GroundType.GRASS ||
+    ground === GroundType.WEEDS ||
+    ground === GroundType.DIRT ||
+    ground === GroundType.STONE ||
+    ground === GroundType.FLOOR;
+  if (
+    !shapeableGround ||
+    structure !== StructureType.NONE ||
+    fixture !== FixtureType.NONE
+  ) {
+    msg(state, "Clear this cell before shaping its terrain.");
+    return;
+  }
+  const occupied = state.entities.some(
+    (entity) =>
+      (entity.kind === EntityKind.PLAYER ||
+        entity.kind === EntityKind.MONSTER) &&
+      entity.gridX === tileX &&
+      entity.gridY === tileY,
+  );
+  if (occupied) {
+    msg(state, "Something's in the way.");
+    return;
+  }
+
+  const previous = state.worldPlane.layers.elevation[index];
+  editStateCell(state, tileX, tileY, { elevation: previous + delta });
+  state.pendingSounds.push({ effect: SoundEffect.REPAIR });
+  msg(
+    state,
+    `You ${delta > 0 ? "raise" : "lower"} the terrain to ${previous + delta}.`,
+    cmd.id,
+  );
 }
 
 /**

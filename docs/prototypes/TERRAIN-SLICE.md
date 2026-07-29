@@ -26,9 +26,9 @@ The current implementation lives in
 `src/engine/systems/terrain/terrain-prototype.ts`. It uses aligned typed arrays
 owned by the production `WorldPlane` for ground, structure, fixture, signed
 elevation, and damage. `WorldPlane` is the canonical `TileSource`; its generated
-scalar collision projection temporarily connects the fixture to remaining
-physics and pathfinding consumers. The normal outside and dungeon generators are
-unchanged.
+traversal contract now drives production physics and pathfinding directly. The
+normal outside world also contains signed terraces, static water, a bridge, and
+the same bounded visual classifications.
 
 Press `[` to lower the marked test cell and `]` to raise its neighboring test
 cell. The edited cell is highlighted in warm gold; the rest of the reclassified

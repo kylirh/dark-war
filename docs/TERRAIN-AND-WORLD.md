@@ -93,10 +93,10 @@ Renderer and simulation reads use `state.tiles` directly.
 
 `src/engine/systems/terrain/world-visual-resolver.ts` is the production
 presentation boundary. It derives deterministic coordinate hashes, ground,
-wall, hole, shore, and elevation classifications into typed arrays. A semantic
-edit invalidates only its clipped or wrapped 3×3 dependency neighborhood. The
-renderer now consumes its wall/hole masks and variant hashes; remaining visual
-families will move behind the same boundary as their authored art lands.
+wall, hole, shore, river, elevation, building, and fence classifications into
+typed arrays. A semantic edit invalidates only its clipped or wrapped 3×3
+dependency neighborhood. Live and preview presentation consume the cached
+classifications; semantic edits never ask the renderer to reinterpret gameplay.
 
 The bounded dungeon generator now crosses the same boundary immediately after
 layout generation and stair placement. All freshly generated gameplay planes
@@ -143,6 +143,11 @@ It may distinguish shallow, deep, river, polluted, or other useful categories
 and may carry a visual flow direction. There is no pressure, volume, spreading,
 flooding, evaporation, or per-tick fluid simulation unless a future gameplay
 decision explicitly adds it.
+
+Production currently includes shallow, deep, and directional river ground.
+Water is blocked unless a compositional bridge occupies the same cell. River
+connectivity, shoreline topology, and glints are derived presentation; no water
+work runs during simulation ticks.
 
 ### Visuals are derived by rule family
 

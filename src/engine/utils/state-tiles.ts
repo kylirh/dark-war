@@ -1,6 +1,7 @@
 /** Canonical runtime terrain mutation helpers for flat and layered levels. */
 
 import { GameState, TileType } from "../types";
+import { WorldCellLayerEdit } from "../core/world-plane";
 
 export function getStateTileAtIndex(state: GameState, index: number): TileType {
   if (index < 0 || index >= state.mapWidth * state.mapHeight) {
@@ -41,6 +42,17 @@ export function setStateTileAtIndex(
     Math.floor(index / state.mapWidth),
     tile,
   );
+}
+
+export function editStateCell(
+  state: GameState,
+  x: number,
+  y: number,
+  edit: WorldCellLayerEdit,
+): readonly number[] {
+  const dirty = state.worldPlane.editCell(x, y, edit);
+  for (const index of dirty) state.changedTiles?.add(index);
+  return dirty;
 }
 
 export function setStateDamageAtIndex(

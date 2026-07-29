@@ -3,6 +3,10 @@ import { TileType, Entity, EntityKind } from "../types";
 import { findPath, findPathToClosestReachable } from "./pathfinding";
 import { idxFor } from "./helpers";
 import { FlatTileSource } from "../core/tile-source";
+import {
+  createWorldPlaneFromTiles,
+  FixtureType,
+} from "../core/world-semantics";
 
 const W = 8;
 const H = 8;
@@ -54,6 +58,21 @@ describe("findPath", () => {
 
   it("returns null when the destination is a wall", () => {
     expect(findPath(1, 1, 0, 0, source(), fullyExplored(), [])).toBeNull();
+  });
+
+  it("routes through elevation only at semantic stairs", () => {
+    const plane = createWorldPlaneFromTiles(openMap(), W, H);
+    for (let y = 1; y < H - 1; y++) {
+      for (let x = 3; x < W - 1; x++) {
+        plane.editCell(x, y, { elevation: 1 });
+      }
+    }
+    expect(findPath(1, 3, 6, 3, plane, fullyExplored(), [])).toBeNull();
+
+    plane.editCell(3, 4, { fixture: FixtureType.STAIRS });
+    const path = findPath(1, 3, 6, 3, plane, fullyExplored(), []);
+    expect(path).not.toBeNull();
+    expect(path).toContainEqual([3, 4]);
   });
 });
 

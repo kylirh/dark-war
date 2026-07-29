@@ -137,7 +137,23 @@ committed sources.
 
 ## Milestone 5 — Elevation and static-water gameplay
 
-**Status: PLANNED**
+**Status: COMPLETE**
+
+Production planes now enforce directional elevation traversal: equal-height
+neighbors connect normally, cliff edges receive thin constant-cost physics
+boundaries, and one-step changes connect only through authored stairs. The same
+contract drives command movement, AI searches, click-to-move pathfinding,
+knockback, client prediction, and authoritative server physics.
+
+The outside world contains deterministic signed terraces, a shallow/deep pond,
+a directional static river outlet, and a bridge that preserves water beneath
+it. Cached shore, river, and bounded cliff classifications drive cheerful water,
+edge, face, stair, and shadow presentation. The Matter Manipulator raises and
+lowers eligible clear terrain at the cursor with `[` and `]`; offline and online
+commands mutate the same semantic layer, invalidate at most a 3×3 neighborhood,
+and replicate through per-layer elevation deltas. Protocol version 7 carries the
+new authoritative action. Existing holes remain the chasm/fall behavior until
+their transition is generalized as a portal in Milestone 6.
 
 - Add `Int16` elevation to world planes.
 - Add elevation-aware collision, traversal, stairs/ramps, raising, and lowering.

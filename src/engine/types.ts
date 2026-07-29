@@ -400,6 +400,8 @@ export enum CommandType {
   MINE = "MINE",
   /** Matter Manipulator: place a wall block from the inventory at a tile. */
   PLACE_BLOCK = "PLACE_BLOCK",
+  /** Matter Manipulator: raise or lower one semantic terrain cell. */
+  SHAPE_TERRAIN = "SHAPE_TERRAIN",
 }
 
 export interface Command {
@@ -438,7 +440,8 @@ export type CommandData =
       targetWorldY?: number;
     }
   | { type: "MINE"; tileX: number; tileY: number }
-  | { type: "PLACE_BLOCK"; tileX: number; tileY: number; itemType: ItemType };
+  | { type: "PLACE_BLOCK"; tileX: number; tileY: number; itemType: ItemType }
+  | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 };
 
 export enum EventType {
   DAMAGE = "DAMAGE",

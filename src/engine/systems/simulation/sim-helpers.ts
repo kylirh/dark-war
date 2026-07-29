@@ -69,7 +69,7 @@ export function isMonsterMoveCandidateClear(
   const nx = monster.gridX + dx;
   const ny = monster.gridY + dy;
 
-  if (!state.tiles.passable(nx, ny)) {
+  if (!state.tiles.canTraverse(monster.gridX, monster.gridY, nx, ny)) {
     return false;
   }
 

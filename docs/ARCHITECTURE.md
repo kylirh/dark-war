@@ -98,8 +98,8 @@ transitions. Static water is terrain, not a fluid simulation.
 
 This is a deliberate breaking rewrite. There is no requirement to load old saves
 or communicate with old clients. The layered serialization and delta conversion
-bumped `PROTOCOL_VERSION` to 6; the superseded scalar runtime fields have been
-deleted.
+bumped `PROTOCOL_VERSION`; version 7 adds authoritative terrain-shaping actions.
+The superseded scalar runtime fields have been deleted.
 
 ## Authoring boundary
 
@@ -119,7 +119,7 @@ State broadcasts use keyframes and deltas. The protocol deliberately rejects
 mismatched versions. During the world rewrite, compatibility with previous
 protocol versions is not required.
 
-The future server will key simulated worlds by world-space and plane identity
+The next world milestone keys simulated worlds by world-space and plane identity
 rather than only numeric depth. Empty planes remain frozen. Players may occupy
 different planes and migrate independently.
 

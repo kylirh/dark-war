@@ -68,6 +68,7 @@ const LANDED_GRENADE_DAMPING = 0.82;
 export class Physics {
   private system: System;
   private wallBodies: Map<number, Box> = new Map(); // tileIndex -> Box
+  private terrainBoundaryBodies: Map<string, Box> = new Map();
   private entityBodies: Map<string, Circle> = new Map(); // entityId -> Circle
 
   constructor() {
@@ -92,6 +93,10 @@ export class Physics {
       this.system.remove(body);
     }
     this.wallBodies.clear();
+    for (const body of this.terrainBoundaryBodies.values()) {
+      this.system.remove(body);
+    }
+    this.terrainBoundaryBodies.clear();
 
     // Only walls that border passable space get colliders — interior solid rock
     // is unreachable, so skipping it keeps body counts low enough for large
@@ -99,6 +104,8 @@ export class Physics {
     for (let y = 0; y < height; y++) {
       for (let x = 0; x < width; x++) {
         this.ensureWallBody(tiles, x, y);
+        this.ensureTerrainBoundary(tiles, x, y, x + 1, y, "east");
+        this.ensureTerrainBoundary(tiles, x, y, x, y + 1, "south");
       }
     }
   }
@@ -116,6 +123,26 @@ export class Physics {
     this.ensureWallBody(tiles, x - 1, y);
     this.ensureWallBody(tiles, x, y + 1);
     this.ensureWallBody(tiles, x, y - 1);
+    for (let originY = y - 1; originY <= y + 1; originY++) {
+      for (let originX = x - 1; originX <= x + 1; originX++) {
+        this.ensureTerrainBoundary(
+          tiles,
+          originX,
+          originY,
+          originX + 1,
+          originY,
+          "east",
+        );
+        this.ensureTerrainBoundary(
+          tiles,
+          originX,
+          originY,
+          originX,
+          originY + 1,
+          "south",
+        );
+      }
+    }
   }
 
   private bordersPassable(tiles: TileSource, x: number, y: number): boolean {
@@ -149,6 +176,54 @@ export class Physics {
     } else if (!shouldBlock && existing) {
       this.system.remove(existing);
       this.wallBodies.delete(tileIndex);
+    }
+  }
+
+  private ensureTerrainBoundary(
+    tiles: TileSource,
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    side: "east" | "south",
+  ): void {
+    const key = `${fromX},${fromY}:${side}`;
+    const existing = this.terrainBoundaryBodies.get(key);
+    const valid = tiles.inBounds(fromX, fromY) && tiles.inBounds(toX, toY);
+    const shouldBlock =
+      valid &&
+      tiles.passable(fromX, fromY) &&
+      tiles.passable(toX, toY) &&
+      (!tiles.canTraverse(fromX, fromY, toX, toY) ||
+        !tiles.canTraverse(toX, toY, fromX, fromY));
+
+    if (shouldBlock && !existing) {
+      const thickness = 4;
+      const box =
+        side === "east"
+          ? this.system.createBox(
+              {
+                x: (fromX + 1) * CELL_CONFIG.w - thickness / 2,
+                y: fromY * CELL_CONFIG.h,
+              },
+              thickness,
+              CELL_CONFIG.h,
+            )
+          : this.system.createBox(
+              {
+                x: fromX * CELL_CONFIG.w,
+                y: (fromY + 1) * CELL_CONFIG.h - thickness / 2,
+              },
+              CELL_CONFIG.w,
+              thickness,
+            );
+      box.isStatic = true;
+      (box as any).isWall = true;
+      (box as any).isTerrainBoundary = true;
+      this.terrainBoundaryBodies.set(key, box);
+    } else if (!shouldBlock && existing) {
+      this.system.remove(existing);
+      this.terrainBoundaryBodies.delete(key);
     }
   }
 

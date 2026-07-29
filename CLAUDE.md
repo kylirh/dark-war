@@ -104,9 +104,9 @@ snapshots do not contain scalar maps or damage arrays. Use `state.tiles` for
 tile reads and the canonical state mutation helpers for writes. Index current
 planes with `idxFor(x, y, width)`.
 
-**Tile access** (`src/engine/core/tile-source.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`). Generated levels expose their `WorldPlane` through this interface. `FlatTileSource` remains only as a focused unit-test adapter. Physics only colliders walls that border passable space (`Physics.ensureWallBody`), so large mostly-solid maps stay cheap; `updateTile(tiles, x, y)` reconciles a changed tile and its neighbours incrementally (destroyed walls, opened doors).
+**Tile access** (`src/engine/core/tile-source.ts`): a `TileSource` abstraction decouples tile read/write from storage. `state.tiles` is the canonical accessor — FOV, rendering, and physics all read through it (`getTile`/`passable`/`canTraverse`). Generated levels expose their `WorldPlane` through this interface. `FlatTileSource` remains only as a focused unit-test adapter. Physics only collides walls that border passable space and thin boundaries at non-traversable elevation edges; `updateTile(tiles, x, y)` reconciles a changed semantic neighborhood incrementally.
 
-**Resolved visuals** (`src/engine/systems/terrain/world-visual-resolver.ts`): every production `WorldPlane` has a derived `WorldVisualState` containing typed arrays for deterministic coordinate hashes, ground/wall/hole/shore masks, and elevation context. `WorldPlane.setTile()` refreshes only the affected clipped or wrapped 3×3 neighborhood. Visual state is never serialized and must never drive gameplay.
+**Resolved visuals** (`src/engine/systems/terrain/world-visual-resolver.ts`): every production `WorldPlane` has a derived `WorldVisualState` containing typed arrays for deterministic coordinate hashes, ground/wall/hole/shore/river masks, elevation context, roof roles, and fence orientation. `WorldPlane.setTile()` and `editCell()` refresh only the affected clipped or wrapped 3×3 neighborhood. Visual state is never serialized and must never drive gameplay.
 
 ### Content & Assets
 

@@ -8,6 +8,7 @@ import {
   createWorldPlaneLayers,
   WorldCellSemantics,
   WorldPlane,
+  WorldPlaneLayers,
 } from "./world-plane";
 import {
   WorldVisualResolverOptions,
@@ -26,6 +27,7 @@ export enum GroundType {
   STONE,
   WATER_SHALLOW,
   WATER_DEEP,
+  WATER_RIVER,
   HOLE,
 }
 
@@ -75,6 +77,7 @@ export const GROUND_KEYS: Readonly<Record<GroundType, string>> = {
   [GroundType.STONE]: "ground.stone",
   [GroundType.WATER_SHALLOW]: "ground.water.shallow",
   [GroundType.WATER_DEEP]: "ground.water.deep",
+  [GroundType.WATER_RIVER]: "ground.water.river",
   [GroundType.HOLE]: "ground.hole",
 };
 
@@ -205,6 +208,7 @@ export function createWorldPlaneFromTiles(
         fixture: planeLayers.fixture[index] as FixtureType,
       }),
     (_planeLayers, index, tile) => writeSemanticCell(index, tile),
+    resolveSemanticTraversal,
   );
   attachProductionVisuals(plane, visualOptions);
   return plane;
@@ -271,6 +275,7 @@ export function deserializeWorldPlane(
       planeLayers.structure[index] = cell.structure;
       planeLayers.fixture[index] = cell.fixture;
     },
+    resolveSemanticTraversal,
   );
   attachProductionVisuals(plane, visualOptions);
   return plane;
@@ -283,8 +288,46 @@ function attachProductionVisuals(
   plane.attachVisualState(
     new WorldVisualState(plane, {
       ...options,
-      waterGroundIds: [GroundType.WATER_SHALLOW, GroundType.WATER_DEEP],
+      waterGroundIds: [
+        GroundType.WATER_SHALLOW,
+        GroundType.WATER_DEEP,
+        GroundType.WATER_RIVER,
+      ],
+      riverGroundIds: [GroundType.WATER_RIVER],
     }),
+  );
+}
+
+/** Directional traversal across static terrain and discrete elevation. */
+export function resolveSemanticTraversal(
+  layers: WorldPlaneLayers,
+  fromIndex: number,
+  toIndex: number,
+  deltaX: number,
+  deltaY: number,
+): boolean {
+  const target = resolveSemanticCell({
+    ground: layers.ground[toIndex] as GroundType,
+    structure: layers.structure[toIndex] as StructureType,
+    fixture: layers.fixture[toIndex] as FixtureType,
+  });
+  if (!target.passable) return false;
+  const elevationDifference =
+    layers.elevation[toIndex] - layers.elevation[fromIndex];
+  if (elevationDifference === 0) return true;
+  if (deltaX !== 0 && deltaY !== 0) return false;
+  if (Math.abs(elevationDifference) > 1) return false;
+  return (
+    isElevationConnector(layers.fixture[fromIndex] as FixtureType) ||
+    isElevationConnector(layers.fixture[toIndex] as FixtureType)
+  );
+}
+
+function isElevationConnector(fixture: FixtureType): boolean {
+  return (
+    fixture === FixtureType.STAIRS ||
+    fixture === FixtureType.STAIRS_DOWN ||
+    fixture === FixtureType.STAIRS_UP
   );
 }
 
@@ -319,6 +362,7 @@ function tileForGround(ground: GroundType): TileType {
     case GroundType.VOID:
     case GroundType.WATER_SHALLOW:
     case GroundType.WATER_DEEP:
+    case GroundType.WATER_RIVER:
       return TileType.WALL;
     case GroundType.FLOOR:
     case GroundType.DIRT:

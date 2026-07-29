@@ -37,6 +37,7 @@ export type NetworkAction =
   | { type: "WAIT" }
   | { type: "DESCEND" }
   | { type: "ASCEND" }
+  | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 }
   | { type: "TOGGLE_GOD_MODE" };
 
 type ServerMessage =

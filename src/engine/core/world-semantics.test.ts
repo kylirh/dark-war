@@ -53,6 +53,33 @@ describe("world semantic vocabulary", () => {
     expect(cell.ground).toBe(GroundType.WATER_DEEP);
   });
 
+  it("allows level terrain, blocks cliffs, and crosses one-step stairs", () => {
+    const plane = createWorldPlaneFromTiles(
+      [TileType.FLOOR, TileType.FLOOR, TileType.FLOOR],
+      3,
+      1,
+    );
+    plane.editCell(1, 0, { elevation: 1 });
+    plane.editCell(2, 0, { elevation: 2, fixture: FixtureType.STAIRS });
+
+    expect(plane.canTraverse(0, 0, 1, 0)).toBe(false);
+    expect(plane.canTraverse(1, 0, 2, 0)).toBe(true);
+    expect(plane.canTraverse(2, 0, 1, 0)).toBe(true);
+  });
+
+  it("edits signed elevation with bounded visual invalidation", () => {
+    const plane = createWorldPlaneFromTiles(
+      new Array(25).fill(TileType.GRASS),
+      5,
+      5,
+    );
+    const dirty = plane.editCell(2, 2, { elevation: -40000 });
+
+    expect(plane.layers.elevation[plane.indexFor(2, 2)]).toBe(-32768);
+    expect(dirty).toHaveLength(9);
+    expect(plane.visuals?.lastDirtyIndices).toEqual(dirty);
+  });
+
   it("converts generated layouts into writable authoritative planes", () => {
     const source = [
       TileType.GRASS,
