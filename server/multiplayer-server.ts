@@ -121,6 +121,7 @@ function isIncomingAction(value: unknown): value is IncomingAction {
     value.type === "WAIT" ||
     value.type === "DESCEND" ||
     value.type === "ASCEND" ||
+    value.type === "SHAPE_TERRAIN" ||
     value.type === "TOGGLE_GOD_MODE"
   );
 }
