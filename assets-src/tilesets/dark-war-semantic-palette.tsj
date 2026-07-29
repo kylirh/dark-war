@@ -29,6 +29,16 @@
       ]
     },
     {
+      "id": 66,
+      "properties": [
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "ground.grass"
+        }
+      ]
+    },
+    {
       "id": 170,
       "properties": [
         {
@@ -49,6 +59,16 @@
       ]
     },
     {
+      "id": 298,
+      "properties": [
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "fixture.garden-bed"
+        }
+      ]
+    },
+    {
       "id": 288,
       "properties": [
         {
@@ -65,6 +85,26 @@
           "name": "darkwar.semanticKey",
           "type": "string",
           "value": "fixture.flowers"
+        }
+      ]
+    },
+    {
+      "id": 328,
+      "properties": [
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.workshop"
+        }
+      ]
+    },
+    {
+      "id": 329,
+      "properties": [
+        {
+          "name": "darkwar.semanticKey",
+          "type": "string",
+          "value": "structure.workshop.footprint"
         }
       ]
     }

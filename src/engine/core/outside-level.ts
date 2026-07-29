@@ -15,6 +15,7 @@ import {
   StructureType,
 } from "./world-semantics";
 import { WorldPlane } from "./world-plane";
+import { semanticPrefab, stampSemanticPrefab } from "./semantic-prefab";
 
 export interface OutsideLevelData extends Omit<DungeonData, "map"> {
   entities: ItemEntity[];
@@ -139,6 +140,12 @@ export function createOutsideLevel(): OutsideLevelData {
     fixture: FixtureType.CAVE_MOUTH,
     elevation: 0,
   });
+  stampSemanticPrefab(
+    worldPlane,
+    semanticPrefab("settlement.workshop-garden"),
+    60,
+    5,
+  );
   return {
     width: WIDTH,
     height: HEIGHT,

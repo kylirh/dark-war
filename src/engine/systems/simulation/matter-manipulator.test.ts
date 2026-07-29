@@ -315,4 +315,27 @@ describe("Matter Manipulator", () => {
       ],
     ).toBe(-3);
   });
+
+  it("keeps player-authored terraces within the visual elevation range", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    state.player.hasMatterManipulator = true;
+    const tileX = state.player.gridX + 1;
+    const tileY = state.player.gridY;
+    state.worldPlane.editCell(tileX, tileY, {
+      ground: GroundType.DIRT,
+      structure: StructureType.NONE,
+      fixture: FixtureType.NONE,
+      elevation: 12,
+    });
+
+    shape(game, tileX, tileY, 1);
+    expect(
+      state.worldPlane.layers.elevation[
+        state.worldPlane.indexFor(tileX, tileY)
+      ],
+    ).toBe(12);
+    expect(state.story[0]).toContain("limited to -12 through 12");
+  });
 });

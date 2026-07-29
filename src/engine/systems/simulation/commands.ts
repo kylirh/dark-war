@@ -54,6 +54,8 @@ import {
   SKULKER_BULLET_SPEED,
   SKULKER_SHOOT_MAX_RANGE_PX,
   MATTER_MANIPULATOR_RANGE,
+  MAX_EDITABLE_ELEVATION,
+  MIN_EDITABLE_ELEVATION,
 } from "./constants";
 import {
   pushEvent,
@@ -1168,11 +1170,19 @@ function resolveShapeTerrainCommand(state: GameState, cmd: Command): void {
   }
 
   const previous = state.worldPlane.layers.elevation[index];
-  editStateCell(state, tileX, tileY, { elevation: previous + delta });
+  const next = previous + delta;
+  if (next < MIN_EDITABLE_ELEVATION || next > MAX_EDITABLE_ELEVATION) {
+    msg(
+      state,
+      `Terrain shaping is limited to ${MIN_EDITABLE_ELEVATION} through ${MAX_EDITABLE_ELEVATION}.`,
+    );
+    return;
+  }
+  editStateCell(state, tileX, tileY, { elevation: next });
   state.pendingSounds.push({ effect: SoundEffect.REPAIR });
   msg(
     state,
-    `You ${delta > 0 ? "raise" : "lower"} the terrain to ${previous + delta}.`,
+    `You ${delta > 0 ? "raise" : "lower"} the terrain to ${next}.`,
     cmd.id,
   );
 }

@@ -12,6 +12,8 @@ Read these in order before making art:
    terrain, elevation, and authoring architecture.
 4. [`PREFABS.md`](PREFABS.md) — exact Tiled map, layer, marker, and transform
    contract.
+5. [`AI-WORKFLOW.md`](AI-WORKFLOW.md) — concept provenance, reconstruction,
+   validation, and rejection rules for AI-assisted assets.
 
 Source types:
 

@@ -1,0 +1,113 @@
+{
+  "compressionlevel": -1,
+  "height": 8,
+  "infinite": false,
+  "layers": [
+    {
+      "data": [
+        67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67,
+        67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67,
+        67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67, 67,
+        67, 67, 67, 67, 67, 67, 67, 67, 67, 67
+      ],
+      "height": 8,
+      "id": 1,
+      "name": "ground",
+      "type": "tilelayer",
+      "width": 8,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "data": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 330, 330, 330, 0,
+        0, 0, 0, 0, 330, 329, 330, 0, 0, 0, 0, 0, 330, 330, 330, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      ],
+      "height": 8,
+      "id": 2,
+      "name": "structure",
+      "type": "tilelayer",
+      "width": 8,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "data": [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        0, 0, 0, 0, 0, 0, 171, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 299, 299, 0, 0,
+        300, 0, 0, 0, 299, 299, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+      ],
+      "height": 8,
+      "id": 3,
+      "name": "fixture",
+      "type": "tilelayer",
+      "width": 8,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "draworder": "topdown",
+      "id": 4,
+      "name": "markers",
+      "objects": [
+        {
+          "class": "socket",
+          "id": 1,
+          "name": "front-path",
+          "point": true,
+          "properties": [
+            { "name": "darkwar.direction", "type": "string", "value": "south" },
+            {
+              "name": "darkwar.socket",
+              "type": "string",
+              "value": "settlement-path"
+            }
+          ],
+          "x": 112,
+          "y": 224
+        },
+        {
+          "class": "spawn",
+          "id": 2,
+          "name": "future-builder",
+          "point": true,
+          "properties": [
+            {
+              "name": "darkwar.spawn",
+              "type": "string",
+              "value": "npc.builder"
+            }
+          ],
+          "x": 192,
+          "y": 192
+        }
+      ],
+      "type": "objectgroup"
+    }
+  ],
+  "nextlayerid": 5,
+  "nextobjectid": 3,
+  "orientation": "orthogonal",
+  "properties": [
+    {
+      "name": "darkwar.prefabKey",
+      "type": "string",
+      "value": "settlement.workshop-garden"
+    },
+    {
+      "name": "darkwar.transforms",
+      "type": "string",
+      "value": "identity,reflectX"
+    }
+  ],
+  "renderorder": "right-down",
+  "tileheight": 32,
+  "tilesets": [
+    { "firstgid": 1, "source": "../tilesets/dark-war-semantic-palette.tsj" }
+  ],
+  "tilewidth": 32,
+  "type": "map",
+  "version": "1.10",
+  "width": 8
+}

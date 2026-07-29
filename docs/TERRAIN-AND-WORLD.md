@@ -199,6 +199,10 @@ extra toolchain and debugging cost.
   validation code. Generated images become reviewed source material; AI does not
   generate runtime terrain on demand.
 
+The operational rules, provenance fields, rejection criteria, and validation
+loop are in `assets-src/AI-WORKFLOW.md`. The Tiled schema is documented in
+`assets-src/PREFABS.md`.
+
 Art uses an outline-free, cluster-based pixel language with limited vibrant
 palettes, colored shadows, and atmospheric light. Aseprite production work must
 follow `assets-src/STYLE.md`; retained AI concepts preserve prompt provenance

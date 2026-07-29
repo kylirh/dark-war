@@ -48,6 +48,9 @@ export const IDLE_WANDER_DIRECTIONS: [number, number][] = [
 
 /** Reach of the Matter Manipulator, in tiles from the player's tile. */
 export const MATTER_MANIPULATOR_RANGE = 6;
+/** Broad but finite SNES-style shaping range for one visible 2D plane. */
+export const MIN_EDITABLE_ELEVATION = -12;
+export const MAX_EDITABLE_ELEVATION = 12;
 
 export const EXPLOSIVE_CONFIG: Record<
   ItemType.GRENADE | ItemType.LAND_MINE,

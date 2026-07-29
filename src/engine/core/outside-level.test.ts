@@ -65,4 +65,16 @@ describe("createOutsideLevel", () => {
       ),
     ).toBe(true);
   });
+
+  it("composes the Tiled-authored rebuilding vignette", () => {
+    const level = createOutsideLevel();
+    expect(
+      level.worldPlane.layers.structure.includes(StructureType.WORKSHOP),
+    ).toBe(true);
+    expect(
+      level.worldPlane.layers.structure.includes(
+        StructureType.WORKSHOP_FOOTPRINT,
+      ),
+    ).toBe(true);
+  });
 });

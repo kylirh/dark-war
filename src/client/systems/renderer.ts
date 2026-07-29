@@ -562,6 +562,9 @@ export class Renderer {
       FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
     const damage = getStateDamageAtIndex(state, tileIndex);
     const fixture = state.worldPlane.layers.fixture[tileIndex] as FixtureType;
+    const structure = state.worldPlane.layers.structure[
+      tileIndex
+    ] as StructureType;
     let baseCoord: { x: number; y: number } | null = null;
     let overlayCoord: { x: number; y: number } | null = null;
     let tileCoord: { x: number; y: number } | null = null;
@@ -610,6 +613,11 @@ export class Renderer {
           : state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
             ? SPRITE_COORDS.megacorp_entrance
             : SPRITE_COORDS[tileType];
+    } else if (structure === StructureType.WORKSHOP) {
+      baseCoord = SPRITE_COORDS[TileType.GRASS];
+      tileCoord = SPRITE_COORDS.prototype_workshop;
+    } else if (structure === StructureType.WORKSHOP_FOOTPRINT) {
+      baseCoord = SPRITE_COORDS[TileType.GRASS];
     } else if (tileType === TileType.WALL) {
       const isWood = state.wallSet === "wood";
       const wallSpriteKey =
@@ -688,15 +696,18 @@ export class Renderer {
         tileType === TileType.STAIRS_UP ||
         (tileType === TileType.STAIRS_DOWN && state.levelKind !== "outside");
       const verticalKey =
-        tileType === TileType.WALL
-          ? state.wallSet === "wood"
-            ? "wall_wood"
-            : TileType.WALL
-          : fixture === FixtureType.CAVE_MOUTH
-            ? "prototype_cave_mouth"
-            : state.levelKind === "outside" && tileType === TileType.STAIRS_DOWN
-              ? "megacorp_entrance"
-              : tileType;
+        structure === StructureType.WORKSHOP
+          ? "prototype_workshop"
+          : tileType === TileType.WALL
+            ? state.wallSet === "wood"
+              ? "wall_wood"
+              : TileType.WALL
+            : fixture === FixtureType.CAVE_MOUTH
+              ? "prototype_cave_mouth"
+              : state.levelKind === "outside" &&
+                  tileType === TileType.STAIRS_DOWN
+                ? "megacorp_entrance"
+                : tileType;
       this.drawPreviewSprite(
         context,
         tileCoord,
@@ -1538,6 +1549,11 @@ export class Renderer {
           } else {
             renderGround(tileType);
           }
+        } else if (productionStructure === StructureType.WORKSHOP) {
+          renderGround(TileType.GRASS);
+          renderDepthTile("prototype_workshop");
+        } else if (productionStructure === StructureType.WORKSHOP_FOOTPRINT) {
+          renderGround(TileType.GRASS);
         } else if (tileType === TileType.WALL) {
           const isWood = state.wallSet === "wood";
           const wallSpriteKey =
@@ -1608,6 +1624,12 @@ export class Renderer {
 
         if (productionFixture === FixtureType.STAIRS && !isProductionWater) {
           renderGround("prototype_stairs");
+        } else if (productionFixture === FixtureType.GARDEN) {
+          renderGround("prototype_garden");
+        } else if (productionFixture === FixtureType.CRATE) {
+          renderDepthTile("crate");
+        } else if (productionFixture === FixtureType.FLOWERS) {
+          renderDepthTile("prototype_flowers");
         }
 
         if (

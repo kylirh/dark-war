@@ -211,19 +211,33 @@ or graphical seams.
 
 ## Milestone 8 — Content expansion
 
-**Status: PLANNED**
+**Status: COMPLETE**
 
-- Expand biomes, cliff families, shorelines, roads, rivers, forests, structures,
-  multi-floor interiors, and underground generation.
-- Add player-facing terrain editing constraints and feedback.
-- Expand rebuilding, gardening, construction, community, companion, and
-  settlement-upgrade assets as primary content families.
-- Give non-combat actions effects and animation polish equal to combat.
-- Formalize the AI-assisted concept, generator-code, cleanup, and validation
-  workflow after the human-authored pipeline is proven.
+The foundation program now demonstrates repeated content creation rather than a
+single laboratory: the production surface combines terraces, signed
+depressions, static pond/river water, a bridge, forest/city families, a portal
+cave, and a Tiled-authored workshop/garden vignette; the cave combines
+procedural chambers with a second transformed semantic-prefab family. Production
+rendering supports the rebuilding structures and fixtures. Terrain shaping has
+clear reach, occupancy, material, clearance, water, and ±12 elevation feedback.
+`assets-src/AI-WORKFLOW.md` formalizes provenance, grid reconstruction, review,
+and validation. This completes the terrain/world foundation; further biomes,
+settlements, and activities are ordinary game-content work built on it.
+
+- Ship production surface, water, elevation, cave, facility, and rebuilding
+  content through the shared semantic pipeline.
+- Ship player-facing terrain-editing constraints and feedback.
+- Prove a second Tiled prefab family with workshop, garden, flowers, crate,
+  socket, and spawn semantics.
+- Formalize the AI-assisted concept, generator-code, cleanup, provenance, and
+  validation workflow.
 
 Exit: the system is productive for repeated content creation, not merely a
 successful prototype.
+
+Ongoing game-content work will add more biomes, settlements, NPC activities,
+companions, upgrades, and non-combat animation polish without changing this
+foundation.
 
 ## Deferred work
 

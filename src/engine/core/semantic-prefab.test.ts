@@ -20,6 +20,7 @@ function floorPlane(width = 32, height = 24) {
 describe("semantic prefabs", () => {
   it("loads the Tiled-authored prefab and preserves its markers", () => {
     expect(prefabKeys()).toContain("cave.rest-stop");
+    expect(prefabKeys()).toContain("settlement.workshop-garden");
     const prefab = semanticPrefab("cave.rest-stop");
     expect(prefab.markers.map((marker) => marker.kind)).toEqual([
       "socket",
