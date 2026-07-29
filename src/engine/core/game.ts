@@ -40,6 +40,7 @@ import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { SoundEffect } from "../content/sound-effects";
 import { WorldPlane } from "./world-plane";
+import { createWorldPlaneFromTiles } from "./world-semantics";
 import {
   applyTerrainPrototypeElevationEdit,
   createTerrainPrototypePlane,
@@ -204,8 +205,9 @@ export class Game {
       mapDirty: false,
       tiles:
         outside?.worldPlane ??
+        dungeonLevel?.worldPlane ??
         new FlatTileSource(dungeon.map, dungeon.width, dungeon.height),
-      worldPlane: outside?.worldPlane,
+      worldPlane: outside?.worldPlane ?? dungeonLevel?.worldPlane,
       visible: new Set(),
       explored,
       accessible: new Set(),
@@ -809,6 +811,7 @@ export class Game {
     start: [number, number];
     stairsDown: [number, number];
     stairsUp: [number, number];
+    worldPlane: WorldPlane;
   } {
     const seed = RNG.int(0x40000000);
     const d = generateDungeon(
@@ -818,8 +821,9 @@ export class Game {
       new RandomNumberGenerator(seed),
     );
     setTileFor(d.map, d.start[0], d.start[1], d.width, TileType.STAIRS_UP);
+    const worldPlane = createWorldPlaneFromTiles(d.map, d.width, d.height);
     return {
-      map: d.map,
+      map: worldPlane.legacyTiles,
       width: d.width,
       height: d.height,
       floorVariant: d.floorVariant,
@@ -827,6 +831,7 @@ export class Game {
       start: d.start,
       stairsDown: d.stairsDown,
       stairsUp: [d.start[0], d.start[1]],
+      worldPlane,
     };
   }
 
@@ -856,6 +861,7 @@ export class Game {
       stairsDown: level.stairsDown,
       stairsUp: level.stairsUp,
       enhancedVision: false,
+      worldPlane: level.worldPlane,
     };
   }
 

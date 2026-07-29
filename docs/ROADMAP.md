@@ -71,7 +71,13 @@ The outside generator now emits an authoritative `WorldPlane`. Runtime door,
 building, mining, destruction, hole, repair, and damage mutations use one
 canonical helper that keeps semantic layers, derived scalar projection, and
 physics invalidation synchronized. Depth snapshots retain the same outside
-plane. Dungeon generation and persistence/netcode remain to migrate.
+plane. Persistence and netcode remain to migrate.
+
+Dungeon generation now also converts immediately into authoritative layered
+storage, including wall/door structures and stair fixtures. Fresh gameplay and
+in-memory depth snapshots therefore use `WorldPlane` on every ordinary level.
+Persistence and multiplayer payloads remain the last scalar authorities to
+replace before the old map fields can be deleted.
 
 - Replace the scalar tile model with a structure-of-arrays plane model.
 - Classify current `TileType` use into ground, structure, and fixture semantics.

@@ -93,6 +93,11 @@ plane directly, and `utils/state-tiles.ts` is the required runtime mutation path
 The derived scalar projection remains synchronized for renderer and simulation
 reads that have not yet moved to direct layer queries.
 
+The bounded dungeon generator now crosses the same boundary immediately after
+layout generation and stair placement. All freshly generated gameplay planes
+are therefore layered; scalar save and multiplayer payloads are the remaining
+authoritative-format migration work.
+
 This interface is illustrative; fields may change when the visual slice proves
 what is required. The durable decisions are compositional semantic layers,
 typed-array storage, and sparse records for exceptional state. A `WorldCell`

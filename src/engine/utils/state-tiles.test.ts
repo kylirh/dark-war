@@ -33,17 +33,20 @@ describe("state tile mutations", () => {
     expect(state.worldPlane!.layers.damage[index]).toBe(7);
   });
 
-  it("continues to mutate flat dungeon levels through the same API", () => {
+  it("mutates authoritative dungeon layers through the same API", () => {
     const game = new Game();
     game.reset(1);
     const state = game.getState();
     const index = state.player.gridX + state.player.gridY * state.mapWidth;
 
-    expect(state.worldPlane).toBeUndefined();
+    expect(state.worldPlane).toBeDefined();
     expect(setStateTileAtIndex(state, index, TileType.HOLOWALL)).toBe(true);
     expect(state.tiles.getTile(state.player.gridX, state.player.gridY)).toBe(
       TileType.HOLOWALL,
     );
     expect(state.map[index]).toBe(TileType.HOLOWALL);
+    expect(state.worldPlane!.layers.structure[index]).toBe(
+      StructureType.HOLOWALL,
+    );
   });
 });

@@ -46,13 +46,12 @@ read-only derived coordinates and must never be assigned.
 
 ## Current world implementation
 
-The 128×72 toroidal outside and the terrain laboratory now use authoritative
+Fresh outside, dungeon, and terrain-laboratory levels now use authoritative
 `WorldPlane` storage. They own aligned semantic typed arrays and expose a derived
 scalar projection only to consumers awaiting migration. Runtime tile mutations
-flow through `utils/state-tiles.ts`, keeping both views synchronized. Dungeons
-remain bounded 128×96 scalar maps with sealed borders while their generator,
-persistence, and netcode conversion proceeds. Legacy tile identity still mixes
-ground, structures, fixtures, and presentation concerns in those paths.
+flow through `utils/state-tiles.ts`, keeping both views synchronized. Save and
+network payloads still use scalar maps while their breaking format conversion
+proceeds; those are now the remaining scalar authorities.
 
 `core/world-semantics.ts` owns the shared ground/structure/fixture IDs, stable
 authoring keys, complete current-tile classification, and the conversion boundary

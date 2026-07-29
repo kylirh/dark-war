@@ -8,6 +8,7 @@ import { BulletEntity } from "../entities/bullet-entity";
 import { SoundEffect } from "../content/sound-effects";
 import { TerrainPrototypeTransitionMode } from "../systems/terrain/terrain-prototype";
 import { setStateTile } from "../utils/state-tiles";
+import { FixtureType, StructureType } from "./world-semantics";
 
 describe("Game serialize/deserialize round-trip", () => {
   beforeEach(() => RNG.reseed(424242));
@@ -93,6 +94,14 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(state.depth).toBe(1);
     expect(state.levelKind).toBe("dungeon");
     expect(state.mapWidth).toBe(128);
+    expect(state.worldPlane).toBeDefined();
+    expect(state.map).toBe(state.worldPlane!.legacyTiles);
+    expect([...state.worldPlane!.layers.structure]).toContain(
+      StructureType.WALL,
+    );
+    expect([...state.worldPlane!.layers.fixture]).toContain(
+      FixtureType.STAIRS_DOWN,
+    );
     expect(state.tiles.getTile(state.stairsDown[0], state.stairsDown[1])).toBe(
       TileType.STAIRS_DOWN,
     );
@@ -108,7 +117,8 @@ describe("Game serialize/deserialize round-trip", () => {
     const outsidePlane = outside.worldPlane;
 
     game.descend();
-    expect(game.getState().worldPlane).toBeUndefined();
+    expect(game.getState().worldPlane).toBeDefined();
+    expect(game.getState().tiles).toBe(game.getState().worldPlane);
     game.ascend();
 
     const restored = game.getState();
