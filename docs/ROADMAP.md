@@ -268,7 +268,8 @@ files without coordination. Before starting:
 
 ### Handoff ledger
 
-| Milestones | Branch/owner               | Scope                                       | Status | Notes                              |
-| ---------- | -------------------------- | ------------------------------------------- | ------ | ---------------------------------- |
-| M0–M8      | `codex/terrain-foundation` | Complete terrain/world foundation program   | done   | Tests, docs, and authoring sources |
-| Next       | unassigned                 | Ordinary game content and product expansion | open   | Build on the completed foundation  |
+| Milestones | Branch/owner               | Scope                                        | Status | Notes                              |
+| ---------- | -------------------------- | -------------------------------------------- | ------ | ---------------------------------- |
+| M0–M8      | `codex/terrain-foundation` | Complete terrain/world foundation program    | done   | Tests, docs, and authoring sources |
+| Product    | `codex/speech-bubbles`     | World speech, thought, and reaction callouts | ready  | Offline/online, FOV, queues, tests |
+| Next       | unassigned                 | Ordinary game content and product expansion  | open   | Build on the completed foundation  |

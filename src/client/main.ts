@@ -77,6 +77,12 @@ import {
 } from "../engine/utils/multiplayer";
 import { findPathToClosestReachable } from "../engine/utils/pathfinding";
 import { MultiplayerClient, NetworkAction } from "../net/multiplayer-client";
+import {
+  emitWorldTextCallout,
+  sanitizeWorldCalloutText,
+} from "../engine/utils/world-callouts";
+import { CalloutComposer, PlayerCalloutKind } from "./systems/callout-composer";
+import { WorldCalloutManager } from "./systems/world-callout-manager";
 
 /**
  * Dark War - Main Entry Point
@@ -266,6 +272,8 @@ class DarkWar {
   private characterModal: CharacterModal;
   private gameMenu: GameMenu;
   private saveSlotDialog: SaveSlotDialog;
+  private calloutComposer: CalloutComposer;
+  private readonly worldCalloutManager = new WorldCalloutManager();
   private preferences: UserPreferences;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private inputHandler: InputHandler;
@@ -469,6 +477,11 @@ class DarkWar {
     this.renderer = new Renderer("game", this.preferences.zoom);
     if (DEBUG) console.timeEnd("Create Renderer");
 
+    this.calloutComposer = new CalloutComposer({
+      onSubmit: (kind, text) => this.handlePlayerCallout(kind, text),
+      onClose: () => this.inputHandler?.resetKeys(),
+    });
+
     if (DEBUG) console.time("Create UI");
     this.ui = new UI();
     if (DEBUG) console.timeEnd("Create UI");
@@ -546,6 +559,7 @@ class DarkWar {
       onUpdateVelocity: (vx, vy) => this.handleUpdateVelocity(vx, vy),
       onFire: (dx, dy) => this.handleFire(dx, dy),
       onInteract: (dx, dy) => this.handleInteract(dx, dy),
+      onOpenCalloutComposer: (kind) => this.openCalloutComposer(kind),
       onPickup: () => this.handlePickup(),
       onWait: () => this.handleWait(),
       onReload: () => this.handleReload(),
@@ -797,6 +811,20 @@ class DarkWar {
         );
       }
     }
+    if (serializedState.callouts && serializedState.callouts.length > 0) {
+      const accepted = this.worldCalloutManager.ingest(
+        serializedState.callouts,
+        performance.now(),
+      );
+      for (const callout of accepted) {
+        if (
+          callout.speakerId === serializedState.multiplayer.localPlayerId &&
+          callout.kind !== "reaction"
+        ) {
+          this.calloutComposer.announce(callout.kind, callout.text);
+        }
+      }
+    }
 
     // Capture the predicted local-player position before the authoritative
     // state overwrites it, so we can reconcile rather than hard-snap.
@@ -1007,6 +1035,12 @@ class DarkWar {
     state.pendingSounds.length = 0;
   }
 
+  private consumePendingCallouts(state: ReturnType<Game["getState"]>): void {
+    if (state.pendingCallouts.length === 0) return;
+    this.worldCalloutManager.ingest(state.pendingCallouts, performance.now());
+    state.pendingCallouts.length = 0;
+  }
+
   private playSoundCue(
     cue: SoundCue,
     listener: Player,
@@ -1032,6 +1066,7 @@ class DarkWar {
     state: ReturnType<Game["getState"]>,
   ): void {
     this.playPendingSounds(state);
+    this.consumePendingCallouts(state);
     this.game.updateFOV();
     this.syncOfflineDeathState(state);
   }
@@ -1397,6 +1432,7 @@ class DarkWar {
       stepSimulationTick(state);
       this.game.harvestFallenItems();
       this.playPendingSounds(state);
+      this.consumePendingCallouts(state);
       state.sim.accumulatorMs -= SIM_DT_MS;
       this.game.updateFOV();
 
@@ -1533,7 +1569,13 @@ class DarkWar {
     const player = state.player;
 
     this.updateMatterManipulator();
-    this.renderer.render(state, isDead, alpha);
+    this.worldCalloutManager.setWorld(state.worldSpaceId, state.worldPlaneId);
+    this.renderer.render(
+      state,
+      isDead,
+      alpha,
+      this.worldCalloutManager.getActive(performance.now()),
+    );
     this.ui.updateAll(
       state.player,
       state.depth,
@@ -1573,6 +1615,34 @@ class DarkWar {
   /**
    * Handle velocity updates from WASD input
    */
+  private openCalloutComposer(kind: PlayerCalloutKind): void {
+    if (this.isLocalPlayerDead() || this.characterModal.isOpen()) return;
+    this.cancelAutoMove();
+    this.inputHandler.resetKeys();
+    if (this.isOnlineMode()) this.setOnlineMoveIntent(0, 0);
+    this.calloutComposer.open(kind);
+  }
+
+  private handlePlayerCallout(kind: PlayerCalloutKind, rawText: string): void {
+    const text = sanitizeWorldCalloutText(rawText);
+    if (text.length === 0) return;
+
+    if (this.isOnlineMode()) {
+      this.dispatchOnlineAction({ type: "SPEAK", kind, text });
+      return;
+    }
+
+    const state = this.game.getState();
+    const accepted = emitWorldTextCallout(state, {
+      kind,
+      text,
+      speakerId: state.player.id,
+    });
+    if (!accepted) return;
+    this.consumePendingCallouts(state);
+    this.calloutComposer.announce(kind, accepted.text);
+  }
+
   private handleUpdateVelocity(vx: number, vy: number): void {
     const state = this.game.getState();
     const player = state.player;
@@ -2496,6 +2566,7 @@ class DarkWar {
   }
 
   private startNewSinglePlayerGame(): void {
+    this.worldCalloutManager.clear();
     this.game.reset(0);
 
     this.syncGameOverOverlay(false);
@@ -2551,7 +2622,7 @@ class DarkWar {
   private async saveGameToSlot(slot: number): Promise<boolean> {
     try {
       this.render(0);
-      const serializedState = this.game.serialize();
+      const serializedState = { ...this.game.serialize(), callouts: [] };
       const screenshotDataUrl = await this.renderer.capturePlayerSnapshot(
         this.game.getState(),
         4,
@@ -2587,6 +2658,7 @@ class DarkWar {
     try {
       const record = await readSaveSlot(slot);
       if (!record) return false;
+      this.worldCalloutManager.clear();
       this.game.deserialize(record.state);
       this.reinitializePhysicsForCurrentState();
       this.syncGameOverOverlay(this.game.getState().player.hp <= 0);

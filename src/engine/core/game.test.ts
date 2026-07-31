@@ -82,6 +82,30 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(before.plane.damage[10]).not.toBe(after.plane.damage[10]);
   });
 
+  it("copies callout transport data without restoring it as world state", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    state.pendingCallouts.push({
+      id: "callout-1",
+      kind: "speech",
+      speakerId: state.player.id,
+      text: "Just passing through.",
+      worldX: state.player.worldX,
+      worldY: state.player.worldY,
+      priority: "normal",
+      audiencePlayerIds: [state.player.id],
+    });
+
+    const serialized = game.serialize();
+    state.pendingCallouts[0].audiencePlayerIds?.push("someone-else");
+    expect(serialized.callouts[0].audiencePlayerIds).toEqual([state.player.id]);
+
+    const restored = new Game({ mode: "offline" });
+    restored.deserialize(serialized);
+    expect(restored.getState().pendingCallouts).toEqual([]);
+  });
+
   it("reuses each accessibility flood fill until its plane changes", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);

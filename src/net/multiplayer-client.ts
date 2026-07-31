@@ -38,6 +38,7 @@ export type NetworkAction =
   | { type: "DESCEND" }
   | { type: "ASCEND" }
   | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 }
+  | { type: "SPEAK"; kind: "speech" | "thought"; text: string }
   | { type: "TOGGLE_GOD_MODE" };
 
 type ServerMessage =

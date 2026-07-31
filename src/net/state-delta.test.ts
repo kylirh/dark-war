@@ -81,6 +81,7 @@ function baseState(): SerializedState {
     sim: { nowTick: 100, mode: "REALTIME", timeScale: 1, targetTimeScale: 1 },
     multiplayer: { mode: "online", localPlayerId: "p1" },
     sounds: [],
+    callouts: [],
     effects: [],
   };
 }
@@ -167,6 +168,22 @@ describe("computeStateDelta / applyStateDelta", () => {
         worldY: 640,
         maxDistancePx: 480,
         minimumVolumeScale: 0.2,
+      },
+    ];
+    roundTrip(baseState(), next);
+  });
+
+  it("round-trips ephemeral world callouts on every delta", () => {
+    const next = baseState();
+    next.callouts = [
+      {
+        id: "callout-1",
+        kind: "thought",
+        speakerId: "p1",
+        text: "Maybe this way…",
+        worldX: 10,
+        worldY: 20,
+        priority: "normal",
       },
     ];
     roundTrip(baseState(), next);

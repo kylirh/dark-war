@@ -369,6 +369,35 @@ export interface SoundCue {
   minimumVolumeScale?: number;
 }
 
+/** Visual emphasis used when several world callouts compete for screen space. */
+export type WorldCalloutPriority = "ambient" | "normal" | "urgent";
+
+/** Semantic reaction artwork selected by the presentation layer. */
+export type WorldReactionId = "gasp" | "pow" | "surprise" | "heart";
+
+interface WorldCalloutBase {
+  id: string;
+  speakerId?: string;
+  worldX: number;
+  worldY: number;
+  priority: WorldCalloutPriority;
+  /** When present, only these players should receive the callout. */
+  audiencePlayerIds?: string[];
+}
+
+export interface WorldTextCallout extends WorldCalloutBase {
+  kind: "speech" | "thought";
+  text: string;
+}
+
+export interface WorldReactionCallout extends WorldCalloutBase {
+  kind: "reaction";
+  reactionId: WorldReactionId;
+}
+
+/** Ephemeral, world-anchored presentation emitted by simulation or players. */
+export type WorldCallout = WorldTextCallout | WorldReactionCallout;
+
 // ========================================
 // Simulation System (NEW)
 // ========================================
@@ -575,6 +604,8 @@ export interface GameState {
   holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
   /** Sound effects queued during simulation for local or network playback. */
   pendingSounds: SoundCue[];
+  /** Ephemeral world callouts awaiting local presentation or network broadcast. */
+  pendingCallouts: WorldCallout[];
   /** Development-only visual slice; never serialized into production saves. */
   terrainPrototype?: import("./systems/terrain/terrain-prototype").TerrainPrototypePlane;
   /**
@@ -626,6 +657,7 @@ export interface SerializedState {
     targetTimeScale: number;
   };
   sounds: SoundCue[]; // Sound effects to play on receiving client
+  callouts: WorldCallout[]; // Ephemeral world callouts for this snapshot only
   effects: Effect[]; // Visual effects (explosions, etc.)
 }
 

@@ -27,6 +27,10 @@ import { isJunk, ITEM_DEFS } from "../../content/item-defs";
 import { ItemEntity } from "../../entities/item-entity";
 import { SoundEffect } from "../../content/sound-effects";
 import {
+  emitWorldReaction,
+  emitWorldTextCallout,
+} from "../../utils/world-callouts";
+import {
   equippedMonsterWeaponType,
   MONSTER_LASER_SHOT_COST,
   monsterCanUseEquippedWeapon,
@@ -546,6 +550,11 @@ const DOG_WHIMPER_CHANCE = 0.08;
 const SNAGGLEPUSS_MUTTER_RANGE_PX = CELL_CONFIG.w * 12;
 const SNAGGLEPUSS_MUTTER_COOLDOWN_TICKS = 240;
 const SNAGGLEPUSS_MUTTER_CHANCE = 0.05;
+const SNAGGLEPUSS_MUTTERS = [
+  "Shiny things…",
+  "Mine? Maybe mine.",
+  "No tricks. Promise.",
+];
 const DOG_VOCAL_SOUNDS = [
   SoundEffect.DOG_VOCAL_1,
   SoundEffect.DOG_VOCAL_2,
@@ -591,6 +600,12 @@ function updateSnagglepussMutter(state: GameState, snagglepuss: Monster): void {
     worldX: snagglepuss.worldX,
     worldY: snagglepuss.worldY,
     maxDistancePx: SNAGGLEPUSS_MUTTER_RANGE_PX,
+  });
+  emitWorldTextCallout(state, {
+    kind: "speech",
+    text: RNG.choose(SNAGGLEPUSS_MUTTERS),
+    speakerId: snagglepuss.id,
+    priority: "ambient",
   });
 }
 
@@ -1456,12 +1471,16 @@ function decideUtilityBotCommand(
         "The utility bot purrs and nuzzles into you.",
         "The utility bot makes happy, content noises.",
       ];
+      emitWorldReaction(state, {
+        reactionId: "heart",
+        speakerId: monster.id,
+        priority: "ambient",
+      });
       pushEvent(state, {
         type: EventType.MESSAGE,
         data: {
           type: "MESSAGE",
-          message:
-            nuzzleMessages[Math.floor(Math.random() * nuzzleMessages.length)],
+          message: RNG.choose(nuzzleMessages),
         },
       });
     }

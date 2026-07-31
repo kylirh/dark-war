@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { WebSocket } from "ws";
+import { RawData, WebSocket } from "ws";
 import { startMultiplayerServer } from "./multiplayer-server";
 
 type Server = Awaited<ReturnType<typeof startMultiplayerServer>>;
@@ -39,6 +39,53 @@ function waitFor(
 
 function send(socket: WebSocket, payload: unknown): void {
   socket.send(JSON.stringify(payload));
+}
+
+function waitForCallout(socket: WebSocket, timeoutMs = 2000): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("timeout waiting for world callout")),
+      timeoutMs,
+    );
+    socket.on("message", (raw) => {
+      const message = JSON.parse(raw.toString());
+      const callouts =
+        message.type === "state_full"
+          ? message.state.callouts
+          : message.type === "state_delta"
+            ? message.delta.callouts
+            : undefined;
+      if (Array.isArray(callouts) && callouts.length > 0) {
+        clearTimeout(timer);
+        resolve(callouts[0]);
+      }
+    });
+    socket.on("error", reject);
+  });
+}
+
+function collectCalloutsFor(
+  socket: WebSocket,
+  durationMs: number,
+): Promise<any[]> {
+  return new Promise((resolve) => {
+    const found: any[] = [];
+    const onMessage = (raw: RawData): void => {
+      const message = JSON.parse(raw.toString());
+      const callouts =
+        message.type === "state_full"
+          ? message.state.callouts
+          : message.type === "state_delta"
+            ? message.delta.callouts
+            : undefined;
+      if (Array.isArray(callouts)) found.push(...callouts);
+    };
+    socket.on("message", onMessage);
+    setTimeout(() => {
+      socket.off("message", onMessage);
+      resolve(found);
+    }, durationMs);
+  });
 }
 
 describe("multiplayer server (multi-world)", () => {
@@ -131,5 +178,48 @@ describe("multiplayer server (multi-world)", () => {
     host.close();
     guest.close();
     void hostWelcome;
+  });
+
+  it("validates and broadcasts player speech to everyone on the plane", async () => {
+    server = await startMultiplayerServer(0);
+    const host = connect(server.port, "Host");
+    const hostWelcome = await waitFor(host, "welcome");
+    const guest = connect(server.port, "Guest");
+    await waitFor(guest, "welcome");
+    send(host, { type: "start_game" });
+    await Promise.all([
+      waitFor(host, "state_full"),
+      waitFor(guest, "state_full"),
+    ]);
+
+    const hostCallout = waitForCallout(host);
+    const guestCallout = waitForCallout(guest);
+    send(host, {
+      type: "action",
+      action: { type: "SPEAK", kind: "speech", text: "  Hello\nworld!  " },
+      seq: 1,
+    });
+
+    await expect(hostCallout).resolves.toMatchObject({
+      kind: "speech",
+      speakerId: hostWelcome.playerId,
+      text: "Hello world!",
+    });
+    await expect(guestCallout).resolves.toMatchObject({
+      kind: "speech",
+      speakerId: hostWelcome.playerId,
+      text: "Hello world!",
+    });
+
+    const rateLimitedCallouts = collectCalloutsFor(host, 300);
+    send(host, {
+      type: "action",
+      action: { type: "SPEAK", kind: "speech", text: "Too soon" },
+      seq: 2,
+    });
+    await expect(rateLimitedCallouts).resolves.toEqual([]);
+
+    host.close();
+    guest.close();
   });
 });
