@@ -289,20 +289,9 @@ export class Game {
     this.state.entityManager.spawn(this.state.player);
 
     if (outside) {
-      // The CTDM (time-dilation device) has no place in multiplayer — online
-      // play is always real-time — so don't spawn it as a findable item there.
-      const outsideEntities =
-        this.multiplayerMode === "online"
-          ? outside.entities.filter(
-              (e) =>
-                !(
-                  e.kind === EntityKind.ITEM &&
-                  ((e as Item).type === ItemType.CTDM ||
-                    (e as Item).type === ItemType.MATTER_MANIPULATOR)
-                ),
-            )
-          : outside.entities;
-      this.state.entityManager.spawnAll(outsideEntities);
+      // The CTDM and Matter Manipulator are no longer world items — the workshop
+      // builder hands them over in conversation — so nothing to filter here.
+      this.state.entityManager.spawnAll(outside.entities);
       this.addStory("The city is quiet. Megacorp waits to the northeast.");
       this.updateFOV();
       if (DEBUG) console.timeEnd("reset: total");

@@ -7,8 +7,9 @@
  * it is reproducible across save/load and identical on every peer.
  */
 
-import { GameState, Entity, EventType } from "../../types";
+import { GameState, Entity, EntityKind, EventType, Player } from "../../types";
 import { pushEvent } from "./sim-helpers";
+import { grantCoreDevice } from "./events";
 import { SOCIAL_DEFS } from "../../content/social-defs";
 import { deterministicChoice } from "../../utils/deterministic-roll";
 
@@ -46,8 +47,15 @@ export function findTalkTarget(
   );
 }
 
-/** Voice a talkable actor: first-meet lines once, then a repeatable greeting. */
-export function resolveTalk(state: GameState, target: Entity): void {
+/**
+ * Voice a talkable actor: first-meet lines (and any one-time gift) once, then a
+ * repeatable greeting. `actor` is the interacting entity (gifts go to it).
+ */
+export function resolveTalk(
+  state: GameState,
+  actor: Entity,
+  target: Entity,
+): void {
   const social = target.social;
   if (!social) return;
   const def = SOCIAL_DEFS[social.defId];
@@ -58,6 +66,12 @@ export function resolveTalk(state: GameState, target: Entity): void {
   if (def.firstMeet && !flags.met) {
     lines.push(...def.firstMeet);
     flags.met = true;
+    // Hand over one-time starting gear to the interacting player.
+    if (def.gifts && actor.kind === EntityKind.PLAYER) {
+      for (const gift of def.gifts) {
+        grantCoreDevice(actor as Player, gift);
+      }
+    }
   }
 
   lines.push(

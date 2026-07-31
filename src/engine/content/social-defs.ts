@@ -6,6 +6,8 @@
  * (not on the entity) keeps entities small and lets many actors share a voice.
  */
 
+import { ItemType } from "../types";
+
 export interface SocialDef {
   /** Display name shown in the log / dialogue. */
   name: string;
@@ -16,6 +18,11 @@ export interface SocialDef {
    * introduction, or handing over starting gear). Optional.
    */
   firstMeet?: string[];
+  /**
+   * Core devices handed to the player the first time they talk. Applied once
+   * (idempotent — already-owned devices are skipped).
+   */
+  gifts?: ItemType[];
   /** Repeatable ambient greeting lines (deterministically chosen). */
   greeting: string[];
 }
@@ -26,7 +33,9 @@ export const SOCIAL_DEFS: Record<string, SocialDef> = {
     faction: "settlers",
     firstMeet: [
       "Marda wipes her hands on her apron. “You made it. Good — the settlement can always use another pair of hands.”",
+      "“Here — you'll want these.” She presses a Cognitive Time Dilation Module and a Matter Manipulator into your hands. “The CTDM slows time when things get hairy. The Manipulator mines and builds. Go on, get the feel of them.”",
     ],
+    gifts: [ItemType.CTDM, ItemType.MATTER_MANIPULATOR],
     greeting: [
       "Marda: “The garden's coming back. Slow, but it's coming.”",
       "Marda: “Mind the cliffs out east. Pretty, but they'll turn an ankle.”",

@@ -816,6 +816,32 @@ function processDoorOpenEvent(state: GameState, event: GameEvent): void {
   }
 }
 
+/**
+ * Grant a core device (CTDM / Matter Manipulator) to a player, applying the
+ * same state changes as picking it up. Returns true if newly granted (false if
+ * already owned). Shared by item pickup and the workshop builder's gift so both
+ * paths stay identical. Callers own the messaging.
+ */
+export function grantCoreDevice(player: Player, itemType: ItemType): boolean {
+  if (itemType === ItemType.CTDM) {
+    if (player.hasCTDM) return false;
+    player.hasCTDM = true;
+    player.ctdmEnabled = true;
+    if (player.ctdmCharge <= 0) {
+      player.ctdmCharge = Math.floor(player.ctdmChargeMax * 0.5);
+    }
+    addToInventory(player, ItemType.CTDM);
+    return true;
+  }
+  if (itemType === ItemType.MATTER_MANIPULATOR) {
+    if (player.hasMatterManipulator) return false;
+    player.hasMatterManipulator = true;
+    addToInventory(player, ItemType.MATTER_MANIPULATOR);
+    return true;
+  }
+  return false;
+}
+
 function processPickupItemEvent(state: GameState, event: GameEvent): void {
   const data = event.data as {
     type: "PICKUP_ITEM";
@@ -915,13 +941,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       break;
     }
     case ItemType.CTDM:
-      if (!player.hasCTDM) {
-        player.hasCTDM = true;
-        player.ctdmEnabled = true;
-        if (player.ctdmCharge <= 0) {
-          player.ctdmCharge = Math.floor(player.ctdmChargeMax * 0.5);
-        }
-        addToInventory(player, ItemType.CTDM);
+      if (grantCoreDevice(player, ItemType.CTDM)) {
         pushEvent(state, {
           type: EventType.MESSAGE,
           data: {
@@ -939,9 +959,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       }
       break;
     case ItemType.MATTER_MANIPULATOR:
-      if (!player.hasMatterManipulator) {
-        player.hasMatterManipulator = true;
-        addToInventory(player, ItemType.MATTER_MANIPULATOR);
+      if (grantCoreDevice(player, ItemType.MATTER_MANIPULATOR)) {
         pushEvent(state, {
           type: EventType.MESSAGE,
           data: {

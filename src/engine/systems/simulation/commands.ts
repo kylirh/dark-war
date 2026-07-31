@@ -1513,7 +1513,7 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
   // Talk to an interactable actor at the targeted tile (or adjacent to us).
   const talkTarget = findTalkTarget(state, actor, data.x, data.y);
   if (talkTarget) {
-    resolveTalk(state, talkTarget);
+    resolveTalk(state, actor, talkTarget);
     return;
   }
 
