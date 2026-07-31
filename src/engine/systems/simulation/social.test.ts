@@ -18,18 +18,25 @@ describe("social actors", () => {
     expect(builder.social?.defId).toBe("settler.workshop-builder");
   });
 
-  it("spawns exactly one builder in the outside level, from the marker", () => {
+  it("spawns the start builder and a park builder", () => {
     const level = createOutsideLevel();
     const builders = level.entities.filter(
       (e) =>
         e.kind === EntityKind.MONSTER &&
         (e as { type: MonsterType }).type === MonsterType.WORKSHOP_BUILDER,
     );
-    expect(builders).toHaveLength(1);
-    // Placed on the path just east of the player's start, not off in the park,
-    // so the player is equipped immediately.
-    expect(builders[0].gridX).toBe(15);
-    expect(builders[0].gridY).toBe(58);
+    expect(builders).toHaveLength(2);
+    // One greets the player just east of the start so they are equipped at once.
+    const start = builders.find((b) => b.gridX === 15 && b.gridY === 58);
+    expect(start).toBeTruthy();
+    expect(start!.social?.defId).toBe("settler.workshop-builder");
+    // The other tends the park workshop (south-east), from the prefab marker.
+    const park = builders.find(
+      (b) => b.social?.defId === "settler.park-builder",
+    );
+    expect(park).toBeTruthy();
+    expect(park!.gridX).toBeGreaterThan(40);
+    expect(park!.gridY).toBeGreaterThan(40);
   });
 
   it("no longer scatters the CTDM or Matter Manipulator in the world", () => {
@@ -77,6 +84,18 @@ describe("social actors", () => {
     const second = state.eventQueue.find((e) => e.type === EventType.NPC_TALK);
     const secondMessage = (second!.data as { message: string }).message;
     expect(secondMessage).not.toContain("You made it");
+  });
+
+  it("gifts both devices offline, but skips the inert CTDM online", () => {
+    const online = new Game({ mode: "online" }).getState();
+    const builder = createWorkshopBuilder(
+      online.player.gridX + 1,
+      online.player.gridY,
+    );
+    online.entityManager.spawn(builder);
+    resolveTalk(online, online.player, builder);
+    expect(online.player.hasMatterManipulator).toBe(true);
+    expect(online.player.hasCTDM).toBe(false);
   });
 
   it("slows time on NPC talk offline but never online", () => {

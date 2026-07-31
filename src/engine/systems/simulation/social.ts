@@ -7,7 +7,14 @@
  * it is reproducible across save/load and identical on every peer.
  */
 
-import { GameState, Entity, EntityKind, EventType, Player } from "../../types";
+import {
+  GameState,
+  Entity,
+  EntityKind,
+  EventType,
+  ItemType,
+  Player,
+} from "../../types";
 import { pushEvent } from "./sim-helpers";
 import { grantCoreDevice } from "./events";
 import { SOCIAL_DEFS } from "../../content/social-defs";
@@ -69,6 +76,10 @@ export function resolveTalk(
     // Hand over one-time starting gear to the interacting player.
     if (def.gifts && actor.kind === EntityKind.PLAYER) {
       for (const gift of def.gifts) {
+        // The CTDM is inert online (play is real-time) — only gift it offline.
+        if (gift === ItemType.CTDM && state.multiplayer.mode === "online") {
+          continue;
+        }
         grantCoreDevice(actor as Player, gift);
       }
     }

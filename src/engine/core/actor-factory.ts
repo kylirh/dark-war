@@ -34,3 +34,27 @@ export function createWorkshopBuilder(
   builder.interactable = { affordances: ["talk"] };
   return builder;
 }
+
+/**
+ * A second settler tending the park workshop. Spawned from the workshop-garden
+ * prefab's `npc.builder` marker; `stableId` is derived from that marker so a
+ * regenerating level cannot duplicate them. Hands over no gear (Marda does that
+ * at the start).
+ */
+export function createParkBuilder(
+  gridX: number,
+  gridY: number,
+  stableId: string,
+): MonsterEntity {
+  const builder = new MonsterEntity(
+    gridX,
+    gridY,
+    MonsterType.WORKSHOP_BUILDER,
+    0,
+  );
+  builder.id = stableId;
+  builder.peaceful = true;
+  builder.social = { defId: "settler.park-builder", flags: {} };
+  builder.interactable = { affordances: ["talk"] };
+  return builder;
+}

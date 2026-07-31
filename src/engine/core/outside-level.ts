@@ -18,7 +18,7 @@ import {
 } from "./world-semantics";
 import { WorldPlane } from "./world-plane";
 import { semanticPrefab, stampSemanticPrefab } from "./semantic-prefab";
-import { createWorkshopBuilder } from "./actor-factory";
+import { createWorkshopBuilder, createParkBuilder } from "./actor-factory";
 
 export interface OutsideLevelData extends Omit<DungeonData, "map"> {
   entities: Array<ItemEntity | MonsterEntity>;
@@ -131,7 +131,7 @@ export function createOutsideLevel(): OutsideLevelData {
     fixture: FixtureType.CAVE_MOUTH,
     elevation: 3,
   });
-  stampSemanticPrefab(
+  const workshopStamp = stampSemanticPrefab(
     worldPlane,
     semanticPrefab("settlement.workshop-garden"),
     PARK_WORKSHOP_ORIGIN[0],
@@ -142,6 +142,19 @@ export function createOutsideLevel(): OutsideLevelData {
   // in conversation. Placed here rather than at the park workshop so the player
   // is equipped immediately, before trekking anywhere.
   entities.push(createWorkshopBuilder(BUILDER_START[0], BUILDER_START[1]));
+  // A second settler tends the park workshop, spawned from the prefab's
+  // authored `npc.builder` marker (stable, idempotent identity).
+  const builderMarker = workshopStamp.markers.find(
+    (marker) =>
+      marker.kind === "spawn" &&
+      marker.properties["darkwar.spawn"] === "npc.builder",
+  );
+  if (builderMarker) {
+    const stableId = `npc:outside/surface:workshop-garden:${builderMarker.name}`;
+    entities.push(
+      createParkBuilder(builderMarker.worldX, builderMarker.worldY, stableId),
+    );
+  }
   const workshopDoor = parkWorkshopDoor();
   return {
     width: WIDTH,

@@ -42,6 +42,18 @@ export const SOCIAL_DEFS: Record<string, SocialDef> = {
       "Marda: “Stop by anytime. There's always something to fix.”",
     ],
   },
+  "settler.park-builder": {
+    name: "Bram, tending the Park Workshop",
+    faction: "settlers",
+    firstMeet: [
+      "Bram looks up from a half-mended fence. “Marda send you? Good. There's more to rebuild out here than two hands can manage.”",
+    ],
+    greeting: [
+      "Bram: “The pond's clean enough to drink from now. Small victories.”",
+      "Bram: “Give me a season and this whole park will be gardens.”",
+      "Bram: “If you find scrap out there, bring it back. Nothing's waste anymore.”",
+    ],
+  },
   "wildlife.snagglepuss": {
     name: "Snagglepuss",
     faction: "wildlife",
