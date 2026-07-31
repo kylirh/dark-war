@@ -72,6 +72,8 @@ export enum MonsterType {
   TENTACULAR_HORROR = "tentacular-horror",
   TERRORIST_COLLABORATOR = "terrorist-collaborator",
   DREADNAUGHT = "dreadnaught",
+  // Peaceful settlement actor — non-combat; carries social/interactable state.
+  WORKSHOP_BUILDER = "workshop-builder",
 }
 
 export enum ItemType {
@@ -145,6 +147,21 @@ export interface MultiplayerState {
 // The x, y properties are getters that return gridX, gridY
 // Actual entities extend GameObject with worldX, worldY as source of truth
 
+/** Authored social identity for an actor that can be talked to. */
+export interface SocialComponent {
+  /** Key into `SOCIAL_DEFS` for name, voice, and dialogue. */
+  defId: string;
+  /** Stateful social flags (e.g. whether a one-time gift was handed over). */
+  flags?: Record<string, boolean>;
+}
+
+/** What the player may do when interacting with an actor. */
+export type InteractAffordance = "talk";
+
+export interface InteractableComponent {
+  affordances: InteractAffordance[];
+}
+
 export interface BaseEntity {
   id: string;
   kind: EntityKind;
@@ -167,6 +184,15 @@ export interface BaseEntity {
 
   // Physics body (set and managed by physics system)
   physicsBody?: any; // Body from detect-collisions
+
+  // Optional actor components (see docs/ACTORS-AND-SOCIAL-SYSTEMS.md). Absent on
+  // ordinary entities; present on actors that participate socially.
+  /** Authored social identity — present on talkable actors. */
+  social?: SocialComponent;
+  /** Interaction affordances — present on interactable actors. */
+  interactable?: InteractableComponent;
+  /** Peaceful actors never initiate combat (civilians, won-over creatures). */
+  peaceful?: boolean;
 }
 
 export interface InventorySlot {

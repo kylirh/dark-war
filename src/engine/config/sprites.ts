@@ -243,6 +243,9 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   icky_lump_walk_1: { x: 4, y: 16 },
   icky_lump_walk_2: { x: 5, y: 16 },
   [MonsterType.SNAGGLEPUSS]: { x: 3, y: 7 },
+  // Workshop builder — placeholder art (reuses a humanoid cell) until a
+  // dedicated settler sprite is authored.
+  [MonsterType.WORKSHOP_BUILDER]: { x: 12, y: 16 },
   snagglepuss_walk_1: { x: 6, y: 16 },
   snagglepuss_walk_2: { x: 7, y: 16 },
   [MonsterType.FLUTTERBANG]: { x: 4, y: 7 },
@@ -711,9 +714,15 @@ export const MONSTER_WALK_FRAMES: Record<MonsterType, SpriteCoordinate[]> = {
     SPRITE_COORDS.dreadnaught_walk_1,
     SPRITE_COORDS.dreadnaught_walk_2,
   ],
+  // Stationary settler — same placeholder cell for both frames.
+  [MonsterType.WORKSHOP_BUILDER]: [
+    SPRITE_COORDS[MonsterType.WORKSHOP_BUILDER],
+    SPRITE_COORDS[MonsterType.WORKSHOP_BUILDER],
+  ],
 };
 
 export const MONSTER_IDLE_FRAMES: Record<MonsterType, SpriteCoordinate> = {
+  [MonsterType.WORKSHOP_BUILDER]: SPRITE_COORDS[MonsterType.WORKSHOP_BUILDER],
   [MonsterType.MUTANT]: SPRITE_COORDS[MonsterType.MUTANT],
   [MonsterType.RAT]: SPRITE_COORDS[MonsterType.RAT],
   [MonsterType.SKULKER]: SPRITE_COORDS[MonsterType.RAT],

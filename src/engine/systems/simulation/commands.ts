@@ -24,6 +24,7 @@ import { applyRepairAt } from "../../utils/repair";
 import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { ITEM_DEFS, itemName } from "../../content/item-defs";
+import { findTalkTarget, resolveTalk } from "./social";
 import { minedItemForTile, placedTileForItem } from "../../content/block-defs";
 import { tileIsPassable } from "../../core/tile-source";
 import { ItemEntity } from "../../entities/item-entity";
@@ -1508,6 +1509,13 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
 
   const data = cmd.data as { type: "INTERACT"; x: number; y: number };
   const tile = state.tiles.getTile(data.x, data.y);
+
+  // Talk to an interactable actor at the targeted tile (or adjacent to us).
+  const talkTarget = findTalkTarget(state, actor, data.x, data.y);
+  if (talkTarget) {
+    resolveTalk(state, talkTarget);
+    return;
+  }
 
   if (tile === TileType.DOOR_CLOSED || tile === TileType.DOOR_OPEN) {
     // Toggle door open/closed

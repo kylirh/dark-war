@@ -68,6 +68,20 @@ export interface MonsterDef {
 
 /** hp/dmg are `base + floor(depth * perDepth)` to match the original scaling. */
 export const MONSTER_DEFS: Record<MonsterType, MonsterDef> = {
+  // Peaceful settlement actor. Never pooled (weight 0) — placed by authored
+  // prefab spawn markers. Its `peaceful` entity flag short-circuits combat AI;
+  // the `behavior` here is a formality it never exercises.
+  [MonsterType.WORKSHOP_BUILDER]: {
+    behavior: "melee",
+    baseHp: 40,
+    hpPerDepth: 0,
+    baseDmg: 0,
+    dmgPerDepth: 0,
+    speed: 1,
+    minDepth: 0,
+    weight: 0,
+    flags: { cannotCarryItems: true },
+  },
   [MonsterType.MUTANT]: {
     behavior: "melee",
     baseHp: 6,

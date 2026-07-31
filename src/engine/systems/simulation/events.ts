@@ -1083,7 +1083,10 @@ function processNPCTalkEvent(state: GameState, event: GameEvent): void {
     cause: event.id,
   });
 
-  // Slow down time on NPC talk
-  state.sim.targetTimeScale = 0.01;
-  state.sim.pauseReasons.add("npc_talk");
+  // Slow down time on NPC talk — but only offline. Online play is real-time and
+  // shared; one player's conversation must never freeze the whole world.
+  if (state.multiplayer.mode !== "online") {
+    state.sim.targetTimeScale = 0.01;
+    state.sim.pauseReasons.add("npc_talk");
+  }
 }

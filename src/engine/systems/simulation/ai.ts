@@ -1498,6 +1498,13 @@ function decideMonsterCommand(
     return decideFriendlyPetCommand(state, monster, tick);
   }
 
+  // Peaceful non-combatants (settlement civilians such as the workshop builder)
+  // never initiate combat. For now they hold their ground; schedules and work
+  // activities land in a later slice.
+  if (monster.peaceful) {
+    return makeWaitCommand(monster, tick);
+  }
+
   // A fleeing thief just runs (steering handles movement) — no attacks.
   if (monster.fleeing) {
     return makeWaitCommand(monster, tick);

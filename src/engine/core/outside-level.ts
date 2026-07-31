@@ -1,12 +1,14 @@
 import {
   DungeonData,
   ItemType,
+  MonsterType,
   OUTSIDE_MAP_HEIGHT,
   OUTSIDE_MAP_WIDTH,
   TileType,
   WallSet,
 } from "../types";
 import { ItemEntity } from "../entities/item-entity";
+import { MonsterEntity } from "../entities/monster-entity";
 import { setTileFor } from "../utils/helpers";
 import {
   createWorldPlaneFromTiles,
@@ -16,9 +18,10 @@ import {
 } from "./world-semantics";
 import { WorldPlane } from "./world-plane";
 import { semanticPrefab, stampSemanticPrefab } from "./semantic-prefab";
+import { createWorkshopBuilder } from "./actor-factory";
 
 export interface OutsideLevelData extends Omit<DungeonData, "map"> {
-  entities: ItemEntity[];
+  entities: Array<ItemEntity | MonsterEntity>;
   worldPlane: WorldPlane;
   workshopDoor: [number, number];
 }
@@ -112,7 +115,7 @@ export function createOutsideLevel(): OutsideLevelData {
 
   setTileFor(map, stairsDown[0], stairsDown[1], WIDTH, TileType.STAIRS_DOWN);
 
-  const entities = [
+  const entities: Array<ItemEntity | MonsterEntity> = [
     new ItemEntity(16, 58, ItemType.CTDM),
     // The Matter Manipulator sits beside the CTDM (on the path in from the
     // start) so the player can grab it and start mining/building immediately.
@@ -130,12 +133,24 @@ export function createOutsideLevel(): OutsideLevelData {
     fixture: FixtureType.CAVE_MOUTH,
     elevation: 3,
   });
-  stampSemanticPrefab(
+  const workshopStamp = stampSemanticPrefab(
     worldPlane,
     semanticPrefab("settlement.workshop-garden"),
     PARK_WORKSHOP_ORIGIN[0],
     PARK_WORKSHOP_ORIGIN[1],
   );
+  // Consume the authored `npc.builder` spawn marker: the workshop builder is
+  // the first settler the player meets, and (Slice 2) hands over starting gear.
+  const builderMarker = workshopStamp.markers.find(
+    (marker) =>
+      marker.kind === "spawn" &&
+      marker.properties["darkwar.spawn"] === "npc.builder",
+  );
+  if (builderMarker) {
+    entities.push(
+      createWorkshopBuilder(builderMarker.worldX, builderMarker.worldY),
+    );
+  }
   const workshopDoor = parkWorkshopDoor();
   return {
     width: WIDTH,

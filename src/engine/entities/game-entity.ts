@@ -1,4 +1,9 @@
-import { EntityKind, CELL_CONFIG } from "../types";
+import {
+  EntityKind,
+  CELL_CONFIG,
+  SocialComponent,
+  InteractableComponent,
+} from "../types";
 import { Body } from "detect-collisions";
 
 /**
@@ -29,6 +34,15 @@ export abstract class GameEntity {
 
   /** Physics body reference (set and managed by the physics system) */
   public physicsBody?: Body;
+
+  /** Authored social identity — present on talkable actors. */
+  public social?: SocialComponent;
+
+  /** Interaction affordances — present on interactable actors. */
+  public interactable?: InteractableComponent;
+
+  /** Peaceful actors never initiate combat (civilians, won-over creatures). */
+  public peaceful?: boolean;
 
   /** Previous world X coordinate in pixels for rendering interpolation between simulation ticks */
   public prevWorldX: number;
