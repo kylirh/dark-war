@@ -576,6 +576,8 @@ export interface GameState {
   // `entities` above (same reference, mutated in place). Runtime-only —
   // never serialized.
   entityManager: EntityManager;
+  /** World-level relationship store (per-pair affinity/fear/grievance). */
+  relationships: import("./core/relationship-graph").RelationshipGraph;
   players: Player[];
   player: Player;
   stairsDown: [number, number];
@@ -643,6 +645,7 @@ export interface SerializedState {
   godMode: boolean;
   exploredByPlayer: Record<string, number[]>;
   story: string[];
+  relationships: import("./core/relationship-graph").SerializedRelationship[];
   levels: SerializedLevelState[];
   multiplayer: {
     mode: MultiplayerMode;

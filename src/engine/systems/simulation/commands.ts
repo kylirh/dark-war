@@ -25,6 +25,7 @@ import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { ITEM_DEFS, itemName } from "../../content/item-defs";
 import { findTalkTarget, resolveTalk } from "./social";
+import { isWonOver } from "../../core/relationship-graph";
 import { minedItemForTile, placedTileForItem } from "../../content/block-defs";
 import { tileIsPassable } from "../../core/tile-source";
 import { ItemEntity } from "../../entities/item-entity";
@@ -979,29 +980,69 @@ function msg(state: GameState, message: string, cause?: string): void {
  */
 function befriendNearbySnagglepuss(state: GameState, player: Player): void {
   const RANGE = CELL_CONFIG.w * 4;
+  let nearest: Monster | null = null;
+  let nearestDistSq = Infinity;
   for (const entity of state.entities) {
     if (entity.kind !== EntityKind.MONSTER) continue;
     const monster = entity as Monster;
     if (monster.type !== MonsterType.SNAGGLEPUSS || monster.friendly) continue;
-    const dx = (monster as unknown as Player).worldX - player.worldX;
-    const dy = (monster as unknown as Player).worldY - player.worldY;
-    if (dx * dx + dy * dy > RANGE * RANGE) continue;
-    if (!RNG.chance(0.5)) continue;
-    monster.friendly = true;
-    monster.fleeing = false;
-    monster.ownerId = player.id;
-    monster.name = monster.name ?? "Snagglepuss";
-    state.pendingSounds.push({
-      effect: SoundEffect.SNAGGLEPUSS_ACK,
-      worldX: monster.worldX,
-      worldY: monster.worldY,
-    });
+    const dx = monster.worldX - player.worldX;
+    const dy = monster.worldY - player.worldY;
+    const distSq = dx * dx + dy * dy;
+    if (distSq > RANGE * RANGE || distSq >= nearestDistSq) continue;
+    nearest = monster;
+    nearestDistSq = distSq;
+  }
+  if (!nearest) return;
+
+  // A cookie warms the nearest snagglepuss toward this player and eases its
+  // wariness. Winning over is graded (roughly two cookies), not a coin flip,
+  // and is authoritative in the relationship graph rather than a raw boolean.
+  const rel = state.relationships.adjust(player.id, nearest.id, {
+    affinity: 45,
+    fear: -20,
+    grievance: -15,
+  });
+  state.pendingSounds.push({
+    effect: SoundEffect.SNAGGLEPUSS_ACK,
+    worldX: nearest.worldX,
+    worldY: nearest.worldY,
+  });
+  if (isWonOver(rel)) {
+    winOverSnagglepuss(state, nearest, player.id);
+  } else {
     msg(
       state,
-      "A snagglepuss creeps over for a crumb — and decides to tag along!",
+      "The snagglepuss snatches the cookie and studies you, tail twitching. Not quite convinced — yet.",
     );
-    return;
   }
+}
+
+/**
+ * Turn a won-over snagglepuss into a talkable friendly companion. The same
+ * creature keeps its species behavior; it simply now wears social/interactable
+ * components and follows its owner.
+ */
+function winOverSnagglepuss(
+  state: GameState,
+  monster: Monster,
+  playerId: string,
+): void {
+  monster.friendly = true;
+  monster.fleeing = false;
+  monster.ownerId = playerId;
+  monster.name = monster.name ?? "Snagglepuss";
+  monster.social ??= { defId: "wildlife.snagglepuss", flags: {} };
+  monster.interactable ??= { affordances: ["talk"] };
+  state.pendingSounds.push({
+    effect: SoundEffect.SNAGGLEPUSS_ACK,
+    worldX: monster.worldX,
+    worldY: monster.worldY,
+  });
+  msg(
+    state,
+    "The snagglepuss chirrups, won over at last, and decides to tag along. You can talk to it now.",
+  );
 }
 
 /** Chebyshev reach check for the Matter Manipulator's mine/place actions. */

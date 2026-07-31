@@ -29,27 +29,25 @@ function clearMonsters(game: Game) {
 describe("snagglepuss", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("can be befriended by eating a cookie nearby", () => {
-    let befriended = false;
-    for (let seed = 1; seed <= 20 && !befriended; seed++) {
-      RNG.reseed(seed);
-      const game = new Game({ mode: "offline" });
-      game.reset(2);
-      clearMonsters(game);
-      const state = game.getState();
-      const player = state.player;
-      player.itemCounts[ItemType.COOKIE] = 1;
-      player.selectedBarSlot = 0;
-      player.inventorySlots[0] = { type: ItemType.COOKIE };
+  it("is won over by feeding cookies nearby (graded, not a coin flip)", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(2);
+    clearMonsters(game);
+    const state = game.getState();
+    const player = state.player;
+    player.itemCounts[ItemType.COOKIE] = 5;
+    player.selectedBarSlot = 0;
+    player.inventorySlots[0] = { type: ItemType.COOKIE };
 
-      const snagg = new MonsterEntity(
-        player.gridX + 1,
-        player.gridY,
-        MonsterType.SNAGGLEPUSS,
-        2,
-      );
-      state.entityManager.spawn(snagg);
+    const snagg = new MonsterEntity(
+      player.gridX + 1,
+      player.gridY,
+      MonsterType.SNAGGLEPUSS,
+      2,
+    );
+    state.entityManager.spawn(snagg);
 
+    const feed = () => {
       enqueueCommand(state, {
         tick: state.sim.nowTick,
         actorId: player.id,
@@ -59,17 +57,21 @@ describe("snagglepuss", () => {
         source: "PLAYER",
       });
       stepSimulationTick(state);
-      if (snagg.friendly) {
-        befriended = true;
-        expect(snagg.ownerId).toBe(player.id);
-        expect(
-          state.pendingSounds.some(
-            (sound) => sound.effect === SoundEffect.SNAGGLEPUSS_ACK,
-          ),
-        ).toBe(true);
-      }
-    }
-    expect(befriended).toBe(true);
+    };
+
+    // One cookie warms it but does not yet win it over.
+    feed();
+    expect(snagg.friendly).not.toBe(true);
+
+    // A second cookie crosses the threshold: friendly, loyal, and it chirrups.
+    feed();
+    expect(snagg.friendly).toBe(true);
+    expect(snagg.ownerId).toBe(player.id);
+    expect(
+      state.pendingSounds.some(
+        (sound) => sound.effect === SoundEffect.SNAGGLEPUSS_ACK,
+      ),
+    ).toBe(true);
   });
 
   it("a friendly snagglepuss fetches loose loot", () => {

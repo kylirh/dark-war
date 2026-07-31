@@ -41,6 +41,7 @@ function baseState(): SerializedState {
     worldPlaneId: "floor-1",
     levelKind: "dungeon",
     simulationSeed: 12345,
+    relationships: [],
     portals: [],
     plane: {
       width: 2,

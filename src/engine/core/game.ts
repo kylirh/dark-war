@@ -24,6 +24,7 @@ import { EntityManager } from "./entity-manager";
 import { TileSource } from "./tile-source";
 import { createSimulationSeed } from "../utils/deterministic-roll";
 import { deepCloneSerializable } from "../utils/deep-clone";
+import { RelationshipGraph } from "./relationship-graph";
 import { generateDungeon } from "./dungeon-generator";
 import { PlayerEntity } from "../entities/player-entity";
 import { MonsterEntity } from "../entities/monster-entity";
@@ -168,6 +169,7 @@ export class Game {
       exploredByPlayer,
       entities,
       entityManager: new EntityManager(entities),
+      relationships: new RelationshipGraph(),
       players: [player],
       player,
       stairsDown: [0, 0],
@@ -253,6 +255,7 @@ export class Game {
       exploredByPlayer,
       entities,
       entityManager: new EntityManager(entities),
+      relationships: new RelationshipGraph(),
       players: [player],
       player,
       stairsDown: dungeon.stairsDown,
@@ -1468,6 +1471,7 @@ export class Game {
       godMode: this.state.options.godMode,
       exploredByPlayer,
       story: this.state.story.slice(0, 50),
+      relationships: this.state.relationships.serialize(),
       levels,
       multiplayer: this.state.multiplayer,
       sim: {
@@ -1553,6 +1557,7 @@ export class Game {
       exploredByPlayer,
       entities,
       entityManager: new EntityManager(entities),
+      relationships: RelationshipGraph.deserialize(data.relationships),
       players,
       player,
       story: data.story,
