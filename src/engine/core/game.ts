@@ -22,6 +22,8 @@ import {
 import { createOutsideLevel, OUTSIDE_CAVE_MOUTH } from "./outside-level";
 import { EntityManager } from "./entity-manager";
 import { TileSource } from "./tile-source";
+import { createSimulationSeed } from "../utils/deterministic-roll";
+import { deepCloneSerializable } from "../utils/deep-clone";
 import { generateDungeon } from "./dungeon-generator";
 import { PlayerEntity } from "../entities/player-entity";
 import { MonsterEntity } from "../entities/monster-entity";
@@ -146,6 +148,7 @@ export class Game {
 
     return {
       depth: 0,
+      simulationSeed: createSimulationSeed(),
       worldSpaceId: initialAddress.spaceId,
       worldPlaneId: initialAddress.planeId,
       levelKind: "outside",
@@ -224,6 +227,7 @@ export class Game {
 
     this.state = {
       depth,
+      simulationSeed: createSimulationSeed(),
       worldSpaceId: address.spaceId,
       worldPlaneId: address.planeId,
       levelKind: depth === 0 ? "outside" : "dungeon",
@@ -1456,6 +1460,7 @@ export class Game {
       worldSpaceId: this.state.worldSpaceId,
       worldPlaneId: this.state.worldPlaneId,
       levelKind: this.state.levelKind,
+      simulationSeed: this.state.simulationSeed,
       plane: serializeWorldPlane(this.state.worldPlane),
       portals: this.state.portals,
       floorVariant: this.state.floorVariant,
@@ -1539,6 +1544,7 @@ export class Game {
       worldSpaceId: address.spaceId,
       worldPlaneId: address.planeId,
       levelKind: data.levelKind,
+      simulationSeed: data.simulationSeed,
       mapWidth,
       mapHeight,
       floorVariant: data.floorVariant,
@@ -1760,7 +1766,13 @@ export class Game {
   private stripRuntimeEntityState(entity: Entity): Entity {
     const plain = { ...(entity as object) } as Record<string, unknown>;
     delete plain.physicsBody;
-    return plain as unknown as Entity;
+    // Deep-copy so the serialized DTO shares NO mutable references with live
+    // state. A delta baseline retains this object; if a nested field
+    // (carriedItems, social components, ...) were shared, in-place mutation
+    // would silently alter the baseline and the change would vanish from the
+    // diff, desyncing clients. Deliberate structural clone — not a lossy
+    // JSON round-trip.
+    return deepCloneSerializable(plain) as unknown as Entity;
   }
 
   private cloneExploredByPlayerMap(

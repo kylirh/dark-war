@@ -40,6 +40,7 @@ function baseState(): SerializedState {
     worldSpaceId: "megacorp",
     worldPlaneId: "floor-1",
     levelKind: "dungeon",
+    simulationSeed: 12345,
     portals: [],
     plane: {
       width: 2,

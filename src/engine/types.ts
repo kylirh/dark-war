@@ -531,6 +531,8 @@ export interface GameState {
   mapHeight: number;
   floorVariant: number;
   wallSet: WallSet;
+  /** Durable per-game seed for deterministic keyed rolls (never changes). */
+  simulationSeed: number;
   mapDirty: boolean;
   // Canonical tile accessor. Generated levels expose their WorldPlane here.
   tiles: TileSource;
@@ -599,6 +601,8 @@ export interface SerializedState {
   worldSpaceId: string;
   worldPlaneId: string;
   levelKind: LevelKind;
+  /** Durable per-game seed for deterministic keyed rolls. */
+  simulationSeed: number;
   plane: SerializedWorldPlane;
   portals: import("./core/world-space").WorldPortal[];
   floorVariant: number;

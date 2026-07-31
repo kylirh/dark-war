@@ -22,6 +22,7 @@ import {
 import { TILE_DEFINITIONS } from "../../types";
 import { isWallLikeTile } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
+import { deterministicChoice } from "../../utils/deterministic-roll";
 import { isRangedMonster, MONSTER_DEFS } from "../../content/monster-defs";
 import { isJunk, ITEM_DEFS } from "../../content/item-defs";
 import { ItemEntity } from "../../entities/item-entity";
@@ -1460,8 +1461,15 @@ function decideUtilityBotCommand(
         type: EventType.MESSAGE,
         data: {
           type: "MESSAGE",
-          message:
-            nuzzleMessages[Math.floor(Math.random() * nuzzleMessages.length)],
+          message: deterministicChoice(
+            {
+              simulationSeed: state.simulationSeed,
+              actorStableId: monster.id,
+              decisionEpoch: tick,
+              purpose: "utility-bot-nuzzle-bark",
+            },
+            nuzzleMessages,
+          ),
         },
       });
     }
