@@ -30,6 +30,8 @@ const WIDTH = OUTSIDE_MAP_WIDTH;
 const HEIGHT = OUTSIDE_MAP_HEIGHT;
 export const OUTSIDE_CAVE_MOUTH: readonly [number, number] = [62, 40];
 export const PARK_WORKSHOP_ORIGIN: readonly [number, number] = [57, 56];
+/** Where the workshop builder greets the player, just east of the start. */
+export const BUILDER_START: readonly [number, number] = [15, 58];
 
 /** Resolve the workshop entrance from its Tiled-authored portal marker. */
 export function parkWorkshopDoor(): [number, number] {
@@ -129,24 +131,17 @@ export function createOutsideLevel(): OutsideLevelData {
     fixture: FixtureType.CAVE_MOUTH,
     elevation: 3,
   });
-  const workshopStamp = stampSemanticPrefab(
+  stampSemanticPrefab(
     worldPlane,
     semanticPrefab("settlement.workshop-garden"),
     PARK_WORKSHOP_ORIGIN[0],
     PARK_WORKSHOP_ORIGIN[1],
   );
-  // Consume the authored `npc.builder` spawn marker: the workshop builder is
-  // the first settler the player meets, and (Slice 2) hands over starting gear.
-  const builderMarker = workshopStamp.markers.find(
-    (marker) =>
-      marker.kind === "spawn" &&
-      marker.properties["darkwar.spawn"] === "npc.builder",
-  );
-  if (builderMarker) {
-    entities.push(
-      createWorkshopBuilder(builderMarker.worldX, builderMarker.worldY),
-    );
-  }
+  // The workshop builder meets the player right on the path out of the start
+  // (where the CTDM/Manipulator used to lie) and hands over that starting gear
+  // in conversation. Placed here rather than at the park workshop so the player
+  // is equipped immediately, before trekking anywhere.
+  entities.push(createWorkshopBuilder(BUILDER_START[0], BUILDER_START[1]));
   const workshopDoor = parkWorkshopDoor();
   return {
     width: WIDTH,

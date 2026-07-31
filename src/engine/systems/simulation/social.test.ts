@@ -26,9 +26,10 @@ describe("social actors", () => {
         (e as { type: MonsterType }).type === MonsterType.WORKSHOP_BUILDER,
     );
     expect(builders).toHaveLength(1);
-    // Placed inside the authored workshop garden footprint (south-east park).
-    expect(builders[0].gridX).toBeGreaterThan(40);
-    expect(builders[0].gridY).toBeGreaterThan(40);
+    // Placed on the path just east of the player's start, not off in the park,
+    // so the player is equipped immediately.
+    expect(builders[0].gridX).toBe(15);
+    expect(builders[0].gridY).toBe(58);
   });
 
   it("no longer scatters the CTDM or Matter Manipulator in the world", () => {
