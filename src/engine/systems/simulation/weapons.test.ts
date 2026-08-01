@@ -10,9 +10,10 @@ import { selectPlayerWeaponCallout } from "../../content/player-weapon-callouts"
 function emittingCommandId(
   weapon: WeaponType,
   situation: "reloaded" | "depleted",
+  prefix: string = "weapon-test",
 ): string {
   for (let index = 0; index < 100; index++) {
-    const id = `weapon-test-${index}`;
+    const id = `${prefix}-${index}`;
     if (selectPlayerWeaponCallout(weapon, situation, id)) return id;
   }
   throw new Error("Expected to find an emitting cosmetic command ID");
@@ -156,6 +157,38 @@ describe("new weapon firing modes", () => {
         "Anyone got batteries?",
       ]).toContain(state.pendingCallouts[0].text);
     }
+  });
+
+  it("enforces a 10-second cooldown after an emitted depleted callout", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.weapon = WeaponType.PISTOL;
+    player.ammo = 0;
+
+    const resolveDryFire = (id: string): void => {
+      resolveCommand(state, {
+        id,
+        tick: state.sim.nowTick,
+        actorId: player.id,
+        type: CommandType.FIRE,
+        data: { type: "FIRE", dx: 1, dy: 0 },
+        priority: 0,
+        source: "PLAYER",
+      });
+    };
+
+    resolveDryFire(emittingCommandId(WeaponType.PISTOL, "depleted", "first"));
+    expect(state.pendingCallouts).toHaveLength(1);
+
+    state.sim.nowTick = 199;
+    resolveDryFire(emittingCommandId(WeaponType.PISTOL, "depleted", "second"));
+    expect(state.pendingCallouts).toHaveLength(1);
+
+    state.sim.nowTick = 200;
+    resolveDryFire(emittingCommandId(WeaponType.PISTOL, "depleted", "third"));
+    expect(state.pendingCallouts).toHaveLength(2);
   });
 
   it("smg fires one round per shot", () => {

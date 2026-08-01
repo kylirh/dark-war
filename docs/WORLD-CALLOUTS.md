@@ -96,4 +96,8 @@ ballistic reloads and laser recharges combine shared lines with weapon-family
 lines. Empty reload attempts and dry-fire/depleted-laser attempts use the
 depleted pool; its two introspective lines explicitly render as thoughts. A
 stateless command-ID hash gives each eligible action a 50% chance without
-consuming gameplay RNG or changing combat, loot, or AI outcomes.
+consuming gameplay RNG or changing combat, loot, or AI outcomes. An emitted
+reload/recharge line starts a 30-second simulation-time cooldown; an emitted
+depleted line starts a separate 10-second cooldown shared by failed reload and
+dry-fire attempts. Fully loaded magazines and fully charged lasers do not spend
+resources, play reload audio, or attempt a callout.

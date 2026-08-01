@@ -81,6 +81,8 @@ const THROW_SOUNDS = [
   SoundEffect.THROW_4,
   SoundEffect.THROW_5,
 ];
+const RELOAD_CALLOUT_COOLDOWN_TICKS = Math.ceil(30_000 / SIM_DT_MS);
+const DEPLETED_CALLOUT_COOLDOWN_TICKS = Math.ceil(10_000 / SIM_DT_MS);
 
 function queuePlayerThrowSound(state: GameState, player: Player): void {
   state.pendingSounds.push({
@@ -96,8 +98,21 @@ function maybeEmitPlayerWeaponCallout(
   situation: PlayerWeaponCalloutSituation,
   commandId: string,
 ): void {
+  const readyTick =
+    situation === "reloaded"
+      ? (player.weaponReloadCalloutReadyTick ?? 0)
+      : (player.weaponDepletedCalloutReadyTick ?? 0);
+  if (state.sim.nowTick < readyTick) return;
+
   const line = selectPlayerWeaponCallout(weapon, situation, commandId);
   if (!line) return;
+  if (situation === "reloaded") {
+    player.weaponReloadCalloutReadyTick =
+      state.sim.nowTick + RELOAD_CALLOUT_COOLDOWN_TICKS;
+  } else {
+    player.weaponDepletedCalloutReadyTick =
+      state.sim.nowTick + DEPLETED_CALLOUT_COOLDOWN_TICKS;
+  }
   emitWorldTextCallout(state, {
     kind: line.kind,
     text: line.text,
@@ -1434,6 +1449,10 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
 
   // Laser pistol: reload with a power cell.
   if (active === ItemType.LASER_PISTOL || player.weapon === WeaponType.LASER) {
+    if (player.laserCharge >= player.laserChargeMax) {
+      msg(state, "Laser already fully charged.");
+      return;
+    }
     if ((player.itemCounts[ItemType.POWERCELL] ?? 0) <= 0) {
       maybeEmitPlayerWeaponCallout(
         state,
@@ -1482,7 +1501,19 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
     msg(state, "Nothing to reload.");
     return;
   }
-  if (player.ammoReserve === 0) {
+
+  const magSize =
+    player.weapon === WeaponType.SMG
+      ? 30
+      : player.weapon === WeaponType.SHOTGUN
+        ? 8
+        : 12;
+  const needed = Math.max(0, magSize - player.ammo);
+  if (needed === 0) {
+    msg(state, "Magazine already full.");
+    return;
+  }
+  if (player.ammoReserve <= 0) {
     maybeEmitPlayerWeaponCallout(
       state,
       player,
@@ -1493,14 +1524,6 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
     msg(state, "You're out of ammo!");
     return;
   }
-
-  const magSize =
-    player.weapon === WeaponType.SMG
-      ? 30
-      : player.weapon === WeaponType.SHOTGUN
-        ? 8
-        : 12;
-  const needed = Math.max(0, magSize - player.ammo);
   const take = Math.min(needed, player.ammoReserve);
   player.ammo += take;
   player.ammoReserve -= take;

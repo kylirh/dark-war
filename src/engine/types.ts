@@ -237,6 +237,10 @@ export interface Player extends BaseEntity {
   panicChargeMax: number;
   /** While `sim.nowTick < slowUntilTick`, the player moves at reduced speed. */
   slowUntilTick?: number;
+  /** Cosmetic reload/recharge quips are suppressed until this simulation tick. */
+  weaponReloadCalloutReadyTick?: number;
+  /** Cosmetic depleted-weapon quips are suppressed until this simulation tick. */
+  weaponDepletedCalloutReadyTick?: number;
 }
 
 export interface Monster extends BaseEntity {

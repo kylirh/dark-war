@@ -21,9 +21,10 @@ import { selectPlayerWeaponCallout } from "../../content/player-weapon-callouts"
 function emittingReloadCommandId(
   weapon: WeaponType,
   situation: "reloaded" | "depleted" = "reloaded",
+  prefix: string = "reload-test",
 ): string {
   for (let index = 0; index < 100; index++) {
-    const id = `reload-test-${index}`;
+    const id = `${prefix}-${index}`;
     if (selectPlayerWeaponCallout(weapon, situation, id)) return id;
   }
   throw new Error("Expected to find an emitting cosmetic reload command ID");
@@ -161,6 +162,41 @@ describe("reloading the active weapon", () => {
     expect(player.itemCounts[ItemType.POWERCELL] ?? 0).toBe(0);
   });
 
+  it("does nothing audible or cosmetic when a ballistic magazine is full", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.weapon = WeaponType.PISTOL;
+    player.ammo = 12;
+    player.ammoReserve = 24;
+    setActive(game, ItemType.PISTOL);
+
+    reload(game);
+
+    expect(player.ammo).toBe(12);
+    expect(player.ammoReserve).toBe(24);
+    expect(state.pendingSounds).toEqual([]);
+    expect(state.pendingCallouts).toEqual([]);
+  });
+
+  it("does not spend a cell, make a sound, or quip when the laser is full", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.weapon = WeaponType.LASER;
+    player.laserCharge = player.laserChargeMax;
+    player.itemCounts[ItemType.POWERCELL] = 1;
+    setActive(game, ItemType.LASER_PISTOL);
+
+    reload(game);
+
+    expect(player.itemCounts[ItemType.POWERCELL]).toBe(1);
+    expect(state.pendingSounds).toEqual([]);
+    expect(state.pendingCallouts).toEqual([]);
+  });
+
   it("occasionally emits a weapon-aware callout after reloading", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
@@ -186,6 +222,47 @@ describe("reloading the active weapon", () => {
       kind: "speech",
       speakerId: player.id,
     });
+  });
+
+  it("enforces a 30-second cooldown after an emitted reload callout", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.weapon = WeaponType.PISTOL;
+    player.ammo = 0;
+    player.ammoReserve = 36;
+    setActive(game, ItemType.PISTOL);
+
+    const resolveReload = (id: string): void => {
+      player.ammo = 0;
+      resolveCommand(state, {
+        id,
+        tick: state.sim.nowTick,
+        actorId: player.id,
+        type: CommandType.RELOAD,
+        data: { type: "RELOAD" },
+        priority: 0,
+        source: "PLAYER",
+      });
+    };
+
+    resolveReload(
+      emittingReloadCommandId(WeaponType.PISTOL, "reloaded", "first"),
+    );
+    expect(state.pendingCallouts).toHaveLength(1);
+
+    state.sim.nowTick = 599;
+    resolveReload(
+      emittingReloadCommandId(WeaponType.PISTOL, "reloaded", "second"),
+    );
+    expect(state.pendingCallouts).toHaveLength(1);
+
+    state.sim.nowTick = 600;
+    resolveReload(
+      emittingReloadCommandId(WeaponType.PISTOL, "reloaded", "third"),
+    );
+    expect(state.pendingCallouts).toHaveLength(2);
   });
 
   it("occasionally emits a depleted callout when reserve ammo is empty", () => {
