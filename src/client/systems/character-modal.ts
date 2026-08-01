@@ -1244,10 +1244,7 @@ export class CharacterModal {
     if (count !== null && count !== undefined)
       html += `<div class="inv-tip-count">Count: ${count}</div>`;
     if (slot.type === ItemType.CTDM) {
-      const pct = Math.round(
-        (this._player.ctdmCharge / this._player.ctdmChargeMax) * 100,
-      );
-      html += `<div class="inv-tip-count">Charge: ${pct}% (${this._player.ctdmEnabled ? "ON" : "OFF"})</div>`;
+      html += `<div class="inv-tip-count">Status: ${this._player.ctdmEnabled ? "ON" : "OFF"}</div>`;
     }
     if (actions.length > 0)
       html += `<div class="inv-tip-actions">${actions.join("<br>")}</div>`;
@@ -1479,18 +1476,7 @@ export class CharacterModal {
       countEl.style.display = "";
     } else countEl.style.display = "none";
     const fill = slotEl.querySelector(".char-inv-bar-fill") as HTMLElement;
-    if (slot?.type === ItemType.CTDM && player.hasCTDM) {
-      const pct = Math.max(
-        0,
-        Math.min(1, player.ctdmCharge / player.ctdmChargeMax),
-      );
-      fill.style.width = `${pct * 100}%`;
-      fill.style.setProperty(
-        "--bar-color",
-        pct > 0.5 ? "#44ff88" : pct > 0.2 ? "#ffcc00" : "#ff4422",
-      );
-      fill.parentElement!.style.display = "";
-    } else if (slot?.type === ItemType.PISTOL) {
+    if (slot?.type === ItemType.PISTOL) {
       const pct = Math.max(0, Math.min(1, player.ammo / 12));
       fill.style.width = `${pct * 100}%`;
       fill.style.setProperty("--bar-color", "#4af");
@@ -1511,7 +1497,7 @@ export class CharacterModal {
   private drawSpriteOnCanvas(
     canvas: HTMLCanvasElement,
     itemType: ItemType,
-    player: Player,
+    _player: Player,
   ): void {
     if (!this.spriteSheet) return;
     const ctx = canvas.getContext("2d");
@@ -1520,11 +1506,6 @@ export class CharacterModal {
     if (!coords) return;
     ctx.save();
     ctx.imageSmoothingEnabled = false;
-    if (itemType === ItemType.CTDM) {
-      ctx.filter = player.ctdmEnabled
-        ? "brightness(1.1) saturate(1.4) hue-rotate(120deg)"
-        : "brightness(0.4) saturate(0.2)";
-    }
     ctx.drawImage(
       this.spriteSheet,
       coords.x * SPRITE_SIZE,

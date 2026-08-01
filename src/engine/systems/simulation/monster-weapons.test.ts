@@ -251,6 +251,7 @@ describe("adaptive monster ranged attacks", () => {
       }
       if (weaponItem === ItemType.LASER_PISTOL) {
         expect(projectiles[0].projectileType).toBe("laser");
+        expect(projectiles[0].maxRicochets).toBe(2);
         expect(monster.laserCharge).toBe(95);
       }
     },

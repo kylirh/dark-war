@@ -370,13 +370,13 @@ function processMagneticPickup(state: GameState): void {
 // Passive Creature Abilities
 // ========================================
 
-const MAX_ICKY_LUMPS = 14; // breeding cap per level
+const ICKY_LUMP_REPRODUCTION_CHANCE = 0.0005;
 
 /**
  * Passive per-tick monster behavior driven by `MONSTER_DEFS` flags:
  * - `selfHeals`: slow HP regeneration (moppet).
- * - `breeds`: occasionally spawns a copy in an adjacent open tile (icky lump),
- *   capped so they don't overrun the level.
+ * - `breeds`: independently spawns a copy in an adjacent open tile (icky lump)
+ *   until the accessible area is full.
  */
 export function processMonsterAbilities(state: GameState): void {
   const monsters = state.entities.filter(
@@ -395,12 +395,8 @@ export function processMonsterAbilities(state: GameState): void {
   // Breeding (icky lumps).
   const breeders = monsters.filter((m) => MONSTER_DEFS[m.type]?.flags?.breeds);
   if (breeders.length === 0) return;
-  const sameKind = (type: MonsterType) =>
-    monsters.filter((m) => m.type === type).length;
-
   for (const lump of breeders) {
-    if (sameKind(lump.type) >= MAX_ICKY_LUMPS) break;
-    if (!RNG.chance(0.01)) continue; // ~once per ~5s per lump
+    if (!RNG.chance(ICKY_LUMP_REPRODUCTION_CHANCE)) continue;
 
     // Try the four neighbours for an open, unoccupied tile.
     const dirs = [
@@ -416,7 +412,10 @@ export function processMonsterAbilities(state: GameState): void {
       continue;
     }
     const occupied = state.entities.some(
-      (e) => e.kind === EntityKind.MONSTER && e.gridX === nx && e.gridY === ny,
+      (e) =>
+        (e.kind === EntityKind.MONSTER || e.kind === EntityKind.PLAYER) &&
+        e.gridX === nx &&
+        e.gridY === ny,
     );
     if (occupied) continue;
 

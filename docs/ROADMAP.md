@@ -154,8 +154,9 @@ shadow presentation. The Matter Manipulator raises and
 lowers eligible clear terrain at the cursor with `[` and `]`; offline and online
 commands mutate the same semantic layer, invalidate at most a 3×3 neighborhood,
 and replicate through per-layer elevation deltas. Protocol version 7 introduced
-the authoritative action; the current version 8 also carries stable world and
-portal identities. Holes now transition through the same world-plane system.
+the authoritative action; the current version 10 also carries stable world and
+portal identities plus the current player/item state. Holes now transition
+through the same world-plane system.
 
 - Add `Int16` elevation to world planes.
 - Add elevation-aware collision, traversal, stairs/ramps, raising, and lowering.
@@ -268,8 +269,9 @@ files without coordination. Before starting:
 
 ### Handoff ledger
 
-| Milestones | Branch/owner               | Scope                                        | Status | Notes                              |
-| ---------- | -------------------------- | -------------------------------------------- | ------ | ---------------------------------- |
-| M0–M8      | `codex/terrain-foundation` | Complete terrain/world foundation program    | done   | Tests, docs, and authoring sources |
-| Product    | `codex/speech-bubbles`     | World speech, thought, and reaction callouts | ready  | Offline/online, FOV, queues, tests |
-| Next       | unassigned                 | Ordinary game content and product expansion  | open   | Build on the completed foundation  |
+| Milestones | Branch/owner               | Scope                                           | Status | Notes                              |
+| ---------- | -------------------------- | ----------------------------------------------- | ------ | ---------------------------------- |
+| M0–M8      | `codex/terrain-foundation` | Complete terrain/world foundation program       | done   | Tests, docs, and authoring sources |
+| Product    | `codex/speech-bubbles`     | World speech, thought, and reaction callouts    | ready  | Offline/online, FOV, queues, tests |
+| Product    | `main`                     | Item, creature, CTDM, combat, and visual polish | done   | Full tests, type-check, and build  |
+| Next       | unassigned                 | Ordinary game content and product expansion     | open   | Build on the completed foundation  |

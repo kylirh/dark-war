@@ -1454,6 +1454,14 @@ tinyIcon(10, 6, (c) => {
   c.disc(16, 10, 4, [255, 214, 112]);
   c.disc(16, 10, 2, [255, 244, 200]);
 });
+// Pickaxe: a compact steel head on a warm reclaimed-wood handle.
+tinyIcon(11, 6, (c) => {
+  c.thickLine(10, 26, 22, 10, C.wood1, 1);
+  c.line(11, 25, 23, 9, C.wood2);
+  c.thickLine(14, 8, 27, 13, C.steel0, 1);
+  c.line(15, 7, 27, 12, C.steel2);
+  c.put(28, 13, C.steel1);
+});
 // Holowall tile: a translucent cyan block with shimmer scanlines.
 tinyIcon(7, 6, (c) => {
   c.rect(2, 2, 28, 28, [0, 220, 238, 70]);

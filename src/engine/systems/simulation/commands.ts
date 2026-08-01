@@ -21,7 +21,11 @@ import {
 } from "../../utils/state-tiles";
 import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
-import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
+import {
+  canAddToInventory,
+  removeFromInventory,
+  weaponTypeForItem,
+} from "../../utils/inventory";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { ITEM_DEFS, itemName } from "../../content/item-defs";
 import { minedItemForTile, placedTileForItem } from "../../content/block-defs";
@@ -36,7 +40,6 @@ import {
 import { emitWorldTextCallout } from "../../utils/world-callouts";
 import { BulletEntity } from "../../entities/bullet-entity";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
-import { isWallLikeTile } from "../../core/tile-source";
 import { portalAt } from "../../core/world-space";
 import {
   FixtureType,
@@ -83,6 +86,15 @@ const THROW_SOUNDS = [
 ];
 const RELOAD_CALLOUT_COOLDOWN_TICKS = Math.ceil(30_000 / SIM_DT_MS);
 const DEPLETED_CALLOUT_COOLDOWN_TICKS = Math.ceil(10_000 / SIM_DT_MS);
+
+function activePlayerItem(player: Player): ItemType | null {
+  return player.inventorySlots[player.selectedBarSlot]?.type ?? null;
+}
+
+function playerCanMelee(player: Player): boolean {
+  const active = activePlayerItem(player);
+  return active === null || ITEM_DEFS[active]?.category === "weapon-melee";
+}
 
 function queuePlayerThrowSound(state: GameState, player: Player): void {
   state.pendingSounds.push({
@@ -307,6 +319,7 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
       actor.kind === EntityKind.PLAYER &&
       blocker.kind === EntityKind.MONSTER
     ) {
+      if (!playerCanMelee(actor as Player)) return false;
       pushEvent(state, {
         type: EventType.DAMAGE,
         data: {
@@ -358,6 +371,20 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
   const data = cmd.data as { type: "MELEE"; targetId: string };
   const target = state.entities.find((e) => e.id === data.targetId);
   if (!target) return;
+  if (
+    attacker.kind === EntityKind.PLAYER &&
+    !playerCanMelee(attacker as Player)
+  ) {
+    return;
+  }
+  if (
+    attacker.kind === EntityKind.MONSTER &&
+    target.kind === EntityKind.MONSTER &&
+    (attacker as Monster).type === MonsterType.ICKY_LUMP &&
+    (target as Monster).type === MonsterType.ICKY_LUMP
+  ) {
+    return;
+  }
 
   // Check adjacency - support both grid-based and continuous coordinates
   let inRange = false;
@@ -464,7 +491,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
     };
 
     // Melee damage scales with the equipped blade.
-    const meleeWeapon = player.inventorySlots[player.selectedBarSlot]?.type;
+    const meleeWeapon = activePlayerItem(player);
     const meleeDamage =
       meleeWeapon === ItemType.VIBRA_SWORD
         ? 7
@@ -472,10 +499,13 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           ? 5
           : meleeWeapon === ItemType.BUTCHER_KNIFE
             ? 3
-            : 2;
+            : meleeWeapon === ItemType.PICKAXE
+              ? 1
+              : 2;
 
     switch (weapon) {
       case WeaponType.MELEE: {
+        if (!playerCanMelee(player)) return;
         if (meleeWeapon === ItemType.VIBRA_SWORD) {
           const vibraSwordSounds = [
             SoundEffect.VIBRA_SWORD_1,
@@ -500,46 +530,29 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         }
         const target = findMeleeTarget(state, player, angle);
         if (!target) {
-          const dx = Math.round(Math.cos(angle));
-          const dy = Math.round(Math.sin(angle));
-          const targetX = player.gridX + dx;
-          const targetY = player.gridY + dy;
-          const targetTile = state.tiles.getTile(targetX, targetY);
-          const hitWall =
-            isWallLikeTile(targetTile) &&
-            applyWallDamageAt(state, targetX, targetY, 2);
-          const isPerimeterWall =
-            targetTile === TileType.WALL &&
-            (targetX <= 0 ||
-              targetY <= 0 ||
-              targetX >= state.mapWidth - 1 ||
-              targetY >= state.mapHeight - 1);
-          if (targetTile === TileType.HOLOWALL) {
-            pushEvent(state, {
-              type: EventType.MESSAGE,
-              data: {
-                type: "MESSAGE",
-                message: "The holowall vibrates and shimmers.",
-              },
-            });
-            return;
-          }
-          if (hitWall) {
-            pushEvent(state, {
-              type: EventType.MESSAGE,
-              data: { type: "MESSAGE", message: "You chip the surface." },
-            });
-            return;
-          }
-          if (isPerimeterWall) {
-            pushEvent(state, {
-              type: EventType.MESSAGE,
-              data: {
-                type: "MESSAGE",
-                message: "The wall seems impervious to damage.",
-              },
-            });
-            return;
+          if (meleeWeapon === ItemType.PICKAXE) {
+            const dx = Math.round(Math.cos(angle));
+            const dy = Math.round(Math.sin(angle));
+            const targetX = player.gridX + dx;
+            const targetY = player.gridY + dy;
+            const targetTile = state.tiles.getTile(targetX, targetY);
+            if (targetTile === TileType.HOLOWALL) {
+              msg(state, "The pickaxe cannot affect the holowall.", cmd.id);
+              return;
+            }
+            if (
+              (targetTile === TileType.WALL || targetTile === TileType.FLOOR) &&
+              applyWallDamageAt(state, targetX, targetY, 1)
+            ) {
+              msg(
+                state,
+                targetTile === TileType.WALL
+                  ? "You chip the wall with the pickaxe."
+                  : "You chip the floor with the pickaxe.",
+                cmd.id,
+              );
+              return;
+            }
           }
           state.pendingSounds.push({ effect: SoundEffect.MISS });
           pushEvent(state, {
@@ -604,10 +617,6 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         );
 
         state.entityManager.spawn(bullet);
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "Fired!" },
-        });
         return;
       }
       case WeaponType.SMG: {
@@ -669,15 +678,11 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           const t = i / (PELLETS - 1) - 0.5; // -0.5 .. +0.5 across the cone
           launchBullet(angle + t * SPREAD, 2, 560, 360);
         }
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "BOOM!" },
-        });
         return;
       }
       case WeaponType.LASER: {
         // Charge-powered beam: much faster than a ballistic round and able to
-        // reflect repeatedly without losing speed.
+        // reflect from at most two surfaces without losing speed.
         if (player.laserCharge <= 0) {
           maybeEmitPlayerWeaponCallout(
             state,
@@ -723,15 +728,11 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             player.id,
             LASER_RANGE,
             0.65,
-            4,
+            2,
             0.03,
             "laser",
           ),
         );
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "ZZZAP!" },
-        });
         return;
       }
       case WeaponType.GRENADE: {
@@ -783,10 +784,6 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         grenade.worldY += grenade.velocityY * (SIM_DT_MS / 1000);
         state.entityManager.spawn(grenade);
         queuePlayerThrowSound(state, player);
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "Grenade out!" },
-        });
         return;
       }
       case WeaponType.LAND_MINE: {
@@ -816,10 +813,6 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
           EXPLOSIVE_OWNER_GRACE_TICKS,
         );
         state.entityManager.spawn(mine);
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "Mine armed." },
-        });
         return;
       }
       default:
@@ -989,7 +982,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             monster.id,
             1536,
             0.65,
-            4,
+            2,
             0.03,
             "laser",
           ),
@@ -1079,9 +1072,8 @@ function withinManipulatorReach(
 }
 
 /**
- * Matter Manipulator — mine the targeted wall back into a placeable block.
- * Mined walls go straight into the inventory (no rubble, unlike a wall blasted
- * apart by weapons). Holowalls are indestructible and only shimmer.
+ * Matter Manipulator — mine the targeted fixture or structure back into its
+ * placeable item. Ground terrain is unaffected.
  */
 function resolveMineCommand(state: GameState, cmd: Command): void {
   const actor = state.entities.find((e) => e.id === cmd.actorId);
@@ -1108,10 +1100,6 @@ function resolveMineCommand(state: GameState, cmd: Command): void {
     structure === StructureType.WORKSHOP_FOOTPRINT
   ) {
     msg(state, "The workshop is a permanent part of the settlement.", cmd.id);
-    return;
-  }
-  if (tile === TileType.HOLOWALL) {
-    msg(state, "The holowall vibrates and shimmers.", cmd.id);
     return;
   }
   const dropped = minedItemForTile(tile);
@@ -1327,7 +1315,6 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       consumeOne(player, ItemType.POWERCELL);
       // A cell is spent entirely to top off your energy gear.
       player.laserCharge = player.laserChargeMax;
-      if (player.hasCTDM) player.ctdmCharge = player.ctdmChargeMax;
       player.panicCharge = player.panicChargeMax;
       state.pendingSounds.push({ effect: SoundEffect.RECHARGE });
       msg(state, "Power cell spent — energy gear fully charged.", cmd.id);
@@ -1423,7 +1410,17 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       msg(state, "PANIC! The teleporter yanks you toward safety!", cmd.id);
       return;
     }
-    default:
+    default: {
+      const category = active === null ? null : ITEM_DEFS[active]?.category;
+      if (
+        active !== null &&
+        category !== "weapon-melee" &&
+        category !== "weapon-ranged" &&
+        category !== "throwable"
+      ) {
+        msg(state, `You can't attack with the ${itemName(active)}.`);
+        return;
+      }
       // Weapons, grenades, mines, melee, or empty hands → fire/attack.
       resolveFireCommand(state, {
         ...cmd,
@@ -1432,11 +1429,13 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
           type: "FIRE",
           dx: (cmd.data as { dx?: number }).dx ?? 0,
           dy: (cmd.data as { dy?: number }).dy ?? 0,
+          weapon: weaponTypeForItem(active),
           targetWorldX: (cmd.data as { targetWorldX?: number }).targetWorldX,
           targetWorldY: (cmd.data as { targetWorldY?: number }).targetWorldY,
         },
       });
       return;
+    }
   }
 }
 
@@ -1474,21 +1473,6 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
       "reloaded",
       cmd.id,
     );
-    msg(state, "Laser fully charged.");
-    return;
-  }
-
-  // CTDM (when it's the active slot): reload with a power cell.
-  if (active === ItemType.CTDM) {
-    if (!player.hasCTDM) return;
-    if ((player.itemCounts[ItemType.POWERCELL] ?? 0) <= 0) {
-      msg(state, "No power cells to charge the CTDM.");
-      return;
-    }
-    consumeOne(player, ItemType.POWERCELL);
-    player.ctdmCharge = player.ctdmChargeMax;
-    state.pendingSounds.push({ effect: SoundEffect.RELOAD });
-    msg(state, "CTDM fully charged.");
     return;
   }
 
@@ -1536,7 +1520,6 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
     "reloaded",
     cmd.id,
   );
-  msg(state, '"RELOAD!!"');
 }
 
 // ========================================

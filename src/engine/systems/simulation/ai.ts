@@ -62,7 +62,6 @@ import {
 // Utility Bot Helpers
 // ========================================
 
-const UTILITY_BOT_CLEANUP_SOUND_CHANCE = 0.2;
 const UTILITY_BOT_CLEANUP_SOUNDS = [
   SoundEffect.UTILITY_BOT_CLEAN_1,
   SoundEffect.UTILITY_BOT_CLEAN_2,
@@ -266,7 +265,7 @@ function findNearestReachableRepairTarget(
 
 const BOT_JUNK_RANGE_PX = CELL_CONFIG.w * 12;
 
-/** Nearest floor junk (rubble/rock/scraps/trash) the utility bot should clean. */
+/** Nearest loose mess or organic remains the utility bot should clean. */
 function nearestJunkItem(state: GameState, bot: Monster): Item | null {
   let best: Item | null = null;
   let bestSq = BOT_JUNK_RANGE_PX * BOT_JUNK_RANGE_PX;
@@ -367,7 +366,7 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
     }
   }
 
-  // No repairs to do — tidy up nearby junk (rubble/rocks/scraps/trash).
+  // No repairs to do — tidy up nearby junk, bodies, and entrails.
   {
     const junk = nearestJunkItem(state, monster);
     if (junk) {
@@ -376,13 +375,11 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
       const jd = Math.hypot(jdx, jdy);
       if (jd <= CELL_CONFIG.w * 0.8) {
         state.entityManager.destroy(junk.id); // vacuumed up
-        if (RNG.chance(UTILITY_BOT_CLEANUP_SOUND_CHANCE)) {
-          state.pendingSounds.push({
-            effect: RNG.choose(UTILITY_BOT_CLEANUP_SOUNDS),
-            worldX: m.worldX,
-            worldY: m.worldY,
-          });
-        }
+        state.pendingSounds.push({
+          effect: RNG.choose(UTILITY_BOT_CLEANUP_SOUNDS),
+          worldX: m.worldX,
+          worldY: m.worldY,
+        });
         m.velocityX = 0;
         m.velocityY = 0;
       } else {
@@ -1582,6 +1579,12 @@ function decideMonsterCommand(
     const blockingMonster = state.entities.find((e) => {
       if (e.kind !== EntityKind.MONSTER || e.id === monster.id) return false;
       if ((e as any).type === MonsterType.UTILITY_BOT) return false;
+      if (
+        monster.type === MonsterType.ICKY_LUMP &&
+        (e as Monster).type === MonsterType.ICKY_LUMP
+      ) {
+        return false;
+      }
       const dx = e.worldX - monster.worldX;
       const dy = e.worldY - monster.worldY;
       return Math.sqrt(dx * dx + dy * dy) <= CELL_CONFIG.w * 1.5;

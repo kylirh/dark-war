@@ -42,12 +42,6 @@ export class PlayerEntity extends GameEntity {
   /** Whether CTDM is currently active (can be toggled by player) */
   public ctdmEnabled: boolean;
 
-  /** Current CTDM charge (0–ctdmChargeMax) */
-  public ctdmCharge: number;
-
-  /** Maximum CTDM charge */
-  public ctdmChargeMax: number;
-
   /** Whether the player has found the Matter Manipulator tool */
   public hasMatterManipulator: boolean;
 
@@ -98,8 +92,6 @@ export class PlayerEntity extends GameEntity {
     this.landMines = 0;
     this.hasCTDM = false;
     this.ctdmEnabled = false;
-    this.ctdmCharge = 0;
-    this.ctdmChargeMax = 100;
     this.hasMatterManipulator = false;
     this.matterManipulatorActive = false;
     this.nextActTick = 0;

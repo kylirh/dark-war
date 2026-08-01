@@ -1,11 +1,12 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
-import { EntityKind, MonsterType, EventType } from "../../types";
+import { CommandType, EntityKind, EventType, MonsterType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { pushEvent } from "./sim-helpers";
 import { processEventQueue } from "./events";
 import { processMonsterAbilities } from "./tick";
+import { resolveCommand } from "./commands";
 
 function clearMonsters(game: Game) {
   const state = game.getState();
@@ -14,8 +15,9 @@ function clearMonsters(game: Game) {
 
 describe("icky lumps breed", () => {
   beforeEach(() => RNG.reseed(99));
+  afterEach(() => vi.restoreAllMocks());
 
-  it("multiplies into adjacent open tiles over time", () => {
+  it("reproduces asexually at the deliberately low configured frequency", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     clearMonsters(game);
@@ -30,16 +32,72 @@ describe("icky lumps breed", () => {
     );
     state.entityManager.spawn(lump);
 
-    RNG.reseed(2024);
-    // Drive the passive-ability pass directly (no AI wandering / hole falls).
-    for (let i = 0; i < 4000; i++) processMonsterAbilities(state);
+    const chance = vi.spyOn(RNG, "chance").mockReturnValue(true);
+    vi.spyOn(RNG, "int").mockReturnValue(0);
+    processMonsterAbilities(state);
 
     const lumpCount = state.entities.filter(
       (e) =>
         e.kind === EntityKind.MONSTER &&
         (e as any).type === MonsterType.ICKY_LUMP,
     ).length;
-    expect(lumpCount).toBeGreaterThan(1);
+    expect(chance).toHaveBeenCalledWith(0.0005);
+    expect(lumpCount).toBe(2);
+  });
+
+  it("deals only half a point of damage to the player", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+    const player = state.player;
+    player.armor = 0;
+    const lump = new MonsterEntity(
+      player.gridX + 1,
+      player.gridY,
+      MonsterType.ICKY_LUMP,
+      1,
+    );
+    state.entityManager.spawn(lump);
+    const hpBefore = player.hp;
+
+    resolveCommand(state, {
+      id: "weak-lump-hit",
+      tick: state.sim.nowTick,
+      actorId: lump.id,
+      type: CommandType.MELEE,
+      data: { type: "MELEE", targetId: player.id },
+      priority: 0,
+      source: "AI",
+    });
+    processEventQueue(state);
+
+    expect(player.hp).toBe(hpBefore - 0.5);
+  });
+
+  it("never damages another icky lump", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+    const first = new MonsterEntity(5, 5, MonsterType.ICKY_LUMP, 1);
+    const second = new MonsterEntity(6, 5, MonsterType.ICKY_LUMP, 1);
+    state.entityManager.spawn(first);
+    state.entityManager.spawn(second);
+    const hpBefore = second.hp;
+
+    resolveCommand(state, {
+      id: "friendly-lumps",
+      tick: state.sim.nowTick,
+      actorId: first.id,
+      type: CommandType.MELEE,
+      data: { type: "MELEE", targetId: second.id },
+      priority: 0,
+      source: "AI",
+    });
+    processEventQueue(state);
+
+    expect(second.hp).toBe(hpBefore);
   });
 });
 

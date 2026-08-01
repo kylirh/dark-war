@@ -163,15 +163,7 @@ export class InventoryBar {
 
     // Charge / health bar
     const barFill = slotEl.querySelector(".inv-slot-bar-fill") as HTMLElement;
-    if (slot?.type === ItemType.CTDM && player.hasCTDM) {
-      const pct = Math.max(
-        0,
-        Math.min(1, player.ctdmCharge / player.ctdmChargeMax),
-      );
-      barFill.style.width = `${pct * 100}%`;
-      barFill.style.setProperty("--bar-color", this.ctdmBarColor(pct));
-      barFill.parentElement!.style.display = "";
-    } else if (slot?.type === ItemType.PISTOL) {
+    if (slot?.type === ItemType.PISTOL) {
       const pct = Math.max(0, Math.min(1, player.ammo / 12));
       barFill.style.width = `${pct * 100}%`;
       barFill.style.setProperty("--bar-color", "#4af");
@@ -190,40 +182,20 @@ export class InventoryBar {
     }
   }
 
-  private ctdmBarColor(pct: number): string {
-    if (pct > 0.5) return "#44ff88";
-    if (pct > 0.2) return "#ffcc00";
-    return "#ff4422";
-  }
-
   private drawSprite(
     ctx: CanvasRenderingContext2D,
     itemType: ItemType,
-    player: Player,
+    _player: Player,
   ): void {
     if (!this.spriteSheet) return;
 
-    // For CTDM: tint based on enabled/disabled
-    const spriteKey =
-      itemType === ItemType.CTDM && !player.ctdmEnabled
-        ? ItemType.CTDM // use same sprite but dim it
-        : itemType;
-
-    const coords = SPRITE_COORDS[spriteKey];
+    const coords = SPRITE_COORDS[itemType];
     if (!coords) return;
 
     const srcX = coords.x * SPRITE_SIZE;
     const srcY = coords.y * SPRITE_SIZE;
 
     ctx.save();
-
-    if (itemType === ItemType.CTDM) {
-      if (!player.ctdmEnabled) {
-        ctx.filter = "brightness(0.4) saturate(0.2)";
-      } else {
-        ctx.filter = "brightness(1.1) saturate(1.4) hue-rotate(120deg)";
-      }
-    }
 
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(
@@ -257,11 +229,8 @@ export class InventoryBar {
       html += `<div class="inv-tip-count">Count: ${count}</div>`;
     }
     if (slot.type === ItemType.CTDM) {
-      const pct = Math.round(
-        (this._lastPlayer.ctdmCharge / this._lastPlayer.ctdmChargeMax) * 100,
-      );
       const status = this._lastPlayer.ctdmEnabled ? "ON" : "OFF";
-      html += `<div class="inv-tip-count">Charge: ${pct}% (${status})</div>`;
+      html += `<div class="inv-tip-count">Status: ${status}</div>`;
     }
     if (actions.length > 0) {
       html += `<div class="inv-tip-actions">${actions.join("<br>")}</div>`;

@@ -141,9 +141,6 @@ const MM_CURSOR_CSS =
 
 // CTDM time dilation constants
 const CTDM_IDLE_SCALE = 0.35; // Timescale when CTDM is active but no threat detected
-const CTDM_DRAIN_MAX = 8.0; // Max charge/sec drained at threat=1.0
-const CTDM_RECHARGE_RATE = 3.0; // Charge/sec when moving or stationary with no threat
-const CTDM_REENABLE_THRESHOLD = 20; // Auto-re-enable CTDM when charge crosses this from zero
 
 type InitialGameMode = "new" | "load";
 
@@ -1493,64 +1490,15 @@ class DarkWar {
     if (isDead) {
       state.sim.targetTimeScale = REAL_TIME_SCALE;
     } else if (playerMoving || this.playerActedThisTick) {
-      // Moving or acted: real-time; recharge CTDM
+      // Moving or acted: real-time.
       state.sim.targetTimeScale = REAL_TIME_SCALE;
-      if (player.hasCTDM) {
-        const prevCharge = player.ctdmCharge;
-        player.ctdmCharge = Math.min(
-          player.ctdmChargeMax,
-          player.ctdmCharge + CTDM_RECHARGE_RATE * dt,
-        );
-        if (
-          !player.ctdmEnabled &&
-          prevCharge < CTDM_REENABLE_THRESHOLD &&
-          player.ctdmCharge >= CTDM_REENABLE_THRESHOLD
-        ) {
-          player.ctdmEnabled = true;
-          state.story.unshift("CTDM recharged.");
-        }
-      }
-    } else if (player.hasCTDM && player.ctdmEnabled && player.ctdmCharge > 0) {
+    } else if (player.hasCTDM && player.ctdmEnabled) {
       // CTDM active and stationary: threat-based time dilation
       const threat = this.currentThreatLevel;
       state.sim.targetTimeScale =
         SLOWMO_SCALE + (1 - threat) * (CTDM_IDLE_SCALE - SLOWMO_SCALE);
-
-      if (threat > 0.05) {
-        // Drain proportional to threat level
-        player.ctdmCharge = Math.max(
-          0,
-          player.ctdmCharge - threat * CTDM_DRAIN_MAX * dt,
-        );
-        if (player.ctdmCharge <= 0) {
-          player.ctdmEnabled = false;
-          Sound.play(SoundEffect.CLICK);
-          state.story.unshift("CTDM battery depleted.");
-        }
-      } else {
-        // No threat: slow recharge while stationary
-        player.ctdmCharge = Math.min(
-          player.ctdmChargeMax,
-          player.ctdmCharge + CTDM_RECHARGE_RATE * 0.5 * dt,
-        );
-      }
-    } else if (player.hasCTDM && !player.ctdmEnabled) {
-      // CTDM disabled (depleted or manually off): real-time, recharge
-      state.sim.targetTimeScale = REAL_TIME_SCALE;
-      const prevCharge = player.ctdmCharge;
-      player.ctdmCharge = Math.min(
-        player.ctdmChargeMax,
-        player.ctdmCharge + CTDM_RECHARGE_RATE * dt,
-      );
-      if (
-        prevCharge < CTDM_REENABLE_THRESHOLD &&
-        player.ctdmCharge >= CTDM_REENABLE_THRESHOLD
-      ) {
-        player.ctdmEnabled = true;
-        state.story.unshift("CTDM recharged.");
-      }
     } else {
-      // No CTDM: real-time until the device is found
+      // No CTDM, or manually disabled: real-time.
       state.sim.targetTimeScale = REAL_TIME_SCALE;
     }
 
@@ -2317,11 +2265,6 @@ class DarkWar {
     const state = this.game.getState();
     const player = state.player;
     if (!player.hasCTDM) return;
-    if (!player.ctdmEnabled && player.ctdmCharge <= 0) {
-      Sound.play(SoundEffect.CLICK);
-      state.story.unshift("The CTDM has no charge.");
-      return;
-    }
     player.ctdmEnabled = !player.ctdmEnabled;
     const statusMsg = player.ctdmEnabled ? "CTDM enabled." : "CTDM disabled.";
     state.story.unshift(statusMsg);
@@ -2436,10 +2379,8 @@ class DarkWar {
     this.mmLastMinedIdx = idx;
 
     const t = state.tiles.getTile(tile.tileX, tile.tileY);
-    const isHolowall = t === TileType.HOLOWALL;
-    // Nothing minable and not a holowall → skip silently (avoids log spam while
-    // dragging across open floor).
-    if (!isHolowall && minedItemForTile(t) === null) return;
+    // Skip non-minable terrain silently to avoid log spam while dragging.
+    if (minedItemForTile(t) === null) return;
 
     this.cancelAutoMove();
     this.runOfflinePlayerCommand(CommandType.MINE, {
@@ -2447,13 +2388,11 @@ class DarkWar {
       tileX: tile.tileX,
       tileY: tile.tileY,
     });
-    if (!isHolowall) {
-      this.mmZaps.push({
-        tileX: tile.tileX,
-        tileY: tile.tileY,
-        untilMs: performance.now() + MM_ZAP_DURATION_MS,
-      });
-    }
+    this.mmZaps.push({
+      tileX: tile.tileX,
+      tileY: tile.tileY,
+      untilMs: performance.now() + MM_ZAP_DURATION_MS,
+    });
   }
 
   /**

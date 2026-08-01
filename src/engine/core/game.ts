@@ -386,6 +386,7 @@ export class Game {
     };
 
     spawnItems(2 + Math.floor(depth / 4), ItemType.POWERCELL);
+    spawnItems(1, ItemType.PICKAXE);
 
     this.addStory(`You descend into level ${depth}.`);
 
@@ -1135,6 +1136,7 @@ export class Game {
     spawnItems(per(1800), ItemType.GYROJET_SHOTGUN);
     spawnItems(per(2000), ItemType.MACRO_METAL_SWORD);
     spawnItems(per(2600), ItemType.VIBRA_SWORD);
+    spawnItems(per(1400), ItemType.PICKAXE);
     spawnItems(per(2200), ItemType.MACROMETAL_JACKET);
     spawnItems(per(1800), ItemType.PANIC_BUTTON);
     spawnItems(per(1500), ItemType.HOLOWALL);

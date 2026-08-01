@@ -3,15 +3,16 @@ import { ItemType, TileType } from "../types";
 /**
  * The Matter Manipulator's two lookup tables.
  *
- * Mining: any *fixture* tile (wall, building, fence, door, tree, rubble) breaks
+ * Mining: any supported fixture or structure (including a holowall) breaks
  * into a matching item dropped on the ground. Ground/terrain (floor, grass,
- * roads, stairs, holes) and the indestructible holowall are not minable.
+ * roads, stairs, and holes) is not minable.
  *
  * Placing: any placeable item becomes its tile. Holowalls place an
  * indestructible tile; rubble/scrap have no placement and stay inert junk.
  */
 export const MINED_ITEM_FOR_TILE: Partial<Record<TileType, ItemType>> = {
   [TileType.WALL]: ItemType.WALL_BLOCK,
+  [TileType.HOLOWALL]: ItemType.HOLOWALL,
   [TileType.BUILDING]: ItemType.BUILDING_BLOCK,
   [TileType.FENCE]: ItemType.FENCE_BLOCK,
   [TileType.DOOR_CLOSED]: ItemType.DOOR,

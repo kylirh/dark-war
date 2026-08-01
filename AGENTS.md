@@ -247,7 +247,7 @@ layered model is the appropriate solution.
 - **CTDM is an in-game item** the player finds (not active from the start)
 - When active: threat level computed from nearby alert monsters → time slows proportionally
 - `sim.timeScale` and `sim.targetTimeScale` on `GameState` control the dilation
-- Player toggle with `C` key; auto-disables when charge hits 0
+- Player toggle with `C` key; the device has no charge meter or power drain
 - Without CTDM: time always runs at near-real-time (`REAL_TIME_SCALE = 0.85`)
 
 ### Command/Event Pattern

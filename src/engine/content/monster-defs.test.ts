@@ -39,6 +39,11 @@ describe("monster definitions", () => {
     expect(isRangedMonster(MonsterType.DREADNAUGHT)).toBe(false);
   });
 
+  it("keeps icky lumps at roughly half of their former health curve", () => {
+    expect(monsterHpAt(MonsterType.ICKY_LUMP, 1)).toBe(2.5);
+    expect(monsterHpAt(MonsterType.ICKY_LUMP, 8)).toBe(4.5);
+  });
+
   it("gates minibosses and tough monsters to lower levels", () => {
     expect(MONSTER_DEFS[MonsterType.DREADNAUGHT].miniboss).toBe(true);
     expect(

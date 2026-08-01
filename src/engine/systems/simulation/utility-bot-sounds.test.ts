@@ -40,7 +40,13 @@ describe("utility bot sounds", () => {
     );
   });
 
-  it("sometimes plays a randomly selected cleanup cue after removing junk", () => {
+  it.each([
+    ItemType.CORPSE,
+    ItemType.ENTRAILS,
+    ItemType.TRASH,
+    ItemType.RUBBLE_CHUNK,
+    ItemType.ROCK,
+  ])("cleans %s and always plays a washing cue", (itemType) => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
@@ -55,10 +61,9 @@ describe("utility bot sounds", () => {
       MonsterType.UTILITY_BOT,
       1,
     );
-    const trash = new ItemEntity(bot.gridX, bot.gridY, ItemType.TRASH);
+    const trash = new ItemEntity(bot.gridX, bot.gridY, itemType);
     state.entityManager.spawn(bot);
     state.entityManager.spawn(trash);
-    vi.spyOn(RNG, "chance").mockReturnValue(true);
     vi.spyOn(RNG, "choose").mockReturnValue(SoundEffect.UTILITY_BOT_CLEAN_2);
 
     updateMonsterSteering(state);
@@ -69,39 +74,5 @@ describe("utility bot sounds", () => {
       worldX: bot.worldX,
       worldY: bot.worldY,
     });
-  });
-
-  it("can clean up junk without playing a cleanup cue", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    state.entityManager.destroyWhere(
-      (entity) =>
-        entity.kind === EntityKind.MONSTER || entity.kind === EntityKind.ITEM,
-    );
-
-    const bot = new MonsterEntity(
-      state.player.gridX,
-      state.player.gridY,
-      MonsterType.UTILITY_BOT,
-      1,
-    );
-    const rubble = new ItemEntity(bot.gridX, bot.gridY, ItemType.RUBBLE_CHUNK);
-    state.entityManager.spawn(bot);
-    state.entityManager.spawn(rubble);
-    vi.spyOn(RNG, "chance").mockReturnValue(false);
-
-    updateMonsterSteering(state);
-
-    expect(state.entities.some((entity) => entity.id === rubble.id)).toBe(
-      false,
-    );
-    expect(
-      state.pendingSounds.some(
-        (sound) =>
-          sound.effect === SoundEffect.UTILITY_BOT_CLEAN_1 ||
-          sound.effect === SoundEffect.UTILITY_BOT_CLEAN_2,
-      ),
-    ).toBe(false);
   });
 });

@@ -4,6 +4,7 @@ import { EntityKind, WeaponType, CommandType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
 import { enqueueCommand, resolveCommand } from "./commands";
+import { processEventQueue } from "./events";
 import { stepSimulationTick } from "./tick";
 import { selectPlayerWeaponCallout } from "../../content/player-weapon-callouts";
 
@@ -35,6 +36,40 @@ function fire(game: Game) {
 
 describe("new weapon firing modes", () => {
   beforeEach(() => RNG.reseed(11));
+
+  it.each([
+    WeaponType.PISTOL,
+    WeaponType.SMG,
+    WeaponType.SHOTGUN,
+    WeaponType.LASER,
+    WeaponType.GRENADE,
+    WeaponType.LAND_MINE,
+  ])("does not add a story-log message when firing %s", (weapon) => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.weapon = weapon;
+    player.ammo = 12;
+    player.laserCharge = 50;
+    player.grenades = 1;
+    player.landMines = 1;
+    player.facingAngle = 0;
+    state.story.length = 0;
+
+    resolveCommand(state, {
+      id: `silent-${weapon}`,
+      tick: state.sim.nowTick,
+      actorId: player.id,
+      type: CommandType.FIRE,
+      data: { type: "FIRE", dx: 1, dy: 0, weapon },
+      priority: 0,
+      source: "PLAYER",
+    });
+    processEventQueue(state);
+
+    expect(state.story).toEqual([]);
+  });
 
   it("shotgun fires a spread of pellets and eats ammo fast", () => {
     const game = new Game({ mode: "offline" });
@@ -101,7 +136,7 @@ describe("new weapon firing modes", () => {
     expect((bullets[0] as any).projectileType).toBe("laser");
     expect(Math.hypot(bullets[0].velocityX, bullets[0].velocityY)).toBe(3600);
     expect((bullets[0] as any).trailPoints).toHaveLength(1);
-    expect((bullets[0] as any).maxRicochets).toBe(4);
+    expect((bullets[0] as any).maxRicochets).toBe(2);
     expect([
       SoundEffect.LASER_SHOOT_1,
       SoundEffect.LASER_SHOOT_2,

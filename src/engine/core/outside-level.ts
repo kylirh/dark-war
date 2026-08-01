@@ -118,6 +118,8 @@ export function createOutsideLevel(): OutsideLevelData {
     // start) so the player can grab it and start mining/building immediately.
     // It is never spawned on other levels.
     new ItemEntity(15, 58, ItemType.MATTER_MANIPULATOR),
+    // A nearby pickaxe introduces the dedicated wall/floor destruction tool.
+    new ItemEntity(14, 58, ItemType.PICKAXE),
   ];
 
   const worldPlane = createWorldPlaneFromTiles(map, WIDTH, HEIGHT, undefined, {

@@ -103,9 +103,15 @@ semantic revision invalidates it.
 
 This was a deliberate breaking rewrite. There is no requirement to load old saves
 or communicate with old clients. The layered serialization and delta conversion
-bumped `PROTOCOL_VERSION`; version 8 carries stable world identities, portals,
-and authoritative terrain-shaping actions.
+bumped `PROTOCOL_VERSION`; version 10 carries the current player/item shape,
+stable world identities, portals, and authoritative terrain-shaping actions.
 The superseded scalar runtime fields have been deleted.
+
+Destructive hand-tool behavior is capability-specific: ordinary melee affects
+actors only, the Pickaxe damages ordinary wall and floor cells over repeated
+hits, and the Matter Manipulator restores its full fixture/block mining and
+placement behavior—including holowall removal and placement—without converting
+floor cells into holes.
 
 ## Authoring boundary
 

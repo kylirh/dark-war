@@ -10,6 +10,7 @@ import {
   GroundType,
   StructureType,
 } from "../../core/world-semantics";
+import { isPlaceableItem, placedTileForItem } from "../../content/block-defs";
 
 function tileAt(game: Game, tileX: number, tileY: number): TileType {
   return game.getState().tiles.getTile(tileX, tileY);
@@ -160,6 +161,24 @@ describe("Matter Manipulator", () => {
     expect(state.player.itemCounts[ItemType.HOLOWALL] ?? 0).toBe(0);
   });
 
+  it("recognizes every supported placeable object", () => {
+    const expected: Array<[ItemType, TileType]> = [
+      [ItemType.HOLOWALL, TileType.HOLOWALL],
+      [ItemType.WALL_BLOCK, TileType.WALL],
+      [ItemType.BUILDING_BLOCK, TileType.BUILDING],
+      [ItemType.FENCE_BLOCK, TileType.FENCE],
+      [ItemType.DOOR, TileType.DOOR_CLOSED],
+      [ItemType.TREE_ITEM, TileType.TREE],
+      [ItemType.LIGHT_FIXTURE, TileType.LIGHT],
+      [ItemType.WATER, TileType.WATER_SHALLOW],
+    ];
+
+    for (const [itemType, tileType] of expected) {
+      expect(isPlaceableItem(itemType)).toBe(true);
+      expect(placedTileForItem(itemType)).toBe(tileType);
+    }
+  });
+
   it("refuses to place a non-placeable item", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
@@ -249,7 +268,7 @@ describe("Matter Manipulator", () => {
     expect(findTile(game, TileType.LIGHT)).toBe(-1);
   });
 
-  it("cannot mine a holowall — it stays intact", () => {
+  it("removes a holowall into a placeable holowall item", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
@@ -260,8 +279,41 @@ describe("Matter Manipulator", () => {
 
     mine(game, tileX, tileY);
 
-    expect(tileAt(game, tileX, tileY)).toBe(TileType.HOLOWALL);
-    expect(state.player.itemCounts[ItemType.WALL_BLOCK] ?? 0).toBe(0);
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.FLOOR);
+    expect(
+      state.entities.some(
+        (entity) =>
+          entity.kind === "item" &&
+          (entity as { type: ItemType }).type === ItemType.HOLOWALL &&
+          entity.gridX === tileX &&
+          entity.gridY === tileY,
+      ),
+    ).toBe(true);
+  });
+
+  it("never turns floor into a hole", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    state.player.hasMatterManipulator = true;
+    const tileX = state.player.gridX + 1;
+    const tileY = state.player.gridY;
+    state.worldPlane.editCell(tileX, tileY, {
+      ground: GroundType.FLOOR,
+      structure: StructureType.NONE,
+      fixture: FixtureType.NONE,
+      elevation: 0,
+    });
+
+    mine(game, tileX, tileY);
+    for (let attempt = 0; attempt < 20; attempt++) {
+      shape(game, tileX, tileY, -1);
+    }
+
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.FLOOR);
+    expect(
+      state.worldPlane.layers.ground[state.worldPlane.indexFor(tileX, tileY)],
+    ).toBe(GroundType.FLOOR);
   });
 
   it("does nothing without the Matter Manipulator", () => {

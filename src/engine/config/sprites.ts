@@ -170,7 +170,7 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   // ========================================
   [MonsterType.MUTANT]: { x: 0, y: 2 },
   [MonsterType.RAT]: { x: 1, y: 2 },
-  [MonsterType.SKULKER]: { x: 1, y: 2 }, // Rat sprite, tinted green in renderer
+  [MonsterType.SKULKER]: { x: 1, y: 2 },
   [MonsterType.UTILITY_BOT]: { x: 10, y: 2 },
   utility_bot_walk_1: { x: 11, y: 2 },
   utility_bot_walk_2: { x: 12, y: 2 },
@@ -228,6 +228,7 @@ export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
   [ItemType.DOOR]: { x: 8, y: 6 },
   [ItemType.TREE_ITEM]: { x: 9, y: 6 },
   [ItemType.LIGHT_FIXTURE]: { x: 10, y: 6 },
+  [ItemType.PICKAXE]: { x: 11, y: 6 },
   [ItemType.WATER]: { x: 4, y: 17 },
 
   // ========================================
@@ -648,14 +649,14 @@ export const EXPLOSION_FRAMES: SpriteCoordinate[] = [
 export const PLAYER_WALK_FRAMES: Record<FacingDirection, SpriteCoordinate[]> = {
   down: [SPRITE_COORDS.player_walk_down_1, SPRITE_COORDS.player_walk_down_2],
   up: [SPRITE_COORDS.player_walk_up_1, SPRITE_COORDS.player_walk_up_2],
-  left: [SPRITE_COORDS.player_walk_side_1, SPRITE_COORDS.player_walk_side_2],
-  right: [SPRITE_COORDS.player_walk_side_1, SPRITE_COORDS.player_walk_side_2],
+  left: [SPRITE_COORDS.player_walk_side_2],
+  right: [SPRITE_COORDS.player_walk_side_1],
 };
 
 export const PLAYER_IDLE_FRAMES: Record<FacingDirection, SpriteCoordinate> = {
   down: SPRITE_COORDS.player_walk_down_1,
   up: SPRITE_COORDS.player_walk_up_1,
-  left: SPRITE_COORDS.player_walk_side_1,
+  left: SPRITE_COORDS.player_walk_side_2,
   right: SPRITE_COORDS.player_walk_side_1,
 };
 

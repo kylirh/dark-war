@@ -90,6 +90,7 @@ export enum ItemType {
   GYROJET_SHOTGUN = "gyrojet-shotgun",
   MACRO_METAL_SWORD = "macro-metal-sword",
   VIBRA_SWORD = "vibra-sword",
+  PICKAXE = "pickaxe",
   MACROMETAL_JACKET = "macrometal-jacket",
   PANIC_BUTTON = "panic-button",
   HOLOWALL = "holowall",
@@ -217,8 +218,6 @@ export interface Player extends BaseEntity {
   landMines: number;
   hasCTDM: boolean;
   ctdmEnabled: boolean;
-  ctdmCharge: number;
-  ctdmChargeMax: number;
   /** Whether the player has found the Matter Manipulator tool. */
   hasMatterManipulator: boolean;
   /** Whether the Matter Manipulator is currently equipped/active (F to toggle). */
