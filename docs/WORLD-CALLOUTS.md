@@ -90,3 +90,10 @@ The initial production examples are intentionally restrained: Snagglepuss
 occasionally mutters a short authored line, and a content utility bot shows a
 heart when it nuzzles. NPC dialogue systems can emit through the same helpers
 without depending on the player composer or duplicating renderer logic.
+
+Player weapon flavor lives in `content/player-weapon-callouts.ts`. Successful
+ballistic reloads and laser recharges combine shared lines with weapon-family
+lines. Empty reload attempts and dry-fire/depleted-laser attempts use the
+depleted pool; its two introspective lines explicitly render as thoughts. A
+stateless command-ID hash gives each eligible action a 50% chance without
+consuming gameplay RNG or changing combat, loot, or AI outcomes.

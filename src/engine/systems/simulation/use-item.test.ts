@@ -11,11 +11,23 @@ import {
 import { MonsterEntity } from "../../entities/monster-entity";
 import { MonsterType } from "../../types";
 import { RNG } from "../../utils/rng";
-import { enqueueCommand } from "./commands";
+import { enqueueCommand, resolveCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
 import { applyWallDamageAt } from "../../utils/walls";
 import { SoundEffect } from "../../content/sound-effects";
 import { setStateTile } from "../../utils/state-tiles";
+import { selectPlayerWeaponCallout } from "../../content/player-weapon-callouts";
+
+function emittingReloadCommandId(
+  weapon: WeaponType,
+  situation: "reloaded" | "depleted" = "reloaded",
+): string {
+  for (let index = 0; index < 100; index++) {
+    const id = `reload-test-${index}`;
+    if (selectPlayerWeaponCallout(weapon, situation, id)) return id;
+  }
+  throw new Error("Expected to find an emitting cosmetic reload command ID");
+}
 
 function setActive(game: Game, type: ItemType) {
   const player = game.getState().player;
@@ -147,6 +159,57 @@ describe("reloading the active weapon", () => {
     reload(game);
     expect(player.laserCharge).toBe(player.laserChargeMax);
     expect(player.itemCounts[ItemType.POWERCELL] ?? 0).toBe(0);
+  });
+
+  it("occasionally emits a weapon-aware callout after reloading", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.weapon = WeaponType.PISTOL;
+    player.ammo = 0;
+    player.ammoReserve = 12;
+    setActive(game, ItemType.PISTOL);
+
+    resolveCommand(state, {
+      id: emittingReloadCommandId(WeaponType.PISTOL),
+      tick: state.sim.nowTick,
+      actorId: player.id,
+      type: CommandType.RELOAD,
+      data: { type: "RELOAD" },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    expect(state.pendingCallouts).toHaveLength(1);
+    expect(state.pendingCallouts[0]).toMatchObject({
+      kind: "speech",
+      speakerId: player.id,
+    });
+  });
+
+  it("occasionally emits a depleted callout when reserve ammo is empty", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.weapon = WeaponType.SMG;
+    player.ammo = 0;
+    player.ammoReserve = 0;
+    setActive(game, ItemType.GYROJET_SMG);
+
+    resolveCommand(state, {
+      id: emittingReloadCommandId(WeaponType.SMG, "depleted"),
+      tick: state.sim.nowTick,
+      actorId: player.id,
+      type: CommandType.RELOAD,
+      data: { type: "RELOAD" },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    expect(state.pendingCallouts).toHaveLength(1);
+    expect(state.pendingCallouts[0].speakerId).toBe(player.id);
   });
 });
 

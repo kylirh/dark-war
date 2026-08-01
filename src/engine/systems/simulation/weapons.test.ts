@@ -3,8 +3,20 @@ import { Game } from "../../core/game";
 import { EntityKind, WeaponType, CommandType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
-import { enqueueCommand } from "./commands";
+import { enqueueCommand, resolveCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
+import { selectPlayerWeaponCallout } from "../../content/player-weapon-callouts";
+
+function emittingCommandId(
+  weapon: WeaponType,
+  situation: "reloaded" | "depleted",
+): string {
+  for (let index = 0; index < 100; index++) {
+    const id = `weapon-test-${index}`;
+    if (selectPlayerWeaponCallout(weapon, situation, id)) return id;
+  }
+  throw new Error("Expected to find an emitting cosmetic command ID");
+}
 
 function fire(game: Game) {
   const state = game.getState();
@@ -109,6 +121,41 @@ describe("new weapon firing modes", () => {
     expect(game.getState().pendingSounds.at(-1)?.effect).toBe(
       SoundEffect.CLICK,
     );
+  });
+
+  it("occasionally emits a weapon-aware callout on a failed shot", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.weapon = WeaponType.LASER;
+    player.laserCharge = 0;
+
+    resolveCommand(state, {
+      id: emittingCommandId(WeaponType.LASER, "depleted"),
+      tick: state.sim.nowTick,
+      actorId: player.id,
+      type: CommandType.FIRE,
+      data: { type: "FIRE", dx: 1, dy: 0 },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    expect(state.pendingCallouts).toHaveLength(1);
+    expect(state.pendingCallouts[0].speakerId).toBe(player.id);
+    if (state.pendingCallouts[0].kind !== "reaction") {
+      expect([
+        "I'm out!!",
+        "Out of thunder!",
+        "Uh… time out?",
+        "Time to get personal!",
+        "Fine. Old school.",
+        "Okay… sword time.",
+        "Guess we improvise...",
+        "Well, that’s awkward...",
+        "Anyone got batteries?",
+      ]).toContain(state.pendingCallouts[0].text);
+    }
   });
 
   it("smg fires one round per shot", () => {

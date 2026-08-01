@@ -29,6 +29,11 @@ import { tileIsPassable } from "../../core/tile-source";
 import { ItemEntity } from "../../entities/item-entity";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
+import {
+  PlayerWeaponCalloutSituation,
+  selectPlayerWeaponCallout,
+} from "../../content/player-weapon-callouts";
+import { emitWorldTextCallout } from "../../utils/world-callouts";
 import { BulletEntity } from "../../entities/bullet-entity";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
 import { isWallLikeTile } from "../../core/tile-source";
@@ -81,6 +86,22 @@ function queuePlayerThrowSound(state: GameState, player: Player): void {
   state.pendingSounds.push({
     effect: RNG.choose(THROW_SOUNDS),
     sourceId: player.id,
+  });
+}
+
+function maybeEmitPlayerWeaponCallout(
+  state: GameState,
+  player: Player,
+  weapon: WeaponType,
+  situation: PlayerWeaponCalloutSituation,
+  commandId: string,
+): void {
+  const line = selectPlayerWeaponCallout(weapon, situation, commandId);
+  if (!line) return;
+  emitWorldTextCallout(state, {
+    kind: line.kind,
+    text: line.text,
+    speakerId: player.id,
   });
 }
 
@@ -529,6 +550,13 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       }
       case WeaponType.PISTOL: {
         if (player.ammo <= 0) {
+          maybeEmitPlayerWeaponCallout(
+            state,
+            player,
+            WeaponType.PISTOL,
+            "depleted",
+            cmd.id,
+          );
           pushEvent(state, {
             type: EventType.MESSAGE,
             data: { type: "MESSAGE", message: "*click* Out of ammo!" },
@@ -570,6 +598,13 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       case WeaponType.SMG: {
         // Spray and pray: fast (client auto-repeats), light, with a little spread.
         if (player.ammo <= 0) {
+          maybeEmitPlayerWeaponCallout(
+            state,
+            player,
+            WeaponType.SMG,
+            "depleted",
+            cmd.id,
+          );
           pushEvent(state, {
             type: EventType.MESSAGE,
             data: { type: "MESSAGE", message: "*click* Out of ammo!" },
@@ -590,6 +625,13 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         // One loud blast of pellets; eats ammo fast and has shorter range.
         const SHELL_COST = 4; // a full shell is four rounds
         if (player.ammo < SHELL_COST) {
+          maybeEmitPlayerWeaponCallout(
+            state,
+            player,
+            WeaponType.SHOTGUN,
+            "depleted",
+            cmd.id,
+          );
           pushEvent(state, {
             type: EventType.MESSAGE,
             data: { type: "MESSAGE", message: "*click* Out of shells!" },
@@ -622,6 +664,13 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
         // Charge-powered beam: much faster than a ballistic round and able to
         // reflect repeatedly without losing speed.
         if (player.laserCharge <= 0) {
+          maybeEmitPlayerWeaponCallout(
+            state,
+            player,
+            WeaponType.LASER,
+            "depleted",
+            cmd.id,
+          );
           state.pendingSounds.push({
             effect: SoundEffect.CLICK,
             sourceId: player.id,
@@ -1386,12 +1435,26 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
   // Laser pistol: reload with a power cell.
   if (active === ItemType.LASER_PISTOL || player.weapon === WeaponType.LASER) {
     if ((player.itemCounts[ItemType.POWERCELL] ?? 0) <= 0) {
+      maybeEmitPlayerWeaponCallout(
+        state,
+        player,
+        WeaponType.LASER,
+        "depleted",
+        cmd.id,
+      );
       msg(state, "No power cells to charge the laser.");
       return;
     }
     consumeOne(player, ItemType.POWERCELL);
     player.laserCharge = player.laserChargeMax;
     state.pendingSounds.push({ effect: SoundEffect.RELOAD });
+    maybeEmitPlayerWeaponCallout(
+      state,
+      player,
+      WeaponType.LASER,
+      "reloaded",
+      cmd.id,
+    );
     msg(state, "Laser fully charged.");
     return;
   }
@@ -1420,6 +1483,13 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
     return;
   }
   if (player.ammoReserve === 0) {
+    maybeEmitPlayerWeaponCallout(
+      state,
+      player,
+      player.weapon,
+      "depleted",
+      cmd.id,
+    );
     msg(state, "You're out of ammo!");
     return;
   }
@@ -1436,6 +1506,13 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
   player.ammoReserve -= take;
 
   state.pendingSounds.push({ effect: SoundEffect.RELOAD });
+  maybeEmitPlayerWeaponCallout(
+    state,
+    player,
+    player.weapon,
+    "reloaded",
+    cmd.id,
+  );
   msg(state, '"RELOAD!!"');
 }
 
