@@ -199,6 +199,7 @@ export class Game {
       changedTiles: new Set(),
       holeCreatedTiles: new Set(),
       pendingSounds: [],
+      pendingCallouts: [],
     };
   }
 
@@ -286,6 +287,7 @@ export class Game {
       changedTiles: new Set(),
       holeCreatedTiles: new Set(),
       pendingSounds: [],
+      pendingCallouts: [],
     };
 
     // Add player to entities
@@ -711,6 +713,11 @@ export class Game {
           ),
       )
       .map(({ sourceId: _sourceId, ...sound }) => sound);
+    state.callouts = this.state.pendingCallouts.filter(
+      (callout) =>
+        !callout.audiencePlayerIds ||
+        callout.audiencePlayerIds.includes(playerId),
+    );
     return state;
   }
 
@@ -1483,6 +1490,12 @@ export class Game {
       sounds: this.state.pendingSounds.map(
         ({ sourceId: _sourceId, ...sound }) => sound,
       ),
+      callouts: this.state.pendingCallouts.map((callout) => ({
+        ...callout,
+        audiencePlayerIds: callout.audiencePlayerIds
+          ? [...callout.audiencePlayerIds]
+          : undefined,
+      })),
       effects: this.state.effects,
     };
   }
@@ -1584,6 +1597,7 @@ export class Game {
       changedTiles: new Set(),
       holeCreatedTiles: new Set(),
       pendingSounds: [],
+      pendingCallouts: [],
     };
 
     this.levels = new Map();

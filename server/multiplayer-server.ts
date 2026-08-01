@@ -29,6 +29,10 @@ import {
   worldAddressForDepth,
   worldAddressKey,
 } from "../src/engine/core/world-space";
+import {
+  emitWorldTextCallout,
+  sanitizeWorldCalloutText,
+} from "../src/engine/utils/world-callouts";
 
 // Force a fresh keyframe at least this often (in broadcasts) so a client that
 // somehow drifted re-baselines within a few seconds. ~5s at 20 broadcasts/sec.
@@ -36,6 +40,7 @@ const KEYFRAME_INTERVAL = 100;
 
 // How long a dead player lingers (as a body) before respawning. ~2s at 20Hz.
 const RESPAWN_DELAY_TICKS = 40;
+const PLAYER_CALLOUT_COOLDOWN_MS = 650;
 
 // ─── Protocol types ────────────────────────────────────────────────────────────
 
@@ -71,6 +76,7 @@ type IncomingAction =
   | { type: "DESCEND" }
   | { type: "ASCEND" }
   | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 }
+  | { type: "SPEAK"; kind: "speech" | "thought"; text: string }
   | { type: "TOGGLE_GOD_MODE" };
 
 type IncomingMessage2 =
@@ -97,6 +103,7 @@ interface RoomClient {
   baselineSeq: number;
   lastKeyframeSeq: number;
   needsKeyframe: boolean;
+  lastCalloutAtMs: number;
 }
 
 // ─── Validation helpers ────────────────────────────────────────────────────────
@@ -130,6 +137,7 @@ function isIncomingAction(value: unknown): value is IncomingAction {
     value.type === "DESCEND" ||
     value.type === "ASCEND" ||
     value.type === "SHAPE_TERRAIN" ||
+    value.type === "SPEAK" ||
     value.type === "TOGGLE_GOD_MODE"
   );
 }
@@ -302,6 +310,7 @@ class RoomSession {
       baselineSeq: 0,
       lastKeyframeSeq: 0,
       needsKeyframe: true,
+      lastCalloutAtMs: Number.NEGATIVE_INFINITY,
     };
     this.clients.set(socket, client);
 
@@ -510,6 +519,26 @@ class RoomSession {
     }
 
     const tick = state.sim.nowTick;
+
+    if (action.type === "SPEAK") {
+      if (action.kind !== "speech" && action.kind !== "thought") return;
+      if (typeof action.text !== "string") return;
+      const text = sanitizeWorldCalloutText(action.text);
+      if (text.length === 0) return;
+      const client = Array.from(this.clients.values()).find(
+        (candidate) => candidate.playerId === playerId,
+      );
+      if (!client) return;
+      const nowMs = Date.now();
+      if (nowMs - client.lastCalloutAtMs < PLAYER_CALLOUT_COOLDOWN_MS) return;
+      client.lastCalloutAtMs = nowMs;
+      emitWorldTextCallout(state, {
+        kind: action.kind,
+        text,
+        speakerId: playerId,
+      });
+      return;
+    }
 
     if (action.type === "FIRE" || action.type === "USE_ITEM") {
       const dx = toFiniteNumber(action.dx);
@@ -894,10 +923,12 @@ class RoomSession {
       client.baseline = next;
       client.baselineSeq = seq;
     }
-    // Sounds are consumed per broadcast; clear each active world's queue.
+    // Ephemeral presentation is consumed per broadcast; clear each active queue.
     for (const world of this.worlds.values()) {
-      if (world.players.size > 0)
+      if (world.players.size > 0) {
         world.game.getState().pendingSounds.length = 0;
+        world.game.getState().pendingCallouts.length = 0;
+      }
     }
   }
 

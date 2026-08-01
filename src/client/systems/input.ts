@@ -13,6 +13,7 @@ export interface InputCallbacks {
   onUpdateVelocity: (vx: number, vy: number) => void; // Continuous velocity update
   onFire: (dx: number, dy: number) => void;
   onInteract: (dx: number, dy: number) => void;
+  onOpenCalloutComposer: (kind: "speech" | "thought") => void;
   onPickup: () => void;
   onWait: () => void;
   onReload: () => void;
@@ -112,6 +113,16 @@ export class InputHandler {
     }
 
     const preferences = this.getPreferences();
+
+    if (
+      !e.metaKey &&
+      !e.ctrlKey &&
+      this.isActionCode("speak", code, preferences)
+    ) {
+      e.preventDefault();
+      this.callbacks.onOpenCalloutComposer(e.shiftKey ? "thought" : "speech");
+      return;
+    }
 
     if (e.metaKey || e.ctrlKey) {
       if (key === "s") {

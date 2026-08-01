@@ -8,6 +8,7 @@ export type KeyBindingAction =
   | "moveDown"
   | "moveRight"
   | "interact"
+  | "speak"
   | "pickup"
   | "reload"
   | "toggleCTDM"
@@ -45,6 +46,7 @@ export const KEY_BINDING_DEFINITIONS: KeyBindingDefinition[] = [
   { action: "moveDown", label: "Move Down" },
   { action: "moveRight", label: "Move Right" },
   { action: "interact", label: "Open Doors" },
+  { action: "speak", label: "Speak / Think" },
   { action: "pickup", label: "Pickup" },
   { action: "reload", label: "Reload" },
   { action: "toggleCTDM", label: "Toggle CTDM" },
@@ -61,6 +63,7 @@ export const DEFAULT_KEY_BINDINGS: Record<KeyBindingAction, string> = {
   moveDown: "KeyS",
   moveRight: "KeyD",
   interact: "KeyO",
+  speak: "KeyT",
   pickup: "KeyG",
   reload: "KeyR",
   toggleCTDM: "KeyC",

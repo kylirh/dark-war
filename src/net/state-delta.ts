@@ -57,10 +57,11 @@ export interface StateDelta {
   player?: Player;
   story?: string[];
   multiplayer?: SerializedState["multiplayer"];
-  // `sim`, `effects` and `sounds` are tiny / ephemeral and always sent.
+  // `sim`, `effects`, `sounds`, and `callouts` are tiny / ephemeral and always sent.
   sim: SerializedState["sim"];
   effects: Effect[];
   sounds: NonNullable<SerializedState["sounds"]>;
+  callouts: NonNullable<SerializedState["callouts"]>;
 
   // Array sub-diffs.
   entitiesUpserted?: Entity[];
@@ -99,6 +100,7 @@ export function computeStateDelta(
     sim: next.sim,
     effects: next.effects ?? [],
     sounds: next.sounds ?? [],
+    callouts: next.callouts ?? [],
   };
 
   if (base.depth !== next.depth) delta.depth = next.depth;
@@ -157,6 +159,7 @@ export function applyStateDelta(
     sim: delta.sim,
     effects: delta.effects,
     sounds: delta.sounds,
+    callouts: delta.callouts,
   };
 
   if (delta.depth !== undefined) next.depth = delta.depth;

@@ -1629,6 +1629,96 @@ body {
   image-rendering: crisp-edges;
 }
 
+.world-callout-composer {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  z-index: 75;
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: auto minmax(180px, 360px) auto;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 28px);
+  padding: 8px 10px 7px;
+  border: 0;
+  border-radius: 10px;
+  color: #3b365d;
+  background: #fff0bd;
+  box-shadow:
+    3px 4px 0 rgba(77, 62, 115, 0.68),
+    0 10px 26px rgba(43, 42, 76, 0.24);
+  font-family: "Chicago_12", "Chicago", monospace;
+}
+
+.world-callout-composer[hidden] {
+  display: none;
+}
+
+.world-callout-composer[data-kind="thought"] {
+  background: #eee4ff;
+}
+
+.world-callout-composer__mode {
+  min-width: 42px;
+  color: #6a4fa3;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.world-callout-composer__input {
+  min-width: 0;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 5px;
+  outline: 2px solid transparent;
+  color: #3b365d;
+  background: rgba(255, 255, 255, 0.78);
+  font: inherit;
+}
+
+.world-callout-composer__input:focus {
+  outline-color: #5de2d1;
+}
+
+.world-callout-composer__send {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 5px;
+  color: #fff7db;
+  background: #6a4fa3;
+  box-shadow: 0 2px 0 #3b365d;
+  font: inherit;
+  cursor: pointer;
+}
+
+.world-callout-composer__hint {
+  grid-column: 2 / 3;
+  color: #6a6488;
+  font-size: 10px;
+  text-align: center;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 560px) {
+  .world-callout-composer {
+    grid-template-columns: auto minmax(120px, 1fr) auto;
+    width: calc(100% - 28px);
+  }
+}
+
 .hp-overlay {
   position: absolute;
   top: 12px;

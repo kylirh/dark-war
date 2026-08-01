@@ -62,6 +62,8 @@ import {
   ELEVATION_SOUTH,
   ELEVATION_WEST,
 } from "../../engine/systems/terrain/elevation-resolver";
+import { WorldCalloutView } from "./world-callout-manager";
+import { AnchoredWorldCallout, WorldCalloutLayer } from "./world-callout-layer";
 import {
   DUAL_GRID_NORTH_EAST,
   DUAL_GRID_NORTH_WEST,
@@ -97,6 +99,8 @@ export class Renderer {
   private readonly canvas: HTMLCanvasElement;
   private mapContainer: Container;
   private entityContainer: Container;
+  private worldCalloutContainer: Container;
+  private worldCalloutLayer: WorldCalloutLayer;
   private mmOverlay: MatterManipulatorOverlay | null = null;
   private spriteSheet?: Texture;
   private spriteSheetImage?: HTMLImageElement;
@@ -104,7 +108,11 @@ export class Renderer {
   private shadowTextureCache: Map<SpriteShadowSize, Texture> = new Map();
   private glowTextureCache: Map<string, Texture> = new Map();
   private ready: boolean = false;
-  private pendingRender?: { state: GameState; isDead: boolean };
+  private pendingRender?: {
+    state: GameState;
+    isDead: boolean;
+    callouts: readonly WorldCalloutView[];
+  };
   private viewportElement?: HTMLElement;
   private scale: number = 1.0; // Configurable scale factor
   private cameraWorldX: number = 0; // Camera center (world px), smooth-followed
@@ -134,6 +142,8 @@ export class Renderer {
     this.mapContainer = new Container();
     this.entityContainer = new Container();
     this.entityContainer.sortableChildren = true;
+    this.worldCalloutContainer = new Container();
+    this.worldCalloutLayer = new WorldCalloutLayer(this.worldCalloutContainer);
 
     // Initialize app asynchronously
     this.initAsync(canvas);
@@ -167,6 +177,7 @@ export class Renderer {
     // Add containers to stage
     this.app.stage.addChild(this.mapContainer);
     this.app.stage.addChild(this.entityContainer);
+    this.app.stage.addChild(this.worldCalloutContainer);
 
     const spriteSheetUrl = "./assets/img/sprites.png?v=autotiles-1";
     try {
@@ -182,7 +193,12 @@ export class Renderer {
       this.observeViewportResize();
 
       if (this.pendingRender) {
-        this.render(this.pendingRender.state, this.pendingRender.isDead);
+        this.render(
+          this.pendingRender.state,
+          this.pendingRender.isDead,
+          0,
+          this.pendingRender.callouts,
+        );
         this.pendingRender = undefined;
       }
     }
@@ -1099,10 +1115,11 @@ export class Renderer {
     state: GameState,
     isDead: boolean = false,
     alpha: number = 0,
+    callouts: readonly WorldCalloutView[] = [],
   ): void {
     if (!this.ready) {
       // Store state to render once ready
-      this.pendingRender = { state, isDead };
+      this.pendingRender = { state, isDead, callouts };
       return;
     }
 
@@ -2101,6 +2118,65 @@ export class Renderer {
       this.playerFacing = this.getEntityDirection(player);
     }
     renderDepthEntity(player, isDead);
+
+    const anchoredCallouts: AnchoredWorldCallout[] = [];
+    for (const callout of callouts) {
+      const speaker = callout.callout.speakerId
+        ? entities.find((entity) => entity.id === callout.callout.speakerId)
+        : undefined;
+      let anchorX: number;
+      let anchorY: number;
+      let gridX: number;
+      let gridY: number;
+
+      if (speaker) {
+        const position = getEntityScreenPosition(speaker);
+        anchorX = position.screenX;
+        anchorY = position.screenY - CELL_CONFIG.h / 2;
+        gridX = speaker.gridX;
+        gridY = speaker.gridY;
+      } else {
+        const anchorWorldX = this.wrapImage(
+          callout.callout.worldX,
+          camCenterX,
+          worldW,
+          wraps,
+        );
+        const anchorWorldY = this.wrapImage(
+          callout.callout.worldY,
+          camCenterY,
+          worldH,
+          wraps,
+        );
+        anchorX = offsetX + anchorWorldX;
+        anchorY = offsetY + anchorWorldY - CELL_CONFIG.h / 2;
+        gridX = Math.floor(callout.callout.worldX / CELL_CONFIG.w);
+        gridY = Math.floor(callout.callout.worldY / CELL_CONFIG.h);
+      }
+
+      if (wraps) {
+        gridX = wrapValue(gridX, state.mapWidth);
+        gridY = wrapValue(gridY, state.mapHeight);
+      }
+      if (
+        gridX < 0 ||
+        gridY < 0 ||
+        gridX >= state.mapWidth ||
+        gridY >= state.mapHeight
+      ) {
+        continue;
+      }
+      const tileIndex = gridX + gridY * state.mapWidth;
+      const visibleToPlayer = usingShadowFov
+        ? enhancedVision
+          ? explored.has(tileIndex)
+          : visible.has(tileIndex)
+        : true;
+      if (!visibleToPlayer) continue;
+
+      anchoredCallouts.push({ ...callout, anchorX, anchorY });
+    }
+    this.worldCalloutLayer.render(anchoredCallouts, viewW, viewH);
   }
 
   /**
