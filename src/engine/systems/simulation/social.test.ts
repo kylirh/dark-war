@@ -98,25 +98,20 @@ describe("social actors", () => {
     expect(online.player.hasCTDM).toBe(false);
   });
 
-  it("slows time on NPC talk offline but never online", () => {
-    const offline = new Game({ mode: "offline" }).getState();
-    const offlineBuilder = createWorkshopBuilder(
-      offline.player.gridX + 1,
-      offline.player.gridY,
-    );
-    offline.entityManager.spawn(offlineBuilder);
-    resolveTalk(offline, offline.player, offlineBuilder);
-    processEventQueue(offline);
-    expect(offline.sim.pauseReasons.has("npc_talk")).toBe(true);
-
-    const online = new Game({ mode: "online" }).getState();
-    const onlineBuilder = createWorkshopBuilder(
-      online.player.gridX + 1,
-      online.player.gridY,
-    );
-    online.entityManager.spawn(onlineBuilder);
-    resolveTalk(online, online.player, onlineBuilder);
-    processEventQueue(online);
-    expect(online.sim.pauseReasons.has("npc_talk")).toBe(false);
+  it("a one-shot line never adds an unclearable pause (would soft-freeze)", () => {
+    // Until the conversation panel provides a guaranteed close/resume path,
+    // talking must not add an `npc_talk` pause in either mode.
+    for (const mode of ["offline", "online"] as const) {
+      const state = new Game({ mode }).getState();
+      const builder = createWorkshopBuilder(
+        state.player.gridX + 1,
+        state.player.gridY,
+      );
+      state.entityManager.spawn(builder);
+      resolveTalk(state, state.player, builder);
+      processEventQueue(state);
+      expect(state.sim.pauseReasons.has("npc_talk")).toBe(false);
+      expect(state.sim.targetTimeScale).not.toBeLessThan(0.5);
+    }
   });
 });
