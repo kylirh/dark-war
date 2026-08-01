@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "../../core/game";
 import { ItemEntity } from "../../entities/item-entity";
-import { EntityKind, ItemType, WeaponType, EventType } from "../../types";
+import { EntityKind, ItemType, EventType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { processEventQueue } from "./events";
@@ -71,12 +71,51 @@ describe("picking up new items lands them in the inventory", () => {
     ).toBe(true);
   });
 
-  it("equips a found weapon and half-charges a laser pistol", () => {
+  it("stores a found weapon without changing the selected slot", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
+    const before = game.getState().player;
+    const selectedBefore = before.selectedBarSlot;
+    const weaponBefore = before.weapon;
     const { player } = pickUp(game, ItemType.LASER_PISTOL);
-    expect(player.weapon).toBe(WeaponType.LASER);
+    expect(player.selectedBarSlot).toBe(selectedBefore);
+    expect(player.weapon).toBe(weaponBefore);
     expect(player.laserCharge).toBe(Math.floor(player.laserChargeMax * 0.5));
+  });
+
+  it("does not place a new weapon into the selected empty slot", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.selectedBarSlot = 0;
+    player.inventorySlots[0] = { type: null };
+
+    pickUp(game, ItemType.PICKAXE);
+
+    expect(player.selectedBarSlot).toBe(0);
+    expect(player.inventorySlots[0].type).toBeNull();
+    expect(
+      player.inventorySlots.some((slot) => slot.type === ItemType.PICKAXE),
+    ).toBe(true);
+  });
+
+  it("leaves a weapon on the ground when only the selected slot is empty", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.selectedBarSlot = 0;
+    player.inventorySlots.forEach((slot) => {
+      slot.type = ItemType.MEDKIT;
+    });
+    player.inventorySlots[0].type = null;
+
+    const { itemId, state } = pickUp(game, ItemType.PICKAXE);
+
+    expect(player.inventorySlots[0].type).toBeNull();
+    expect(
+      player.inventorySlots.some((slot) => slot.type === ItemType.PICKAXE),
+    ).toBe(false);
+    expect(state.entities.some((entity) => entity.id === itemId)).toBe(true);
   });
 
   it("a macrometal jacket grants armor that reduces damage", () => {

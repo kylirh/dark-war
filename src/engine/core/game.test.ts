@@ -23,6 +23,8 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(serialized.plane.height).toBe(before.mapHeight);
     expect("map" in serialized).toBe(false);
     expect("wallDamage" in serialized).toBe(false);
+    expect("ctdmCharge" in serialized.player).toBe(false);
+    expect("ctdmChargeMax" in serialized.player).toBe(false);
 
     const restored = new Game({ mode: "offline" });
     restored.deserialize(serialized);

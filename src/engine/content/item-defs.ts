@@ -107,6 +107,11 @@ export const ITEM_DEFS: Record<ItemType, ItemDef> = {
     category: "weapon-melee",
     findable: true,
   },
+  [ItemType.PICKAXE]: {
+    name: "Pickaxe",
+    category: "weapon-melee",
+    findable: true,
+  },
 
   // Gear / utility
   [ItemType.MACROMETAL_JACKET]: {
@@ -229,12 +234,14 @@ export const ITEM_DEFS: Record<ItemType, ItemDef> = {
     name: "Corpse",
     category: "organic-remains",
     collectible: false,
+    cleanedByBot: true,
     organicDead: true,
   },
   [ItemType.ENTRAILS]: {
     name: "Entrails",
     category: "organic-remains",
     collectible: false,
+    cleanedByBot: true,
     organicDead: true,
   },
 };

@@ -152,9 +152,9 @@ export const MONSTER_DEFS: Record<MonsterType, MonsterDef> = {
   },
   [MonsterType.ICKY_LUMP]: {
     behavior: "melee",
-    baseHp: 5,
-    hpPerDepth: 0.5,
-    baseDmg: 1,
+    baseHp: 2.5,
+    hpPerDepth: 0.25,
+    baseDmg: 0.5,
     dmgPerDepth: 0,
     speed: 0.55,
     minDepth: 1,
@@ -267,7 +267,7 @@ export function monsterHpAt(type: MonsterType, depth: number): number {
 
 export function monsterDmgAt(type: MonsterType, depth: number): number {
   const d = MONSTER_DEFS[type];
-  return Math.max(1, d.baseDmg + Math.floor(depth * d.dmgPerDepth));
+  return Math.max(0.5, d.baseDmg + Math.floor(depth * d.dmgPerDepth));
 }
 
 /** True if the creature uses the ranged (skulker-style) combat archetype. */

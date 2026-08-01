@@ -16,7 +16,7 @@ Dark War is currently a playable TypeScript/Pixi/Electron roguelike with a pure
 shared engine, a desktop client, a static web client, and an authoritative
 WebSocket multiplayer server. The game has continuous movement, mouse aiming,
 field of view, destructible terrain, generated outside/dungeon levels, a
-findable CTDM time-dilation device in offline play, data-driven items and
+findable, unlimited CTDM time-dilation device in offline play, data-driven items and
 monsters, save slots, LAN hosting/discovery in Electron, and join-by-address
 multiplayer.
 

@@ -10,16 +10,14 @@ import {
   Explosive,
   ItemType,
   TileType,
-  WeaponType,
   CELL_CONFIG,
   STACKABLE_ITEMS,
-  INVENTORY_BAR_SIZE,
 } from "../../types";
 import { ItemEntity } from "../../entities/item-entity";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { ITEM_DEFS, itemName } from "../../content/item-defs";
 import { idxFor, setPositionFromGrid } from "../../utils/helpers";
-import { weaponTypeForItem, removeFromInventory } from "../../utils/inventory";
+import { removeFromInventory } from "../../utils/inventory";
 import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
@@ -133,11 +131,12 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     // Don't damage or play sounds if already dead
     if (player.hp <= 0) return;
 
-    // Armor (e.g. macrometal jacket) softens the blow, always leaving ≥1.
+    // Armor (e.g. macrometal jacket) softens normal blows to at least 1 HP,
+    // while naturally sub-1 attacks such as an icky lump's remain sub-1.
     const armor = (player as Player & { armor?: number }).armor ?? 0;
     const incoming =
       armor > 0 && !data.fromExplosion
-        ? Math.max(1, data.amount - armor)
+        ? Math.max(Math.min(1, data.amount), data.amount - armor)
         : data.amount;
     data.amount = incoming;
 
@@ -827,9 +826,6 @@ export function grantCoreDevice(player: Player, itemType: ItemType): boolean {
     if (player.hasCTDM) return false;
     player.hasCTDM = true;
     player.ctdmEnabled = true;
-    if (player.ctdmCharge <= 0) {
-      player.ctdmCharge = Math.floor(player.ctdmChargeMax * 0.5);
-    }
     addToInventory(player, ItemType.CTDM);
     return true;
   }
@@ -898,8 +894,22 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       break;
     case ItemType.PISTOL:
       if (!player.inventorySlots.some((s) => s.type === ItemType.PISTOL)) {
-        addToInventory(player, ItemType.PISTOL);
-        player.weapon = WeaponType.PISTOL;
+        const added = addToInventory(
+          player,
+          ItemType.PISTOL,
+          player.selectedBarSlot,
+        );
+        if (!added) {
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: {
+              type: "MESSAGE",
+              message: "Your pack is full — you leave the pistol.",
+            },
+            cause: event.id,
+          });
+          return;
+        }
         pushEvent(state, {
           type: EventType.MESSAGE,
           data: { type: "MESSAGE", message: "You pick up a pistol." },
@@ -981,8 +991,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       }
       break;
     case ItemType.POWERCELL: {
-      // Power cells are carried now; using one (or reloading laser/CTDM)
-      // spends it for a full charge.
+      // Power cells are carried now; using one or reloading a laser spends it.
       player.itemCounts[ItemType.POWERCELL] =
         (player.itemCounts[ItemType.POWERCELL] ?? 0) + 1;
       addToInventory(player, ItemType.POWERCELL);
@@ -1006,7 +1015,13 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
           (player.itemCounts[item.type] ?? 0) + amt;
       }
 
-      const added = addToInventory(player, item.type);
+      const isWeapon =
+        def?.category === "weapon-ranged" || def?.category === "weapon-melee";
+      const added = addToInventory(
+        player,
+        item.type,
+        isWeapon ? player.selectedBarSlot : -1,
+      );
       if (!added) {
         pushEvent(state, {
           type: EventType.MESSAGE,
@@ -1019,22 +1034,10 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
         return; // leave the item on the ground (don't destroy)
       }
 
-      // Equip weapons on pickup and select them on the hot bar.
-      if (
-        def?.category === "weapon-ranged" ||
-        def?.category === "weapon-melee"
-      ) {
-        player.weapon = weaponTypeForItem(item.type);
-        const slotIdx = player.inventorySlots.findIndex(
-          (s) => s.type === item.type,
-        );
-        if (slotIdx >= 0 && slotIdx < INVENTORY_BAR_SIZE) {
-          player.selectedBarSlot = slotIdx;
-        }
-        if (item.type === ItemType.LASER_PISTOL && player.laserCharge <= 0) {
-          // Laser pistols are found half-drained.
-          player.laserCharge = Math.floor(player.laserChargeMax * 0.5);
-        }
+      // New weapons enter the inventory without changing the active slot.
+      if (item.type === ItemType.LASER_PISTOL && player.laserCharge <= 0) {
+        // Laser pistols are found half-drained.
+        player.laserCharge = Math.floor(player.laserChargeMax * 0.5);
       }
 
       // Armor stacks up to the best jacket worn.

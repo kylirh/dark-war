@@ -69,6 +69,17 @@ describe("inventory add/remove", () => {
     expect(addToInventory(player, ItemType.PISTOL)).toBe(false);
   });
 
+  it("does not use an explicitly avoided empty slot", () => {
+    const player = makePlayer();
+    player.inventorySlots.forEach((slot) => {
+      slot.type = ItemType.MEDKIT;
+    });
+    player.inventorySlots[0].type = null;
+
+    expect(addToInventory(player, ItemType.PICKAXE, 0)).toBe(false);
+    expect(player.inventorySlots[0].type).toBeNull();
+  });
+
   it("removes an item by type", () => {
     const player = makePlayer();
     addToInventory(player, ItemType.PISTOL);
@@ -105,7 +116,7 @@ describe("slot queries", () => {
     expect(getSlotDisplayCount(player, 0)).toBe(6); // pistol -> ammo
     expect(getSlotDisplayCount(player, 1)).toBe(3); // grenades
     expect(getSlotDisplayCount(player, 2)).toBe(2); // keys
-    expect(getSlotDisplayCount(player, 3)).toBeNull(); // CTDM uses a bar
+    expect(getSlotDisplayCount(player, 3)).toBeNull(); // CTDM has no count or meter
   });
 
   it("labels items and slot keys", () => {

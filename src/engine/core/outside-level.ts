@@ -117,9 +117,11 @@ export function createOutsideLevel(): OutsideLevelData {
 
   setTileFor(map, stairsDown[0], stairsDown[1], WIDTH, TileType.STAIRS_DOWN);
 
-  // The CTDM and Matter Manipulator are no longer scattered in the world — the
-  // workshop builder hands them to the player in conversation (Slice 2).
-  const entities: Array<ItemEntity | MonsterEntity> = [];
+  // The workshop builder gives the player the CTDM and Matter Manipulator in
+  // conversation. The pickaxe remains available near the starting workshop.
+  const entities: Array<ItemEntity | MonsterEntity> = [
+    new ItemEntity(14, 58, ItemType.PICKAXE),
+  ];
 
   const worldPlane = createWorldPlaneFromTiles(map, WIDTH, HEIGHT, undefined, {
     wraps: true,

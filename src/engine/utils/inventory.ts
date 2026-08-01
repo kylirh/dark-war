@@ -45,14 +45,25 @@ export function canAddToInventory(player: Player, itemType: ItemType): boolean {
   return player.inventorySlots.some((s) => s.type === null);
 }
 
-export function addToInventory(player: Player, itemType: ItemType): boolean {
+export function addToInventory(
+  player: Player,
+  itemType: ItemType,
+  avoidSlotIndex: number = -1,
+): boolean {
+  const firstEmptySlot = (): InventorySlot | undefined =>
+    avoidSlotIndex >= 0
+      ? player.inventorySlots.find(
+          (slot, index) => slot.type === null && index !== avoidSlotIndex,
+        )
+      : player.inventorySlots.find((slot) => slot.type === null);
+
   if (STACKABLE_ITEMS.includes(itemType)) {
     // Stack into existing slot first
     const existing = player.inventorySlots.find((s) => s.type === itemType);
     if (existing) return true; // slot already present, count tracked by flat prop
 
     // Place in first empty slot
-    const empty = player.inventorySlots.find((s) => s.type === null);
+    const empty = firstEmptySlot();
     if (!empty) return false;
     empty.type = itemType;
     return true;
@@ -64,7 +75,7 @@ export function addToInventory(player: Player, itemType: ItemType): boolean {
     // Already have it — special handling per type done in events.ts
     return true;
   }
-  const empty = player.inventorySlots.find((s) => s.type === null);
+  const empty = firstEmptySlot();
   if (!empty) return false;
   empty.type = itemType;
   return true;
@@ -93,7 +104,7 @@ export function getSlotDisplayCount(
     case ItemType.KEYCARD:
       return player.keys;
     case ItemType.CTDM:
-      return null; // shown as bar instead
+      return null; // permanent device: no count or power meter
     case ItemType.POWERCELL:
       return player.itemCounts[ItemType.POWERCELL] ?? null;
     default:
@@ -151,7 +162,7 @@ export function getSlotActions(itemType: ItemType | null): string[] {
     case ItemType.CTDM:
       return ["Toggle time dilation (C)"];
     case ItemType.POWERCELL:
-      return ["Recharges CTDM"];
+      return ["Recharges lasers and energy gear"];
     default:
       return [];
   }

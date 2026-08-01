@@ -3,8 +3,14 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { TileType } from "../types";
-import { holeAutotileCoordinate, wallAutotileCoordinate } from "./sprites";
+import { ItemType, TileType } from "../types";
+import {
+  holeAutotileCoordinate,
+  PLAYER_IDLE_FRAMES,
+  PLAYER_WALK_FRAMES,
+  SPRITE_COORDS,
+  wallAutotileCoordinate,
+} from "./sprites";
 
 describe("autotile sprite coordinates", () => {
   it("packs all concrete wall masks into the concrete atlas rows", () => {
@@ -32,5 +38,18 @@ describe("autotile sprite coordinates", () => {
   it("maps every hole mask across one atlas row", () => {
     expect(holeAutotileCoordinate(0)).toEqual({ x: 0, y: 42 });
     expect(holeAutotileCoordinate(15)).toEqual({ x: 15, y: 42 });
+  });
+
+  it("maps each horizontal direction to its stable directional drawing", () => {
+    expect(PLAYER_WALK_FRAMES.left).toEqual([SPRITE_COORDS.player_walk_side_2]);
+    expect(PLAYER_WALK_FRAMES.right).toEqual([
+      SPRITE_COORDS.player_walk_side_1,
+    ]);
+    expect(PLAYER_IDLE_FRAMES.left).toEqual(SPRITE_COORDS.player_walk_side_2);
+    expect(PLAYER_IDLE_FRAMES.right).toEqual(SPRITE_COORDS.player_walk_side_1);
+  });
+
+  it("provides an atlas frame for the pickaxe", () => {
+    expect(SPRITE_COORDS[ItemType.PICKAXE]).toEqual({ x: 11, y: 6 });
   });
 });

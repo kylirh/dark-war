@@ -23,7 +23,6 @@ import {
   SPRITE_COORDS,
   FLOOR_VARIANTS,
   EXPLOSION_FRAMES,
-  PLAYER_WALK_FRAMES,
   PLAYER_IDLE_FRAMES,
   MONSTER_WALK_FRAMES,
   MONSTER_IDLE_FRAMES,
@@ -1843,15 +1842,18 @@ export class Renderer {
       offsetMs: number = 0,
     ): string => {
       if (dead) return "player_dead";
+      // These are distinct directional drawings rather than compatible walk
+      // poses, so select one stable frame instead of animating between them.
+      if (facing === "left") return "player_walk_side_2";
+      if (facing === "right") return "player_walk_side_1";
       if (!moving) {
         if (facing === "down") return "player_walk_down_1";
         if (facing === "up") return "player_walk_up_1";
-        return "player_walk_side_1";
       }
       const frameIndex = this.getWalkFrameIndex(nowMs, 2, 160, offsetMs) + 1;
       if (facing === "down") return `player_walk_down_${frameIndex}`;
       if (facing === "up") return `player_walk_up_${frameIndex}`;
-      return `player_walk_side_${frameIndex}`;
+      return facing === "left" ? "player_walk_side_2" : "player_walk_side_1";
     };
 
     const renderLaserPath = (
@@ -1988,29 +1990,11 @@ export class Renderer {
 
       if (entity.kind === EntityKind.BULLET && "facingAngle" in entity) {
         sprite.rotation = (entity as any).facingAngle;
-      } else if (entity.kind === EntityKind.PLAYER) {
-        const remotePlayer = entity as any;
-        const dead = forceDead || remotePlayer.hp <= 0;
-        if (!dead) {
-          sprite.tint = 0xa7f3d0;
-        }
-        if (!dead && facing && (facing === "right" || facing === "left")) {
-          sprite.scale.x =
-            facing === "right"
-              ? -Math.abs(sprite.scale.x)
-              : Math.abs(sprite.scale.x);
-        }
-      } else if (
-        entity.kind === EntityKind.MONSTER &&
-        (entity as any).type === MonsterType.SKULKER
-      ) {
-        sprite.tint = 0x88ff88;
       } else if (
         entity.kind === EntityKind.MONSTER &&
         (entity as any).type === MonsterType.CYBERCOP
       ) {
         sprite.alpha = 0.22;
-        sprite.tint = 0x9fc8ff;
       }
 
       const hasHitFlash = effects.some(
@@ -2065,7 +2049,6 @@ export class Renderer {
         const sprite = this.createSpriteFromFrame(frame, screenX, screenY);
         if (sprite) {
           sprite.scale.set(0.5);
-          sprite.tint = 0xffffff;
           sprite.alpha = 1 - effect.ageTicks / effect.durationTicks;
           sprite.zIndex = sortY + 12;
           this.entityContainer.addChild(sprite);

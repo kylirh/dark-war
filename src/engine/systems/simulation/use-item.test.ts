@@ -3,6 +3,7 @@ import { Game } from "../../core/game";
 import {
   CommandType,
   EntityKind,
+  FLOOR_MAX_DAMAGE,
   ItemType,
   TileType,
   WeaponType,
@@ -47,6 +48,19 @@ function use(game: Game) {
     source: "PLAYER",
   });
   stepSimulationTick(state);
+}
+
+function useImmediately(game: Game, id: string): void {
+  const state = game.getState();
+  resolveCommand(state, {
+    id,
+    tick: state.sim.nowTick,
+    actorId: state.player.id,
+    type: CommandType.USE_ITEM,
+    data: { type: "USE_ITEM", dx: 1, dy: 0 },
+    priority: 0,
+    source: "PLAYER",
+  });
 }
 
 function reload(game: Game) {
@@ -137,29 +151,35 @@ describe("reloading the active weapon", () => {
   it("refills a pistol magazine from reserve ammo", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
-    const player = game.getState().player;
+    const state = game.getState();
+    const player = state.player;
     player.weapon = WeaponType.PISTOL;
     player.ammo = 0;
     player.ammoReserve = 24;
     setActive(game, ItemType.PISTOL);
+    state.story.length = 0;
 
     reload(game);
     expect(player.ammo).toBe(12);
     expect(player.ammoReserve).toBe(12);
+    expect(state.story).toEqual([]);
   });
 
   it("charges the laser from a power cell", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
-    const player = game.getState().player;
+    const state = game.getState();
+    const player = state.player;
     player.weapon = WeaponType.LASER;
     player.laserCharge = 0;
     player.itemCounts[ItemType.POWERCELL] = 1;
     setActive(game, ItemType.LASER_PISTOL);
+    state.story.length = 0;
 
     reload(game);
     expect(player.laserCharge).toBe(player.laserChargeMax);
     expect(player.itemCounts[ItemType.POWERCELL] ?? 0).toBe(0);
+    expect(state.story).toEqual([]);
   });
 
   it("does nothing audible or cosmetic when a ballistic magazine is full", () => {
@@ -488,7 +508,7 @@ describe("melee weapon damage tiers", () => {
     expect(state.pendingSounds.at(-1)?.effect).toBe(SoundEffect.MISS);
   });
 
-  it("does not play the miss cue when a melee swing hits a wall", () => {
+  it("ordinary melee cannot damage walls or floors", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
@@ -503,8 +523,106 @@ describe("melee weapon damage tiers", () => {
 
     use(game);
 
+    expect(state.tiles.getTile(player.gridX + 1, player.gridY)).toBe(
+      TileType.WALL,
+    );
+    expect(
+      state.worldPlane.layers.damage[
+        state.worldPlane.indexFor(player.gridX + 1, player.gridY)
+      ],
+    ).toBe(0);
     expect(
       state.pendingSounds.some((sound) => sound.effect === SoundEffect.MISS),
-    ).toBe(false);
+    ).toBe(true);
+  });
+
+  it("a pickaxe removes walls and floors after repeated hits", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    state.entityManager.destroyWhere(
+      (entity) => entity.kind === EntityKind.MONSTER,
+    );
+    player.weapon = WeaponType.MELEE;
+    player.facingAngle = 0;
+    setActive(game, ItemType.PICKAXE);
+    const targetX = player.gridX + 1;
+    const targetY = player.gridY;
+
+    setStateTile(state, targetX, targetY, TileType.WALL);
+    for (let hit = 0; hit < WALL_MAX_DAMAGE; hit++) {
+      useImmediately(game, `pickaxe-wall-${hit}`);
+    }
+    expect(state.tiles.getTile(targetX, targetY)).toBe(TileType.FLOOR);
+
+    for (let hit = 0; hit < FLOOR_MAX_DAMAGE; hit++) {
+      useImmediately(game, `pickaxe-floor-${hit}`);
+    }
+    expect(state.tiles.getTile(targetX, targetY)).toBe(TileType.HOLE);
+  });
+
+  it("a pickaxe does little creature damage and cannot affect holowalls", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    state.entityManager.destroyWhere(
+      (entity) => entity.kind === EntityKind.MONSTER,
+    );
+    player.weapon = WeaponType.MELEE;
+    player.facingAngle = 0;
+    setActive(game, ItemType.PICKAXE);
+    const foe = new MonsterEntity(
+      player.gridX + 1,
+      player.gridY,
+      MonsterType.MUTANT,
+      1,
+    );
+    foe.hp = 20;
+    foe.hpMax = 20;
+    state.entityManager.spawn(foe);
+
+    use(game);
+    expect(foe.hp).toBe(19);
+
+    state.entityManager.destroy(foe.id);
+    setStateTile(state, player.gridX + 1, player.gridY, TileType.HOLOWALL);
+    for (let hit = 0; hit < WALL_MAX_DAMAGE * 2; hit++) {
+      useImmediately(game, `pickaxe-holo-${hit}`);
+    }
+    expect(state.tiles.getTile(player.gridX + 1, player.gridY)).toBe(
+      TileType.HOLOWALL,
+    );
+  });
+
+  it("only empty hands or a melee weapon can perform a melee hit", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    state.entityManager.destroyWhere(
+      (entity) => entity.kind === EntityKind.MONSTER,
+    );
+    player.weapon = WeaponType.MELEE;
+    player.facingAngle = 0;
+    const foe = new MonsterEntity(
+      player.gridX + 1,
+      player.gridY,
+      MonsterType.MUTANT,
+      1,
+    );
+    foe.hp = 20;
+    foe.hpMax = 20;
+    state.entityManager.spawn(foe);
+
+    setActive(game, ItemType.CTDM);
+    use(game);
+    expect(foe.hp).toBe(20);
+
+    player.inventorySlots[0] = { type: null };
+    player.nextActTick = state.sim.nowTick;
+    use(game);
+    expect(foe.hp).toBe(18);
   });
 });
