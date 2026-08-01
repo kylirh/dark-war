@@ -2876,3 +2876,91 @@ body {
   height: 32px;
   image-rendering: pixelated;
 }
+
+/* ── Conversation dialogue panel ─────────────────────────────────────────── */
+.dialogue-panel {
+  position: fixed;
+  left: 50%;
+  bottom: 4%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  width: min(720px, 92vw);
+  padding: 16px;
+  background: rgba(10, 16, 22, 0.94);
+  border: 2px solid #3fb6c8;
+  border-radius: 10px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  color: #e7f4f7;
+  font-family: "Courier New", monospace;
+  z-index: 60;
+}
+.dialogue-portrait {
+  width: 112px;
+  height: 112px;
+  flex: 0 0 auto;
+  image-rendering: pixelated;
+  background: #0c1420;
+  border: 1px solid #2b6472;
+  border-radius: 6px;
+}
+.dialogue-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dialogue-name {
+  font-weight: bold;
+  color: #6be2df;
+  letter-spacing: 0.5px;
+}
+.dialogue-text {
+  line-height: 1.4;
+  font-size: 15px;
+}
+.dialogue-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.dialogue-choice {
+  text-align: left;
+  padding: 7px 10px;
+  background: rgba(63, 182, 200, 0.1);
+  border: 1px solid #2b6472;
+  border-radius: 5px;
+  color: #e7f4f7;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.dialogue-choice:hover {
+  background: rgba(63, 182, 200, 0.28);
+  border-color: #6be2df;
+}
+.dialogue-input-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.dialogue-input {
+  flex: 1 1 auto;
+  padding: 7px 10px;
+  background: #0c1420;
+  border: 1px solid #2b6472;
+  border-radius: 5px;
+  color: #e7f4f7;
+  font-family: inherit;
+}
+.dialogue-input-submit {
+  padding: 7px 14px;
+  background: #2b6472;
+  border: 1px solid #6be2df;
+  border-radius: 5px;
+  color: #e7f4f7;
+  font-family: inherit;
+  cursor: pointer;
+}

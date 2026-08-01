@@ -83,6 +83,7 @@ import {
 } from "../engine/utils/world-callouts";
 import { CalloutComposer, PlayerCalloutKind } from "./systems/callout-composer";
 import { WorldCalloutManager } from "./systems/world-callout-manager";
+import { DialoguePanel, DialoguePanelHandlers } from "./systems/dialogue-panel";
 
 /**
  * Dark War - Main Entry Point
@@ -268,6 +269,14 @@ class DarkWar {
   private mouseTracker: MouseTracker;
   private renderer: Renderer;
   private ui: UI;
+  private dialoguePanel: DialoguePanel;
+  private readonly dialogueHandlers: DialoguePanelHandlers = {
+    onChoice: (choiceId, expectedRevision) =>
+      this.sendDialogueChoice(choiceId, undefined, expectedRevision),
+    onFreeText: (text, expectedRevision) =>
+      this.sendDialogueChoice("__freeText", text, expectedRevision),
+    onLeave: (expectedRevision) => this.sendDialogueLeave(expectedRevision),
+  };
   private inventoryBar: InventoryBar;
   private characterModal: CharacterModal;
   private gameMenu: GameMenu;
@@ -484,6 +493,7 @@ class DarkWar {
 
     if (DEBUG) console.time("Create UI");
     this.ui = new UI();
+    this.dialoguePanel = new DialoguePanel();
     if (DEBUG) console.timeEnd("Create UI");
 
     this.inventoryBar = new InventoryBar();
@@ -1351,6 +1361,16 @@ class DarkWar {
     const state = this.game.getState();
     const isDead = this.isLocalPlayerDead();
 
+    // Freeze the offline world while a conversation is open. Dialogue commands
+    // still process (they step the sim directly); the world resumes the instant
+    // the conversation ends and getConversationView() goes empty — a guaranteed
+    // clear path independent of any pause bookkeeping.
+    if (!this.isOnlineMode() && this.game.getConversationView()) {
+      state.sim.timeScale = 0;
+      state.sim.targetTimeScale = 0;
+      return;
+    }
+
     // A newly befriended pet awaits a name (offline): prompt for one. The native
     // prompt blocks the loop, which naturally pauses the game while it's open.
     this.handlePendingDogNaming(state);
@@ -1568,6 +1588,10 @@ class DarkWar {
     const isDead = this.isLocalPlayerDead();
     const player = state.player;
 
+    this.dialoguePanel.update(
+      this.game.getConversationView(),
+      this.dialogueHandlers,
+    );
     this.updateMatterManipulator();
     this.worldCalloutManager.setWorld(state.worldSpaceId, state.worldPlaneId);
     this.renderer.render(
@@ -2087,6 +2111,39 @@ class DarkWar {
   /**
    * Handle door interaction
    */
+  private sendDialogueChoice(
+    choiceId: string,
+    freeText: string | undefined,
+    expectedRevision: number,
+  ): void {
+    if (this.isOnlineMode()) {
+      this.dispatchOnlineAction({
+        type: "DIALOGUE_CHOICE",
+        choiceId,
+        freeText,
+        expectedRevision,
+      });
+      return;
+    }
+    this.runOfflinePlayerCommand(CommandType.DIALOGUE_CHOICE, {
+      type: "DIALOGUE_CHOICE",
+      choiceId,
+      freeText,
+      expectedRevision,
+    });
+  }
+
+  private sendDialogueLeave(expectedRevision: number): void {
+    if (this.isOnlineMode()) {
+      this.dispatchOnlineAction({ type: "DIALOGUE_LEAVE", expectedRevision });
+      return;
+    }
+    this.runOfflinePlayerCommand(CommandType.DIALOGUE_LEAVE, {
+      type: "DIALOGUE_LEAVE",
+      expectedRevision,
+    });
+  }
+
   private handleInteract(dx: number, dy: number): void {
     // Don't allow actions if player is dead
     if (this.isLocalPlayerDead()) {

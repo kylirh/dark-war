@@ -77,6 +77,13 @@ type IncomingAction =
   | { type: "ASCEND" }
   | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 }
   | { type: "SPEAK"; kind: "speech" | "thought"; text: string }
+  | {
+      type: "DIALOGUE_CHOICE";
+      choiceId: string;
+      freeText?: string;
+      expectedRevision: number;
+    }
+  | { type: "DIALOGUE_LEAVE"; expectedRevision: number }
   | { type: "TOGGLE_GOD_MODE" };
 
 type IncomingMessage2 =
@@ -138,6 +145,8 @@ function isIncomingAction(value: unknown): value is IncomingAction {
     value.type === "ASCEND" ||
     value.type === "SHAPE_TERRAIN" ||
     value.type === "SPEAK" ||
+    value.type === "DIALOGUE_CHOICE" ||
+    value.type === "DIALOGUE_LEAVE" ||
     value.type === "TOGGLE_GOD_MODE"
   );
 }
@@ -581,6 +590,41 @@ class RoomSession {
         actorId: playerId,
         type: CommandType.INTERACT,
         data: { type: "INTERACT", x: player.gridX + dx, y: player.gridY + dy },
+        priority: 0,
+        source: "PLAYER",
+      });
+      return;
+    }
+
+    if (action.type === "DIALOGUE_CHOICE") {
+      if (typeof action.choiceId !== "string") return;
+      const expectedRevision = toFiniteNumber(action.expectedRevision);
+      if (expectedRevision === null) return;
+      enqueueCommand(state, {
+        tick,
+        actorId: playerId,
+        type: CommandType.DIALOGUE_CHOICE,
+        data: {
+          type: "DIALOGUE_CHOICE",
+          choiceId: action.choiceId,
+          freeText:
+            typeof action.freeText === "string" ? action.freeText : undefined,
+          expectedRevision,
+        },
+        priority: 0,
+        source: "PLAYER",
+      });
+      return;
+    }
+
+    if (action.type === "DIALOGUE_LEAVE") {
+      const expectedRevision = toFiniteNumber(action.expectedRevision);
+      if (expectedRevision === null) return;
+      enqueueCommand(state, {
+        tick,
+        actorId: playerId,
+        type: CommandType.DIALOGUE_LEAVE,
+        data: { type: "DIALOGUE_LEAVE", expectedRevision },
         priority: 0,
         source: "PLAYER",
       });

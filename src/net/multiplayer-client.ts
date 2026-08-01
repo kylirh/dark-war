@@ -39,6 +39,13 @@ export type NetworkAction =
   | { type: "ASCEND" }
   | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 }
   | { type: "SPEAK"; kind: "speech" | "thought"; text: string }
+  | {
+      type: "DIALOGUE_CHOICE";
+      choiceId: string;
+      freeText?: string;
+      expectedRevision: number;
+    }
+  | { type: "DIALOGUE_LEAVE"; expectedRevision: number }
   | { type: "TOGGLE_GOD_MODE" };
 
 type ServerMessage =
