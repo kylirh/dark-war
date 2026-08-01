@@ -56,6 +56,9 @@ export interface StateDelta {
   godMode?: boolean;
   player?: Player;
   story?: string[];
+  /** Per-player conversation view; `null` means "conversation ended". */
+  conversation?: SerializedState["conversation"] | null;
+  socialFacts?: SerializedState["socialFacts"];
   multiplayer?: SerializedState["multiplayer"];
   // `sim`, `effects`, `sounds`, and `callouts` are tiny / ephemeral and always sent.
   sim: SerializedState["sim"];
@@ -124,6 +127,12 @@ export function computeStateDelta(
     delta.enhancedVision = next.enhancedVision;
   if (base.godMode !== next.godMode) delta.godMode = next.godMode;
   if (!shallowJsonEqual(base.player, next.player)) delta.player = next.player;
+  if (!shallowJsonEqual(base.conversation, next.conversation)) {
+    delta.conversation = next.conversation ?? null;
+  }
+  if (!shallowJsonEqual(base.socialFacts, next.socialFacts)) {
+    delta.socialFacts = next.socialFacts;
+  }
   if (!arraysEqual(base.story, next.story)) delta.story = next.story;
   if (!shallowJsonEqual(base.multiplayer, next.multiplayer)) {
     delta.multiplayer = next.multiplayer;
@@ -175,6 +184,10 @@ export function applyStateDelta(
     next.enhancedVision = delta.enhancedVision;
   if (delta.godMode !== undefined) next.godMode = delta.godMode;
   if (delta.player !== undefined) next.player = delta.player;
+  if (delta.conversation !== undefined) {
+    next.conversation = delta.conversation ?? undefined;
+  }
+  if (delta.socialFacts !== undefined) next.socialFacts = delta.socialFacts;
   if (delta.story !== undefined) next.story = delta.story;
   if (delta.multiplayer !== undefined) next.multiplayer = delta.multiplayer;
 

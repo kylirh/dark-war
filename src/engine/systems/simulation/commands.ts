@@ -25,6 +25,12 @@ import { canAddToInventory, removeFromInventory } from "../../utils/inventory";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { ITEM_DEFS, itemName } from "../../content/item-defs";
 import { findTalkTarget, resolveTalk } from "./social";
+import {
+  hasDialogue,
+  startConversation,
+  applyDialogueChoice,
+  leaveConversation,
+} from "./conversation";
 import { isWonOver } from "../../core/relationship-graph";
 import { minedItemForTile, placedTileForItem } from "../../content/block-defs";
 import { tileIsPassable } from "../../core/tile-source";
@@ -231,6 +237,12 @@ export function resolveCommand(state: GameState, cmd: Command): void {
       break;
     case CommandType.SHAPE_TERRAIN:
       resolveShapeTerrainCommand(state, cmd);
+      break;
+    case CommandType.DIALOGUE_CHOICE:
+      resolveDialogueChoiceCommand(state, cmd);
+      break;
+    case CommandType.DIALOGUE_LEAVE:
+      resolveDialogueLeaveCommand(state, cmd);
       break;
     case CommandType.WAIT:
       break;
@@ -1644,6 +1656,31 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
 // Interact Command (Open Doors)
 // ========================================
 
+function resolveDialogueChoiceCommand(state: GameState, cmd: Command): void {
+  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  if (!actor || actor.kind !== EntityKind.PLAYER) return;
+  const data = cmd.data as {
+    type: "DIALOGUE_CHOICE";
+    choiceId: string;
+    freeText?: string;
+    expectedRevision: number;
+  };
+  applyDialogueChoice(
+    state,
+    actor as Player,
+    data.choiceId,
+    data.expectedRevision,
+    data.freeText,
+  );
+}
+
+function resolveDialogueLeaveCommand(state: GameState, cmd: Command): void {
+  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  if (!actor || actor.kind !== EntityKind.PLAYER) return;
+  const data = cmd.data as { type: "DIALOGUE_LEAVE"; expectedRevision: number };
+  leaveConversation(state, actor as Player, data.expectedRevision);
+}
+
 function resolveInteractCommand(state: GameState, cmd: Command): void {
   const actor = state.entities.find((e) => e.id === cmd.actorId);
   if (!actor) return;
@@ -1654,7 +1691,13 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
   // Talk to an interactable actor at the targeted tile (or adjacent to us).
   const talkTarget = findTalkTarget(state, actor, data.x, data.y);
   if (talkTarget) {
-    resolveTalk(state, actor, talkTarget);
+    // Actors with an authored dialogue open the full conversation panel;
+    // others just say a one-off line.
+    if (actor.kind === EntityKind.PLAYER && hasDialogue(talkTarget)) {
+      startConversation(state, actor as Player, talkTarget);
+    } else {
+      resolveTalk(state, actor, talkTarget);
+    }
     return;
   }
 

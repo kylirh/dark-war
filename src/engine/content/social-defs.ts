@@ -13,6 +13,13 @@ export interface SocialDef {
   name: string;
   /** Faction this actor belongs to. */
   faction: string;
+  /** SPRITE_COORDS key for the dialogue portrait (defaults handled by the UI). */
+  portraitKey?: string;
+  /**
+   * Key into `DIALOGUE_DEFS`. Actors with a dialogue open the full conversation
+   * panel on interaction; actors without one just emit a short speech bubble.
+   */
+  dialogueId?: string;
   /**
    * Lines spoken the first time the player talks to this actor (e.g. an
    * introduction, or handing over starting gear). Optional.
@@ -29,11 +36,12 @@ export interface SocialDef {
 
 export const SOCIAL_DEFS: Record<string, SocialDef> = {
   "settler.workshop-builder": {
-    name: "Marda, the Workshop Builder",
+    name: "Marda",
     faction: "settlers",
+    portraitKey: "workshop-builder",
+    dialogueId: "settler.workshop-builder",
     firstMeet: [
       "Marda wipes her hands on her apron. “You made it. Good — the settlement can always use another pair of hands.”",
-      "“Here — you'll want these.” She presses a Cognitive Time Dilation Module and a Matter Manipulator into your hands. “The CTDM slows time when things get hairy. The Manipulator mines and builds. Go on, get the feel of them.”",
     ],
     gifts: [ItemType.CTDM, ItemType.MATTER_MANIPULATOR],
     greeting: [

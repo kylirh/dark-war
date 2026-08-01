@@ -12,6 +12,7 @@ import {
   ItemType,
   TileType,
   SerializedState,
+  ConversationView,
   MAP_WIDTH,
   MAP_HEIGHT,
   CELL_CONFIG,
@@ -25,6 +26,11 @@ import { TileSource } from "./tile-source";
 import { createSimulationSeed } from "../utils/deterministic-roll";
 import { deepCloneSerializable } from "../utils/deep-clone";
 import { RelationshipGraph } from "./relationship-graph";
+import {
+  buildConversationView,
+  serializeSocialFactsFor,
+  loadSocialFacts,
+} from "../systems/simulation/conversation";
 import { generateDungeon } from "./dungeon-generator";
 import { PlayerEntity } from "../entities/player-entity";
 import { MonsterEntity } from "../entities/monster-entity";
@@ -170,6 +176,8 @@ export class Game {
       entities,
       entityManager: new EntityManager(entities),
       relationships: new RelationshipGraph(),
+      conversations: new Map(),
+      playerSocialFacts: new Map(),
       players: [player],
       player,
       stairsDown: [0, 0],
@@ -257,6 +265,8 @@ export class Game {
       entities,
       entityManager: new EntityManager(entities),
       relationships: new RelationshipGraph(),
+      conversations: new Map(),
+      playerSocialFacts: new Map(),
       players: [player],
       player,
       stairsDown: dungeon.stairsDown,
@@ -679,6 +689,20 @@ export class Game {
     }
   }
 
+  /** Last conversation view received over the network (online rendering). */
+  private lastConversationView?: ConversationView;
+
+  /** The local player's active conversation view, or undefined if none. */
+  public getConversationView(): ConversationView | undefined {
+    if (this.state.multiplayer.mode === "online") {
+      return this.lastConversationView;
+    }
+    return buildConversationView(
+      this.state,
+      this.state.multiplayer.localPlayerId,
+    );
+  }
+
   public serializeForPlayer(playerId: string): SerializedState {
     const state = this.serialize();
     const player = this.getPlayerById(playerId);
@@ -693,6 +717,13 @@ export class Game {
       mode: this.state.multiplayer.mode,
       localPlayerId: playerId,
     };
+    // Per-player private social state: this player's conversation view,
+    // narrative facts, and relationship edges only — never another player's.
+    state.conversation = buildConversationView(this.state, playerId);
+    state.socialFacts = serializeSocialFactsFor(this.state, playerId);
+    state.relationships = state.relationships.filter(
+      (edge) => edge.source === playerId || edge.target === playerId,
+    );
     // Drop this player's own shoot sound — their client predicts it locally on
     // fire, so echoing it back would double up the audio.
     state.sounds = this.state.pendingSounds
@@ -1479,6 +1510,14 @@ export class Game {
       exploredByPlayer,
       story: this.state.story.slice(0, 50),
       relationships: this.state.relationships.serialize(),
+      conversation: buildConversationView(
+        this.state,
+        this.state.multiplayer.localPlayerId,
+      ),
+      socialFacts: serializeSocialFactsFor(
+        this.state,
+        this.state.multiplayer.localPlayerId,
+      ),
       levels,
       multiplayer: this.state.multiplayer,
       sim: {
@@ -1507,6 +1546,8 @@ export class Game {
     if (!data.plane) {
       throw new Error("Invalid save: missing world plane");
     }
+    // The active conversation view is per-player transient presentation state.
+    this.lastConversationView = data.conversation;
     if (!Array.isArray(data.players) || data.players.length === 0) {
       throw new Error("Invalid save: missing player data");
     }
@@ -1571,6 +1612,10 @@ export class Game {
       entities,
       entityManager: new EntityManager(entities),
       relationships: RelationshipGraph.deserialize(data.relationships),
+      conversations: new Map(),
+      playerSocialFacts: loadSocialFacts(
+        data.socialFacts ? { [localPlayerId]: data.socialFacts } : undefined,
+      ),
       players,
       player,
       story: data.story,

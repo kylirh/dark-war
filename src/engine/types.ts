@@ -162,6 +162,53 @@ export interface InteractableComponent {
   affordances: InteractAffordance[];
 }
 
+/**
+ * Durable, per-(player,speaker) narrative facts — met, one-time gifts, and
+ * remembered dialogue choices. Kept per player (NOT on the entity, NOT inferred
+ * from relationship numbers) so multiplayer players have independent histories.
+ */
+export interface SocialFacts {
+  /** Boolean facts: "met", "receivedGear", and any authored fact names. */
+  flags?: Record<string, boolean>;
+  /** Remembered choices, keyed by dialogue node id → chosen choice id. */
+  choices?: Record<string, string>;
+  /** Free-form remembered strings (e.g. the name the player gave). */
+  notes?: Record<string, string>;
+}
+
+/**
+ * A live, server-authoritative conversation between one player and one speaker.
+ * `availableChoices` are NOT stored here — they are derived from the dialogue
+ * graph and current conditions each time the view is built.
+ */
+export interface ConversationSession {
+  playerId: string;
+  speakerId: string;
+  dialogueId: string;
+  nodeId: string;
+  /** Bumped on every advance; commands carry the revision they expect. */
+  revision: number;
+}
+
+export interface DialogueChoiceView {
+  id: string;
+  label: string;
+}
+
+/** The resolved conversation view for the local player (for the dialogue UI). */
+export interface ConversationView {
+  speakerId: string;
+  speakerName: string;
+  /** SPRITE_COORDS key used to draw the speaker portrait. */
+  portraitKey: string;
+  text: string;
+  choices: DialogueChoiceView[];
+  /** Whether this node accepts a typed free-text response. */
+  allowFreeText: boolean;
+  freeTextPrompt?: string;
+  revision: number;
+}
+
 export interface BaseEntity {
   id: string;
   kind: EntityKind;
@@ -468,6 +515,10 @@ export enum CommandType {
   PLACE_BLOCK = "PLACE_BLOCK",
   /** Matter Manipulator: raise or lower one semantic terrain cell. */
   SHAPE_TERRAIN = "SHAPE_TERRAIN",
+  /** Pick a dialogue choice (or submit free text) in the active conversation. */
+  DIALOGUE_CHOICE = "DIALOGUE_CHOICE",
+  /** Leave the active conversation. */
+  DIALOGUE_LEAVE = "DIALOGUE_LEAVE",
 }
 
 export interface Command {
@@ -507,7 +558,14 @@ export type CommandData =
     }
   | { type: "MINE"; tileX: number; tileY: number }
   | { type: "PLACE_BLOCK"; tileX: number; tileY: number; itemType: ItemType }
-  | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 };
+  | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 }
+  | {
+      type: "DIALOGUE_CHOICE";
+      choiceId: string;
+      freeText?: string;
+      expectedRevision: number;
+    }
+  | { type: "DIALOGUE_LEAVE"; expectedRevision: number };
 
 export enum EventType {
   DAMAGE = "DAMAGE",
@@ -611,6 +669,10 @@ export interface GameState {
   entityManager: EntityManager;
   /** World-level relationship store (per-pair affinity/fear/grievance). */
   relationships: import("./core/relationship-graph").RelationshipGraph;
+  /** Active conversations, keyed by player id (one per player). */
+  conversations: Map<string, ConversationSession>;
+  /** Durable per-(player,speaker) narrative facts. */
+  playerSocialFacts: Map<string, Map<string, SocialFacts>>;
   players: Player[];
   player: Player;
   stairsDown: [number, number];
@@ -681,6 +743,13 @@ export interface SerializedState {
   exploredByPlayer: Record<string, number[]>;
   story: string[];
   relationships: import("./core/relationship-graph").SerializedRelationship[];
+  /**
+   * The LOCAL player's active conversation view, if any. Per-player: a full
+   * serialize includes none; `serializeForPlayer` fills in only that player's.
+   */
+  conversation?: ConversationView;
+  /** The LOCAL player's social facts (per speaker). Per-player and private. */
+  socialFacts?: Record<string, SocialFacts>;
   levels: SerializedLevelState[];
   multiplayer: {
     mode: MultiplayerMode;
