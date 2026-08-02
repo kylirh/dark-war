@@ -8,7 +8,10 @@ import {
   buildConversationView,
   getSocialFacts,
   CONVERSATION_PAUSE,
+  updateConversationSessions,
 } from "./conversation";
+import { resolveCommand } from "./commands";
+import { CommandType } from "../../types";
 
 function setup() {
   const game = new Game({ mode: "offline" });
@@ -45,8 +48,12 @@ describe("conversation", () => {
     const facts = getSocialFacts(state, state.player.id, builder.id);
     expect(facts.flags?.receivedGear).toBe(true);
 
-    // Advance back to the greeting; the gear choice is now gone.
-    applyDialogueChoice(state, state.player, "thanks", 2);
+    const acknowledgement = buildConversationView(state, state.player.id)!;
+    expect(acknowledgement.choices).toEqual([]);
+    expect(acknowledgement.canContinue).toBe(true);
+
+    // Response-free NPC lines advance through the validated Next action.
+    applyDialogueChoice(state, state.player, "__continue", 2);
     const view = buildConversationView(state, state.player.id)!;
     expect(view.choices.map((c) => c.id)).not.toContain("gear");
   });
@@ -72,6 +79,21 @@ describe("conversation", () => {
     applyDialogueChoice(state, state.player, "__freeText", 2, "Ripley");
     const ack = buildConversationView(state, state.player.id)!;
     expect(ack.text).toContain("Ripley"); // {name} resolved
+    expect(ack.canContinue).toBe(true);
+  });
+
+  it("rejects blank free text and bounds remembered input", () => {
+    const { state, builder } = setup();
+    startConversation(state, state.player, builder);
+    applyDialogueChoice(state, state.player, "name", 1);
+
+    applyDialogueChoice(state, state.player, "__freeText", 2, "   ");
+    expect(buildConversationView(state, state.player.id)!.revision).toBe(2);
+
+    applyDialogueChoice(state, state.player, "__freeText", 2, "x".repeat(80));
+    expect(
+      getSocialFacts(state, state.player.id, builder.id).notes?.name,
+    ).toHaveLength(32);
   });
 
   it("rejects a stale-revision choice (no double-apply)", () => {
@@ -94,6 +116,46 @@ describe("conversation", () => {
     expect(state.sim.pauseReasons.has(CONVERSATION_PAUSE)).toBe(false);
   });
 
+  it("stops movement and blocks world commands while talking", () => {
+    const { state, builder } = setup();
+    state.player.velocityX = 225;
+    startConversation(state, state.player, builder);
+    expect(state.player.velocityX).toBe(0);
+    const nextActTick = state.player.nextActTick;
+
+    resolveCommand(state, {
+      id: "blocked-wait",
+      tick: state.sim.nowTick,
+      actorId: state.player.id,
+      type: CommandType.WAIT,
+      data: { type: "WAIT" },
+      priority: 0,
+      source: "PLAYER",
+    });
+    expect(state.player.nextActTick).toBe(nextActTick);
+  });
+
+  it("closes and resumes if the speaker disappears", () => {
+    const { state, builder } = setup();
+    startConversation(state, state.player, builder);
+    state.entityManager.destroy(builder.id);
+    updateConversationSessions(state);
+    expect(state.conversations.has(state.player.id)).toBe(false);
+    expect(state.sim.pauseReasons.has(CONVERSATION_PAUSE)).toBe(false);
+  });
+
+  it("resets active sessions and dialogue memory for a new game", () => {
+    const { game, state, builder } = setup();
+    startConversation(state, state.player, builder);
+    applyDialogueChoice(state, state.player, "name", 1);
+    applyDialogueChoice(state, state.player, "__freeText", 2, "Ripley");
+
+    game.reset(0);
+    expect(game.getConversationView()).toBeUndefined();
+    expect(game.getState().conversations.size).toBe(0);
+    expect(game.getState().playerSocialFacts.size).toBe(0);
+  });
+
   it("persists social facts across save/load", () => {
     const { game, state, builder } = setup();
     startConversation(state, state.player, builder);
@@ -109,6 +171,17 @@ describe("conversation", () => {
     expect(facts.flags?.receivedGear).toBe(true);
   });
 
+  it("serializes social facts without aliasing live dialogue memory", () => {
+    const { game, state, builder } = setup();
+    startConversation(state, state.player, builder);
+    applyDialogueChoice(state, state.player, "name", 1);
+    applyDialogueChoice(state, state.player, "__freeText", 2, "Ripley");
+
+    const serialized = game.serialize();
+    getSocialFacts(state, state.player.id, builder.id).notes!.name = "Changed";
+    expect(serialized.socialFacts?.[builder.id].notes?.name).toBe("Ripley");
+  });
+
   it("does not add a shared pause online", () => {
     const online = new Game({ mode: "online" });
     online.reset(1);
@@ -120,5 +193,24 @@ describe("conversation", () => {
     state.entityManager.spawn(marda);
     startConversation(state, state.player, marda);
     expect(state.sim.pauseReasons.has(CONVERSATION_PAUSE)).toBe(false);
+  });
+
+  it("clears a cached online dialogue view when the game resets", () => {
+    const server = new Game({ mode: "online" });
+    server.reset(1);
+    const serverState = server.getState();
+    const marda = createWorkshopBuilder(
+      serverState.player.gridX + 1,
+      serverState.player.gridY,
+    );
+    serverState.entityManager.spawn(marda);
+    startConversation(serverState, serverState.player, marda);
+
+    const client = new Game({ mode: "online" });
+    client.deserialize(server.serializeForPlayer(serverState.player.id));
+    expect(client.getConversationView()).toBeDefined();
+
+    client.reset(0);
+    expect(client.getConversationView()).toBeUndefined();
   });
 });

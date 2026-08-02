@@ -48,6 +48,7 @@ import {
   cleanupOldCommands,
   resolveCommand,
 } from "./commands";
+import { updateConversationSessions } from "./conversation";
 
 // ========================================
 // Main Simulation Tick
@@ -55,6 +56,8 @@ import {
 
 export function stepSimulationTick(state: GameState): void {
   const tick = state.sim.nowTick;
+
+  updateConversationSessions(state);
 
   // 0. Update monster steering behaviors every N ticks
   if (tick % MONSTER_AI_UPDATE_INTERVAL === 0) {
@@ -116,6 +119,7 @@ export function stepSimulationTick(state: GameState): void {
   // 4.5 Handle hole falling checks (player + monsters)
   processHoleFalls(state);
   processEventQueue(state);
+  updateConversationSessions(state);
 
   // 5. Cleanup and increment
   clearCommandsForTick(state, tick);

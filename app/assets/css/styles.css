@@ -2895,6 +2895,11 @@ body {
   font-family: "Courier New", monospace;
   z-index: 60;
 }
+.dialogue-panel[hidden],
+.dialogue-input-row[hidden],
+.dialogue-input[hidden] {
+  display: none;
+}
 .dialogue-portrait {
   width: 112px;
   height: 112px;
@@ -2937,9 +2942,12 @@ body {
   font-size: 14px;
   cursor: pointer;
 }
-.dialogue-choice:hover {
+.dialogue-choice:hover,
+.dialogue-choice:focus-visible {
   background: rgba(63, 182, 200, 0.28);
   border-color: #6be2df;
+  outline: 2px solid #e6c85c;
+  outline-offset: 1px;
 }
 .dialogue-input-row {
   display: flex;
@@ -2963,4 +2971,22 @@ body {
   color: #e7f4f7;
   font-family: inherit;
   cursor: pointer;
+}
+.dialogue-input:focus-visible,
+.dialogue-input-submit:focus-visible {
+  outline: 2px solid #e6c85c;
+  outline-offset: 1px;
+}
+
+@media (max-width: 560px) {
+  .dialogue-panel {
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .dialogue-portrait {
+    width: 72px;
+    height: 72px;
+  }
 }

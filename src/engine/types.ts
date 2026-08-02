@@ -152,8 +152,6 @@ export interface MultiplayerState {
 export interface SocialComponent {
   /** Key into `SOCIAL_DEFS` for name, voice, and dialogue. */
   defId: string;
-  /** Stateful social flags (e.g. whether a one-time gift was handed over). */
-  flags?: Record<string, boolean>;
 }
 
 /** What the player may do when interacting with an actor. */
@@ -204,6 +202,8 @@ export interface ConversationView {
   portraitKey: string;
   text: string;
   choices: DialogueChoiceView[];
+  /** Show a response-free Next action instead of choice buttons. */
+  canContinue: boolean;
   /** Whether this node accepts a typed free-text response. */
   allowFreeText: boolean;
   freeTextPrompt?: string;

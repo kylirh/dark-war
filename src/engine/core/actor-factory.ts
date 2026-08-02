@@ -30,7 +30,7 @@ export function createWorkshopBuilder(
   );
   builder.id = WORKSHOP_BUILDER_ID;
   builder.peaceful = true;
-  builder.social = { defId: "settler.workshop-builder", flags: {} };
+  builder.social = { defId: "settler.workshop-builder" };
   builder.interactable = { affordances: ["talk"] };
   return builder;
 }
@@ -54,7 +54,7 @@ export function createParkBuilder(
   );
   builder.id = stableId;
   builder.peaceful = true;
-  builder.social = { defId: "settler.park-builder", flags: {} };
+  builder.social = { defId: "settler.park-builder" };
   builder.interactable = { affordances: ["talk"] };
   return builder;
 }

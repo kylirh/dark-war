@@ -26,6 +26,7 @@ import {
   DialogueChoice,
   DialogueCondition,
   DialogueEffect,
+  DIALOGUE_FREE_TEXT_MAX_LENGTH,
 } from "../../content/dialogue-defs";
 import { SOCIAL_DEFS } from "../../content/social-defs";
 import { grantCoreDevice } from "./events";
@@ -90,6 +91,8 @@ export function startConversation(
     nodeId: dialogue.entry,
     revision: 1,
   });
+  player.velocityX = 0;
+  player.velocityY = 0;
   // Offline pause is guaranteed to clear on end/leave/speaker-loss/death.
   if (state.multiplayer.mode !== "online") {
     state.sim.pauseReasons.add(CONVERSATION_PAUSE);
@@ -127,6 +130,25 @@ function speakerReachable(
     return null;
   }
   return speaker;
+}
+
+/** Close sessions whose player, speaker, or authored node is no longer valid. */
+export function updateConversationSessions(state: GameState): void {
+  for (const [playerId, session] of Array.from(state.conversations.entries())) {
+    const player = state.entities.find(
+      (entity) => entity.id === playerId && entity.kind === EntityKind.PLAYER,
+    ) as Player | undefined;
+    const speaker = player
+      ? speakerReachable(state, player, session.speakerId)
+      : null;
+    const node = DIALOGUE_DEFS[session.dialogueId]?.nodes[session.nodeId];
+    const speakerAlive =
+      speaker &&
+      (!("hp" in speaker) || typeof speaker.hp !== "number" || speaker.hp > 0);
+    if (!player || player.hp <= 0 || !speakerAlive || !node) {
+      endConversation(state, playerId);
+    }
+  }
 }
 
 // ─── Conditions & effects ────────────────────────────────────────────────────
@@ -240,18 +262,33 @@ export function applyDialogueChoice(
 
   // Free-text submission (choiceId === "__freeText").
   if (freeText !== undefined && node.allowFreeText) {
+    const sanitizedText = freeText
+      .trim()
+      .slice(0, DIALOGUE_FREE_TEXT_MAX_LENGTH);
+    if (sanitizedText.length === 0) return;
     for (const effect of node.freeTextEffects ?? []) {
-      applyEffect(state, player, speaker, facts, effect, freeText);
+      applyEffect(state, player, speaker, facts, effect, sanitizedText);
     }
     advanceOrEnd(state, player, session, node.freeTextNext);
     return;
   }
 
-  const choice = node.choices.find((c) => c.id === choiceId);
+  const availableChoices = node.choices.filter((choice) =>
+    conditionMet(state, player.id, session.speakerId, facts, choice.condition),
+  );
   if (
-    !choice ||
-    !conditionMet(state, player.id, session.speakerId, facts, choice.condition)
+    choiceId === "__continue" &&
+    !node.allowFreeText &&
+    availableChoices.length === 0
   ) {
+    advanceOrEnd(state, player, session, node.next);
+    return;
+  }
+
+  const choice = availableChoices.find(
+    (candidate) => candidate.id === choiceId,
+  );
+  if (!choice) {
     return; // unknown or unavailable choice
   }
 
@@ -325,6 +362,7 @@ export function buildConversationView(
     portraitKey: def?.portraitKey ?? speaker.social.defId,
     text: resolveText(node.text, facts),
     choices,
+    canContinue: !node.allowFreeText && choices.length === 0,
     allowFreeText: !!node.allowFreeText,
     freeTextPrompt: node.freeTextPrompt,
     revision: session.revision,
@@ -341,9 +379,17 @@ export function serializeSocialFactsFor(
   if (!byPlayer || byPlayer.size === 0) return undefined;
   const out: Record<string, SocialFacts> = {};
   for (const [speakerId, facts] of byPlayer.entries()) {
-    out[speakerId] = facts;
+    out[speakerId] = cloneSocialFacts(facts);
   }
   return out;
+}
+
+function cloneSocialFacts(facts: SocialFacts): SocialFacts {
+  return {
+    flags: facts.flags ? { ...facts.flags } : undefined,
+    choices: facts.choices ? { ...facts.choices } : undefined,
+    notes: facts.notes ? { ...facts.notes } : undefined,
+  };
 }
 
 export function loadSocialFacts(
@@ -353,7 +399,7 @@ export function loadSocialFacts(
   for (const [playerId, bySpeaker] of Object.entries(serialized ?? {})) {
     const inner = new Map<string, SocialFacts>();
     for (const [speakerId, facts] of Object.entries(bySpeaker)) {
-      inner.set(speakerId, facts);
+      inner.set(speakerId, cloneSocialFacts(facts));
     }
     out.set(playerId, inner);
   }

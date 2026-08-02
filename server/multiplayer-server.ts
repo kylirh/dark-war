@@ -496,6 +496,11 @@ class RoomSession {
     const world = this.worldOfPlayer(playerId);
     const player = world?.game.getPlayerById(playerId);
     if (!player || player.hp <= 0) return;
+    if (world?.game.getState().conversations.has(playerId)) {
+      player.velocityX = 0;
+      player.velocityY = 0;
+      return;
+    }
 
     const speedLimit = 260;
     let nextVx = Number.isFinite(vx) ? vx : 0;
@@ -516,6 +521,13 @@ class RoomSession {
     const state = world.game.getState();
     const player = world.game.getPlayerById(playerId);
     if (!player || player.hp <= 0) return;
+    if (
+      state.conversations.has(playerId) &&
+      action.type !== "DIALOGUE_CHOICE" &&
+      action.type !== "DIALOGUE_LEAVE"
+    ) {
+      return;
+    }
 
     // Level transitions migrate only this player between worlds.
     if (action.type === "DESCEND") {
@@ -681,8 +693,9 @@ class RoomSession {
   }
 
   private applyWeaponSelection(playerId: string, slot: number): void {
-    const player = this.worldOfPlayer(playerId)?.game.getPlayerById(playerId);
-    if (!player) return;
+    const world = this.worldOfPlayer(playerId);
+    const player = world?.game.getPlayerById(playerId);
+    if (!player || world?.game.getState().conversations.has(playerId)) return;
     // `slot` is a 0-based inventory-bar index; the weapon is whatever item sits
     // there (authoritative, so it always matches the player's real inventory).
     if (!Number.isInteger(slot) || slot < 0 || slot >= INVENTORY_BAR_SIZE)
@@ -692,8 +705,9 @@ class RoomSession {
   }
 
   private applyInventorySwap(playerId: string, from: number, to: number): void {
-    const player = this.worldOfPlayer(playerId)?.game.getPlayerById(playerId);
-    if (!player) return;
+    const world = this.worldOfPlayer(playerId);
+    const player = world?.game.getPlayerById(playerId);
+    if (!player || world?.game.getState().conversations.has(playerId)) return;
     const total = player.inventorySlots.length;
     if (!Number.isInteger(from) || !Number.isInteger(to)) return;
     if (from < 0 || from >= total || to < 0 || to >= total) return;

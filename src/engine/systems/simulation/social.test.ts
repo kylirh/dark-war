@@ -6,8 +6,10 @@ import {
 } from "../../core/actor-factory";
 import { createOutsideLevel } from "../../core/outside-level";
 import { canTalkTo, findTalkTarget, resolveTalk } from "./social";
+import { getSocialFacts } from "./conversation";
 import { processEventQueue } from "./events";
 import { EntityKind, EventType, ItemType, MonsterType } from "../../types";
+import { PlayerEntity } from "../../entities/player-entity";
 
 describe("social actors", () => {
   it("builds a workshop builder wearing social/interactable/peaceful", () => {
@@ -73,7 +75,9 @@ describe("social actors", () => {
     const firstMessage = (first!.data as { message: string }).message;
     expect(firstMessage).toContain("Marda");
     expect(firstMessage).toContain("You made it"); // first-meet line
-    expect(builder.social?.flags?.met).toBe(true);
+    expect(getSocialFacts(state, state.player.id, builder.id).flags?.met).toBe(
+      true,
+    );
     // The builder handed over the starting gear on first meet.
     expect(state.player.hasCTDM).toBe(true);
     expect(state.player.hasMatterManipulator).toBe(true);
@@ -96,6 +100,38 @@ describe("social actors", () => {
     resolveTalk(online, online.player, builder);
     expect(online.player.hasMatterManipulator).toBe(true);
     expect(online.player.hasCTDM).toBe(false);
+  });
+
+  it("keeps first-meet memory private to each multiplayer player", () => {
+    const state = new Game({ mode: "online" }).getState();
+    const builder = createWorkshopBuilder(
+      state.player.gridX + 1,
+      state.player.gridY,
+    );
+    const secondPlayer = new PlayerEntity(
+      state.player.gridX,
+      state.player.gridY,
+    );
+    secondPlayer.id = "second-player";
+    state.entityManager.spawn(builder);
+    state.entityManager.spawn(secondPlayer);
+    state.players.push(secondPlayer);
+
+    resolveTalk(state, state.player, builder);
+    state.eventQueue.length = 0;
+    resolveTalk(state, secondPlayer, builder);
+    const second = state.eventQueue.find(
+      (event) => event.type === EventType.NPC_TALK,
+    );
+    expect((second!.data as { message: string }).message).toContain(
+      "You made it",
+    );
+    expect(getSocialFacts(state, state.player.id, builder.id).flags?.met).toBe(
+      true,
+    );
+    expect(getSocialFacts(state, secondPlayer.id, builder.id).flags?.met).toBe(
+      true,
+    );
   });
 
   it("a one-shot line never adds an unclearable pause (would soft-freeze)", () => {

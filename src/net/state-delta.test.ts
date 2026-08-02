@@ -161,6 +161,32 @@ describe("computeStateDelta / applyStateDelta", () => {
     roundTrip(baseState(), next);
   });
 
+  it("round-trips conversation, social-fact clearing, and relationships", () => {
+    const base = baseState();
+    base.socialFacts = { npc: { flags: { met: true } } };
+    const next = baseState();
+    next.conversation = {
+      speakerId: "npc",
+      speakerName: "Marda",
+      portraitKey: "workshop-builder",
+      text: "Hello.",
+      choices: [],
+      canContinue: true,
+      allowFreeText: false,
+      revision: 1,
+    };
+    next.relationships = [
+      {
+        source: "p1",
+        target: "npc",
+        affinity: 10,
+        fear: 0,
+        grievance: 0,
+      },
+    ];
+    roundTrip(base, next);
+  });
+
   it("round-trips spatial sound metadata", () => {
     const next = baseState();
     next.sounds = [

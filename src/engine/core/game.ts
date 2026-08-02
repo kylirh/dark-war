@@ -28,6 +28,7 @@ import { deepCloneSerializable } from "../utils/deep-clone";
 import { RelationshipGraph } from "./relationship-graph";
 import {
   buildConversationView,
+  endConversation,
   serializeSocialFactsFor,
   loadSocialFacts,
 } from "../systems/simulation/conversation";
@@ -216,6 +217,7 @@ export class Game {
    */
   public reset(depth: number = 0): void {
     if (DEBUG) console.time("reset: total");
+    this.lastConversationView = undefined;
     this.isDead = false;
     this.levels = new Map();
     const outside = depth === 0 ? createOutsideLevel() : null;
@@ -608,6 +610,8 @@ export class Game {
     if (!player) return null;
     this.state.players = this.state.players.filter((p) => p.id !== playerId);
     this.state.entityManager.destroy(playerId);
+    endConversation(this.state, playerId);
+    this.state.playerSocialFacts.delete(playerId);
     this.accessibilityCache.delete(playerId);
     this.state.exploredByPlayer.delete(playerId);
     this.state.visibilityByPlayer.delete(playerId);
@@ -1512,10 +1516,9 @@ export class Game {
       exploredByPlayer,
       story: this.state.story.slice(0, 50),
       relationships: this.state.relationships.serialize(),
-      conversation: buildConversationView(
-        this.state,
-        this.state.multiplayer.localPlayerId,
-      ),
+      // Active sessions are transient and are only attached to authoritative
+      // per-player network snapshots by serializeForPlayer().
+      conversation: undefined,
       socialFacts: serializeSocialFactsFor(
         this.state,
         this.state.multiplayer.localPlayerId,

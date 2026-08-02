@@ -8,6 +8,8 @@
  * social facts.
  */
 
+export const DIALOGUE_FREE_TEXT_MAX_LENGTH = 32;
+
 export type DialogueCondition =
   | { type: "hasFact"; fact: string }
   | { type: "notFact"; fact: string }
@@ -35,6 +37,8 @@ export interface DialogueChoice {
 export interface DialogueNode {
   text: string;
   choices: DialogueChoice[];
+  /** Next node for a response-free "Next" action; omit to end the dialogue. */
+  next?: string;
   /** When true the node accepts a typed free-text response. */
   allowFreeText?: boolean;
   freeTextPrompt?: string;
@@ -75,7 +79,8 @@ export const DIALOGUE_DEFS: Record<string, DialogueDef> = {
       },
       gaveGear: {
         text: "“Here — you'll want these.” She presses a Cognitive Time Dilation Module and a Matter Manipulator into your hands. “The CTDM slows time when things get hairy. The Manipulator mines and builds. Go on, get the feel of them.”",
-        choices: [{ id: "thanks", label: "Thank you.", next: "greeting" }],
+        choices: [],
+        next: "greeting",
       },
       askName: {
         text: "“New, huh. What do they call you?”",
@@ -87,7 +92,8 @@ export const DIALOGUE_DEFS: Record<string, DialogueDef> = {
       },
       nameAck: {
         text: "“Good to meet you, {name}. Stick around — we're building something here.”",
-        choices: [{ id: "ok", label: "I will.", next: "greeting" }],
+        choices: [],
+        next: "greeting",
       },
       askFollow: {
         text: "“Depends. Want me at your side, or holding the workshop?”",
@@ -112,11 +118,11 @@ export const DIALOGUE_DEFS: Record<string, DialogueDef> = {
       },
       nowFollowing: {
         text: "“Right behind you, then.” Marda shoulders her tools and falls into step.",
-        choices: [{ id: "ok", label: "Let's go." }],
+        choices: [],
       },
       nowStaying: {
         text: "“I'll be here. Come find me when you need me.” She turns back to her work.",
-        choices: [{ id: "ok", label: "Understood." }],
+        choices: [],
       },
     },
   },

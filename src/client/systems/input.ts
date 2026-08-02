@@ -37,6 +37,7 @@ export interface InputCallbacks {
 export class InputHandler {
   private callbacks: InputCallbacks;
   private getPreferences: () => UserPreferences;
+  private isWorldInputBlocked: () => boolean;
   private fireMode = false;
   private lastInteractDirection: Direction = [0, 0];
   private readonly onKeyDown = (e: KeyboardEvent): void =>
@@ -53,9 +54,11 @@ export class InputHandler {
   constructor(
     callbacks: InputCallbacks,
     getPreferences: () => UserPreferences,
+    isWorldInputBlocked: () => boolean = () => false,
   ) {
     this.callbacks = callbacks;
     this.getPreferences = getPreferences;
+    this.isWorldInputBlocked = isWorldInputBlocked;
     this.setupKeyboardListeners();
   }
 
@@ -66,6 +69,7 @@ export class InputHandler {
 
   private handleKeyDown(e: KeyboardEvent): void {
     if (e.defaultPrevented) return;
+    if (this.isWorldInputBlocked()) return;
 
     // Allow Escape and E to work even when modal-open (for closing/switching)
     const isModalOpen = document.body.classList.contains("imb-modal-open");
@@ -276,6 +280,7 @@ export class InputHandler {
   private handleKeyUp(e: KeyboardEvent): void {
     if (
       e.defaultPrevented ||
+      this.isWorldInputBlocked() ||
       document.body.classList.contains("imb-modal-open")
     ) {
       return;

@@ -206,6 +206,14 @@ export function resolveCommand(state: GameState, cmd: Command): void {
       (e) => e.id === cmd.actorId && e.kind === EntityKind.PLAYER,
     ) as Player | undefined;
     if (player && player.hp <= 0) return;
+    if (
+      player &&
+      state.conversations.has(player.id) &&
+      cmd.type !== CommandType.DIALOGUE_CHOICE &&
+      cmd.type !== CommandType.DIALOGUE_LEAVE
+    ) {
+      return;
+    }
   }
 
   let commandExecuted = true;
@@ -252,9 +260,11 @@ export function resolveCommand(state: GameState, cmd: Command): void {
       break;
     case CommandType.DIALOGUE_CHOICE:
       resolveDialogueChoiceCommand(state, cmd);
+      commandExecuted = false;
       break;
     case CommandType.DIALOGUE_LEAVE:
       resolveDialogueLeaveCommand(state, cmd);
+      commandExecuted = false;
       break;
     case CommandType.WAIT:
       break;
@@ -1101,7 +1111,7 @@ function winOverSnagglepuss(
   monster.fleeing = false;
   monster.ownerId = playerId;
   monster.name = monster.name ?? "Snagglepuss";
-  monster.social ??= { defId: "wildlife.snagglepuss", flags: {} };
+  monster.social ??= { defId: "wildlife.snagglepuss" };
   monster.interactable ??= { affordances: ["talk"] };
   state.pendingSounds.push({
     effect: SoundEffect.SNAGGLEPUSS_ACK,

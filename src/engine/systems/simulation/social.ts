@@ -19,6 +19,7 @@ import { pushEvent } from "./sim-helpers";
 import { grantCoreDevice } from "./events";
 import { SOCIAL_DEFS } from "../../content/social-defs";
 import { deterministicChoice } from "../../utils/deterministic-roll";
+import { getSocialFacts } from "./conversation";
 
 /** Whether an entity can currently be talked to. */
 export function canTalkTo(entity: Entity): boolean {
@@ -68,7 +69,11 @@ export function resolveTalk(
   const def = SOCIAL_DEFS[social.defId];
   if (!def) return;
 
-  const flags = (social.flags ??= {});
+  const facts =
+    actor.kind === EntityKind.PLAYER
+      ? getSocialFacts(state, actor.id, target.id)
+      : {};
+  const flags = (facts.flags ??= {});
   const lines: string[] = [];
   if (def.firstMeet && !flags.met) {
     lines.push(...def.firstMeet);

@@ -58,7 +58,9 @@ export interface StateDelta {
   story?: string[];
   /** Per-player conversation view; `null` means "conversation ended". */
   conversation?: SerializedState["conversation"] | null;
-  socialFacts?: SerializedState["socialFacts"];
+  /** `null` clears facts after an authoritative reset. */
+  socialFacts?: SerializedState["socialFacts"] | null;
+  relationships?: SerializedState["relationships"];
   multiplayer?: SerializedState["multiplayer"];
   // `sim`, `effects`, `sounds`, and `callouts` are tiny / ephemeral and always sent.
   sim: SerializedState["sim"];
@@ -131,7 +133,10 @@ export function computeStateDelta(
     delta.conversation = next.conversation ?? null;
   }
   if (!shallowJsonEqual(base.socialFacts, next.socialFacts)) {
-    delta.socialFacts = next.socialFacts;
+    delta.socialFacts = next.socialFacts ?? null;
+  }
+  if (!shallowJsonEqual(base.relationships, next.relationships)) {
+    delta.relationships = next.relationships;
   }
   if (!arraysEqual(base.story, next.story)) delta.story = next.story;
   if (!shallowJsonEqual(base.multiplayer, next.multiplayer)) {
@@ -187,7 +192,12 @@ export function applyStateDelta(
   if (delta.conversation !== undefined) {
     next.conversation = delta.conversation ?? undefined;
   }
-  if (delta.socialFacts !== undefined) next.socialFacts = delta.socialFacts;
+  if (delta.socialFacts !== undefined) {
+    next.socialFacts = delta.socialFacts ?? undefined;
+  }
+  if (delta.relationships !== undefined) {
+    next.relationships = delta.relationships;
+  }
   if (delta.story !== undefined) next.story = delta.story;
   if (delta.multiplayer !== undefined) next.multiplayer = delta.multiplayer;
 

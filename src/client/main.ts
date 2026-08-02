@@ -13,7 +13,10 @@ import {
 } from "./systems/preferences";
 import { Renderer } from "./systems/renderer";
 import { stepSimulationTick } from "../engine/systems/simulation/tick";
-import { enqueueCommand } from "../engine/systems/simulation/commands";
+import {
+  enqueueCommand,
+  resolveCommand,
+} from "../engine/systems/simulation/commands";
 import {
   SIM_DT_MS,
   MATTER_MANIPULATOR_RANGE,
@@ -340,10 +343,16 @@ class DarkWar {
   private introStory: IntroStory | null = null;
   private lastOnlineUnavailableLogAt: number = 0;
   private hasStartedGameLoop: boolean = false;
+  private dialogueWasOpen = false;
   private readonly onCanvasClick = (): void => {
+    if (this.isDialogueActive()) return;
     this.handleMouseFire();
   };
   private readonly onCanvasMouseDown = (event: MouseEvent): void => {
+    if (this.isDialogueActive()) {
+      event.preventDefault();
+      return;
+    }
     // Left button starts press-drag mining while the Matter Manipulator is on.
     if (event.button !== 0 || !this.isMatterManipulatorActive()) return;
     event.preventDefault();
@@ -358,6 +367,7 @@ class DarkWar {
   };
   private readonly onCanvasContextMenu = (event: MouseEvent): void => {
     event.preventDefault();
+    if (this.isDialogueActive()) return;
 
     const canvas = this.gameCanvas;
     if (!canvas) {
@@ -426,6 +436,7 @@ class DarkWar {
   };
   private readonly onCanvasWheel = (event: WheelEvent): void => {
     event.preventDefault();
+    if (this.isDialogueActive()) return;
 
     const now = performance.now();
     const timeSinceLastSwitch = now - this.lastWheelTime;
@@ -494,8 +505,9 @@ class DarkWar {
     if (DEBUG) console.timeEnd("Create UI");
 
     this.inventoryBar = new InventoryBar();
-    this.inventoryBar.onSlotClick = (idx) =>
-      this.handleSelectInventorySlot(idx);
+    this.inventoryBar.onSlotClick = (idx) => {
+      if (!this.isDialogueActive()) this.handleSelectInventorySlot(idx);
+    };
 
     this.characterModal = new CharacterModal({
       preferences: this.preferences,
@@ -588,7 +600,11 @@ class DarkWar {
       onCycleSlot: (dir) => this.handleCycleSlot(dir),
     };
 
-    this.inputHandler = new InputHandler(callbacks, () => this.preferences);
+    this.inputHandler = new InputHandler(
+      callbacks,
+      () => this.preferences,
+      () => this.isDialogueActive(),
+    );
 
     // Setup click-to-move
     this.setupClickToMove();
@@ -1112,6 +1128,24 @@ class DarkWar {
     return state;
   }
 
+  /** Resolve dialogue while the offline world remains completely paused. */
+  private runOfflineDialogueCommand(
+    type: CommandType.DIALOGUE_CHOICE | CommandType.DIALOGUE_LEAVE,
+    data: CommandData,
+  ): void {
+    const state = this.game.getState();
+    resolveCommand(state, {
+      id: crypto.randomUUID(),
+      tick: state.sim.nowTick,
+      actorId: state.player.id,
+      type,
+      data,
+      priority: 0,
+      source: "PLAYER",
+    });
+    this.finalizeImmediateOfflineAction(state);
+  }
+
   private reinitializePhysicsForCurrentState(): void {
     this.physics.rebuildAll(this.game.getState());
   }
@@ -1319,6 +1353,7 @@ class DarkWar {
    * Handle mouse-based firing
    */
   private handleMouseFire(): void {
+    if (this.isDialogueActive()) return;
     // While the Matter Manipulator is active, left mouse mines via press-and-
     // drag (see the mousedown/move handlers), so the click itself does not fire.
     if (this.isMatterManipulatorActive()) return;
@@ -1536,10 +1571,7 @@ class DarkWar {
     const isDead = this.isLocalPlayerDead();
     const player = state.player;
 
-    this.dialoguePanel.update(
-      this.game.getConversationView(),
-      this.dialogueHandlers,
-    );
+    this.syncDialoguePanel();
     this.updateMatterManipulator();
     this.worldCalloutManager.setWorld(state.worldSpaceId, state.worldPlaneId);
     this.renderer.render(
@@ -1582,6 +1614,31 @@ class DarkWar {
     this.wasPlayerMoving = playerMoving;
     this.lastPlayerWorldX = playerWorldX;
     this.lastPlayerWorldY = playerWorldY;
+  }
+
+  private isDialogueActive(): boolean {
+    return (
+      this.game.getConversationView() !== undefined ||
+      this.dialoguePanel?.isOpen() === true
+    );
+  }
+
+  /** Keep presentation, focus, movement, and input ownership in lockstep. */
+  private syncDialoguePanel(): void {
+    const view = this.game.getConversationView();
+    this.dialoguePanel.update(view, this.dialogueHandlers);
+    const isOpen = view !== undefined;
+
+    if (isOpen && !this.dialogueWasOpen) {
+      const state = this.game.getState();
+      this.stopAutoMove(state);
+      this.mmMouseDown = false;
+      this.mmLastMinedIdx = null;
+      this.inputHandler?.resetKeys();
+    } else if (!isOpen && this.dialogueWasOpen) {
+      this.inputHandler?.resetKeys();
+    }
+    this.dialogueWasOpen = isOpen;
   }
 
   /**
@@ -2073,7 +2130,7 @@ class DarkWar {
       });
       return;
     }
-    this.runOfflinePlayerCommand(CommandType.DIALOGUE_CHOICE, {
+    this.runOfflineDialogueCommand(CommandType.DIALOGUE_CHOICE, {
       type: "DIALOGUE_CHOICE",
       choiceId,
       freeText,
@@ -2086,7 +2143,7 @@ class DarkWar {
       this.dispatchOnlineAction({ type: "DIALOGUE_LEAVE", expectedRevision });
       return;
     }
-    this.runOfflinePlayerCommand(CommandType.DIALOGUE_LEAVE, {
+    this.runOfflineDialogueCommand(CommandType.DIALOGUE_LEAVE, {
       type: "DIALOGUE_LEAVE",
       expectedRevision,
     });
@@ -2369,6 +2426,7 @@ class DarkWar {
 
   /** Whether the current authoritative player has the tool equipped. */
   private isMatterManipulatorActive(): boolean {
+    if (this.isDialogueActive()) return false;
     const player = this.game.getState().player;
     return player.hasMatterManipulator && player.matterManipulatorActive;
   }
@@ -2717,6 +2775,7 @@ class DarkWar {
     this.gameLoop.stop();
     this.cancelAutoMove();
     this.gameMenu.dispose();
+    this.dialoguePanel.dispose();
     this.inputHandler.dispose();
     this.mouseTracker.destroy();
     this.multiplayerClient?.disconnect();
