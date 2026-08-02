@@ -1122,6 +1122,7 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
         port: actualPort,
         close(): Promise<void> {
           return new Promise((res) => {
+            for (const client of wss.clients) client.terminate();
             wss.close(() => httpServer.close(() => res()));
           });
         },

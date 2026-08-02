@@ -22,23 +22,111 @@ function waitFor(
   timeoutMs = 2000,
 ): Promise<any> {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`timeout waiting for ${type}`)),
-      timeoutMs,
-    );
-    socket.on("message", (raw) => {
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      socket.off("message", onMessage);
+      socket.off("error", onError);
+    };
+    const onMessage = (raw: RawData): void => {
       const msg = JSON.parse(raw.toString());
       if (msg.type === type) {
-        clearTimeout(timer);
+        cleanup();
         resolve(msg);
       }
-    });
-    socket.on("error", reject);
+    };
+    const onError = (error: Error): void => {
+      cleanup();
+      reject(error);
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error(`timeout waiting for ${type}`));
+    }, timeoutMs);
+    socket.on("message", onMessage);
+    socket.on("error", onError);
   });
 }
 
 function send(socket: WebSocket, payload: unknown): void {
   socket.send(JSON.stringify(payload));
+}
+
+function delay(durationMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, durationMs));
+}
+
+async function requestState(socket: WebSocket): Promise<any> {
+  const state = waitFor(socket, "state_full");
+  send(socket, { type: "request_keyframe" });
+  return state;
+}
+
+function gridPosition(entity: { worldX: number; worldY: number }): {
+  x: number;
+  y: number;
+} {
+  return {
+    x: Math.floor(entity.worldX / 32),
+    y: Math.floor(entity.worldY / 32),
+  };
+}
+
+async function approachMarda(
+  socket: WebSocket,
+  approach: "west" | "north",
+): Promise<any> {
+  let lastPosition = "unknown";
+  for (let attempt = 0; attempt < 20; attempt++) {
+    const snapshot = await requestState(socket);
+    const marda = snapshot.state.entities.find(
+      (entity: { name?: string }) => entity.name === "Marda",
+    );
+    if (!marda) throw new Error("Marda missing from entry world");
+    const playerPosition = gridPosition(snapshot.state.player);
+    const mardaPosition = gridPosition(marda);
+    lastPosition = `${playerPosition.x},${playerPosition.y} -> ${mardaPosition.x},${mardaPosition.y}`;
+    if (
+      Math.abs(playerPosition.x - mardaPosition.x) +
+        Math.abs(playerPosition.y - mardaPosition.y) ===
+      1
+    ) {
+      send(socket, { type: "velocity", vx: 0, vy: 0 });
+      return snapshot;
+    }
+    const deltaX = mardaPosition.x - playerPosition.x;
+    const deltaY = mardaPosition.y - playerPosition.y;
+    const moveHorizontally = approach === "west" ? deltaY === 0 : deltaX !== 0;
+    send(socket, {
+      type: "velocity",
+      vx: moveHorizontally ? Math.sign(deltaX) * 180 : 0,
+      vy: moveHorizontally ? 0 : Math.sign(deltaY) * 180,
+    });
+    await delay(75);
+  }
+  send(socket, { type: "velocity", vx: 0, vy: 0 });
+  throw new Error(`client did not reach Marda (${lastPosition})`);
+}
+
+function interactWithMarda(
+  socket: WebSocket,
+  snapshot: any,
+  seq: number,
+): void {
+  const marda = snapshot.state.entities.find(
+    (entity: { name?: string }) => entity.name === "Marda",
+  );
+  if (!marda) throw new Error("Marda missing from entry world");
+  const playerPosition = gridPosition(snapshot.state.player);
+  const mardaPosition = gridPosition(marda);
+  send(socket, {
+    type: "action",
+    action: {
+      type: "INTERACT",
+      dx: mardaPosition.x - playerPosition.x,
+      dy: mardaPosition.y - playerPosition.y,
+    },
+    seq,
+  });
 }
 
 function waitForCallout(socket: WebSocket, timeoutMs = 2000): Promise<any> {
@@ -222,4 +310,148 @@ describe("multiplayer server (multi-world)", () => {
     host.close();
     guest.close();
   });
+
+  it("keeps simultaneous NPC conversations private and authoritative", async () => {
+    server = await startMultiplayerServer(0);
+    const host = connect(server.port, "Host");
+    await waitFor(host, "welcome");
+    const guest = connect(server.port, "Guest");
+    await waitFor(guest, "welcome");
+    send(host, { type: "start_game" });
+    await Promise.all([
+      waitFor(host, "state_full"),
+      waitFor(guest, "state_full"),
+    ]);
+
+    // Separate the initially co-located solid player bodies, then approach the
+    // same speaker from different sides.
+    send(guest, { type: "velocity", vx: 0, vy: -180 });
+    await delay(400);
+    send(guest, { type: "velocity", vx: 0, vy: 0 });
+    const hostNearMarda = await approachMarda(host, "west");
+    interactWithMarda(host, hostNearMarda, 1);
+    await delay(100);
+    const guestNearMarda = await approachMarda(guest, "north");
+    interactWithMarda(guest, guestNearMarda, 1);
+    await delay(100);
+
+    let [hostState, guestState] = await Promise.all([
+      requestState(host),
+      requestState(guest),
+    ]);
+    expect(hostState.state.conversation).toMatchObject({
+      speakerName: "Marda",
+      revision: 1,
+    });
+    expect(guestState.state.conversation).toMatchObject({
+      speakerName: "Marda",
+      revision: 1,
+    });
+    const mardaId = hostState.state.conversation.speakerId;
+    const conversationTick = hostState.state.sim.nowTick;
+
+    send(host, {
+      type: "action",
+      action: {
+        type: "DIALOGUE_CHOICE",
+        choiceId: "name",
+        expectedRevision: 1,
+      },
+      seq: 2,
+    });
+    send(guest, {
+      type: "action",
+      action: {
+        type: "DIALOGUE_CHOICE",
+        choiceId: "gear",
+        expectedRevision: 1,
+      },
+      seq: 2,
+    });
+    await delay(100);
+    [hostState, guestState] = await Promise.all([
+      requestState(host),
+      requestState(guest),
+    ]);
+    expect(hostState.state.conversation).toMatchObject({
+      revision: 2,
+      allowFreeText: true,
+    });
+    expect(guestState.state.conversation).toMatchObject({
+      revision: 2,
+      canContinue: true,
+    });
+    expect(hostState.state.socialFacts[mardaId]?.flags?.receivedGear).not.toBe(
+      true,
+    );
+    expect(guestState.state.socialFacts[mardaId]?.flags?.receivedGear).toBe(
+      true,
+    );
+
+    const hostWorldX = hostState.state.player.worldX;
+    send(host, { type: "velocity", vx: -180, vy: 0, seq: 3 });
+    send(host, {
+      type: "action",
+      action: { type: "FIRE", dx: 1, dy: 0 },
+      seq: 4,
+    });
+    await delay(100);
+    hostState = await requestState(host);
+    expect(hostState.state.player.worldX).toBe(hostWorldX);
+    expect(hostState.state.entities).not.toContainEqual(
+      expect.objectContaining({
+        kind: "bullet",
+        ownerId: hostState.state.player.id,
+      }),
+    );
+    expect(hostState.state.sim.nowTick).toBeGreaterThan(conversationTick);
+
+    send(host, {
+      type: "action",
+      action: {
+        type: "DIALOGUE_CHOICE",
+        choiceId: "__freeText",
+        freeText: "Ripley",
+        expectedRevision: 2,
+      },
+      seq: 5,
+    });
+    send(guest, {
+      type: "action",
+      action: {
+        type: "DIALOGUE_CHOICE",
+        choiceId: "__continue",
+        expectedRevision: 2,
+      },
+      seq: 3,
+    });
+    await delay(100);
+    [hostState, guestState] = await Promise.all([
+      requestState(host),
+      requestState(guest),
+    ]);
+    expect(hostState.state.socialFacts[mardaId]?.notes?.name).toBe("Ripley");
+    expect(guestState.state.socialFacts[mardaId]?.notes?.name).toBeUndefined();
+    expect(hostState.state.conversation.revision).toBe(3);
+    expect(guestState.state.conversation.revision).toBe(3);
+
+    send(guest, {
+      type: "action",
+      action: {
+        type: "DIALOGUE_LEAVE",
+        expectedRevision: 3,
+      },
+      seq: 4,
+    });
+    await delay(100);
+    [hostState, guestState] = await Promise.all([
+      requestState(host),
+      requestState(guest),
+    ]);
+    expect(hostState.state.conversation).toBeTruthy();
+    expect(guestState.state.conversation).toBeUndefined();
+
+    host.close();
+    guest.close();
+  }, 15_000);
 });
