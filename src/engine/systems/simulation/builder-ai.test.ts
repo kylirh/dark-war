@@ -58,7 +58,12 @@ describe("builder occupation", () => {
     const epoch = marda.agent!.decisionEpoch;
     const restored = new Game({ mode: "offline" });
     restored.deserialize(game.serialize());
-    expect(mardaIn(restored).agent?.decisionEpoch).toBe(epoch);
+    const restoredMarda = mardaIn(restored);
+    expect(restoredMarda.agent?.decisionEpoch).toBe(epoch);
+    expect(restoredMarda.agent?.lastDecision).toEqual(
+      marda.agent?.lastDecision,
+    );
+    expect(restoredMarda.occupation).toEqual(marda.occupation);
   });
 
   it("keeps the builder peaceful while following and interrupts work for danger", () => {

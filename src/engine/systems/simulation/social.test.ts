@@ -135,8 +135,8 @@ describe("social actors", () => {
   });
 
   it("a one-shot line never adds an unclearable pause (would soft-freeze)", () => {
-    // Until the conversation panel provides a guaranteed close/resume path,
-    // talking must not add an `npc_talk` pause in either mode.
+    // Non-modal ambient talk must not add the pause reason reserved for full
+    // authored conversations in either mode.
     for (const mode of ["offline", "online"] as const) {
       const state = new Game({ mode }).getState();
       const builder = createWorkshopBuilder(

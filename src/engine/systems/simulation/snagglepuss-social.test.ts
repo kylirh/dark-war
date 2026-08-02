@@ -40,7 +40,7 @@ function setup() {
 
 describe("Snagglepuss social behavior", () => {
   it("lies about stolen loot, bargains atomically, and remembers the decision", () => {
-    const { state, snagglepuss } = setup();
+    const { game, state, snagglepuss } = setup();
     const player = state.player;
     player.itemCounts[ItemType.BONE] = 1;
     player.inventorySlots[1] = { type: ItemType.BONE };
@@ -74,6 +74,16 @@ describe("Snagglepuss social behavior", () => {
     expect(snagglepuss.fleeing).toBe(false);
     expect(
       getSocialFacts(state, player.id, snagglepuss.id).flags,
+    ).toMatchObject({ caughtLying: true, bargainedForLoot: true });
+
+    const restored = new Game({ mode: "online" });
+    restored.deserialize(game.serialize());
+    expect(
+      getSocialFacts(
+        restored.getState(),
+        restored.getState().player.id,
+        snagglepuss.id,
+      ).flags,
     ).toMatchObject({ caughtLying: true, bargainedForLoot: true });
   });
 

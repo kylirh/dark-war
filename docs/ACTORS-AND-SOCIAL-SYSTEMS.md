@@ -112,9 +112,9 @@ arbitrary. (Beliefs land later; see phasing.)
 
 ## Determinism
 
-The current RNG (`RandomNumberGenerator`, SFC32) is time-seeded by default and
-serializes no internal state, and there is a stray `Math.random()` in the AI path.
-Neither is acceptable for save/load reproducibility or multiplayer lockstep.
+Gameplay still has legacy sequential RNG call sites, but actor goal selection and
+ambient Snagglepuss decisions now use stateless keyed rolls. Actor decisions do
+not depend on rendering order or a mutable random stream.
 
 Use **stateless keyed rolls**, not a mutable "stream":
 
@@ -124,14 +124,13 @@ deterministicRoll({ simulationSeed, actorStableId, decisionEpoch, purpose, ordin
 
 Rules:
 
-- `simulationSeed` is a durable value added to the serialized `GameState`
-  contract (it does not exist today — Foundation A adds it).
+- `simulationSeed` is a durable value in the serialized `GameState` contract.
 - `decisionEpoch` is a persisted per-actor counter, not merely the current tick.
   Persist any counter whose advancement affects future behavior.
 - `purpose` is a distinct string key per decision kind, so adding a cosmetic bark
   roll cannot perturb combat decisions.
 - Never consume randomness merely because rendering occurred.
-- Foundation A replaces the stray `Math.random()` with a keyed roll. It does
+- Foundation A replaced the stray `Math.random()` with a keyed roll. It did
   **not** convert every RNG call in the game.
 
 Stateless keyed selection is order-independent and easy to debug, provided the
@@ -179,8 +178,9 @@ ConversationSession { playerId, speakerId, nodeId, availableChoices, revision }
   validated commands**, not client-side UI effects.
 - **Offline** may pause the local loop and slow time; there is always a guaranteed
   close/resume path.
-- **Online is real-time and shared** — conversation is non-blocking and must never
-  alter the shared time scale (the existing `NPC_TALK` time-slow is offline-only).
+- **Online is real-time and shared** — conversation is non-blocking and never
+  alters the shared time scale. Offline full conversations use their own
+  guaranteed pause/resume reason; one-shot `NPC_TALK` lines never pause.
 - Two players can converse with the same speaker independently.
 
 Dialogue is authored as **validated TypeScript definitions compiled into a runtime
@@ -204,7 +204,13 @@ Inactive planes do not simulate (`docs/ARCHITECTURE.md`). Therefore:
 Narrow, mergeable deliverables (per `docs/ROADMAP.md`). Each ships green
 (type-check + tests) and is independently valuable.
 
+The foundation and first three playable slices below are implemented on
+`claude/npcs-living-world`. The descriptions remain as the architectural record
+and acceptance criteria for future actor work.
+
 ### Foundation A — Serialization & determinism correctness (no NPC behavior)
+
+**Status: COMPLETE**
 
 Independently justified: it fixes real desync/nondeterminism hazards regardless
 of NPCs.
@@ -223,6 +229,8 @@ differently in play.
 
 ### Foundation B — Authored social actor (no conversation yet)
 
+**Status: COMPLETE**
+
 - Stable marker-derived identity + serialized consumed-marker ledger; idempotent
   spawning (revisit/regenerate cannot duplicate; dead/recruited/migrated do not
   respawn).
@@ -235,6 +243,8 @@ differently in play.
 **Exit:** the builder reliably exists, is spawned once, and can be inspected.
 
 ### Slice 1 — Real conversation
+
+**Status: COMPLETE**
 
 - Server-authoritative per-player conversation sessions.
 - Dialogue graph + validated choice commands; a real client dialogue panel.
@@ -249,6 +259,8 @@ remembers a choice per player.
 
 ### Slice 2 — The builder as quest/utility giver (the headline goal)
 
+**Status: COMPLETE**
+
 - The builder **gives the player the CTDM and the Matter Manipulator** through
   conversation, encountered near game start.
 - **Remove the CTDM and Matter Manipulator from world spawning** once the builder
@@ -260,6 +272,8 @@ remembers a choice per player.
 items no longer spawn loose in the world.
 
 ### Slice 3 — Snagglepuss: hostility, conversation, bargaining, recruitment
+
+**Status: COMPLETE**
 
 The unified-actor proof. The same creature can threaten, converse, bargain,
 betray, reconcile, and accompany the player.
@@ -282,7 +296,7 @@ NPC, without ceasing to be a Snagglepuss.
 Trade/quest contracts, beliefs & authored deception, factions & reputation,
 settlement growth, schedules across sleep/wake, ambient social life, emotes.
 
-## The concrete goal of this branch
+## Completed branch outcome
 
 1. A friendly **workshop builder** the player meets basically at game start, who
    **gives the CTDM and the Matter Manipulator** via conversation.
@@ -291,7 +305,17 @@ settlement growth, schedules across sleep/wake, ambient social life, emotes.
 3. **Snagglepuss** becomes an actor that can be **won over** and then **talked to
    and interacted with like a friendly NPC**.
 
-All three operate through the systems above.
+All three now operate through the systems above. Marda additionally performs
+bounded repair work inside her authored home region, pauses for conversation,
+and interrupts work when threatened. Snagglepuss theft, cookie gifts, damage,
+bargaining, recruitment, release, and betrayal update the relationship graph;
+its companion and hostile stances are derived from those per-player edges.
+
+The active plane and every cached plane persist a consumed spawn-marker ledger.
+Agent goal epochs, selected activities, and scored candidate breakdowns persist
+with the actor. Multiplayer sends each player only their conversation view and
+private social facts, and a live two-client integration test exercises concurrent
+sessions with Marda.
 
 ## Locked decisions
 
@@ -315,9 +339,6 @@ All three operate through the systems above.
 
 ## Coordination
 
-Player/NPC **speech bubbles** (presentation) are being built in a separate branch
-in parallel. This branch owns the actor/social/relationship/conversation domain
-and its data; the bubbles branch owns rendering of speech. Keep the seam clean:
-conversation/relationship state here is authoritative and emits the messages;
-bubbles render them. Avoid editing the same presentation files without
-coordination.
+Player/NPC **speech bubbles** remain an ephemeral presentation channel. The
+actor/social/relationship/conversation domain owns authoritative choices and
+state; callouts only render speech and never become dialogue or save state.

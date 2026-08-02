@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { Game } from "../../core/game";
-import { CommandType, ItemType, MonsterType } from "../../types";
+import { CommandType, ItemType, Monster, MonsterType } from "../../types";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
@@ -95,9 +95,12 @@ describe("winning over a snagglepuss", () => {
     restored.deserialize(game.serialize());
     const restoredSnag = restored
       .getState()
-      .entities.find((e) => e.id === snag.id);
+      .entities.find((e) => e.id === snag.id) as Monster | undefined;
     expect(restoredSnag).toBeTruthy();
     expect(canTalkTo(restoredSnag!)).toBe(true);
+    expect(restoredSnag?.ownerId).toBe(restored.getState().player.id);
+    expect(restoredSnag?.friendly).toBe(true);
+    expect(restoredSnag?.agent?.currentGoal).toBe("companion");
     expect(
       isWonOver(
         restored

@@ -1137,9 +1137,7 @@ function processNPCTalkEvent(state: GameState, event: GameEvent): void {
     cause: event.id,
   });
 
-  // Intentionally NO time-slow / pause here. A one-shot line must not add an
-  // `npc_talk` pause: there is no conversation panel yet to clear it, so it
-  // would soft-freeze offline play (targetTimeScale stuck near zero). The
-  // guaranteed offline pause/resume arrives with the conversation panel
-  // (Slice 3a); online conversations are always non-blocking.
+  // Intentionally no time-slow / pause here. A one-shot line has no modal UI to
+  // dismiss. Full authored conversations own a separate guaranteed offline
+  // pause/resume path; online conversations always leave shared time running.
 }

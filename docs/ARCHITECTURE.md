@@ -105,13 +105,42 @@ This was a deliberate breaking rewrite. There is no requirement to load old save
 or communicate with old clients. The layered serialization and delta conversion
 bumped `PROTOCOL_VERSION`; version 10 carries the current player/item shape,
 stable world identities, portals, and authoritative terrain-shaping actions.
-The superseded scalar runtime fields have been deleted.
+The superseded scalar runtime fields have been deleted. Protocol version 11 adds
+the current actor components, private conversation/social state, relationship
+edges, persisted decision state, and consumed spawn-marker ledgers.
 
 Destructive hand-tool behavior is capability-specific: ordinary melee affects
 actors only, the Pickaxe damages ordinary wall and floor cells over repeated
 hits, and the Matter Manipulator restores its full fixture/block mining and
 placement behavior—including holowall removal and placement—without converting
 floor cells into holes.
+
+## Actors, relationships, and conversation
+
+Social actors remain ordinary entities with optional orthogonal `social`,
+`interactable`, `agent`, and `occupation` components. There is no separate NPC
+entity kind. Stable occupations describe authored roles; allegiance is derived
+from world-level relationship edges rather than from the role.
+
+The relationship graph stores directional `{ affinity, fear, grievance }` edges.
+Conversation sessions and social facts are keyed by player and speaker. Offline
+conversation pauses the local simulation with a guaranteed resume path; online
+conversation leaves the shared world running while the authoritative server
+rejects that player's unrelated movement and action commands. Two players may
+talk to the same speaker independently, and snapshots expose only the receiving
+player's conversation view and private facts.
+
+Agent goals are chosen on a slow cadence with stateless keyed rolls, a persisted
+per-actor decision epoch, and retained candidate-score breakdowns for inspection.
+Marda uses the existing pathfinding and repair executors inside an authored work
+region. Snagglepuss uses relationship-aware hostility, bargaining, recruitment,
+companion, theft, and betrayal activities without changing its physical entity
+type.
+
+Prefab actors are created through a consumed-marker ledger keyed by world
+address, prefab instance identity, and marker id. The ledger persists on active
+and sleeping planes, so death, recruitment, migration, or absence cannot cause a
+marker to spawn the actor again.
 
 ## Authoring boundary
 
