@@ -23,7 +23,10 @@ import {
 import { TILE_DEFINITIONS } from "../../types";
 import { isWallLikeTile } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
-import { deterministicChoice } from "../../utils/deterministic-roll";
+import {
+  deterministicChance,
+  deterministicChoice,
+} from "../../utils/deterministic-roll";
 import { isRangedMonster, MONSTER_DEFS } from "../../content/monster-defs";
 import { isJunk, ITEM_DEFS } from "../../content/item-defs";
 import { ItemEntity } from "../../entities/item-entity";
@@ -59,7 +62,12 @@ import {
   pushEvent,
   canActorAct,
 } from "./sim-helpers";
-import { selectAgentGoal } from "./agent-decisions";
+import { advanceAgentDecisionEpoch, selectAgentGoal } from "./agent-decisions";
+import {
+  closestHostilePlayerForSnagglepuss,
+  isSnagglepussCompanion,
+  reconcileSnagglepussCompanion,
+} from "./snagglepuss-social";
 
 // ========================================
 // Utility Bot Helpers
@@ -271,6 +279,15 @@ function isSpeakerInConversation(state: GameState, speakerId: string): boolean {
   return Array.from(state.conversations.values()).some(
     (session) => session.speakerId === speakerId,
   );
+}
+
+function combatTargetForMonster(
+  state: GameState,
+  monster: Monster,
+): Player | null {
+  return monster.type === MonsterType.SNAGGLEPUSS
+    ? closestHostilePlayerForSnagglepuss(state, monster)
+    : getClosestPlayer(state, monster);
 }
 
 function builderIsOnShift(monster: Monster, tick: number): boolean {
@@ -783,12 +800,15 @@ function updateSnagglepussMutter(state: GameState, snagglepuss: Monster): void {
 
   const ticksSinceLastMutter =
     state.sim.nowTick - (snagglepuss.lastSnagglepussMutterTick ?? -Infinity);
-  if (
-    ticksSinceLastMutter < SNAGGLEPUSS_MUTTER_COOLDOWN_TICKS ||
-    !RNG.chance(SNAGGLEPUSS_MUTTER_CHANCE)
-  ) {
-    return;
-  }
+  if (ticksSinceLastMutter < SNAGGLEPUSS_MUTTER_COOLDOWN_TICKS) return;
+  const decisionEpoch = advanceAgentDecisionEpoch(snagglepuss);
+  const rollKey = {
+    simulationSeed: state.simulationSeed,
+    actorStableId: snagglepuss.id,
+    decisionEpoch,
+    purpose: "snagglepuss-mutter",
+  };
+  if (!deterministicChance(rollKey, SNAGGLEPUSS_MUTTER_CHANCE)) return;
 
   snagglepuss.lastSnagglepussMutterTick = state.sim.nowTick;
   state.pendingSounds.push({
@@ -799,7 +819,10 @@ function updateSnagglepussMutter(state: GameState, snagglepuss: Monster): void {
   });
   emitWorldTextCallout(state, {
     kind: "speech",
-    text: RNG.choose(SNAGGLEPUSS_MUTTERS),
+    text: deterministicChoice(
+      { ...rollKey, purpose: "snagglepuss-mutter-line" },
+      SNAGGLEPUSS_MUTTERS,
+    ),
     speakerId: snagglepuss.id,
     priority: "ambient",
   });
@@ -1161,6 +1184,10 @@ function steerFetcherPet(state: GameState, monster: Monster): void {
           message: `${monster.name ?? "Snagglepuss"} drops some loot at your feet!`,
         },
       });
+      state.relationships.adjust(owner.id, monster.id, {
+        affinity: 2,
+        grievance: -1,
+      });
       monster.carriedItems = [];
       m.velocityX = 0;
       m.velocityY = 0;
@@ -1330,6 +1357,12 @@ export function updateMonsterSteering(state: GameState): void {
     updateIckyLumpMovementSound(state, monster);
     updateSnagglepussMutter(state, monster);
 
+    if (isSpeakerInConversation(state, monster.id)) {
+      monster.velocityX = 0;
+      monster.velocityY = 0;
+      continue;
+    }
+
     if (mutantIsDigesting(state, monster)) {
       monster.velocityX = 0;
       monster.velocityY = 0;
@@ -1353,14 +1386,24 @@ export function updateMonsterSteering(state: GameState): void {
       continue;
     }
 
-    if (monster.friendly) {
+    reconcileSnagglepussCompanion(state, monster);
+    if (
+      monster.friendly ||
+      (monster.type === MonsterType.SNAGGLEPUSS &&
+        isSnagglepussCompanion(state, monster))
+    ) {
       steerFriendlyPet(state, monster);
       continue;
     }
 
     if (monster.fleeing) {
       // A thief that grabbed loot sprints directly away from the player.
-      const fleeFrom = getClosestPlayer(state, monster);
+      const fleeFrom =
+        state.entities.find(
+          (entity) =>
+            entity.id === monster.fleeingFromPlayerId &&
+            entity.kind === EntityKind.PLAYER,
+        ) ?? getClosestPlayer(state, monster);
       const fm = monster as any;
       if (fleeFrom && "worldX" in fleeFrom) {
         const fx = fm.worldX - (fleeFrom as any).worldX;
@@ -1378,7 +1421,7 @@ export function updateMonsterSteering(state: GameState): void {
       smashWallTowardPlayer(state, monster);
     }
 
-    const player = getClosestPlayer(state, monster);
+    const player = combatTargetForMonster(state, monster);
     if (!player) {
       updateWildDogVocal(state, monster, null);
       const direction = chooseIdleWanderDirection(state, monster);
@@ -1685,7 +1728,7 @@ function decideUtilityBotCommand(
             {
               simulationSeed: state.simulationSeed,
               actorStableId: monster.id,
-              decisionEpoch: tick,
+              decisionEpoch: advanceAgentDecisionEpoch(monster),
               purpose: "utility-bot-nuzzle-bark",
             },
             nuzzleMessages,
@@ -1703,6 +1746,9 @@ function decideMonsterCommand(
   monster: Monster,
   tick: number,
 ): Command | null {
+  if (isSpeakerInConversation(state, monster.id)) {
+    return makeWaitCommand(monster, tick);
+  }
   if (
     mutantIsDigesting(state, monster) ||
     mutantShouldScavenge(state, monster)
@@ -1740,7 +1786,12 @@ function decideMonsterCommand(
     return makeWaitCommand(monster, tick);
   }
 
-  if (monster.friendly) {
+  reconcileSnagglepussCompanion(state, monster);
+  if (
+    monster.friendly ||
+    (monster.type === MonsterType.SNAGGLEPUSS &&
+      isSnagglepussCompanion(state, monster))
+  ) {
     return decideFriendlyPetCommand(state, monster, tick);
   }
 
@@ -1756,7 +1807,7 @@ function decideMonsterCommand(
     return makeWaitCommand(monster, tick);
   }
 
-  const player = getClosestPlayer(state, monster);
+  const player = combatTargetForMonster(state, monster);
   if (!player) {
     return makeIdleWanderCommand(state, monster, tick);
   }

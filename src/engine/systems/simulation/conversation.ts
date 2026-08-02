@@ -18,6 +18,8 @@ import {
   ConversationView,
   DialogueChoiceView,
   SocialFacts,
+  Monster,
+  MonsterType,
 } from "../../types";
 import {
   DIALOGUE_DEFS,
@@ -30,6 +32,14 @@ import {
 } from "../../content/dialogue-defs";
 import { SOCIAL_DEFS } from "../../content/social-defs";
 import { grantCoreDevice } from "./events";
+import { addToInventory, removeFromInventory } from "../../utils/inventory";
+import { ItemEntity } from "../../entities/item-entity";
+import {
+  playerHasWonOverSnagglepuss,
+  reconcileSnagglepussCompanion,
+  recruitSnagglepuss,
+} from "./snagglepuss-social";
+import { SoundEffect } from "../../content/sound-effects";
 
 export const CONVERSATION_PAUSE = "conversation";
 const TALK_RANGE_TILES = 2;
@@ -170,7 +180,97 @@ function conditionMet(
       return (
         state.relationships.get(playerId, speakerId).affinity >= condition.value
       );
+    case "hasItem": {
+      const player = state.entities.find(
+        (entity) => entity.id === playerId && entity.kind === EntityKind.PLAYER,
+      ) as Player | undefined;
+      return (player?.itemCounts[condition.item] ?? 0) > 0;
+    }
+    case "speakerHasLoot": {
+      const speaker = state.entities.find((entity) => entity.id === speakerId);
+      return (
+        speaker?.kind === EntityKind.MONSTER &&
+        (speaker as Monster).fleeing === true &&
+        (speaker as Monster).carriedItems.length > 0
+      );
+    }
+    case "speakerHasNoLoot": {
+      const speaker = state.entities.find((entity) => entity.id === speakerId);
+      return (
+        speaker?.kind !== EntityKind.MONSTER ||
+        (speaker as Monster).fleeing !== true ||
+        (speaker as Monster).carriedItems.length === 0
+      );
+    }
+    case "speakerWonOver":
+      return playerHasWonOverSnagglepuss(state, playerId, speakerId);
+    case "speakerNotWonOver":
+      return !playerHasWonOverSnagglepuss(state, playerId, speakerId);
+    case "speakerWonOverAndUnowned": {
+      const speaker = state.entities.find((entity) => entity.id === speakerId);
+      return (
+        speaker?.kind === EntityKind.MONSTER &&
+        !(speaker as Monster).ownerId &&
+        playerHasWonOverSnagglepuss(state, playerId, speakerId)
+      );
+    }
+    case "speakerIsOwner": {
+      const speaker = state.entities.find((entity) => entity.id === speakerId);
+      return (
+        speaker?.kind === EntityKind.MONSTER &&
+        (speaker as Monster).ownerId === playerId
+      );
+    }
+    case "speakerUnowned": {
+      const speaker = state.entities.find((entity) => entity.id === speakerId);
+      return (
+        speaker?.kind === EntityKind.MONSTER && !(speaker as Monster).ownerId
+      );
+    }
   }
+}
+
+function consumeCountedItem(
+  player: Player,
+  itemType: ItemType,
+  amount = 1,
+): void {
+  const remaining = (player.itemCounts[itemType] ?? 0) - amount;
+  if (remaining <= 0) {
+    delete player.itemCounts[itemType];
+    removeFromInventory(player, itemType);
+  } else {
+    player.itemCounts[itemType] = remaining;
+  }
+}
+
+function returnSpeakerLoot(
+  state: GameState,
+  player: Player,
+  speaker: Entity,
+): void {
+  if (speaker.kind !== EntityKind.MONSTER) return;
+  const monster = speaker as Monster;
+  for (const carried of monster.carriedItems) {
+    const amount = Math.max(1, Math.floor(carried.amount ?? 1));
+    if (addToInventory(player, carried.type)) {
+      player.itemCounts[carried.type] =
+        (player.itemCounts[carried.type] ?? 0) + amount;
+    } else {
+      const drop = new ItemEntity(
+        player.gridX,
+        player.gridY,
+        carried.type,
+        amount,
+      );
+      drop.worldX = player.worldX;
+      drop.worldY = player.worldY;
+      state.entityManager.spawn(drop);
+    }
+  }
+  monster.carriedItems = [];
+  monster.fleeing = false;
+  monster.fleeingFromPlayerId = undefined;
 }
 
 function applyEffect(
@@ -194,6 +294,19 @@ function applyEffect(
       state.relationships.adjust(player.id, speaker.id, {
         affinity: effect.value,
       });
+      if (speaker.kind === EntityKind.MONSTER) {
+        reconcileSnagglepussCompanion(state, speaker as Monster);
+      }
+      break;
+    case "adjustRelationship":
+      state.relationships.adjust(player.id, speaker.id, {
+        affinity: effect.affinity,
+        fear: effect.fear,
+        grievance: effect.grievance,
+      });
+      if (speaker.kind === EntityKind.MONSTER) {
+        reconcileSnagglepussCompanion(state, speaker as Monster);
+      }
       break;
     case "setFact":
       (facts.flags ??= {})[effect.fact] = true;
@@ -203,6 +316,40 @@ function applyEffect(
       break;
     case "rememberNote":
       if (freeText) (facts.notes ??= {})[effect.note] = freeText;
+      break;
+    case "consumeItem":
+      consumeCountedItem(player, effect.item, effect.amount);
+      break;
+    case "returnSpeakerLoot":
+      returnSpeakerLoot(state, player, speaker);
+      break;
+    case "recruitSnagglepuss":
+      if (
+        speaker.kind === EntityKind.MONSTER &&
+        recruitSnagglepuss(state, speaker as Monster, player.id)
+      ) {
+        state.pendingSounds.push({
+          effect: SoundEffect.SNAGGLEPUSS_ACK,
+          worldX: speaker.worldX,
+          worldY: speaker.worldY,
+        });
+      }
+      break;
+    case "releaseSnagglepuss":
+      if (
+        speaker.kind === EntityKind.MONSTER &&
+        (speaker as Monster).type === MonsterType.SNAGGLEPUSS &&
+        (speaker as Monster).ownerId === player.id
+      ) {
+        const monster = speaker as Monster;
+        monster.ownerId = undefined;
+        monster.friendly = false;
+        monster.fleeing = false;
+        if (monster.agent) {
+          monster.agent.currentGoal = "idle";
+          monster.agent.nextDecisionTick = state.sim.nowTick;
+        }
+      }
       break;
     case "setBehavior":
       applyBehavior(speaker, player, effect.behavior);

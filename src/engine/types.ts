@@ -421,6 +421,8 @@ export interface Monster extends BaseEntity {
   nextFlutterbangAmbienceTick?: number;
   /** A thief (snagglepuss/moppet) that grabbed loot is now running away. */
   fleeing?: boolean;
+  /** Player this thief most recently stole from. */
+  fleeingFromPlayerId?: string;
 }
 
 export interface CarriedItem {

@@ -6,6 +6,11 @@ import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
 import { canTalkTo } from "./social";
 import { isWonOver } from "../../core/relationship-graph";
+import {
+  applyDialogueChoice,
+  buildConversationView,
+  startConversation,
+} from "./conversation";
 
 /** Feed the selected cookie (heals + warms a nearby snagglepuss). */
 function feedCookie(game: Game) {
@@ -25,7 +30,7 @@ function feedCookie(game: Game) {
 }
 
 describe("winning over a snagglepuss", () => {
-  it("becomes a talkable friendly companion after enough cookies", () => {
+  it("can talk while hostile, is won over by cookies, and joins by choice", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
@@ -37,22 +42,36 @@ describe("winning over a snagglepuss", () => {
     );
     state.entityManager.spawn(snag);
 
+    expect(canTalkTo(snag)).toBe(true);
+    expect(startConversation(state, state.player, snag)).toBe(true);
+    expect(buildConversationView(state, state.player.id)?.speakerName).toBe(
+      "Snagglepuss",
+    );
+    applyDialogueChoice(state, state.player, "leave", 1);
+
     // One cookie warms it but does not yet win it over.
     feedCookie(game);
     expect(snag.friendly).not.toBe(true);
-    expect(canTalkTo(snag)).toBe(false);
     expect(isWonOver(state.relationships.get(state.player.id, snag.id))).toBe(
       false,
     );
 
-    // A second cookie crosses the threshold: it is now a talkable companion.
+    // A second cookie crosses the trust threshold, but recruitment is explicit.
     feedCookie(game);
-    expect(snag.friendly).toBe(true);
     expect(canTalkTo(snag)).toBe(true);
     expect(snag.social?.defId).toBe("wildlife.snagglepuss");
     expect(isWonOver(state.relationships.get(state.player.id, snag.id))).toBe(
       true,
     );
+    expect(snag.ownerId).toBeUndefined();
+
+    startConversation(state, state.player, snag);
+    expect(
+      buildConversationView(state, state.player.id)?.choices,
+    ).toContainEqual(expect.objectContaining({ id: "join" }));
+    applyDialogueChoice(state, state.player, "join", 1);
+    expect(snag.friendly).toBe(true);
+    expect(snag.ownerId).toBe(state.player.id);
   });
 
   it("persists a won-over snagglepuss and the relationship across save/load", () => {
@@ -68,6 +87,8 @@ describe("winning over a snagglepuss", () => {
     state.entityManager.spawn(snag);
     feedCookie(game);
     feedCookie(game);
+    startConversation(state, state.player, snag);
+    applyDialogueChoice(state, state.player, "join", 1);
     expect(snag.friendly).toBe(true);
 
     const restored = new Game({ mode: "offline" });

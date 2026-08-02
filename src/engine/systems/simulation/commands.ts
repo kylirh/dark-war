@@ -1054,8 +1054,8 @@ function msg(state: GameState, message: string, cause?: string): void {
 }
 
 /**
- * Eating a cookie near a wild snagglepuss can win it over: it becomes a friendly
- * fetcher that gathers loose loot and brings it to you.
+ * Eating a cookie near a wild Snagglepuss improves that player's relationship.
+ * A won-over creature may then be recruited through its conversation.
  */
 function befriendNearbySnagglepuss(state: GameState, player: Player): void {
   const RANGE = CELL_CONFIG.w * 4;
@@ -1088,40 +1088,18 @@ function befriendNearbySnagglepuss(state: GameState, player: Player): void {
     worldY: nearest.worldY,
   });
   if (isWonOver(rel)) {
-    winOverSnagglepuss(state, nearest, player.id);
+    nearest.fleeing = false;
+    nearest.fleeingFromPlayerId = undefined;
+    msg(
+      state,
+      "The snagglepuss chirrups warmly. It trusts you now; talk to it if you want it to come along.",
+    );
   } else {
     msg(
       state,
       "The snagglepuss snatches the cookie and studies you, tail twitching. Not quite convinced — yet.",
     );
   }
-}
-
-/**
- * Turn a won-over snagglepuss into a talkable friendly companion. The same
- * creature keeps its species behavior; it simply now wears social/interactable
- * components and follows its owner.
- */
-function winOverSnagglepuss(
-  state: GameState,
-  monster: Monster,
-  playerId: string,
-): void {
-  monster.friendly = true;
-  monster.fleeing = false;
-  monster.ownerId = playerId;
-  monster.name = monster.name ?? "Snagglepuss";
-  monster.social ??= { defId: "wildlife.snagglepuss" };
-  monster.interactable ??= { affordances: ["talk"] };
-  state.pendingSounds.push({
-    effect: SoundEffect.SNAGGLEPUSS_ACK,
-    worldX: monster.worldX,
-    worldY: monster.worldY,
-  });
-  msg(
-    state,
-    "The snagglepuss chirrups, won over at last, and decides to tag along. You can talk to it now.",
-  );
 }
 
 /** Chebyshev reach check for the Matter Manipulator's mine/place actions. */

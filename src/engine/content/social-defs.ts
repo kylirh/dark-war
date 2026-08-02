@@ -6,7 +6,7 @@
  * (not on the entity) keeps entities small and lets many actors share a voice.
  */
 
-import { ItemType } from "../types";
+import { ItemType, MonsterType } from "../types";
 
 export interface SocialDef {
   /** Display name shown in the log / dialogue. */
@@ -65,6 +65,8 @@ export const SOCIAL_DEFS: Record<string, SocialDef> = {
   "wildlife.snagglepuss": {
     name: "Snagglepuss",
     faction: "wildlife",
+    portraitKey: MonsterType.SNAGGLEPUSS,
+    dialogueId: "wildlife.snagglepuss",
     greeting: [
       "The Snagglepuss chirrups and shows you its empty paws — nothing up its sleeves. This time.",
       "The Snagglepuss circles you, tail flicking, and makes an almost-friendly trill.",

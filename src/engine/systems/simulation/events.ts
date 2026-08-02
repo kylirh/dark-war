@@ -47,6 +47,7 @@ import {
 import { pushEvent, getClosestPlayer, positiveAmount } from "./sim-helpers";
 import { triggerExplosion } from "./explosives";
 import { addToInventory } from "../../utils/inventory";
+import { reconcileSnagglepussCompanion } from "./snagglepuss-social";
 
 export function processEventQueue(state: GameState): void {
   let processed = 0;
@@ -204,6 +205,18 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     const damageSource = data.sourceId
       ? state.entities.find((entity) => entity.id === data.sourceId)
       : undefined;
+    if (
+      monster.type === MonsterType.SNAGGLEPUSS &&
+      damageSource?.kind === EntityKind.PLAYER &&
+      monster.hp > 0
+    ) {
+      state.relationships.adjust(damageSource.id, monster.id, {
+        affinity: -25,
+        fear: Math.max(5, Math.ceil(data.amount * 2)),
+        grievance: 20,
+      });
+      reconcileSnagglepussCompanion(state, monster);
+    }
     if (damageSource?.kind === EntityKind.PLAYER && monster.hp > 0) {
       monster.lastPlayerAttackTick = state.sim.nowTick;
     }
@@ -708,6 +721,7 @@ function stealFromPlayer(
     }
     monster.carriedItems.push({ type: ItemType.COIN, amount: taken });
     monster.fleeing = true;
+    monster.fleeingFromPlayerId = player.id;
     pushEvent(state, {
       type: EventType.MESSAGE,
       data: {
@@ -741,7 +755,13 @@ function stealFromPlayer(
   takePlayerItem(player, type);
   monster.carriedItems.push({ type });
   monster.fleeing = true;
+  monster.fleeingFromPlayerId = player.id;
   if (monster.type === MonsterType.SNAGGLEPUSS) {
+    state.relationships.adjust(player.id, monster.id, {
+      affinity: -15,
+      grievance: 30,
+    });
+    reconcileSnagglepussCompanion(state, monster);
     state.pendingSounds.push({
       effect: SoundEffect.SNAGGLEPUSS_STEAL,
       worldX: monster.worldX,

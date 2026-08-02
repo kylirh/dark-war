@@ -94,6 +94,7 @@ export class MonsterEntity extends GameEntity {
 
   /** A thief that grabbed loot and is now running away. */
   public fleeing?: boolean;
+  public fleeingFromPlayerId?: string;
 
   /** Persisted goal-selection state shared by all simulated creatures. */
   public agent: AgentComponent = {

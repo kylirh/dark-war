@@ -1,4 +1,4 @@
-import { afterEach, describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { Game } from "../../core/game";
 import { Physics } from "../physics";
 import { MonsterEntity } from "../../entities/monster-entity";
@@ -19,6 +19,10 @@ import { stepSimulationTick } from "./tick";
 import { pushEvent } from "./sim-helpers";
 import { processEventQueue } from "./events";
 import { SoundEffect } from "../../content/sound-effects";
+import {
+  playerHasWonOverSnagglepuss,
+  recruitSnagglepuss,
+} from "./snagglepuss-social";
 
 function clearMonsters(game: Game) {
   game
@@ -27,8 +31,6 @@ function clearMonsters(game: Game) {
 }
 
 describe("snagglepuss", () => {
-  afterEach(() => vi.restoreAllMocks());
-
   it("is won over by feeding cookies nearby (graded, not a coin flip)", () => {
     const game = new Game({ mode: "offline" });
     game.reset(2);
@@ -63,10 +65,12 @@ describe("snagglepuss", () => {
     feed();
     expect(snagg.friendly).not.toBe(true);
 
-    // A second cookie crosses the threshold: friendly, loyal, and it chirrups.
+    // A second cookie crosses the trust threshold, but recruitment is a
+    // separate authored dialogue decision rather than an automatic side effect.
     feed();
-    expect(snagg.friendly).toBe(true);
-    expect(snagg.ownerId).toBe(player.id);
+    expect(playerHasWonOverSnagglepuss(state, player.id, snagg.id)).toBe(true);
+    expect(snagg.friendly).not.toBe(true);
+    expect(snagg.ownerId).toBeUndefined();
     expect(
       state.pendingSounds.some(
         (sound) => sound.effect === SoundEffect.SNAGGLEPUSS_ACK,
@@ -93,9 +97,9 @@ describe("snagglepuss", () => {
       MonsterType.SNAGGLEPUSS,
       2,
     );
-    snagg.friendly = true;
-    snagg.ownerId = player.id;
     state.entityManager.spawn(snagg);
+    state.relationships.adjust(player.id, snagg.id, { affinity: 70 });
+    expect(recruitSnagglepuss(state, snagg, player.id)).toBe(true);
 
     // A coin a couple of tiles past the pet, away from the player.
     const loot = new ItemEntity(player.gridX + 4, player.gridY, ItemType.COIN);
@@ -125,9 +129,13 @@ describe("snagglepuss", () => {
       2,
     );
     state.entityManager.spawn(snagg);
-    vi.spyOn(RNG, "chance").mockReturnValue(true);
-
-    stepSimulationTick(state);
+    for (
+      let attempt = 0;
+      attempt < 500 && state.pendingSounds.length === 0;
+      attempt++
+    ) {
+      stepSimulationTick(state);
+    }
 
     expect(state.pendingSounds).toContainEqual({
       effect: SoundEffect.SNAGGLEPUSS_MUTTER,
@@ -137,7 +145,6 @@ describe("snagglepuss", () => {
     });
 
     state.pendingSounds.length = 0;
-    state.sim.nowTick = 235;
     stepSimulationTick(state);
     expect(
       state.pendingSounds.some(
@@ -158,9 +165,7 @@ describe("snagglepuss", () => {
       2,
     );
     state.entityManager.spawn(snagg);
-    vi.spyOn(RNG, "chance").mockReturnValue(true);
-
-    stepSimulationTick(state);
+    for (let attempt = 0; attempt < 500; attempt++) stepSimulationTick(state);
 
     expect(
       state.pendingSounds.some(

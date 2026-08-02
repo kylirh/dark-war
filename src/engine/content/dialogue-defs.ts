@@ -8,19 +8,39 @@
  * social facts.
  */
 
+import { ItemType } from "../types";
+
 export const DIALOGUE_FREE_TEXT_MAX_LENGTH = 32;
 
 export type DialogueCondition =
   | { type: "hasFact"; fact: string }
   | { type: "notFact"; fact: string }
-  | { type: "affinityAtLeast"; value: number };
+  | { type: "affinityAtLeast"; value: number }
+  | { type: "hasItem"; item: ItemType }
+  | { type: "speakerHasLoot" }
+  | { type: "speakerHasNoLoot" }
+  | { type: "speakerWonOver" }
+  | { type: "speakerWonOverAndUnowned" }
+  | { type: "speakerNotWonOver" }
+  | { type: "speakerIsOwner" }
+  | { type: "speakerUnowned" };
 
 export type DialogueEffect =
   | { type: "giveStarterGear" }
   | { type: "adjustAffinity"; value: number }
+  | {
+      type: "adjustRelationship";
+      affinity?: number;
+      fear?: number;
+      grievance?: number;
+    }
   | { type: "setFact"; fact: string }
   | { type: "clearFact"; fact: string }
   | { type: "rememberNote"; note: string }
+  | { type: "consumeItem"; item: ItemType; amount?: number }
+  | { type: "returnSpeakerLoot" }
+  | { type: "recruitSnagglepuss" }
+  | { type: "releaseSnagglepuss" }
   /** Change the speaker's behavior — the conversation shapes what they do. */
   | { type: "setBehavior"; behavior: "follow" | "stay" };
 
@@ -123,6 +143,119 @@ export const DIALOGUE_DEFS: Record<string, DialogueDef> = {
       nowStaying: {
         text: "“I'll be here. Come find me when you need me.” She turns back to her work.",
         choices: [],
+      },
+    },
+  },
+  "wildlife.snagglepuss": {
+    entry: "approach",
+    nodes: {
+      approach: {
+        text: "The Snagglepuss sits back on its haunches, watching your hands and your pockets with equal interest.",
+        choices: [
+          {
+            id: "stolen",
+            label: "You took something from me.",
+            condition: { type: "speakerHasLoot" },
+            next: "denyLoot",
+          },
+          {
+            id: "offerCookie",
+            label: "Want a cookie?",
+            condition: { type: "hasItem", item: ItemType.COOKIE },
+            effects: [
+              { type: "consumeItem", item: ItemType.COOKIE },
+              {
+                type: "adjustRelationship",
+                affinity: 45,
+                fear: -20,
+                grievance: -15,
+              },
+              { type: "setFact", fact: "sharedCookie" },
+            ],
+            next: "cookieAccepted",
+          },
+          {
+            id: "join",
+            label: "Come with me. We'll find shinier things together.",
+            condition: { type: "speakerWonOverAndUnowned" },
+            effects: [{ type: "recruitSnagglepuss" }],
+            next: "joined",
+          },
+          {
+            id: "release",
+            label: "You can wander on your own again.",
+            condition: { type: "speakerIsOwner" },
+            effects: [{ type: "releaseSnagglepuss" }],
+            next: "released",
+          },
+          {
+            id: "chat",
+            label: "How are we doing?",
+            condition: { type: "speakerIsOwner" },
+            next: "companionChat",
+          },
+          { id: "leave", label: "Never mind." },
+        ],
+      },
+      denyLoot: {
+        text: "“Stolen?” The Snagglepuss presses both paws to its chest. “No stolen. Found. Entirely different.” The familiar shape tucked behind its tail suggests otherwise.",
+        choices: [
+          {
+            id: "tradeCookie",
+            label: "One cookie, and you return everything.",
+            condition: { type: "hasItem", item: ItemType.COOKIE },
+            effects: [
+              { type: "consumeItem", item: ItemType.COOKIE },
+              { type: "returnSpeakerLoot" },
+              {
+                type: "adjustRelationship",
+                affinity: 30,
+                grievance: -25,
+              },
+              { type: "setFact", fact: "caughtLying" },
+              { type: "setFact", fact: "bargainedForLoot" },
+            ],
+            next: "tradeComplete",
+          },
+          {
+            id: "callLie",
+            label: "I can see it behind your tail.",
+            effects: [
+              { type: "setFact", fact: "caughtLying" },
+              { type: "adjustRelationship", grievance: 10 },
+            ],
+            next: "caught",
+          },
+          { id: "leave", label: "Keep it, then." },
+        ],
+      },
+      caught: {
+        text: "The Snagglepuss looks at its tail, looks at you, and quietly moves the loot behind its other tail. “Coincidence.”",
+        choices: [],
+        next: "approach",
+      },
+      tradeComplete: {
+        text: "The cookie vanishes in one bite. Your belongings are returned with great ceremony and only a little drool. “Trade. Honest trade.”",
+        choices: [],
+        next: "approach",
+      },
+      cookieAccepted: {
+        text: "The Snagglepuss accepts the cookie delicately. Its suspicious squint softens into something almost companionable.",
+        choices: [],
+        next: "approach",
+      },
+      joined: {
+        text: "It chirrups, pats your pocket as if checking the travel provisions, and falls into step beside you.",
+        choices: [],
+      },
+      released: {
+        text: "The Snagglepuss bumps its forehead against your hand, then settles nearby. Friendly, but free to choose its own path.",
+        choices: [],
+      },
+      companionChat: {
+        text: "“Good team,” it says solemnly. “You carry snacks. I inspect shinies.”",
+        choices: [],
+        next: "approach",
       },
     },
   },
