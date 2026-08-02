@@ -96,6 +96,7 @@ interface LevelSnapshot {
   enhancedVision: boolean;
   worldPlane: WorldPlane;
   portals: WorldPortal[];
+  consumedSpawnMarkers: Set<string>;
 }
 
 /**
@@ -168,6 +169,7 @@ export class Game {
       tiles: worldPlane,
       worldPlane,
       portals: createProgressionPortals(initialAddress, 0, [0, 0], null),
+      consumedSpawnMarkers: new Set(),
       visible: new Set(),
       explored,
       accessible: new Set(),
@@ -258,6 +260,7 @@ export class Game {
         dungeonLevel ? dungeonLevel.stairsUp : null,
         outside?.workshopDoor ?? null,
       ),
+      consumedSpawnMarkers: outside?.consumedSpawnMarkers ?? new Set(),
       visible: new Set(),
       explored,
       accessible: new Set(),
@@ -814,6 +817,7 @@ export class Game {
         source: { ...portal.source },
         destination: { ...portal.destination },
       })),
+      consumedSpawnMarkers: new Set(this.state.consumedSpawnMarkers),
     };
     this.levels.set(
       worldAddressKey({
@@ -851,6 +855,7 @@ export class Game {
       source: { ...portal.source },
       destination: { ...portal.destination },
     }));
+    this.state.consumedSpawnMarkers = new Set(snapshot.consumedSpawnMarkers);
     this.refreshTileSource();
     this.state.explored = new Set(snapshot.explored);
     this.state.exploredByPlayer = this.cloneExploredByPlayerMap(
@@ -954,6 +959,7 @@ export class Game {
         level.stairsDown,
         level.stairsUp,
       ),
+      consumedSpawnMarkers: new Set(),
     };
   }
 
@@ -988,6 +994,7 @@ export class Game {
         enhancedVision: false,
         worldPlane: cave.worldPlane,
         portals: cave.portals,
+        consumedSpawnMarkers: new Set(),
       };
     }
     if (
@@ -1014,6 +1021,7 @@ export class Game {
         enhancedVision: false,
         worldPlane: workshop.worldPlane,
         portals: workshop.portals,
+        consumedSpawnMarkers: new Set(),
       };
     }
     throw new Error(`Unknown world plane: ${worldAddressKey(address)}`);
@@ -1479,6 +1487,7 @@ export class Game {
         ),
         enhancedVision: snapshot.enhancedVision,
         portals: snapshot.portals,
+        consumedSpawnMarkers: Array.from(snapshot.consumedSpawnMarkers).sort(),
       };
     });
 
@@ -1523,6 +1532,7 @@ export class Game {
         this.state,
         this.state.multiplayer.localPlayerId,
       ),
+      consumedSpawnMarkers: Array.from(this.state.consumedSpawnMarkers).sort(),
       levels,
       multiplayer: this.state.multiplayer,
       sim: {
@@ -1621,6 +1631,7 @@ export class Game {
       playerSocialFacts: loadSocialFacts(
         data.socialFacts ? { [localPlayerId]: data.socialFacts } : undefined,
       ),
+      consumedSpawnMarkers: new Set(data.consumedSpawnMarkers),
       players,
       player,
       story: data.story,
@@ -1679,6 +1690,7 @@ export class Game {
         enhancedVision: level.enhancedVision,
         worldPlane: levelPlane,
         portals: level.portals,
+        consumedSpawnMarkers: new Set(level.consumedSpawnMarkers),
       });
     }
 

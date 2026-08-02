@@ -314,6 +314,19 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       }
     }
 
+    // Civilian work is interrupted by danger, but occupation remains intact.
+    if (
+      monster.occupation?.type === "builder" &&
+      damageSource &&
+      monster.hp > 0
+    ) {
+      monster.alertLevel = Math.max(monster.alertLevel ?? 0, 100);
+      monster.lastAttackerId = damageSource.id;
+      monster.lastKnownPlayerX = damageSource.worldX;
+      monster.lastKnownPlayerY = damageSource.worldY;
+      if (monster.agent) monster.agent.nextDecisionTick = state.sim.nowTick;
+    }
+
     if (monster.hp <= 0) {
       pushEvent(state, {
         type: EventType.DEATH,

@@ -42,6 +42,7 @@ function baseState(): SerializedState {
     levelKind: "dungeon",
     simulationSeed: 12345,
     relationships: [],
+    consumedSpawnMarkers: [],
     portals: [],
     plane: {
       width: 2,
@@ -185,6 +186,12 @@ describe("computeStateDelta / applyStateDelta", () => {
       },
     ];
     roundTrip(base, next);
+  });
+
+  it("round-trips consumed spawn-marker provenance", () => {
+    const next = baseState();
+    next.consumedSpawnMarkers = ["outside/surface:workshop@57,56:marker:4"];
+    roundTrip(baseState(), next);
   });
 
   it("round-trips spatial sound metadata", () => {

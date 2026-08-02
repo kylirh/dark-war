@@ -61,6 +61,7 @@ export interface StateDelta {
   /** `null` clears facts after an authoritative reset. */
   socialFacts?: SerializedState["socialFacts"] | null;
   relationships?: SerializedState["relationships"];
+  consumedSpawnMarkers?: string[];
   multiplayer?: SerializedState["multiplayer"];
   // `sim`, `effects`, `sounds`, and `callouts` are tiny / ephemeral and always sent.
   sim: SerializedState["sim"];
@@ -138,6 +139,9 @@ export function computeStateDelta(
   if (!shallowJsonEqual(base.relationships, next.relationships)) {
     delta.relationships = next.relationships;
   }
+  if (!arraysEqual(base.consumedSpawnMarkers, next.consumedSpawnMarkers)) {
+    delta.consumedSpawnMarkers = next.consumedSpawnMarkers;
+  }
   if (!arraysEqual(base.story, next.story)) delta.story = next.story;
   if (!shallowJsonEqual(base.multiplayer, next.multiplayer)) {
     delta.multiplayer = next.multiplayer;
@@ -197,6 +201,9 @@ export function applyStateDelta(
   }
   if (delta.relationships !== undefined) {
     next.relationships = delta.relationships;
+  }
+  if (delta.consumedSpawnMarkers !== undefined) {
+    next.consumedSpawnMarkers = delta.consumedSpawnMarkers;
   }
   if (delta.story !== undefined) next.story = delta.story;
   if (delta.multiplayer !== undefined) next.multiplayer = delta.multiplayer;

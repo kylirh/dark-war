@@ -222,14 +222,28 @@ function applyBehavior(
     ownerId?: string;
     peaceful?: boolean;
   };
+  const isBuilder = speaker.occupation?.type === "builder";
   if (behavior === "follow") {
-    monster.friendly = true;
     monster.ownerId = player.id;
-    monster.peaceful = false; // friendly-pet AI takes over (follows the owner)
+    if (isBuilder) {
+      monster.friendly = false;
+      monster.peaceful = true;
+      if (speaker.agent) {
+        speaker.agent.currentGoal = "follow";
+        speaker.agent.nextDecisionTick = 0;
+      }
+    } else {
+      monster.friendly = true;
+      monster.peaceful = false;
+    }
   } else {
     monster.friendly = false;
     monster.ownerId = undefined;
-    monster.peaceful = true; // hold position
+    monster.peaceful = true;
+    if (speaker.agent) {
+      speaker.agent.currentGoal = "idle";
+      speaker.agent.nextDecisionTick = 0;
+    }
   }
 }
 

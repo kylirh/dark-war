@@ -9,6 +9,7 @@ import {
   Player,
   Item,
   ItemType,
+  AgentDecisionScore,
   TileType,
   WeaponType,
   CELL_CONFIG,
@@ -58,6 +59,7 @@ import {
   pushEvent,
   canActorAct,
 } from "./sim-helpers";
+import { selectAgentGoal } from "./agent-decisions";
 
 // ========================================
 // Utility Bot Helpers
@@ -208,6 +210,7 @@ function findNearestReachableRepairTarget(
   state: GameState,
   fromX: number,
   fromY: number,
+  acceptsTarget: (x: number, y: number) => boolean = () => true,
 ): [number, number] | null {
   const { mapWidth: w, mapHeight: h, tiles } = state;
 
@@ -249,7 +252,7 @@ function findNearestReachableRepairTarget(
       if (visited.has(nIdx)) continue;
       visited.add(nIdx);
 
-      if (isRepairable(nIdx)) return [nx, ny];
+      if (acceptsTarget(nx, ny) && isRepairable(nIdx)) return [nx, ny];
 
       // Traverse through passable, non-hole floor tiles only
       if (
@@ -262,6 +265,201 @@ function findNearestReachableRepairTarget(
   }
 
   return null;
+}
+
+function isSpeakerInConversation(state: GameState, speakerId: string): boolean {
+  return Array.from(state.conversations.values()).some(
+    (session) => session.speakerId === speakerId,
+  );
+}
+
+function builderIsOnShift(monster: Monster, tick: number): boolean {
+  const schedule = monster.occupation?.schedule;
+  if (!schedule) return true;
+  const cycle = schedule.workTicks + schedule.restTicks;
+  if (cycle <= 0) return true;
+  return (tick + schedule.phaseOffset) % cycle < schedule.workTicks;
+}
+
+function builderRepairTarget(
+  state: GameState,
+  monster: Monster,
+): [number, number] | null {
+  const occupation = monster.occupation;
+  if (!occupation || occupation.type !== "builder") return null;
+  if (
+    occupation.home.worldSpaceId !== state.worldSpaceId ||
+    occupation.home.worldPlaneId !== state.worldPlaneId
+  ) {
+    return null;
+  }
+  const { x: homeX, y: homeY } = occupation.home;
+  return findNearestReachableRepairTarget(
+    state,
+    monster.gridX,
+    monster.gridY,
+    (x, y) =>
+      Math.max(Math.abs(x - homeX), Math.abs(y - homeY)) <=
+      occupation.workRadius,
+  );
+}
+
+/** Score a builder's durable occupation separately from temporary stance. */
+function updateBuilderGoal(state: GameState, monster: Monster): void {
+  const agent = monster.agent;
+  if (!agent || !monster.occupation) return;
+  const tick = state.sim.nowTick;
+  const inConversation = isSpeakerInConversation(state, monster.id);
+  const threatened = (monster.alertLevel ?? 0) > 0 && !!monster.lastAttackerId;
+  const followsPlayer = !!monster.ownerId;
+  const repairTarget =
+    !inConversation &&
+    !threatened &&
+    !followsPlayer &&
+    builderIsOnShift(monster, tick)
+      ? builderRepairTarget(state, monster)
+      : null;
+  const candidates: AgentDecisionScore[] = [
+    {
+      goal: "converse",
+      score: inConversation ? 1000 : -1,
+      reason: inConversation ? "active conversation" : "no conversation",
+    },
+    {
+      goal: "flee",
+      score: threatened ? 900 : -1,
+      reason: threatened ? "recent attacker" : "no immediate threat",
+    },
+    {
+      goal: "follow",
+      score: followsPlayer ? 700 : -1,
+      reason: followsPlayer ? "player asked builder to follow" : "holding home",
+    },
+    {
+      goal: "work",
+      score: repairTarget ? 600 : -1,
+      reason: repairTarget
+        ? "reachable repair in work region"
+        : "no scheduled repair",
+    },
+    {
+      goal: "idle",
+      score: 10,
+      reason: builderIsOnShift(monster, tick)
+        ? "waiting for work"
+        : "off shift",
+    },
+  ];
+  const goal = selectAgentGoal(monster, tick, candidates);
+  if (goal === "work" && repairTarget) {
+    agent.activity = {
+      kind: "repair",
+      targetX: repairTarget[0],
+      targetY: repairTarget[1],
+    };
+  }
+}
+
+function steerBuilder(state: GameState, monster: Monster): void {
+  updateBuilderGoal(state, monster);
+  const agent = monster.agent;
+  const occupation = monster.occupation;
+  if (!agent || !occupation) return;
+  const m = monster as Monster & {
+    lastKnownPlayerX?: number;
+    lastKnownPlayerY?: number;
+  };
+
+  if (agent.currentGoal === "converse") {
+    m.velocityX = 0;
+    m.velocityY = 0;
+    return;
+  }
+
+  if (agent.currentGoal === "flee") {
+    const attacker = state.entities.find(
+      (entity) => entity.id === monster.lastAttackerId,
+    );
+    if (attacker) {
+      const dx = m.worldX - attacker.worldX;
+      const dy = m.worldY - attacker.worldY;
+      const distance = Math.hypot(dx, dy) || 1;
+      m.velocityX = (dx / distance) * UTILITY_BOT_SPEED;
+      m.velocityY = (dy / distance) * UTILITY_BOT_SPEED;
+      m.facingAngle = Math.atan2(dy, dx);
+      m.alertLevel = Math.max(0, (m.alertLevel ?? 0) - MONSTER_ALERT_DECAY);
+      return;
+    }
+    m.alertLevel = 0;
+    agent.nextDecisionTick = state.sim.nowTick;
+  }
+
+  if (agent.currentGoal === "follow" && monster.ownerId) {
+    const owner = state.entities.find(
+      (entity) =>
+        entity.id === monster.ownerId && entity.kind === EntityKind.PLAYER,
+    );
+    if (owner) {
+      const distance = Math.hypot(
+        owner.worldX - m.worldX,
+        owner.worldY - m.worldY,
+      );
+      if (distance > CELL_CONFIG.w * 2.5) {
+        steerTowardGrid(
+          m,
+          state,
+          monster,
+          owner.gridX,
+          owner.gridY,
+          IDLE_WANDER_SPEED,
+        );
+      } else {
+        m.velocityX = 0;
+        m.velocityY = 0;
+      }
+      return;
+    }
+  }
+
+  if (agent.currentGoal === "work" && agent.activity?.kind === "repair") {
+    const { targetX, targetY } = agent.activity;
+    const index = idxFor(targetX, targetY, state.mapWidth);
+    const tile = getStateTileAtIndex(state, index);
+    const damage = getStateDamageAtIndex(state, index);
+    const stillRepairable =
+      tile === TileType.HOLE ||
+      ((tile === TileType.FLOOR || isWallLikeTile(tile)) && damage > 0);
+    if (!stillRepairable) {
+      agent.activity = undefined;
+      agent.nextDecisionTick = state.sim.nowTick;
+      m.velocityX = 0;
+      m.velocityY = 0;
+      return;
+    }
+    if (
+      Math.abs(targetX - monster.gridX) + Math.abs(targetY - monster.gridY) <=
+      1
+    ) {
+      m.velocityX = 0;
+      m.velocityY = 0;
+    } else {
+      steerTowardGrid(m, state, monster, targetX, targetY, IDLE_WANDER_SPEED);
+    }
+    return;
+  }
+
+  const home = occupation.home;
+  if (
+    Math.max(
+      Math.abs(monster.gridX - home.x),
+      Math.abs(monster.gridY - home.y),
+    ) > 1
+  ) {
+    steerTowardGrid(m, state, monster, home.x, home.y, IDLE_WANDER_SPEED);
+  } else {
+    m.velocityX = 0;
+    m.velocityY = 0;
+  }
 }
 
 const BOT_JUNK_RANGE_PX = CELL_CONFIG.w * 12;
@@ -1145,6 +1343,11 @@ export function updateMonsterSteering(state: GameState): void {
       continue;
     }
 
+    if (monster.occupation?.type === "builder") {
+      steerBuilder(state, monster);
+      continue;
+    }
+
     if (monster.type === MonsterType.UTILITY_BOT) {
       steerUtilityBot(state, monster);
       continue;
@@ -1509,6 +1712,32 @@ function decideMonsterCommand(
 
   if (monster.type === MonsterType.UTILITY_BOT) {
     return decideUtilityBotCommand(state, monster, tick);
+  }
+
+  if (monster.occupation?.type === "builder") {
+    if (
+      isSpeakerInConversation(state, monster.id) ||
+      monster.agent?.currentGoal !== "work" ||
+      monster.agent.activity?.kind !== "repair"
+    ) {
+      return makeWaitCommand(monster, tick);
+    }
+    const { targetX, targetY } = monster.agent.activity;
+    if (
+      Math.abs(targetX - monster.gridX) + Math.abs(targetY - monster.gridY) <=
+      1
+    ) {
+      return {
+        id: crypto.randomUUID(),
+        tick,
+        actorId: monster.id,
+        type: CommandType.REPAIR,
+        data: { type: "REPAIR", x: targetX, y: targetY },
+        priority: 0,
+        source: "AI",
+      };
+    }
+    return makeWaitCommand(monster, tick);
   }
 
   if (monster.friendly) {

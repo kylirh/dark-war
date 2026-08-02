@@ -1790,12 +1790,22 @@ function buyFromVending(state: GameState, player: Player): void {
 // ========================================
 
 function resolveRepairCommand(state: GameState, cmd: Command): void {
+  const actor = state.entities.find((entity) => entity.id === cmd.actorId);
+  if (
+    !actor ||
+    actor.kind !== EntityKind.MONSTER ||
+    ((actor as Monster).type !== MonsterType.UTILITY_BOT &&
+      actor.occupation?.type !== "builder")
+  ) {
+    return;
+  }
   const data = cmd.data as { type: "REPAIR"; x: number; y: number };
   const result = applyRepairAt(state, data.x, data.y);
   if (!result) return;
 
-  // 1 in 5 chance to play repair sound (avoid spamming)
-  if (RNG.chance(0.2)) {
+  const isBuilder = actor.occupation?.type === "builder";
+  // Marda's authored work should be audible; utility bots remain restrained.
+  if (isBuilder || RNG.chance(0.2)) {
     const worldX = data.x * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     const worldY = data.y * CELL_CONFIG.h + CELL_CONFIG.h / 2;
     state.pendingSounds.push({
@@ -1811,8 +1821,12 @@ function resolveRepairCommand(state: GameState, cmd: Command): void {
       type: "MESSAGE",
       message:
         result === "hole"
-          ? "Utility bot patches the hole."
-          : "Utility bot repairs the damage.",
+          ? isBuilder
+            ? `${actor.name ?? "The builder"} patches the hole.`
+            : "Utility bot patches the hole."
+          : isBuilder
+            ? `${actor.name ?? "The builder"} repairs the damage.`
+            : "Utility bot repairs the damage.",
     },
   });
 }

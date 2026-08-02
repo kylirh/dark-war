@@ -64,9 +64,10 @@ describe("conversation", () => {
     applyDialogueChoice(state, state.player, "help", 1); // → askFollow (rev 2)
     applyDialogueChoice(state, state.player, "follow", 2); // → nowFollowing
 
-    expect(builder.friendly).toBe(true);
+    expect(builder.friendly).toBe(false);
     expect(builder.ownerId).toBe(state.player.id);
-    expect(builder.peaceful).toBe(false);
+    expect(builder.peaceful).toBe(true);
+    expect(builder.agent?.currentGoal).toBe("follow");
   });
 
   it("accepts typed free text and remembers it", () => {

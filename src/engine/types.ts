@@ -161,6 +161,58 @@ export interface InteractableComponent {
   affordances: InteractAffordance[];
 }
 
+export type AgentGoal =
+  | "idle"
+  | "work"
+  | "follow"
+  | "flee"
+  | "converse"
+  | "companion";
+
+export interface AgentDecisionScore {
+  goal: AgentGoal;
+  score: number;
+  reason: string;
+}
+
+/** Persisted, inspectable decision state for an entity that chooses actions. */
+export interface AgentComponent {
+  /** Advances only when this actor makes a new goal decision. */
+  decisionEpoch: number;
+  /** Earliest simulation tick at which the current goal may be reconsidered. */
+  nextDecisionTick: number;
+  currentGoal: AgentGoal;
+  /** Current multi-step work target, if the goal requires one. */
+  activity?: {
+    kind: "repair";
+    targetX: number;
+    targetY: number;
+  };
+  /** Last scored candidates, retained for the development inspector. */
+  lastDecision?: {
+    tick: number;
+    selected: AgentGoal;
+    candidates: AgentDecisionScore[];
+  };
+}
+
+/** Stable authored work/home information; it does not change with stance. */
+export interface OccupationComponent {
+  type: "builder";
+  home: {
+    worldSpaceId: string;
+    worldPlaneId: string;
+    x: number;
+    y: number;
+  };
+  workRadius: number;
+  schedule: {
+    workTicks: number;
+    restTicks: number;
+    phaseOffset: number;
+  };
+}
+
 /**
  * Durable, per-(player,speaker) narrative facts — met, one-time gifts, and
  * remembered dialogue choices. Kept per player (NOT on the entity, NOT inferred
@@ -239,6 +291,10 @@ export interface BaseEntity {
   social?: SocialComponent;
   /** Interaction affordances — present on interactable actors. */
   interactable?: InteractableComponent;
+  /** Optional goal/activity decision state. */
+  agent?: AgentComponent;
+  /** Stable authored job and home/work region. */
+  occupation?: OccupationComponent;
   /** Peaceful actors never initiate combat (civilians, won-over creatures). */
   peaceful?: boolean;
 }
@@ -672,6 +728,8 @@ export interface GameState {
   conversations: Map<string, ConversationSession>;
   /** Durable per-(player,speaker) narrative facts. */
   playerSocialFacts: Map<string, Map<string, SocialFacts>>;
+  /** Stable prefab/authored spawn markers already consumed on this plane. */
+  consumedSpawnMarkers: Set<string>;
   players: Player[];
   player: Player;
   stairsDown: [number, number];
@@ -749,6 +807,8 @@ export interface SerializedState {
   conversation?: ConversationView;
   /** The LOCAL player's social facts (per speaker). Per-player and private. */
   socialFacts?: Record<string, SocialFacts>;
+  /** Stable spawn provenance already consumed on the active plane. */
+  consumedSpawnMarkers: string[];
   levels: SerializedLevelState[];
   multiplayer: {
     mode: MultiplayerMode;
@@ -780,6 +840,7 @@ export interface SerializedLevelState {
   explored: number[];
   exploredByPlayer: Record<string, number[]>;
   entities: Entity[];
+  consumedSpawnMarkers: string[];
   enhancedVision: boolean;
 }
 

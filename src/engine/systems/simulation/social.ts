@@ -20,6 +20,7 @@ import { grantCoreDevice } from "./events";
 import { SOCIAL_DEFS } from "../../content/social-defs";
 import { deterministicChoice } from "../../utils/deterministic-roll";
 import { getSocialFacts } from "./conversation";
+import { advanceAgentDecisionEpoch } from "./agent-decisions";
 
 /** Whether an entity can currently be talked to. */
 export function canTalkTo(entity: Entity): boolean {
@@ -95,7 +96,7 @@ export function resolveTalk(
       {
         simulationSeed: state.simulationSeed,
         actorStableId: target.id,
-        decisionEpoch: state.sim.nowTick,
+        decisionEpoch: advanceAgentDecisionEpoch(target),
         purpose: "social-greeting",
       },
       def.greeting,

@@ -3,6 +3,8 @@ import {
   CELL_CONFIG,
   SocialComponent,
   InteractableComponent,
+  AgentComponent,
+  OccupationComponent,
 } from "../types";
 import { Body } from "detect-collisions";
 
@@ -40,6 +42,12 @@ export abstract class GameEntity {
 
   /** Interaction affordances — present on interactable actors. */
   public interactable?: InteractableComponent;
+
+  /** Optional persisted goal/activity decision state. */
+  public agent?: AgentComponent;
+
+  /** Stable authored occupation and home/work region. */
+  public occupation?: OccupationComponent;
 
   /** Peaceful actors never initiate combat (civilians, won-over creatures). */
   public peaceful?: boolean;

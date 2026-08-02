@@ -178,9 +178,10 @@ export function getActionCost(
   // In real-time mode, monsters act slower to give player reaction time at high tick rates
   if (actor.kind === EntityKind.MONSTER) {
     const monster = actor as Monster;
-    // Utility bot pauses a bit longer after each repair
+    // Repair workers pause a bit longer after each repair.
     if (
-      monster.type === MonsterType.UTILITY_BOT &&
+      (monster.type === MonsterType.UTILITY_BOT ||
+        monster.occupation?.type === "builder") &&
       cmd.type === CommandType.REPAIR
     ) {
       return MONSTER_ACTION_DELAY + UTILITY_BOT_REPAIR_COOLDOWN;

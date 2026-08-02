@@ -18,12 +18,18 @@ import {
 } from "./world-semantics";
 import { WorldPlane } from "./world-plane";
 import { semanticPrefab, stampSemanticPrefab } from "./semantic-prefab";
-import { createWorkshopBuilder, createParkBuilder } from "./actor-factory";
+import {
+  consumeSpawnMarker,
+  createWorkshopBuilder,
+  createParkBuilder,
+  stableSpawnMarkerId,
+} from "./actor-factory";
 
 export interface OutsideLevelData extends Omit<DungeonData, "map"> {
   entities: Array<ItemEntity | MonsterEntity>;
   worldPlane: WorldPlane;
   workshopDoor: [number, number];
+  consumedSpawnMarkers: Set<string>;
 }
 
 const WIDTH = OUTSIDE_MAP_WIDTH;
@@ -122,6 +128,8 @@ export function createOutsideLevel(): OutsideLevelData {
   const entities: Array<ItemEntity | MonsterEntity> = [
     new ItemEntity(14, 58, ItemType.PICKAXE),
   ];
+  const consumedSpawnMarkers = new Set<string>();
+  const outsideAddress = { spaceId: "outside", planeId: "surface" };
 
   const worldPlane = createWorldPlaneFromTiles(map, WIDTH, HEIGHT, undefined, {
     wraps: true,
@@ -143,7 +151,12 @@ export function createOutsideLevel(): OutsideLevelData {
   // (where the CTDM/Manipulator used to lie) and hands over that starting gear
   // in conversation. Placed here rather than at the park workshop so the player
   // is equipped immediately, before trekking anywhere.
-  entities.push(createWorkshopBuilder(BUILDER_START[0], BUILDER_START[1]));
+  const marda = consumeSpawnMarker(
+    consumedSpawnMarkers,
+    stableSpawnMarkerId(outsideAddress, "authored:start", "workshop-builder"),
+    () => createWorkshopBuilder(BUILDER_START[0], BUILDER_START[1]),
+  );
+  if (marda) entities.push(marda);
   // A second settler tends the park workshop, spawned from the prefab's
   // authored `npc.builder` marker (stable, idempotent identity).
   const builderMarker = workshopStamp.markers.find(
@@ -152,10 +165,19 @@ export function createOutsideLevel(): OutsideLevelData {
       marker.properties["darkwar.spawn"] === "npc.builder",
   );
   if (builderMarker) {
-    const stableId = `npc:outside/surface:workshop-garden:${builderMarker.name}`;
-    entities.push(
-      createParkBuilder(builderMarker.worldX, builderMarker.worldY, stableId),
+    const markerId = stableSpawnMarkerId(
+      outsideAddress,
+      `settlement.workshop-garden@${PARK_WORKSHOP_ORIGIN[0]},${PARK_WORKSHOP_ORIGIN[1]}:identity`,
+      builderMarker.id,
     );
+    const builder = consumeSpawnMarker(consumedSpawnMarkers, markerId, () =>
+      createParkBuilder(
+        builderMarker.worldX,
+        builderMarker.worldY,
+        `npc:${markerId}`,
+      ),
+    );
+    if (builder) entities.push(builder);
   }
   const workshopDoor = parkWorkshopDoor();
   return {
@@ -169,6 +191,7 @@ export function createOutsideLevel(): OutsideLevelData {
     entities,
     worldPlane,
     workshopDoor,
+    consumedSpawnMarkers,
   };
 }
 

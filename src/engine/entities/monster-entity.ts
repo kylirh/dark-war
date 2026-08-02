@@ -1,4 +1,4 @@
-import { EntityKind, ItemType, MonsterType } from "../types";
+import { AgentComponent, EntityKind, ItemType, MonsterType } from "../types";
 import { GameEntity } from "./game-entity";
 import { RNG } from "../utils/rng";
 import {
@@ -95,10 +95,22 @@ export class MonsterEntity extends GameEntity {
   /** A thief that grabbed loot and is now running away. */
   public fleeing?: boolean;
 
+  /** Persisted goal-selection state shared by all simulated creatures. */
+  public agent: AgentComponent = {
+    decisionEpoch: 0,
+    nextDecisionTick: 0,
+    currentGoal: "idle",
+  };
+
   constructor(gridX: number, gridY: number, type: MonsterType, depth: number) {
     super(gridX, gridY);
 
     this.type = type;
+
+    if (type === MonsterType.SNAGGLEPUSS) {
+      this.social = { defId: "wildlife.snagglepuss" };
+      this.interactable = { affordances: ["talk"] };
+    }
 
     const def = MONSTER_DEFS[type];
     this.hpMax = monsterHpAt(type, depth);
