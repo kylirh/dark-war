@@ -170,7 +170,7 @@ export class GameMenu {
             <div class="imb-about-sep"></div>
             <p class="imb-about-credit">Designed &amp; developed by<br>
             <strong>Kyle Horton</strong></p>
-            <p class="imb-about-small">Built with TypeScript, Pixi.js &amp; Electron.</p>
+            <p class="imb-about-small">Built with TypeScript &amp; Pixi.js.</p>
           </div>
         </div>
         <div class="imb-dialog-footer">

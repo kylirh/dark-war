@@ -18,6 +18,7 @@ const APP_ICON = path.join(
   "app-icon.png",
 );
 
+process.title = APP_NAME;
 app.setName(APP_NAME);
 app.setAppUserModelId(packageJson.build?.appId || "com.kylir.darkwar");
 
