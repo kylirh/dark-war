@@ -51,12 +51,6 @@ export class MonsterEntity extends GameEntity {
   public lastKnownPlayerX: number = 0;
   public lastKnownPlayerY: number = 0;
 
-  /** Most recent simulation tick when this monster was damaged by a player. */
-  public lastPlayerAttackTick?: number;
-
-  /** Mutants stop to digest until this simulation tick. */
-  public digestingUntilTick?: number;
-
   /** Befriended pet state (e.g. a dog given a bone). */
   public friendly?: boolean;
   public ownerId?: string;

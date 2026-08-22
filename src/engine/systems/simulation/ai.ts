@@ -481,7 +481,7 @@ function steerBuilder(state: GameState, monster: Monster): void {
 
 const BOT_JUNK_RANGE_PX = CELL_CONFIG.w * 12;
 
-/** Nearest loose mess or organic remains the utility bot should clean. */
+/** Nearest supported debris or trash item the utility bot should clean. */
 function nearestJunkItem(state: GameState, bot: Monster): Item | null {
   let best: Item | null = null;
   let bestSq = BOT_JUNK_RANGE_PX * BOT_JUNK_RANGE_PX;
@@ -582,7 +582,7 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
     }
   }
 
-  // No repairs to do — tidy up nearby junk, bodies, and entrails.
+  // No repairs to do — tidy up nearby supported debris and trash.
   {
     const junk = nearestJunkItem(state, monster);
     if (junk) {
@@ -637,108 +637,6 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
 
   m.velocityX = 0;
   m.velocityY = 0;
-}
-
-const MUTANT_SCAVENGE_RANGE_PX = CELL_CONFIG.w * 20;
-const MUTANT_EAT_RADIUS_PX = CELL_CONFIG.w * 0.8;
-const MUTANT_EAT_HEARING_RANGE_PX = CELL_CONFIG.w * 18;
-const MUTANT_DIGEST_MIN_TICKS = 40;
-const MUTANT_DIGEST_JITTER_TICKS = 41;
-const MUTANT_COMBAT_MEMORY_TICKS = 80;
-const MUTANT_IMMEDIATE_COMBAT_RANGE_PX = CELL_CONFIG.w * 1.5;
-
-/** Find the nearest dead organic remnant within the Mutant's scent range. */
-function nearestOrganicRemains(state: GameState, mutant: Monster): Item | null {
-  let nearest: Item | null = null;
-  let nearestDistanceSq = MUTANT_SCAVENGE_RANGE_PX ** 2;
-  for (const entity of state.entities) {
-    if (entity.kind !== EntityKind.ITEM) continue;
-    const item = entity as Item;
-    if (ITEM_DEFS[item.type]?.organicDead !== true) continue;
-    const dx = item.worldX - mutant.worldX;
-    const dy = item.worldY - mutant.worldY;
-    const distanceSq = dx * dx + dy * dy;
-    if (distanceSq < nearestDistanceSq) {
-      nearest = item;
-      nearestDistanceSq = distanceSq;
-    }
-  }
-  return nearest;
-}
-
-/** Mutants abandon a meal only for an immediate or recently initiated fight. */
-function mutantIsActivelyFightingPlayer(
-  state: GameState,
-  mutant: Monster,
-): boolean {
-  const player = getClosestPlayer(state, mutant);
-  if (!player) return false;
-  const recentlyAttacked =
-    state.sim.nowTick - (mutant.lastPlayerAttackTick ?? -Infinity) <
-    MUTANT_COMBAT_MEMORY_TICKS;
-  const playerDistance = Math.hypot(
-    player.worldX - mutant.worldX,
-    player.worldY - mutant.worldY,
-  );
-  return recentlyAttacked || playerDistance <= MUTANT_IMMEDIATE_COMBAT_RANGE_PX;
-}
-
-function mutantIsDigesting(state: GameState, mutant: Monster): boolean {
-  return (
-    mutant.type === MonsterType.MUTANT &&
-    state.sim.nowTick < (mutant.digestingUntilTick ?? -Infinity)
-  );
-}
-
-function mutantShouldScavenge(state: GameState, mutant: Monster): boolean {
-  return (
-    mutant.type === MonsterType.MUTANT &&
-    !mutantIsActivelyFightingPlayer(state, mutant) &&
-    nearestOrganicRemains(state, mutant) !== null
-  );
-}
-
-/** Prioritize scavenging dead organic matter over the Mutant's normal hunt. */
-function steerMutantTowardRemains(state: GameState, mutant: Monster): boolean {
-  if (mutant.type !== MonsterType.MUTANT) return false;
-  const remains = nearestOrganicRemains(state, mutant);
-  if (!remains) return false;
-  const dx = remains.worldX - mutant.worldX;
-  const dy = remains.worldY - mutant.worldY;
-  const distance = Math.hypot(dx, dy);
-
-  if (distance <= MUTANT_EAT_RADIUS_PX) {
-    state.entityManager.destroy(remains.id);
-    mutant.velocityX = 0;
-    mutant.velocityY = 0;
-    mutant.digestingUntilTick =
-      state.sim.nowTick +
-      MUTANT_DIGEST_MIN_TICKS +
-      RNG.int(MUTANT_DIGEST_JITTER_TICKS);
-    const player = getClosestPlayer(state, mutant);
-    if (
-      player &&
-      Math.hypot(player.worldX - mutant.worldX, player.worldY - mutant.worldY) <
-        MUTANT_EAT_HEARING_RANGE_PX
-    ) {
-      state.pendingSounds.push({
-        effect: SoundEffect.MUTANT_EAT,
-        worldX: mutant.worldX,
-        worldY: mutant.worldY,
-        maxDistancePx: MUTANT_EAT_HEARING_RANGE_PX,
-      });
-    }
-    return true;
-  }
-
-  return steerTowardGrid(
-    mutant,
-    state,
-    mutant,
-    remains.gridX,
-    remains.gridY,
-    MONSTER_SPEED * MONSTER_DEFS[MonsterType.MUTANT].speed,
-  );
 }
 
 // ========================================
@@ -1363,19 +1261,6 @@ export function updateMonsterSteering(state: GameState): void {
       continue;
     }
 
-    if (mutantIsDigesting(state, monster)) {
-      monster.velocityX = 0;
-      monster.velocityY = 0;
-      continue;
-    }
-
-    if (
-      !mutantIsActivelyFightingPlayer(state, monster) &&
-      steerMutantTowardRemains(state, monster)
-    ) {
-      continue;
-    }
-
     if (monster.occupation?.type === "builder") {
       steerBuilder(state, monster);
       continue;
@@ -1749,13 +1634,6 @@ function decideMonsterCommand(
   if (isSpeakerInConversation(state, monster.id)) {
     return makeWaitCommand(monster, tick);
   }
-  if (
-    mutantIsDigesting(state, monster) ||
-    mutantShouldScavenge(state, monster)
-  ) {
-    return makeWaitCommand(monster, tick);
-  }
-
   if (monster.type === MonsterType.UTILITY_BOT) {
     return decideUtilityBotCommand(state, monster, tick);
   }

@@ -1492,10 +1492,6 @@ export class Renderer {
           if (damage >= FLOOR_DAMAGE_THRESHOLDS[0]) {
             renderGround("floor_damaged");
           }
-          const h = mixWorldVisualHash(coordinateHash, 22);
-          if (state.levelKind === "dungeon" && h % 97 === 0) {
-            renderGround("blood_stain");
-          }
         } else if (tileType === TileType.HOLE) {
           renderGround(TileType.FLOOR, floorCoord);
           const holeMask =

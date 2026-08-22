@@ -74,7 +74,6 @@ import {
 
 const EXPLORATION_COMPLETION_THRESHOLD = 0.9;
 const MIN_COMPLETION_REACHABLE_TILES = 50;
-const MAX_CORPSES_PER_LEVEL = 8;
 // Bounded dungeon levels — large, generated in full up front.
 const DUNGEON_WIDTH = 128;
 const DUNGEON_HEIGHT = 96;
@@ -643,33 +642,6 @@ export class Game {
     this.state.exploredByPlayer.set(player.id, new Set<number>());
     this.state.visibilityByPlayer.set(player.id, new Set<number>());
     this.updateFOVForPlayer(player.id);
-  }
-
-  /**
-   * Leave a cosmetic corpse where a player died. It lives in `players` with
-   * hp 0 (so it renders as a dead body and is ignored by AI / alive checks) but
-   * is never controlled. Capped per level so corpses can't grow unbounded.
-   */
-  public spawnCorpse(source: Player): void {
-    const corpse = new PlayerEntity(source.gridX, source.gridY);
-    corpse.id = `corpse-${crypto.randomUUID()}`;
-    corpse.worldX = source.worldX;
-    corpse.worldY = source.worldY;
-    corpse.prevWorldX = source.worldX;
-    corpse.prevWorldY = source.worldY;
-    corpse.facingAngle = source.facingAngle;
-    corpse.hp = 0;
-    corpse.velocityX = 0;
-    corpse.velocityY = 0;
-    this.state.players.push(corpse);
-
-    const corpses = this.state.players.filter(
-      (p) => p.hp <= 0 && p.id.startsWith("corpse-"),
-    );
-    if (corpses.length > MAX_CORPSES_PER_LEVEL) {
-      const oldest = corpses[0];
-      this.state.players = this.state.players.filter((p) => p !== oldest);
-    }
   }
 
   public removeNetworkPlayer(playerId: string): void {

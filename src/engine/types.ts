@@ -116,9 +116,6 @@ export enum ItemType {
   LIGHT_FIXTURE = "light-fixture",
   /** A captured static-water cell placed by the Matter Manipulator. */
   WATER = "water",
-  BLOOD_SPLATTER = "blood-splatter",
-  CORPSE = "corpse",
-  ENTRAILS = "entrails",
 }
 
 export enum WeaponType {
@@ -389,10 +386,6 @@ export interface Monster extends BaseEntity {
   lastKnownPlayerX?: number;
   lastKnownPlayerY?: number;
   lastAttackerId?: string;
-  /** Most recent tick when this monster was damaged by a player. */
-  lastPlayerAttackTick?: number;
-  /** Mutants remain stationary while the current tick is below this value. */
-  digestingUntilTick?: number;
   /** Befriended (e.g. a dog given a bone): fights for and follows its owner. */
   friendly?: boolean;
   /** Player id this creature is loyal to (when friendly). */

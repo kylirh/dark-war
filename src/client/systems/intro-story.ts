@@ -77,7 +77,7 @@ const INTRO_STORY_SLIDES: IntroStorySlide[] = [
   {
     imageSrc: "assets/img/intro-9.png",
     text: [
-      "Then you find the message. Scrawled with grime and blood across a section of flooring by an unsteady hand are words that tell you all too clearly that the invader is here:",
+      "Then you find the message. Scrawled with grime and fading ink across a section of flooring by an unsteady hand are words that tell you all too clearly that the invader is here:",
       "Beware of the Zyths!!!",
     ],
   },

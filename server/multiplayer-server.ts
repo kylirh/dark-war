@@ -38,7 +38,7 @@ import {
 // somehow drifted re-baselines within a few seconds. ~5s at 20 broadcasts/sec.
 const KEYFRAME_INTERVAL = 100;
 
-// How long a dead player lingers (as a body) before respawning. ~2s at 20Hz.
+// How long a dead player waits before respawning. ~2s at 20Hz.
 const RESPAWN_DELAY_TICKS = 40;
 const PLAYER_CALLOUT_COOLDOWN_MS = 650;
 
@@ -811,10 +811,7 @@ class RoomSession {
     this.broadcastState();
   }
 
-  /**
-   * Infinite lives: a dead player leaves a corpse where they fell and respawns
-   * at the entry world after a short delay, keeping their gear, fully healed.
-   */
+  /** Infinite lives: respawn a dead player at the entry world after a delay. */
   private handleRespawns(): void {
     for (const [playerId, location] of [...this.playerLocation]) {
       const world = this.worlds.get(location);
@@ -846,8 +843,6 @@ class RoomSession {
     const dead = from.game.getPlayerById(playerId);
     if (!dead) return;
 
-    // Leave the body behind, then carry the (revived) player to the entry world.
-    from.game.spawnCorpse(dead);
     const player = from.game.detachPlayer(playerId);
     if (!player) return;
     from.players.delete(playerId);

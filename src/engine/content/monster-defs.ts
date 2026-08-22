@@ -122,7 +122,7 @@ export const MONSTER_DEFS: Record<MonsterType, MonsterDef> = {
     speed: 1,
     minDepth: 1,
     weight: 0, // spawned explicitly, not from the random pool
-    loot: [{ type: ItemType.METAL_SCRAPS, chance: 1 }],
+    loot: [{ type: ItemType.METAL_SCRAPS, chance: 1, amount: 1 }],
   },
 
   // ---- new creatures ----
@@ -210,6 +210,7 @@ export const MONSTER_DEFS: Record<MonsterType, MonsterDef> = {
     minDepth: 4,
     weight: 2,
     flags: { invisible: true },
+    loot: [{ type: ItemType.METAL_SCRAPS, chance: 1, amount: 1 }],
   },
   [MonsterType.ZYTH]: {
     behavior: "ranged",

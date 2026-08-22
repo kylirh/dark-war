@@ -41,8 +41,7 @@ describe("utility bot sounds", () => {
   });
 
   it.each([
-    ItemType.CORPSE,
-    ItemType.ENTRAILS,
+    ItemType.METAL_SCRAPS,
     ItemType.TRASH,
     ItemType.RUBBLE_CHUNK,
     ItemType.ROCK,

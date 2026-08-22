@@ -34,11 +34,6 @@ const METAL_ROBOT_TYPES = new Set<MonsterType>([
   MonsterType.UTILITY_BOT,
   MonsterType.DREADNAUGHT,
 ]);
-const ORGANIC_REMAINS_TYPES = [
-  ItemType.BLOOD_SPLATTER,
-  ItemType.CORPSE,
-  ItemType.ENTRAILS,
-];
 import {
   MAX_EVENTS_PER_TICK,
   EXPLOSION_KNOCKBACK_MAX_DISTANCE,
@@ -217,10 +212,6 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       });
       reconcileSnagglepussCompanion(state, monster);
     }
-    if (damageSource?.kind === EntityKind.PLAYER && monster.hp > 0) {
-      monster.lastPlayerAttackTick = state.sim.nowTick;
-    }
-
     if (monster.hp > 0) {
       applyDamageKnockback(state, monster, data);
       // Moppets blink away when struck.
@@ -597,25 +588,12 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
       );
     }
 
-    // Drop loot, scattered slightly around the corpse so individual items are
-    // visible (and reachable by the magnetic auto-pickup) instead of stacking on
-    // one tile.
+    // Drop loot, scattered slightly around the defeated monster so individual
+    // items are visible and reachable by magnetic auto-pickup.
     const baseX =
       monster.worldX ?? monster.gridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
     const baseY =
       monster.worldY ?? monster.gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
-    if (!METAL_ROBOT_TYPES.has(monster.type)) {
-      const remains = new ItemEntity(
-        monster.gridX,
-        monster.gridY,
-        RNG.choose(ORGANIC_REMAINS_TYPES),
-      );
-      remains.worldX = baseX;
-      remains.worldY = baseY;
-      remains.prevWorldX = baseX;
-      remains.prevWorldY = baseY;
-      state.entityManager.spawn(remains);
-    }
     const dropItem = (
       type: ItemType,
       opts?: { amount?: number; heal?: number },
