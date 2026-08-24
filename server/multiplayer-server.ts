@@ -38,8 +38,6 @@ import {
 // somehow drifted re-baselines within a few seconds. ~5s at 20 broadcasts/sec.
 const KEYFRAME_INTERVAL = 100;
 
-// How long a dead player waits before respawning. ~2s at 20Hz.
-const RESPAWN_DELAY_TICKS = 40;
 const PLAYER_CALLOUT_COOLDOWN_MS = 650;
 
 // ─── Protocol types ────────────────────────────────────────────────────────────
@@ -94,6 +92,7 @@ type IncomingMessage2 =
   | { type: "new_game" }
   | { type: "start_game" }
   | { type: "set_name"; name: string }
+  | { type: "request_respawn" }
   | { type: "request_keyframe" };
 
 interface RoomClient {
@@ -161,6 +160,7 @@ function isIncomingMessage(value: unknown): value is IncomingMessage2 {
     value.type === "new_game" ||
     value.type === "start_game" ||
     value.type === "set_name" ||
+    value.type === "request_respawn" ||
     value.type === "request_keyframe"
   );
 }
@@ -188,8 +188,6 @@ class RoomSession {
   private readonly id: string;
   private readonly worlds = new Map<string, LevelWorld>();
   private readonly playerLocation = new Map<string, string>();
-  // Ticks remaining before a dead player respawns (infinite lives).
-  private readonly respawnTimers = new Map<string, number>();
   private readonly clients = new Map<WebSocket, RoomClient>();
   private readonly closeRoom: (roomId: string) => void;
   private tickHandle: NodeJS.Timeout | null = null;
@@ -426,6 +424,16 @@ class RoomSession {
 
     if (message.type === "request_keyframe") {
       client.needsKeyframe = true;
+      return;
+    }
+    if (message.type === "request_respawn") {
+      const world = this.worldOfPlayer(client.playerId);
+      const player = world?.game.getPlayerById(client.playerId);
+      if (!world || !player || player.hp > 0) return;
+      if (world.game.respawnPlayer(client.playerId)) {
+        world.physics.rebuildAll(world.game.getState());
+        client.needsKeyframe = true;
+      }
       return;
     }
     if (message.type === "velocity") {
@@ -805,59 +813,7 @@ class RoomSession {
     for (const world of [...this.worlds.values()]) {
       if (world.players.size > 0) this.handleHoleFalls(world);
     }
-    // Respawn the dead (infinite lives) once their timer elapses.
-    this.handleRespawns();
-
     this.broadcastState();
-  }
-
-  /** Infinite lives: respawn a dead player at the entry world after a delay. */
-  private handleRespawns(): void {
-    for (const [playerId, location] of [...this.playerLocation]) {
-      const world = this.worlds.get(location);
-      const player = world?.game.getPlayerById(playerId);
-      if (!player) continue;
-
-      if (player.hp > 0) {
-        this.respawnTimers.delete(playerId);
-        continue;
-      }
-
-      const remaining = this.respawnTimers.get(playerId);
-      if (remaining === undefined) {
-        this.respawnTimers.set(playerId, RESPAWN_DELAY_TICKS);
-        player.velocityX = 0;
-        player.velocityY = 0;
-      } else if (remaining <= 1) {
-        this.respawnTimers.delete(playerId);
-        this.respawnPlayer(playerId);
-      } else {
-        this.respawnTimers.set(playerId, remaining - 1);
-      }
-    }
-  }
-
-  private respawnPlayer(playerId: string): void {
-    const from = this.worldOfPlayer(playerId);
-    if (!from) return;
-    const dead = from.game.getPlayerById(playerId);
-    if (!dead) return;
-
-    const player = from.game.detachPlayer(playerId);
-    if (!player) return;
-    from.players.delete(playerId);
-    from.physics.rebuildAll(from.game.getState());
-
-    player.hp = player.hpMax;
-    const to = this.getOrCreateDepthWorld(0);
-    to.game.attachExistingPlayer(player, to.game.getState().playerStart);
-    to.players.add(playerId);
-    this.playerLocation.set(playerId, worldAddressKey(to.address));
-    to.physics.rebuildAll(to.game.getState());
-    to.game.addStory("You wake up back at the entrance.");
-
-    const client = this.clientByPlayerId(playerId);
-    if (client) client.needsKeyframe = true;
   }
 
   private stepWorld(world: LevelWorld): void {

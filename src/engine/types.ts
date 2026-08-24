@@ -360,6 +360,8 @@ export interface Player extends BaseEntity {
   /** Panic-button charge (consumed on warp, refilled by power cells). */
   panicCharge: number;
   panicChargeMax: number;
+  /** Runtime/save guard preventing duplicate death inventory drops. */
+  inventoryDroppedOnDeath?: boolean;
   /** While `sim.nowTick < slowUntilTick`, the player moves at reduced speed. */
   slowUntilTick?: number;
   /** Cosmetic reload/recharge quips are suppressed until this simulation tick. */
@@ -430,6 +432,8 @@ export interface Item extends BaseEntity {
   name: string;
   amount?: number;
   heal?: number;
+  /** Whether this item was created from a player's death inventory. */
+  deathDrop?: boolean;
 }
 
 export type ProjectileType = "bullet" | "laser";

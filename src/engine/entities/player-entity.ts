@@ -77,6 +77,9 @@ export class PlayerEntity extends GameEntity {
   public panicCharge: number;
   public panicChargeMax: number;
 
+  /** Whether this death has already converted the player's inventory to drops. */
+  public inventoryDroppedOnDeath: boolean = false;
+
   /** While `sim.nowTick < slowUntilTick`, the player moves at reduced speed. */
   public slowUntilTick?: number;
 
@@ -142,5 +145,47 @@ export class PlayerEntity extends GameEntity {
     }
 
     this.selectedBarSlot = 0;
+  }
+
+  /**
+   * Reset death-lost equipment and resources while preserving progression
+   * qualities and the two non-droppable core devices.
+   */
+  public resetForRespawn(): void {
+    const id = this.id;
+    const hpMax = this.hpMax;
+    const sight = this.sight;
+    const score = this.score;
+    const laserChargeMax = this.laserChargeMax;
+    const panicChargeMax = this.panicChargeMax;
+    const hasCTDM = this.hasCTDM;
+    const hasMatterManipulator = this.hasMatterManipulator;
+
+    const starter = new PlayerEntity(0, 0);
+    Object.assign(this, starter);
+
+    this.id = id;
+    this.hpMax = hpMax;
+    this.hp = hpMax;
+    this.sight = sight;
+    this.score = score;
+    this.laserChargeMax = laserChargeMax;
+    this.panicChargeMax = panicChargeMax;
+    this.hasCTDM = hasCTDM;
+    this.hasMatterManipulator = hasMatterManipulator;
+    this.ctdmEnabled = false;
+    this.matterManipulatorActive = false;
+    this.inventoryDroppedOnDeath = false;
+
+    const addCoreDevice = (type: ItemType): void => {
+      if (this.inventorySlots.some((slot) => slot.type === type)) return;
+      const empty = this.inventorySlots.find((slot) => slot.type === null);
+      if (empty) empty.type = type;
+    };
+
+    if (this.hasCTDM) addCoreDevice(ItemType.CTDM);
+    if (this.hasMatterManipulator) {
+      addCoreDevice(ItemType.MATTER_MANIPULATOR);
+    }
   }
 }

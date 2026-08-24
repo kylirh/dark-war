@@ -195,6 +195,42 @@ describe("multiplayer server (multi-world)", () => {
     client.close();
   });
 
+  it("keeps a dead player in the current world until an explicit respawn request", async () => {
+    server = await startMultiplayerServer(0);
+    const client = connect(server.port, "Host");
+    await waitFor(client, "welcome");
+
+    send(client, { type: "start_game" });
+    const initial = await waitFor(client, "state_full");
+    const blackPillSlot = initial.state.player.inventorySlots.findIndex(
+      (slot: { type: string | null }) => slot.type === "black-pill",
+    );
+    expect(blackPillSlot).toBeGreaterThanOrEqual(0);
+
+    send(client, { type: "select_weapon", slot: blackPillSlot });
+    send(client, {
+      type: "action",
+      action: { type: "USE_ITEM", dx: 0, dy: 0 },
+      seq: 1,
+    });
+    await delay(100);
+    const dead = await requestState(client);
+    expect(dead.state.player.hp).toBe(0);
+    expect(dead.state.depth).toBe(initial.state.depth);
+    expect(dead.state.worldPlaneId).toBe(initial.state.worldPlaneId);
+    expect(dead.state.player.inventoryDroppedOnDeath).toBe(true);
+
+    send(client, { type: "request_respawn" });
+    await delay(100);
+    const respawned = await requestState(client);
+    expect(respawned.state.player.hp).toBeGreaterThan(0);
+    expect(respawned.state.depth).toBe(dead.state.depth);
+    expect(respawned.state.worldPlaneId).toBe(dead.state.worldPlaneId);
+    expect(respawned.state.player.inventoryDroppedOnDeath).toBe(false);
+
+    client.close();
+  });
+
   it("changes the player's weapon by inventory bar slot", async () => {
     server = await startMultiplayerServer(0);
     const client = connect(server.port, "Host");

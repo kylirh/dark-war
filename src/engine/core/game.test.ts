@@ -1,6 +1,13 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "./game";
-import { EntityKind, TileType, WeaponType, CommandType } from "../types";
+import {
+  EntityKind,
+  ItemType,
+  Item,
+  TileType,
+  WeaponType,
+  CommandType,
+} from "../types";
 import { RNG } from "../utils/rng";
 import { enqueueCommand } from "../systems/simulation/commands";
 import { stepSimulationTick } from "../systems/simulation/tick";
@@ -399,5 +406,112 @@ describe("Game multiplayer player management", () => {
     expect(moved!.hp).toBe(37); // stats carried over
     expect(moved!.weapon).toBe(WeaponType.PISTOL);
     expect(to.getState().entities.some((e) => e.id === "traveler")).toBe(true);
+  });
+
+  it("respawns in the current world, drops ordinary inventory, and preserves exploration", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    const plane = state.worldPlane;
+    const exploredIndex = player.gridX + player.gridY * state.mapWidth;
+    state.explored.add(exploredIndex);
+    state.exploredByPlayer.set(player.id, state.explored);
+    state.worldPlane.editCell(2, 2, { damage: 1 });
+
+    player.score = 123;
+    player.hpMax = 24;
+    player.sight = 11;
+    player.laserChargeMax = 125;
+    player.panicChargeMax = 75;
+    player.hasCTDM = true;
+    player.hasMatterManipulator = true;
+    player.inventorySlots = [
+      { type: ItemType.VIBRA_SWORD },
+      { type: ItemType.AMMO },
+      { type: ItemType.MEDKIT },
+      { type: ItemType.CTDM },
+      { type: ItemType.MATTER_MANIPULATOR },
+      { type: ItemType.PANIC_BUTTON },
+      ...Array.from({ length: 30 }, () => ({ type: null })),
+    ];
+    player.ammo = 4;
+    player.ammoReserve = 6;
+    player.keys = 2;
+    player.itemCounts[ItemType.MEDKIT] = 2;
+    player.itemCounts[ItemType.COIN] = 3;
+
+    const beforeEntityIds = new Set(state.entities.map((entity) => entity.id));
+    const deathWorld = [player.worldX, player.worldY];
+    player.hp = 0;
+    expect(game.updateDeathStatus()).toBe(true);
+    const droppedEntityCount = state.entities.length;
+    expect(game.updateDeathStatus()).toBe(false);
+    expect(state.entities).toHaveLength(droppedEntityCount);
+
+    const drops = state.entities.filter(
+      (entity): entity is Item =>
+        entity.kind === EntityKind.ITEM && !beforeEntityIds.has(entity.id),
+    );
+    expect(drops.map((item) => item.type)).toContain(ItemType.VIBRA_SWORD);
+    expect(drops.map((item) => item.type)).toContain(ItemType.PANIC_BUTTON);
+    expect(drops.filter((item) => item.type === ItemType.AMMO)).toHaveLength(1);
+    expect(drops.find((item) => item.type === ItemType.AMMO)?.amount).toBe(10);
+    expect(drops.filter((item) => item.type === ItemType.MEDKIT)).toHaveLength(
+      2,
+    );
+    expect(drops.filter((item) => item.type === ItemType.COIN)).toHaveLength(3);
+    expect(drops.filter((item) => item.type === ItemType.CTDM)).toHaveLength(0);
+    expect(
+      drops.filter((item) => item.type === ItemType.MATTER_MANIPULATOR),
+    ).toHaveLength(0);
+    expect(
+      drops.every(
+        (item) =>
+          item.worldX === deathWorld[0] && item.worldY === deathWorld[1],
+      ),
+    ).toBe(true);
+
+    expect(game.respawnPlayer()).toBe(true);
+    expect(state.worldPlane).toBe(plane);
+    expect(state.worldPlane.layers.damage[plane.indexFor(2, 2)]).toBe(1);
+    expect(state.explored).toContain(exploredIndex);
+    expect([player.gridX, player.gridY]).toEqual(state.playerStart);
+    expect(player.hp).toBe(player.hpMax);
+    expect(player.score).toBe(123);
+    expect(player.hpMax).toBe(24);
+    expect(player.sight).toBe(11);
+    expect(player.laserChargeMax).toBe(125);
+    expect(player.panicChargeMax).toBe(75);
+    expect(player.hasCTDM).toBe(true);
+    expect(player.hasMatterManipulator).toBe(true);
+    expect(player.inventorySlots.map((slot) => slot.type)).toContain(
+      ItemType.CTDM,
+    );
+    expect(player.inventorySlots.map((slot) => slot.type)).toContain(
+      ItemType.MATTER_MANIPULATOR,
+    );
+    expect(player.inventorySlots.map((slot) => slot.type)).not.toContain(
+      ItemType.VIBRA_SWORD,
+    );
+
+    const restored = new Game({ mode: "offline" });
+    restored.deserialize(game.serialize());
+    expect(
+      restored
+        .getState()
+        .entities.some(
+          (entity) =>
+            entity.kind === EntityKind.ITEM &&
+            entity.type === ItemType.VIBRA_SWORD &&
+            entity.deathDrop === true,
+        ),
+    ).toBe(true);
+  });
+
+  it("does not allow respawning while the player is alive", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(0);
+    expect(game.respawnPlayer()).toBe(false);
   });
 });

@@ -231,6 +231,11 @@ export class MultiplayerClient {
     this.send({ type: "new_game" });
   }
 
+  /** Ask the authoritative server to respawn this player if they are dead. */
+  public requestRespawn(): void {
+    this.send({ type: "request_respawn" });
+  }
+
   public requestStartGame(): void {
     this.send({ type: "start_game" });
   }

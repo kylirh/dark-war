@@ -283,6 +283,17 @@ export function processMonsterItemPickups(state: GameState): void {
             }
             picked = true;
             break;
+          default:
+            // Ordinary characters may carry any other dropped player item even
+            // when that species has no bespoke use for it yet.
+            if (!item.deathDrop) continue;
+            monster.carriedItems.push({
+              type: item.type,
+              amount: item.amount,
+              heal: item.heal,
+            });
+            picked = true;
+            break;
         }
       }
 

@@ -22,6 +22,9 @@ export class ItemEntity extends GameEntity {
   /** Item type (pistol, ammo, medkit, etc.) */
   public type: ItemType;
 
+  /** Whether this item came from a player's death inventory. */
+  public deathDrop: boolean = false;
+
   constructor(gridX: number, gridY: number, type: ItemType, amount?: number) {
     super(gridX, gridY);
 

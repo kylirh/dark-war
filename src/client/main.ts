@@ -340,6 +340,7 @@ class DarkWar {
   private mmCursorApplied = false;
   private mmZaps: { tileX: number; tileY: number; untilMs: number }[] = [];
   private newGameButton: HTMLElement | null = null;
+  private respawnButton: HTMLElement | null = null;
   private introStory: IntroStory | null = null;
   private lastOnlineUnavailableLogAt: number = 0;
   private hasStartedGameLoop: boolean = false;
@@ -455,6 +456,9 @@ class DarkWar {
   };
   private readonly onNewGameButtonClick = (): void => {
     this.handleNewGame();
+  };
+  private readonly onRespawnButtonClick = (): void => {
+    this.handleRespawn();
   };
 
   constructor(options: DarkWarOptions = {}) {
@@ -613,6 +617,10 @@ class DarkWar {
     this.newGameButton = document.getElementById("new-game-button");
     if (this.newGameButton) {
       this.newGameButton.addEventListener("click", this.onNewGameButtonClick);
+    }
+    this.respawnButton = document.getElementById("respawn-button");
+    if (this.respawnButton) {
+      this.respawnButton.addEventListener("click", this.onRespawnButtonClick);
     }
 
     // Setup native menu handlers for Electron
@@ -2607,6 +2615,28 @@ class DarkWar {
     this.showIntroBeforeNewGame();
   }
 
+  /** Respawn only from the visible death screen, preserving the current world. */
+  private handleRespawn(): void {
+    if (!this.isLocalPlayerDead()) return;
+
+    this.cancelAutoMove();
+    this.inputHandler.resetKeys();
+    this.localInputVx = 0;
+    this.localInputVy = 0;
+
+    if (this.isOnlineMode()) {
+      this.multiplayerClient?.requestRespawn();
+      return;
+    }
+
+    if (!this.game.respawnPlayer()) return;
+    this.syncGameOverOverlay(false);
+    this.reinitializePhysicsForCurrentState();
+    this.lastPlayerHp = this.game.getState().player.hp;
+    this.render(0);
+    this.centerOnPlayerSoon(LEVEL_TRANSITION_CAMERA_DELAY_MS);
+  }
+
   private showIntroBeforeNewGame(): void {
     if (this.introStory) return;
     this.cancelAutoMove();
@@ -2798,6 +2828,14 @@ class DarkWar {
         this.onNewGameButtonClick,
       );
       this.newGameButton = null;
+    }
+
+    if (this.respawnButton) {
+      this.respawnButton.removeEventListener(
+        "click",
+        this.onRespawnButtonClick,
+      );
+      this.respawnButton = null;
     }
 
     this.introStory?.dispose();

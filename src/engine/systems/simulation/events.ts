@@ -43,6 +43,7 @@ import { pushEvent, getClosestPlayer, positiveAmount } from "./sim-helpers";
 import { triggerExplosion } from "./explosives";
 import { addToInventory } from "../../utils/inventory";
 import { reconcileSnagglepussCompanion } from "./snagglepuss-social";
+import { dropPlayerInventoryOnDeath } from "../../utils/player-respawn";
 
 export function processEventQueue(state: GameState): void {
   let processed = 0;
@@ -1090,6 +1091,7 @@ function processPlayerDeathEvent(state: GameState, event: GameEvent): void {
   if (player) {
     player.velocityX = 0;
     player.velocityY = 0;
+    dropPlayerInventoryOnDeath(state, player);
   }
 
   pushEvent(state, {

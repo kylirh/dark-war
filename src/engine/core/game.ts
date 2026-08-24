@@ -44,6 +44,7 @@ import { dist, setPositionFromGrid, setTileFor } from "../utils/helpers";
 import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { SoundEffect } from "../content/sound-effects";
+import { dropPlayerInventoryOnDeath } from "../utils/player-respawn";
 import { WorldPlane } from "./world-plane";
 import {
   createProgressionPortals,
@@ -1417,6 +1418,10 @@ export class Game {
     if (this.state.player.hp <= 0 && !this.isDead) {
       this.isDead = true;
 
+      if (!this.state.player.inventoryDroppedOnDeath) {
+        dropPlayerInventoryOnDeath(this.state, this.state.player);
+      }
+
       // Stop player movement immediately
       const player = this.state.player;
       if ("velocityX" in player && "velocityY" in player) {
@@ -1805,6 +1810,41 @@ export class Game {
     return this.state.players.find((player) => player.id === playerId);
   }
 
+  /**
+   * Respawn a dead player at this world's beginning spawn point. The active
+   * plane, terrain, and per-player exploration remain untouched.
+   */
+  public respawnPlayer(
+    playerId: string = this.state.multiplayer.localPlayerId,
+  ): boolean {
+    const player = this.getPlayerById(playerId);
+    if (!player || player.hp > 0) return false;
+
+    if (!player.inventoryDroppedOnDeath) {
+      dropPlayerInventoryOnDeath(this.state, player);
+    }
+
+    endConversation(this.state, playerId);
+    (player as PlayerEntity).resetForRespawn();
+
+    const [spawnX, spawnY] = this.findSpawnTile(
+      this.state.playerStart,
+      playerId,
+    );
+    setPositionFromGrid(player, spawnX, spawnY);
+    player.velocityX = 0;
+    player.velocityY = 0;
+    player.nextActTick = this.state.sim.nowTick;
+    player.physicsBody = undefined;
+
+    this.accessibilityCache.delete(playerId);
+    this.state.sim.targetTimeScale = 0.85;
+    this.isDead = false;
+    this.updateFOVForPlayer(playerId);
+    this.addStory("You wake up at the beginning of this world.");
+    return true;
+  }
+
   private stripRuntimeEntityState(entity: Entity): Entity {
     const plain = { ...(entity as object) } as Record<string, unknown>;
     delete plain.physicsBody;
@@ -2010,7 +2050,10 @@ export class Game {
     return reachable;
   }
 
-  private findSpawnTile(preferred: [number, number]): [number, number] {
+  private findSpawnTile(
+    preferred: [number, number],
+    ignoredActorId?: string,
+  ): [number, number] {
     const visited = new Set<number>();
     const queue: [number, number][] = [];
     const enqueue = (x: number, y: number) => {
@@ -2031,7 +2074,10 @@ export class Game {
     let head = 0;
     while (head < queue.length) {
       const [x, y] = queue[head++];
-      if (this.state.tiles.passable(x, y) && !this.isActorOccupied(x, y)) {
+      if (
+        this.state.tiles.passable(x, y) &&
+        !this.isActorOccupied(x, y, ignoredActorId)
+      ) {
         return [x, y];
       }
       enqueue(x + 1, y);
@@ -2043,9 +2089,14 @@ export class Game {
     return [preferred[0], preferred[1]];
   }
 
-  private isActorOccupied(x: number, y: number): boolean {
+  private isActorOccupied(
+    x: number,
+    y: number,
+    ignoredActorId?: string,
+  ): boolean {
     return this.state.entities.some(
       (entity) =>
+        entity.id !== ignoredActorId &&
         (entity.kind === EntityKind.PLAYER ||
           entity.kind === EntityKind.MONSTER) &&
         entity.gridX === x &&

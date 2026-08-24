@@ -75,6 +75,26 @@ describe("monsters only consume items they actually pick up", () => {
       true,
     );
   });
+
+  it("lets monsters carry generic items from a player death drop", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+
+    const spider = spawnMonsterAtPlayer(game, MonsterType.GIANT_SPIDER);
+    const coin = dropItemOn(game, spider, ItemType.COIN, 5);
+    coin.deathDrop = true;
+
+    processMonsterItemPickups(state);
+
+    expect(state.entities.some((e) => e.id === coin.id)).toBe(false);
+    expect(
+      spider.carriedItems.some(
+        (carried) => carried.type === ItemType.COIN && carried.amount === 5,
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("ranged monsters reload from ammo pickups", () => {

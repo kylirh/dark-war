@@ -108,6 +108,8 @@ stable world identities, portals, and authoritative terrain-shaping actions.
 The superseded scalar runtime fields have been deleted. Protocol version 11 adds
 the current actor components, private conversation/social state, relationship
 edges, persisted decision state, and consumed spawn-marker ledgers.
+Protocol version 12 adds explicit death-screen respawn requests and current-plane
+death inventory drops.
 
 Destructive hand-tool behavior is capability-specific: ordinary melee affects
 actors only, the Pickaxe damages ordinary wall and floor cells over repeated
@@ -166,6 +168,10 @@ protocol versions is not required.
 
 Simulated worlds are keyed by world-space and plane identity. Empty planes
 remain frozen; players may occupy different planes and migrate independently.
+Death does not reset a world: ordinary inventory becomes persistent item entities
+at the death position, while CTDM and Matter Manipulator ownership is retained
+without dropping either device. A respawn request returns the dead player to the
+current plane's beginning spawn and preserves that player's explored state.
 
 ## Build variants
 
