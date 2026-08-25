@@ -4,7 +4,10 @@ import { Game } from "../src/engine/core/game";
 import { Physics } from "../src/engine/systems/physics";
 import { stepSimulationTick } from "../src/engine/systems/simulation/tick";
 import { enqueueCommand } from "../src/engine/systems/simulation/commands";
-import { SIM_DT_MS } from "../src/engine/systems/simulation/constants";
+import {
+  REST_TIME_SCALE,
+  SIM_DT_MS,
+} from "../src/engine/systems/simulation/constants";
 import { PROTOCOL_VERSION } from "../src/net/protocol";
 import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
 import { Sound } from "../src/client/systems/sound";
@@ -17,6 +20,7 @@ import {
   SerializedState,
   TileType,
 } from "../src/engine/types";
+import { areAllLivingPlayersResting } from "../src/engine/systems/simulation/sim-helpers";
 import {
   getWeaponForSlot,
   swapInventorySlots,
@@ -504,6 +508,11 @@ class RoomSession {
     const world = this.worldOfPlayer(playerId);
     const player = world?.game.getPlayerById(playerId);
     if (!player || player.hp <= 0) return;
+    if (player.resting) {
+      player.velocityX = 0;
+      player.velocityY = 0;
+      return;
+    }
     if (world?.game.getState().conversations.has(playerId)) {
       player.velocityX = 0;
       player.velocityY = 0;
@@ -536,6 +545,7 @@ class RoomSession {
     ) {
       return;
     }
+    if (player.resting && action.type !== "WAIT") return;
 
     // Level transitions migrate only this player between worlds.
     if (action.type === "DESCEND") {
@@ -822,11 +832,14 @@ class RoomSession {
     const dt = SIM_DT_MS / 1000;
     state.sim.mode = "REALTIME";
 
-    // Multiplayer runs at a fixed, slightly-relaxed real-time pace — no CTDM
-    // time dilation, just a touch under full speed so combat is readable.
-    state.sim.timeScale = ONLINE_TIME_SCALE;
-    state.sim.targetTimeScale = ONLINE_TIME_SCALE;
-    const scaledDt = dt * ONLINE_TIME_SCALE;
+    // Multiplayer stays at its normal shared pace until every living player on
+    // this plane is resting. Rest then accelerates the whole shared plane.
+    const timeScale = areAllLivingPlayersResting(state)
+      ? REST_TIME_SCALE
+      : ONLINE_TIME_SCALE;
+    state.sim.timeScale = timeScale;
+    state.sim.targetTimeScale = timeScale;
+    const scaledDt = dt * timeScale;
 
     physics.updatePhysics(state, scaledDt);
     physics.updateBullets(state, scaledDt);

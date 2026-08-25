@@ -20,6 +20,7 @@ import {
 import {
   SIM_DT_MS,
   MATTER_MANIPULATOR_RANGE,
+  REST_TIME_SCALE,
 } from "../engine/systems/simulation/constants";
 import { Sound, SoundEffect, volumeForSoundCue } from "./systems/sound";
 import { TitleScreen } from "./systems/title-screen";
@@ -338,6 +339,7 @@ class DarkWar {
   private mmMouseDown = false;
   private mmLastMinedIdx: number | null = null;
   private mmCursorApplied = false;
+  private restRenderFrame = 0;
   private mmZaps: { tileX: number; tileY: number; untilMs: number }[] = [];
   private newGameButton: HTMLElement | null = null;
   private respawnButton: HTMLElement | null = null;
@@ -1007,6 +1009,14 @@ class DarkWar {
     const player = state.player;
     if (!player || player.hp <= 0) return;
 
+    if (player.resting) {
+      this.localInputVx = 0;
+      this.localInputVy = 0;
+      player.velocityX = 0;
+      player.velocityY = 0;
+      return;
+    }
+
     this.ensurePredictionWorld(state);
 
     player.velocityX = this.localInputVx;
@@ -1552,6 +1562,10 @@ class DarkWar {
     // Update target time scale based on CTDM status and threat
     if (isDead) {
       state.sim.targetTimeScale = REAL_TIME_SCALE;
+    } else if (player.resting) {
+      // Resting deliberately bypasses CTDM; the accelerated pace is the rest
+      // mechanic, including when the player owns an active CTDM device.
+      state.sim.targetTimeScale = REST_TIME_SCALE;
     } else if (playerMoving || this.playerActedThisTick) {
       // Moving or acted: real-time.
       state.sim.targetTimeScale = REAL_TIME_SCALE;
@@ -1578,6 +1592,13 @@ class DarkWar {
     const state = this.game.getState();
     const isDead = this.isLocalPlayerDead();
     const player = state.player;
+
+    if (player.resting && !isDead) {
+      this.restRenderFrame = (this.restRenderFrame + 1) % 4;
+      if (this.restRenderFrame !== 0) return;
+    } else {
+      this.restRenderFrame = 0;
+    }
 
     this.syncDialoguePanel();
     this.updateMatterManipulator();
@@ -1683,6 +1704,14 @@ class DarkWar {
   private handleUpdateVelocity(vx: number, vy: number): void {
     const state = this.game.getState();
     const player = state.player;
+
+    if (player.resting) {
+      player.velocityX = 0;
+      player.velocityY = 0;
+      this.localInputVx = 0;
+      this.localInputVy = 0;
+      return;
+    }
 
     if (this.isOnlineMode()) {
       if (!this.onlineConnected) {
@@ -2079,6 +2108,9 @@ class DarkWar {
     }
 
     this.cancelAutoMove();
+    this.inputHandler?.resetKeys();
+    this.localInputVx = 0;
+    this.localInputVy = 0;
 
     if (this.isOnlineMode()) {
       this.dispatchOnlineAction({ type: "WAIT" });

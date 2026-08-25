@@ -334,6 +334,10 @@ export interface Player extends BaseEntity {
   kind: EntityKind.PLAYER;
   hpMax: number;
   hp: number;
+  /** Whether the player is currently resting and recovering health. */
+  resting: boolean;
+  /** Simulation tick at which the next resting heal should occur. */
+  restNextHealTick?: number;
   sight: number;
   weapon: WeaponType;
   ammo: number;

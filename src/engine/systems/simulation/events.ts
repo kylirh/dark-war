@@ -38,8 +38,14 @@ import {
   MAX_EVENTS_PER_TICK,
   EXPLOSION_KNOCKBACK_MAX_DISTANCE,
   EXPLOSION_KNOCKBACK_MIN_DISTANCE,
+  REST_DAMAGE_MULTIPLIER,
 } from "./constants";
-import { pushEvent, getClosestPlayer, positiveAmount } from "./sim-helpers";
+import {
+  pushEvent,
+  getClosestPlayer,
+  positiveAmount,
+  stopPlayerResting,
+} from "./sim-helpers";
 import { triggerExplosion } from "./explosives";
 import { addToInventory } from "../../utils/inventory";
 import { reconcileSnagglepussCompanion } from "./snagglepuss-social";
@@ -128,13 +134,17 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     // Don't damage or play sounds if already dead
     if (player.hp <= 0) return;
 
+    const wasResting = player.resting;
+    if (wasResting) stopPlayerResting(player);
+
     // Armor (e.g. macrometal jacket) softens normal blows to at least 1 HP,
     // while naturally sub-1 attacks such as an icky lump's remain sub-1.
     const armor = (player as Player & { armor?: number }).armor ?? 0;
+    const rawIncoming = data.amount * (wasResting ? REST_DAMAGE_MULTIPLIER : 1);
     const incoming =
       armor > 0 && !data.fromExplosion
-        ? Math.max(Math.min(1, data.amount), data.amount - armor)
-        : data.amount;
+        ? Math.max(Math.min(1, rawIncoming), rawIncoming - armor)
+        : rawIncoming;
     data.amount = incoming;
 
     player.hp -= data.amount;

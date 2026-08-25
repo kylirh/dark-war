@@ -611,6 +611,10 @@ export class Game {
   public detachPlayer(playerId: string): Player | null {
     const player = this.getPlayerById(playerId);
     if (!player) return null;
+    player.resting = false;
+    player.restNextHealTick = undefined;
+    player.velocityX = 0;
+    player.velocityY = 0;
     this.state.players = this.state.players.filter((p) => p.id !== playerId);
     this.state.entityManager.destroy(playerId);
     endConversation(this.state, playerId);
@@ -634,6 +638,8 @@ export class Game {
   ): void {
     const [spawnX, spawnY] = this.findSpawnTile(position);
     setPositionFromGrid(player, spawnX, spawnY);
+    player.resting = false;
+    player.restNextHealTick = undefined;
     player.velocityX = 0;
     player.velocityY = 0;
     player.nextActTick = this.state.sim.nowTick;
@@ -852,6 +858,10 @@ export class Game {
         playerEntry[0],
         playerEntry[1],
       );
+      player.resting = false;
+      player.restNextHealTick = undefined;
+      player.velocityX = 0;
+      player.velocityY = 0;
       player.nextActTick = this.state.sim.nowTick;
     }
 

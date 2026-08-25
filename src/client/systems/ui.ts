@@ -5,6 +5,7 @@ export class UI {
   private storyScrollElement: HTMLElement;
   private hpElement: HTMLElement;
   private hpBarElement: HTMLElement;
+  private restingStatusElement: HTMLElement;
   private gameOverScoreElement: HTMLElement;
 
   private lastStoryLength = 0;
@@ -15,6 +16,7 @@ export class UI {
     this.storyScrollElement = this.getElement("story-scroll");
     this.hpElement = this.getElement("hp");
     this.hpBarElement = this.getElement("hpbar");
+    this.restingStatusElement = this.getElement("resting-status");
     this.gameOverScoreElement = this.getElement("game-over-score");
 
     this.storyScrollElement.addEventListener("scroll", () => {
@@ -34,6 +36,7 @@ export class UI {
 
   public updateStats(player: Player): void {
     this.hpElement.textContent = `${player.hp}/${player.hpMax}`;
+    this.restingStatusElement.textContent = player.resting ? "RESTING" : "";
     this.gameOverScoreElement.textContent = `Score: ${player.score}`;
 
     const hpPercent = Math.max(0, Math.min(1, player.hp / player.hpMax));

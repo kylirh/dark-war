@@ -97,6 +97,13 @@ export class InputHandler {
 
     if (isModalOpen) return;
 
+    // H toggles the authoritative WAIT/resting command.
+    if (code === "KeyH") {
+      e.preventDefault();
+      this.callbacks.onWait();
+      return;
+    }
+
     if (code === "BracketLeft") {
       if (this.callbacks.onPrototypeLower()) {
         e.preventDefault();

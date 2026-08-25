@@ -1790,6 +1790,15 @@ body {
   transition: opacity 0.15s ease;
 }
 
+.resting-status {
+  color: #ffe07a;
+  font-family: "Chicago_12", sans-serif;
+  font-size: 13px;
+  line-height: 1;
+  letter-spacing: 1px;
+  text-shadow: 1px 1px 0 #000;
+}
+
 .hp-overlay.hovered .hp-overlay-text {
   opacity: 1;
 }

@@ -72,6 +72,8 @@ import {
   MATTER_MANIPULATOR_RANGE,
   MAX_EDITABLE_ELEVATION,
   MIN_EDITABLE_ELEVATION,
+  REST_HEAL_INTERVAL_TICKS,
+  REST_TIME_SCALE,
 } from "./constants";
 import {
   pushEvent,
@@ -79,7 +81,11 @@ import {
   directionFromAngle,
   findMeleeTarget,
   getClosestPlayer,
+  hasRestThreat,
+  areAllLivingPlayersResting,
+  stopPlayerResting,
 } from "./sim-helpers";
+import { ONLINE_TIME_SCALE } from "../../types";
 
 // ========================================
 // Command Management
@@ -214,6 +220,7 @@ export function resolveCommand(state: GameState, cmd: Command): void {
     ) {
       return;
     }
+    if (player?.resting && cmd.type !== CommandType.WAIT) return;
   }
 
   let commandExecuted = true;
@@ -267,6 +274,7 @@ export function resolveCommand(state: GameState, cmd: Command): void {
       commandExecuted = false;
       break;
     case CommandType.WAIT:
+      commandExecuted = resolveWaitCommand(state, cmd);
       break;
   }
 
@@ -277,6 +285,60 @@ export function resolveCommand(state: GameState, cmd: Command): void {
       actor.nextActTick = state.sim.nowTick + getActionCost(state, cmd, actor);
     }
   }
+}
+
+/** Toggle resting through the existing WAIT command entry point. */
+function resolveWaitCommand(state: GameState, cmd: Command): boolean {
+  const player = state.entities.find(
+    (entity): entity is Player =>
+      entity.id === cmd.actorId && entity.kind === EntityKind.PLAYER,
+  );
+  if (!player) return false;
+
+  if (player.resting) {
+    stopPlayerResting(player);
+    state.sim.targetTimeScale =
+      state.multiplayer.mode === "online" ? ONLINE_TIME_SCALE : 0.85;
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "You wake up." },
+    });
+    return true;
+  }
+
+  if (player.hp >= player.hpMax) {
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "You are already fully healed." },
+    });
+    return false;
+  }
+
+  if (hasRestThreat(state, player)) {
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: {
+        type: "MESSAGE",
+        message: "You cannot rest while an enemy is nearby.",
+      },
+    });
+    return false;
+  }
+
+  player.resting = true;
+  player.restNextHealTick = state.sim.nowTick + REST_HEAL_INTERVAL_TICKS;
+  player.velocityX = 0;
+  player.velocityY = 0;
+  if (state.multiplayer.mode === "offline") {
+    state.sim.targetTimeScale = REST_TIME_SCALE;
+  } else if (areAllLivingPlayersResting(state)) {
+    state.sim.targetTimeScale = REST_TIME_SCALE;
+  }
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: { type: "MESSAGE", message: "You lie down to rest." },
+  });
+  return true;
 }
 
 // ========================================

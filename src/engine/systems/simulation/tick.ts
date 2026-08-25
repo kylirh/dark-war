@@ -32,12 +32,14 @@ import {
   FLEE_HP_RATIO,
   MONSTER_ITEM_PICKUP_CHANCE,
   SKULKER_MAX_BULLETS,
+  REST_HEAL_INTERVAL_TICKS,
 } from "./constants";
 import {
   getAlivePlayers,
   canActorAct,
   pushEvent,
   positiveAmount,
+  stopPlayerResting,
 } from "./sim-helpers";
 import { updateMonsterSteering, generateAICommands } from "./ai";
 import { updateExplosives, updateEffects } from "./explosives";
@@ -82,6 +84,8 @@ export function stepSimulationTick(state: GameState): void {
     if (!canActorAct(state, cmd.actorId, tick)) continue;
     resolveCommand(state, cmd);
   }
+
+  processRestingPlayers(state, tick);
 
   // 2. Generate AI commands based on UPDATED state (after player moved)
   const aiCommands = generateAICommands(state, tick);
@@ -130,6 +134,36 @@ export function stepSimulationTick(state: GameState): void {
   }
 
   state.sim.nowTick++;
+}
+
+/** Heal resting players and wake them as soon as they reach full health. */
+export function processRestingPlayers(state: GameState, tick: number): void {
+  for (const player of state.players) {
+    if (!player.resting) continue;
+
+    player.velocityX = 0;
+    player.velocityY = 0;
+
+    if (player.hp <= 0 || player.hp >= player.hpMax) {
+      stopPlayerResting(player);
+      continue;
+    }
+
+    const nextHealTick =
+      player.restNextHealTick ?? tick + REST_HEAL_INTERVAL_TICKS;
+    player.restNextHealTick = nextHealTick;
+    if (tick < nextHealTick) continue;
+
+    player.hp = Math.min(player.hpMax, player.hp + 1);
+    player.restNextHealTick = tick + REST_HEAL_INTERVAL_TICKS;
+    if (player.hp >= player.hpMax) {
+      stopPlayerResting(player);
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "You are fully healed." },
+      });
+    }
+  }
 }
 
 // ========================================

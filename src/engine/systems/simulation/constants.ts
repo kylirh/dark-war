@@ -12,6 +12,12 @@ export const MONSTER_ARRIVAL_RADIUS = CELL_CONFIG.w * 1.5; // Stop when within 1
 export const MONSTER_ITEM_PICKUP_CHANCE = 0.85; // 85% chance to pick up items when overlapping
 export const MAX_EVENTS_PER_TICK = 1000;
 export const MAX_COMMANDS_PER_TICK = 1000;
+/** World-speed multiplier while every living player on a plane is resting. */
+export const REST_TIME_SCALE = 8;
+/** Resting restores one health point every half-second of simulated time. */
+export const REST_HEAL_INTERVAL_TICKS = 10;
+/** Sleeping players take twice as much incoming damage. */
+export const REST_DAMAGE_MULTIPLIER = 2;
 export const GRENADE_FUSE_TICKS = 14; // ~0.7s at 20 ticks/sec
 export const EXPLOSIVE_OWNER_GRACE_TICKS = 6;
 export const MELEE_ARC = Math.PI / 3;

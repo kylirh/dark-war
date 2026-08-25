@@ -30,6 +30,12 @@ export class PlayerEntity extends GameEntity {
   /** Maximum health points */
   public hpMax: number;
 
+  /** Whether the player is currently resting and recovering health */
+  public resting: boolean;
+
+  /** Simulation tick at which the next resting heal should occur */
+  public restNextHealTick?: number;
+
   /** Number of keycards held */
   public keys: number;
 
@@ -91,6 +97,7 @@ export class PlayerEntity extends GameEntity {
     this.grenades = 0; // no grenades/mines at the start
     this.hp = 20;
     this.hpMax = 20;
+    this.resting = false;
     this.keys = 0;
     this.landMines = 0;
     this.hasCTDM = false;

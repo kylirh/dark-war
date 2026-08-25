@@ -19,6 +19,7 @@ import {
   SKULKER_SHOOT_COOLDOWN,
 } from "./constants";
 import { MonsterType, WeaponType } from "../../types";
+import { wrapDelta } from "../../utils/wrap";
 
 /** Coerce an optional amount to a positive integer, or use the fallback. */
 export function positiveAmount(
@@ -36,6 +37,53 @@ export function getAlivePlayers(state: GameState): Player[] {
     (entity): entity is Player =>
       entity.kind === EntityKind.PLAYER && entity.hp > 0,
   );
+}
+
+/**
+ * Radius-equivalent visible-threat rule used to decide whether resting is
+ * safe. It intentionally matches the player's current FOV radius without
+ * requiring a second shadowcast during command resolution.
+ */
+export function hasRestThreat(state: GameState, player: Player): boolean {
+  const sightPx = player.sight * CELL_CONFIG.w;
+  const sightPxSq = sightPx * sightPx;
+  const wraps = state.levelKind === "outside";
+  const worldW = state.mapWidth * CELL_CONFIG.w;
+  const worldH = state.mapHeight * CELL_CONFIG.h;
+
+  return state.entities.some((entity) => {
+    if (
+      entity.kind !== EntityKind.MONSTER ||
+      (entity as Monster).hp <= 0 ||
+      (entity as Monster).friendly
+    ) {
+      return false;
+    }
+
+    const dx = wraps
+      ? wrapDelta(player.worldX, entity.worldX, worldW)
+      : entity.worldX - player.worldX;
+    const dy = wraps
+      ? wrapDelta(player.worldY, entity.worldY, worldH)
+      : entity.worldY - player.worldY;
+    return dx * dx + dy * dy <= sightPxSq;
+  });
+}
+
+/** Whether every living player currently attached to this plane is resting. */
+export function areAllLivingPlayersResting(state: GameState): boolean {
+  const livingPlayers = state.players.filter((player) => player.hp > 0);
+  return (
+    livingPlayers.length > 0 && livingPlayers.every((player) => player.resting)
+  );
+}
+
+/** Stop resting and clear movement/healing state. */
+export function stopPlayerResting(player: Player): void {
+  player.resting = false;
+  player.restNextHealTick = undefined;
+  player.velocityX = 0;
+  player.velocityY = 0;
 }
 
 export function getClosestPlayer(
