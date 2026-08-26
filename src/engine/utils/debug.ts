@@ -1,57 +1,33 @@
-let _debug = false;
+/**
+ * Runtime debug flag for the shared engine.
+ *
+ * Deliberately a plain in-memory flag with no platform detection: this module
+ * is imported by `Game`, which the headless server loads, so it must not touch
+ * `window`, `import.meta` or `process` (see docs/ARCHITECTURE.md — the engine
+ * stays platform-agnostic, and `import.meta` in particular is a SyntaxError
+ * under the CommonJS server build before any try/catch could run).
+ *
+ * Each platform entry point decides the initial value and exposes whatever
+ * toggle affordance suits it:
+ *   - `src/client/main.ts` seeds from `import.meta.env.VITE_DEBUG` and
+ *     publishes `window.toggleDebug()` for the devtools console.
+ *   - `server/multiplayer-server.ts` seeds from `process.env.VITE_DEBUG`.
+ */
 
-try {
-  // If Vite injects this, use it
-  // @ts-ignore
-  if (
-    // @ts-ignore
-    typeof import.meta !== "undefined" &&
-    // @ts-ignore
-    (import.meta as any).env?.VITE_DEBUG === "true"
-  ) {
-    _debug = true;
-  }
-} catch (e) {
-  // Ignore
-}
+let debugEnabled = false;
 
-try {
-  // @ts-ignore
-  if (typeof process !== "undefined" && process.env.VITE_DEBUG === "true") {
-    _debug = true;
-  }
-} catch (e) {
-  // Ignore
-}
-
-// Global debug flag on window for runtime toggling
-if (typeof window !== "undefined") {
-  if (typeof (window as any).__DEBUG === "undefined") {
-    (window as any).__DEBUG = _debug;
-  }
-}
-
+/** Whether verbose debug timing and logging is currently on. */
 export function isDebug(): boolean {
-  if (typeof window !== "undefined") {
-    return (window as any).__DEBUG === true;
-  }
-  return _debug;
+  return debugEnabled;
 }
 
+/** Turn debug logging on or off. */
 export function setDebug(value: boolean): void {
-  if (typeof window !== "undefined") {
-    (window as any).__DEBUG = value;
-  }
-  _debug = value;
+  debugEnabled = value;
 }
 
+/** Flip debug logging and return the new state. */
 export function toggleDebug(): boolean {
-  const newVal = !isDebug();
-  setDebug(newVal);
-  return newVal;
-}
-
-if (typeof window !== "undefined") {
-  (window as any).toggleDebug = toggleDebug;
-  (window as any).setDebug = setDebug;
+  debugEnabled = !debugEnabled;
+  return debugEnabled;
 }

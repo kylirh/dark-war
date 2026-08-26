@@ -1,6 +1,6 @@
-import { isDebug } from "../engine/utils/debug";
 import { Game } from "../engine/core/game";
 import { GameLoop } from "../engine/core/game-loop";
+import { isDebug, setDebug, toggleDebug } from "../engine/utils/debug";
 import { GameEntity } from "../engine/entities/game-entity";
 import { InputCallbacks, InputHandler, MOVEMENT_SPEED } from "./systems/input";
 import { MouseTracker } from "./systems/mouse-tracker";
@@ -105,8 +105,6 @@ import { DialoguePanel, DialoguePanelHandlers } from "./systems/dialogue-panel";
  * - Event-driven simulation system
  * - Entity-Component pattern with continuous coordinates
  */
-
-/** Enable debug logging for the entire game */
 
 /** The delay between clicks to count as double-click */
 const DOUBLE_CLICK_DELAY_MS = 320;
@@ -257,8 +255,35 @@ declare global {
       discoveryGetServers: () => Promise<DiscoveredServer[]>;
     };
     darkWarApp?: DarkWarApplication;
+    /** Console affordance: `toggleDebug()` from devtools to flip debug logging. */
+    toggleDebug?: (value?: boolean) => boolean;
   }
 }
+
+/** Build-time debug seed, inlined by Vite's `define` (see vite.config.ts). */
+declare const __DARK_WAR_DEBUG__: boolean | undefined;
+
+/**
+ * Seed the engine debug flag from the build env and expose a console toggle.
+ *
+ * Platform wiring lives here rather than in `engine/utils/debug.ts` so the
+ * engine module stays free of `window` and build-tool globals and remains
+ * loadable by the headless server. See docs/ARCHITECTURE.md.
+ */
+function initDebugFlag(): void {
+  setDebug(
+    typeof __DARK_WAR_DEBUG__ !== "undefined" && __DARK_WAR_DEBUG__ === true,
+  );
+  window.toggleDebug = (value?: boolean): boolean => {
+    if (typeof value === "boolean") {
+      setDebug(value);
+      return value;
+    }
+    return toggleDebug();
+  };
+}
+
+initDebugFlag();
 
 /**
  * The main game application
