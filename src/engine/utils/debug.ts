@@ -4,7 +4,9 @@ try {
   // If Vite injects this, use it
   // @ts-ignore
   if (
+    // @ts-ignore
     typeof import.meta !== "undefined" &&
+    // @ts-ignore
     (import.meta as any).env?.VITE_DEBUG === "true"
   ) {
     _debug = true;
