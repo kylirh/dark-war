@@ -11,7 +11,6 @@ import {
   ItemType,
   TileType,
   CELL_CONFIG,
-  STACKABLE_ITEMS,
   STACKABLE_ITEMS_SET,
 } from "../../types";
 import { ItemEntity } from "../../entities/item-entity";

@@ -4,7 +4,6 @@ import {
   InventorySlot,
   ItemType,
   Player,
-  STACKABLE_ITEMS,
   STACKABLE_ITEMS_SET,
   WeaponType,
 } from "../types";

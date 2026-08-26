@@ -305,6 +305,12 @@ export const INVENTORY_EXTENDED_ROWS = 2;
 export const INVENTORY_TOTAL_SLOTS =
   INVENTORY_BAR_SIZE * (1 + INVENTORY_EXTENDED_ROWS); // 36
 
+/**
+ * Items that stack as a count instead of taking a unique inventory slot.
+ *
+ * Iterate this when order matters; use `STACKABLE_ITEMS_SET` for membership
+ * tests. The set is derived from this array, so the two cannot drift.
+ */
 export const STACKABLE_ITEMS: ItemType[] = [
   ItemType.AMMO,
   ItemType.GRENADE,
@@ -330,7 +336,10 @@ export const STACKABLE_ITEMS: ItemType[] = [
   ItemType.WATER,
 ];
 
-export const STACKABLE_ITEMS_SET = new Set<ItemType>(STACKABLE_ITEMS);
+/** Membership-test view of {@link STACKABLE_ITEMS}. */
+export const STACKABLE_ITEMS_SET: ReadonlySet<ItemType> = new Set<ItemType>(
+  STACKABLE_ITEMS,
+);
 
 export interface Player extends BaseEntity {
   kind: EntityKind.PLAYER;
