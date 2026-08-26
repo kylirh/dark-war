@@ -13,6 +13,7 @@
  * - Wall sliding allows smooth corridor navigation
  */
 
+import { bresenhamLine } from "../math/bresenham";
 import { System, Circle, Box, Response } from "detect-collisions";
 import {
   GameState,
@@ -1414,17 +1415,7 @@ export class Physics {
     const gridX2 = Math.floor(x2 / CELL_CONFIG.w);
     const gridY2 = Math.floor(y2 / CELL_CONFIG.h);
 
-    // Bresenham line algorithm
-    const dx = Math.abs(gridX2 - gridX1);
-    const dy = Math.abs(gridY2 - gridY1);
-    const sx = gridX1 < gridX2 ? 1 : -1;
-    const sy = gridY1 < gridY2 ? 1 : -1;
-    let err = dx - dy;
-
-    let x = gridX1;
-    let y = gridY1;
-
-    while (true) {
+    return bresenhamLine(gridX1, gridY1, gridX2, gridY2, (x, y) => {
       // Check if current tile blocks sight
       const tile = tileAtFor(map, x, y, width, height);
       if (TILE_DEFINITIONS[tile]?.opaque) {
@@ -1433,21 +1424,8 @@ export class Physics {
           return false;
         }
       }
-
-      if (x === gridX2 && y === gridY2) break;
-
-      const e2 = 2 * err;
-      if (e2 > -dy) {
-        err -= dy;
-        x += sx;
-      }
-      if (e2 < dx) {
-        err += dx;
-        y += sy;
-      }
-    }
-
-    return true;
+      return true;
+    });
   }
 
   /**
