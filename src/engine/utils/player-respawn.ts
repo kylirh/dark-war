@@ -10,6 +10,7 @@ import {
   ItemType,
   Player,
   STACKABLE_ITEMS,
+  STACKABLE_ITEMS_SET,
   WeaponType,
 } from "../types";
 import { ItemEntity } from "../entities/item-entity";
@@ -98,7 +99,7 @@ export function dropPlayerInventoryOnDeath(
   }
 
   for (const [type, count] of slotTypes) {
-    if (STACKABLE_ITEMS.includes(type)) continue;
+    if (STACKABLE_ITEMS_SET.has(type)) continue;
     for (let i = 0; i < count; i++) {
       spawnDrop(state, player, type);
       dropped += 1;

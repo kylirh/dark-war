@@ -29,6 +29,13 @@ export default defineConfig(({ command }) => ({
     target: "es2020",
   },
 
+  define: {
+    // Build-time seed for the engine debug flag (see src/engine/utils/debug.ts).
+    // Inlined as a literal rather than read via import.meta.env, which is not
+    // valid in the IIFE bundle format this project ships.
+    __DARK_WAR_DEBUG__: JSON.stringify(process.env.VITE_DEBUG === "true"),
+  },
+
   build: {
     outDir: "app",
     emptyOutDir: false,

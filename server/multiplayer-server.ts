@@ -37,6 +37,12 @@ import {
   emitWorldTextCallout,
   sanitizeWorldCalloutText,
 } from "../src/engine/utils/world-callouts";
+import { setDebug } from "../src/engine/utils/debug";
+
+// Seed the engine debug flag from the environment. This wiring lives in the
+// entry point rather than in engine/utils/debug.ts so the engine module stays
+// free of `process` and loadable in the browser. See docs/ARCHITECTURE.md.
+setDebug(process.env.VITE_DEBUG === "true");
 
 // Force a fresh keyframe at least this often (in broadcasts) so a client that
 // somehow drifted re-baselines within a few seconds. ~5s at 20 broadcasts/sec.
