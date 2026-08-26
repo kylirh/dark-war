@@ -1,14 +1,28 @@
-/** Structural validation for all authored dialogue graphs. */
+/**
+ * Structural validation for all authored dialogue graphs.
+ *
+ * DIALOGUE_DEFS is hand-authored data compiled to a runtime graph, and the
+ * TypeScript interface cannot express the invariants that matter: that links
+ * resolve, that choice ids are unique, that no node is stranded, and that every
+ * graph is actually reachable from a social def. These tests cover that gap.
+ */
 
 import { describe, expect, it } from "vitest";
 import { DIALOGUE_DEFS, DIALOGUE_FREE_TEXT_MAX_LENGTH } from "./dialogue-defs";
 import { SOCIAL_DEFS } from "./social-defs";
 
 describe("dialogue definitions", () => {
-  it("exports a valid free text max length", () => {
-    expect(typeof DIALOGUE_FREE_TEXT_MAX_LENGTH).toBe("number");
-    expect(DIALOGUE_FREE_TEXT_MAX_LENGTH).toBeGreaterThan(0);
+  it("authors at least one dialogue graph", () => {
+    // Guards the loops below, which would all pass vacuously on an empty table.
+    expect(Object.keys(DIALOGUE_DEFS).length).toBeGreaterThan(0);
+  });
+
+  it("caps free text at a length usable as an input maxLength", () => {
+    // The sim truncates with .slice(0, MAX) and the dialogue panel assigns the
+    // same constant to input.maxLength, which silently misbehaves for a
+    // fractional or non-positive value.
     expect(Number.isInteger(DIALOGUE_FREE_TEXT_MAX_LENGTH)).toBe(true);
+    expect(DIALOGUE_FREE_TEXT_MAX_LENGTH).toBeGreaterThan(0);
   });
 
   it("keeps every social dialogue reference valid", () => {
@@ -21,7 +35,10 @@ describe("dialogue definitions", () => {
     }
   });
 
-  it("has no orphaned dialogues", () => {
+  it("keeps every authored dialogue reachable from a social def", () => {
+    // dialogueFor() in conversation.ts resolves a graph only via
+    // SOCIAL_DEFS[defId].dialogueId, so an unreferenced graph is dead content
+    // that no actor can ever open.
     const referencedDialogueIds = new Set<string>();
     for (const socialDef of Object.values(SOCIAL_DEFS)) {
       if (socialDef.dialogueId) {
@@ -53,10 +70,16 @@ describe("dialogue definitions", () => {
         const node = dialogue.nodes[nodeId];
         expect(node, `${dialogueId}.${nodeId} is missing`).toBeDefined();
         if (!node) continue;
-        expect(node.text.trim().length, `${dialogueId}.${nodeId} has empty text`).toBeGreaterThan(0);
+        expect(
+          node.text.trim().length,
+          `${dialogueId}.${nodeId} has empty text`,
+        ).toBeGreaterThan(0);
 
         const choiceIds = node.choices.map((choice) => {
-          expect(choice.label.trim().length, `${dialogueId}.${nodeId} choice '${choice.id}' has empty label`).toBeGreaterThan(0);
+          expect(
+            choice.label.trim().length,
+            `${dialogueId}.${nodeId} choice '${choice.id}' has empty label`,
+          ).toBeGreaterThan(0);
           return choice.id;
         });
         expect(
@@ -82,8 +105,15 @@ describe("dialogue definitions", () => {
           expect(node.freeTextEffects).toBeUndefined();
           expect(node.freeTextNext).toBeUndefined();
         } else {
-          expect(node.freeTextPrompt?.trim().length, `${dialogueId}.${nodeId} has empty or missing freeTextPrompt`).toBeGreaterThan(0);
-          expect(node.freeTextNext?.trim().length, `${dialogueId}.${nodeId} has empty or missing freeTextNext`).toBeGreaterThan(0);
+          // The panel falls back to a generic placeholder, but a free-text node
+          // shipping without its own prompt is an authoring oversight.
+          expect(
+            node.freeTextPrompt?.trim().length,
+            `${dialogueId}.${nodeId} allows free text with no freeTextPrompt`,
+          ).toBeGreaterThan(0);
+          // freeTextNext is deliberately optional: omitting it ends the
+          // conversation after the answer (advanceOrEnd handles undefined).
+          // When present it is validated as a link above.
         }
       }
 
