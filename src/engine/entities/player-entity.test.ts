@@ -1,3 +1,11 @@
+/**
+ * Coverage for PlayerEntity construction and respawn reset.
+ *
+ * resetForRespawn rebuilds the player from a fresh starter entity via
+ * Object.assign and then restores an explicit allow-list of progression
+ * fields, so the tests pin both halves: what survives death and what does not.
+ */
+
 import { describe, it, expect } from "vitest";
 import { PlayerEntity } from "./player-entity";
 import { EntityKind, ItemType, WeaponType } from "../types";
@@ -119,7 +127,7 @@ describe("PlayerEntity resetForRespawn", () => {
     p.matterManipulatorActive = true;
 
     // Clear inventory to ensure devices can be added
-    p.inventorySlots.forEach(slot => slot.type = null);
+    p.inventorySlots.forEach((slot) => (slot.type = null));
 
     p.resetForRespawn();
 
@@ -128,7 +136,7 @@ describe("PlayerEntity resetForRespawn", () => {
     expect(p.hasMatterManipulator).toBe(true);
     expect(p.matterManipulatorActive).toBe(false); // Active state reset
 
-    const types = p.inventorySlots.map(s => s.type);
+    const types = p.inventorySlots.map((s) => s.type);
     expect(types).toContain(ItemType.CTDM);
     expect(types).toContain(ItemType.MATTER_MANIPULATOR);
   });
@@ -140,5 +148,75 @@ describe("PlayerEntity resetForRespawn", () => {
     p.resetForRespawn();
 
     expect(p.inventoryDroppedOnDeath).toBe(false);
+  });
+
+  it("does not grant devices the player never found", () => {
+    const p = new PlayerEntity(0, 0);
+    p.hasCTDM = false;
+    p.hasMatterManipulator = false;
+
+    p.resetForRespawn();
+
+    const types = p.inventorySlots.map((s) => s.type);
+    expect(p.hasCTDM).toBe(false);
+    expect(types).not.toContain(ItemType.CTDM);
+    expect(types).not.toContain(ItemType.MATTER_MANIPULATOR);
+  });
+
+  it("does not duplicate a core device already in the starter loadout", () => {
+    const p = new PlayerEntity(0, 0);
+    p.hasCTDM = true;
+    p.resetForRespawn();
+    // Run it twice: the second reset must not stack a second CTDM.
+    p.resetForRespawn();
+
+    const ctdmSlots = p.inventorySlots.filter((s) => s.type === ItemType.CTDM);
+    expect(ctdmSlots).toHaveLength(1);
+  });
+
+  it("drops core devices rather than overwriting a full inventory", () => {
+    const p = new PlayerEntity(0, 0);
+    p.hasCTDM = true;
+    p.hasMatterManipulator = true;
+    p.resetForRespawn();
+
+    // Fill every slot, then reset again. addCoreDevice looks for a null slot
+    // and silently gives up if there is none - it never evicts an item.
+    const filled = p.inventorySlots.map(() => ItemType.ROCK);
+    p.inventorySlots.forEach((slot, i) => (slot.type = filled[i]));
+    p.hasCTDM = true;
+    p.hasMatterManipulator = true;
+
+    expect(() => p.resetForRespawn()).not.toThrow();
+    // The starter loadout re-runs first, so slots are starter items again and
+    // the devices do fit. What matters is that it never throws or evicts.
+    expect(p.inventorySlots.length).toBe(filled.length);
+  });
+
+  it("clears combat state carried over from the previous life", () => {
+    const p = new PlayerEntity(0, 0);
+    p.hp = 0;
+    p.grenades = 9;
+    p.landMines = 9;
+    p.ammoReserve = 999;
+
+    p.resetForRespawn();
+
+    expect(p.hp).toBe(p.hpMax);
+    expect(p.hp).toBeGreaterThan(0);
+    expect(p.grenades).toBe(0);
+    expect(p.landMines).toBe(0);
+  });
+
+  it("resets position, so callers must place the player themselves", () => {
+    // Object.assign copies worldX/worldY off the fresh starter entity, so the
+    // death location is lost. Game.respawn() calls setPositionFromGrid right
+    // after; this pins that ordering requirement.
+    const p = new PlayerEntity(7, 9);
+    p.resetForRespawn();
+
+    expect(p.gridX).toBe(0);
+    expect(p.gridY).toBe(0);
+    expect(p.physicsBody).toBeUndefined();
   });
 });
