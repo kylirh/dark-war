@@ -1,7 +1,8 @@
 /** Tests for world-callout sanitation, anchoring, and bounded emission. */
 
 import { describe, expect, it } from "vitest";
-import { GameState, WorldTextCallout } from "../types";
+import { Entity, GameState, WorldTextCallout } from "../types";
+import { EntityManager } from "../core/entity-manager";
 import {
   MAX_PENDING_WORLD_CALLOUTS,
   MAX_WORLD_CALLOUT_CODEPOINTS,
@@ -11,8 +12,12 @@ import {
 } from "./world-callouts";
 
 function stateForCallouts(): GameState {
+  // Anchoring resolves the speaker through the entity manager, so the fixture
+  // shares one array between `entities` and the manager the way GameState does.
+  const entities = [{ id: "speaker", worldX: 42, worldY: 84 }] as Entity[];
   return {
-    entities: [{ id: "speaker", worldX: 42, worldY: 84 }],
+    entities,
+    entityManager: new EntityManager(entities),
     pendingCallouts: [],
   } as unknown as GameState;
 }

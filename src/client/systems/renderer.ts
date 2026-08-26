@@ -2102,8 +2102,7 @@ export class Renderer {
     for (const callout of callouts) {
       const speakerId = callout.callout.speakerId;
       const speaker = speakerId
-        ? state.players.find((p) => p.id === speakerId) ||
-          entities.find((entity) => entity.id === speakerId)
+        ? state.entityManager.getById(speakerId)
         : undefined;
       let anchorX: number;
       let anchorY: number;

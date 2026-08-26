@@ -11,8 +11,9 @@ import { Entity, EntityKind, Item } from "../types";
  * `entities.push(...)` / `entities = entities.filter(...)` is what previously
  * left physics bodies and network state out of sync.
  *
- * An `items` index is maintained alongside the entity array so item-heavy hot
- * paths (pickup radius checks) do not rescan every entity. It is kept correct
+ * An `items` index and an id lookup map are maintained alongside the entity
+ * array, so item-heavy hot paths (pickup radius checks) and id lookups
+ * ({@link getById}, {@link has}) do not rescan every entity. They are kept correct
  * by the fact that every mutation funnels through {@link spawn}, {@link destroy},
  * {@link destroyWhere} and {@link replaceAll} — one more reason direct mutation
  * of the entity array is forbidden, since it would desync the index silently.
@@ -25,6 +26,8 @@ import { Entity, EntityKind, Item } from "../types";
 export class EntityManager {
   private readonly _entities: Entity[];
   private readonly _items: Item[];
+  /** id -> entity, so getById/has are O(1). Entity ids are unique. */
+  private readonly _byId = new Map<string, Entity>();
 
   /** Ids added since the last {@link clearLifecycle}. */
   readonly spawnedIds = new Set<string>();
@@ -95,11 +98,11 @@ export class EntityManager {
   }
 
   getById(id: string): Entity | undefined {
-    return this._entities.find((entity) => entity.id === id);
+    return this._byId.get(id);
   }
 
   has(id: string): boolean {
-    return this._entities.some((entity) => entity.id === id);
+    return this._byId.has(id);
   }
 
   /**
@@ -109,6 +112,7 @@ export class EntityManager {
   replaceAll(entities: Entity[]): void {
     this._entities.length = 0;
     this._items.length = 0;
+    this._byId.clear();
     for (const entity of entities) {
       this._entities.push(entity);
       this.index(entity);
@@ -122,13 +126,15 @@ export class EntityManager {
     this.removedIds.clear();
   }
 
-  /** Add an entity to the kind indexes, if it belongs to any. */
+  /** Add an entity to the lookup map and any kind index it belongs to. */
   private index(entity: Entity): void {
+    this._byId.set(entity.id, entity);
     if (entity.kind === EntityKind.ITEM) this._items.push(entity as Item);
   }
 
-  /** Remove an entity from the kind indexes, if it belongs to any. */
+  /** Remove an entity from the lookup map and any kind index it belongs to. */
   private unindex(entity: Entity): void {
+    this._byId.delete(entity.id);
     if (entity.kind !== EntityKind.ITEM) return;
     const at = this._items.indexOf(entity as Item);
     if (at !== -1) this._items.splice(at, 1);
