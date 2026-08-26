@@ -95,7 +95,7 @@ function resolveAnchor(
   options: { speakerId?: string; worldX?: number; worldY?: number },
 ): { worldX: number; worldY: number } {
   const speaker = options.speakerId
-    ? state.entities.find((entity) => entity.id === options.speakerId)
+    ? state.entityManager.getById(options.speakerId)
     : undefined;
   return {
     worldX: speaker?.worldX ?? options.worldX ?? 0,

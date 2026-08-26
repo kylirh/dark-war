@@ -201,4 +201,73 @@ describe("EntityManager", () => {
       expect(manager.items.some((i) => i.id === "i1")).toBe(false);
     });
   });
+
+  describe("id lookup", () => {
+    /** getById/has are index-backed; they must agree with a linear scan. */
+    function expectLookupConsistent(m: EntityManager): void {
+      for (const entity of m.entities) {
+        expect(m.getById(entity.id)).toBe(entity);
+        expect(m.has(entity.id)).toBe(true);
+      }
+      expect(m.getById("definitely-absent")).toBeUndefined();
+      expect(m.has("definitely-absent")).toBe(false);
+    }
+
+    it("resolves entities seeded through the constructor", () => {
+      const seeded = new EntityManager([ent("a"), item("b")]);
+      expectLookupConsistent(seeded);
+    });
+
+    it("stops resolving an entity once it is destroyed", () => {
+      manager.spawnAll([ent("a"), ent("b")]);
+      manager.destroy("a");
+
+      expect(manager.getById("a")).toBeUndefined();
+      expect(manager.has("a")).toBe(false);
+      expect(manager.getById("b")?.id).toBe("b");
+      expectLookupConsistent(manager);
+    });
+
+    it("stops resolving entities removed by destroyWhere and destroyByIds", () => {
+      manager.spawnAll([item("i1"), monster("m1"), item("i2"), ent("e1")]);
+
+      manager.destroyWhere((e) => e.kind === EntityKind.ITEM);
+      expect(manager.getById("i1")).toBeUndefined();
+      expect(manager.getById("i2")).toBeUndefined();
+
+      manager.destroyByIds(new Set(["m1"]));
+      expect(manager.getById("m1")).toBeUndefined();
+      expectLookupConsistent(manager);
+    });
+
+    it("drops the old world's ids on replaceAll", () => {
+      manager.spawnAll([ent("old")]);
+      manager.replaceAll([ent("new")]);
+
+      expect(manager.getById("old")).toBeUndefined();
+      expect(manager.getById("new")?.id).toBe("new");
+      expectLookupConsistent(manager);
+    });
+
+    it("resolves a respawned id to the new entity", () => {
+      // Level transitions rebuild entities that keep stable ids (the player,
+      // authored actors), so the map must point at the current instance.
+      manager.spawn(ent("stable"));
+      const replacement = ent("stable");
+      manager.replaceAll([replacement]);
+
+      expect(manager.getById("stable")).toBe(replacement);
+    });
+
+    it("stays consistent through a long mixed sequence", () => {
+      for (let i = 0; i < 40; i++) {
+        manager.spawn(i % 2 === 0 ? monster(`m${i}`) : item(`i${i}`));
+      }
+      manager.destroyByIds(new Set(["m0", "i1", "m2"]));
+      manager.destroyWhere((e) => e.id.endsWith("9"));
+      expectLookupConsistent(manager);
+      expect(manager.getById("m0")).toBeUndefined();
+      expect(manager.getById("m4")?.id).toBe("m4");
+    });
+  });
 });
