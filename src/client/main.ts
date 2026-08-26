@@ -1,3 +1,4 @@
+import { isDebug } from "../engine/utils/debug";
 import { Game } from "../engine/core/game";
 import { GameLoop } from "../engine/core/game-loop";
 import { GameEntity } from "../engine/entities/game-entity";
@@ -106,7 +107,6 @@ import { DialoguePanel, DialoguePanelHandlers } from "./systems/dialogue-panel";
  */
 
 /** Enable debug logging for the entire game */
-const DEBUG = false;
 
 /** The delay between clicks to count as double-click */
 const DOUBLE_CLICK_DELAY_MS = 320;
@@ -464,10 +464,10 @@ class DarkWar {
   };
 
   constructor(options: DarkWarOptions = {}) {
-    if (DEBUG) console.time("Game initialization");
+    if (isDebug()) console.time("Game initialization");
     this.preferences = loadPreferences();
     this.applyPreferences(false);
-    if (DEBUG) console.time("Create Game instance");
+    if (isDebug()) console.time("Create Game instance");
 
     if (options.multiplayerClient) {
       // Pre-connected online mode: client was set up before DarkWar was created
@@ -486,29 +486,29 @@ class DarkWar {
     }
 
     this.game = new Game({ mode: this.multiplayerMode });
-    if (DEBUG) console.timeEnd("Create Game instance");
+    if (isDebug()) console.timeEnd("Create Game instance");
 
-    if (DEBUG) console.time("Create Physics");
+    if (isDebug()) console.time("Create Physics");
     this.physics = new Physics();
-    if (DEBUG) console.timeEnd("Create Physics");
+    if (isDebug()) console.timeEnd("Create Physics");
 
-    if (DEBUG) console.time("Create MouseTracker");
+    if (isDebug()) console.time("Create MouseTracker");
     this.mouseTracker = new MouseTracker("game");
-    if (DEBUG) console.timeEnd("Create MouseTracker");
+    if (isDebug()) console.timeEnd("Create MouseTracker");
 
-    if (DEBUG) console.time("Create Renderer");
+    if (isDebug()) console.time("Create Renderer");
     this.renderer = new Renderer("game", this.preferences.zoom);
-    if (DEBUG) console.timeEnd("Create Renderer");
+    if (isDebug()) console.timeEnd("Create Renderer");
 
     this.calloutComposer = new CalloutComposer({
       onSubmit: (kind, text) => this.handlePlayerCallout(kind, text),
       onClose: () => this.inputHandler?.resetKeys(),
     });
 
-    if (DEBUG) console.time("Create UI");
+    if (isDebug()) console.time("Create UI");
     this.ui = new UI();
     this.dialoguePanel = new DialoguePanel();
-    if (DEBUG) console.timeEnd("Create UI");
+    if (isDebug()) console.timeEnd("Create UI");
 
     this.inventoryBar = new InventoryBar();
     this.inventoryBar.onSlotClick = (idx) => {
@@ -542,7 +542,7 @@ class DarkWar {
     this.characterModal.onLoad = () => this.handleLoad();
     this.characterModal.onQuit = () => this.handleQuit();
 
-    if (DEBUG) console.time("Create GameLoop");
+    if (isDebug()) console.time("Create GameLoop");
     this.gameLoop = new GameLoop(
       {
         update: (dt) => this.update(dt),
@@ -550,7 +550,7 @@ class DarkWar {
       },
       1000 / 60, // 60Hz physics
     );
-    if (DEBUG) console.timeEnd("Create GameLoop");
+    if (isDebug()) console.timeEnd("Create GameLoop");
 
     // Dialog and menu bridge
     this.gameMenu = new GameMenu({
@@ -645,20 +645,20 @@ class DarkWar {
       if (options.initialGame === "load") {
         this.loadInitialSavedGame(options.initialLoadSlot);
       } else {
-        if (DEBUG) console.time("Start new game");
+        if (isDebug()) console.time("Start new game");
         this.game.reset(0);
         if (options.terrainPrototype) {
           this.game.loadTerrainPrototype();
         }
-        if (DEBUG) console.timeEnd("Start new game");
+        if (isDebug()) console.timeEnd("Start new game");
         this.finishInitialGameStartup();
       }
     }
-    if (DEBUG) console.timeEnd("Game initialization");
+    if (isDebug()) console.timeEnd("Game initialization");
   }
 
   private async loadInitialSavedGame(slot?: number): Promise<void> {
-    if (DEBUG) console.time("Load saved game");
+    if (isDebug()) console.time("Load saved game");
     const didLoad =
       typeof slot === "number"
         ? await this.loadGameFromSlot(slot, { quiet: true })
@@ -667,7 +667,7 @@ class DarkWar {
       this.game.reset(0);
       this.game.addStory("No save found. Starting a new game.");
     }
-    if (DEBUG) console.timeEnd("Load saved game");
+    if (isDebug()) console.timeEnd("Load saved game");
     this.finishInitialGameStartup();
   }
 
@@ -676,9 +676,9 @@ class DarkWar {
       return;
     }
     this.hasStartedGameLoop = true;
-    if (DEBUG) console.time("First render");
+    if (isDebug()) console.time("First render");
     this.render(0);
-    if (DEBUG) console.timeEnd("First render");
+    if (isDebug()) console.timeEnd("First render");
 
     this.reinitializePhysicsForCurrentState();
 
@@ -696,7 +696,7 @@ class DarkWar {
   private async initializeSounds(): Promise<void> {
     try {
       await Sound.preload();
-      if (DEBUG) console.log("✓ Sound effects loaded");
+      if (isDebug()) console.log("✓ Sound effects loaded");
     } catch (error) {
       console.warn("Failed to preload sounds:", error);
     }

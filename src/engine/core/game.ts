@@ -1,5 +1,4 @@
-// Debug flag. TODO: Create a function to toggle debugging the entire game that can be triggered at runtime and also set as a build option.
-const DEBUG = false;
+import { isDebug } from "../utils/debug";
 
 import {
   GameState,
@@ -222,7 +221,7 @@ export class Game {
    * Initialize a new game or level
    */
   public reset(depth: number = 0): void {
-    if (DEBUG) console.time("reset: total");
+    if (isDebug()) console.time("reset: total");
     this.lastConversationView = undefined;
     this.isDead = false;
     this.levels = new Map();
@@ -318,7 +317,7 @@ export class Game {
       this.state.entityManager.spawnAll(outside.entities);
       this.addStory("The city is quiet. Megacorp waits to the northeast.");
       this.updateFOV();
-      if (DEBUG) console.timeEnd("reset: total");
+      if (isDebug()) console.timeEnd("reset: total");
       return;
     }
 
@@ -353,7 +352,8 @@ export class Game {
         freeTiles.splice(tileIndex, 1);
       }
     }
-    if (DEBUG) console.log(`Spawned ${ratCount} rats, ${mutantCount} mutants`);
+    if (isDebug())
+      console.log(`Spawned ${ratCount} rats, ${mutantCount} mutants`);
 
     // Spawn items
     for (let i = 0; i < 10 && freeTiles.length > 0; i++) {
@@ -410,7 +410,7 @@ export class Game {
     this.addStory(`You descend into level ${depth}.`);
 
     this.updateFOV();
-    if (DEBUG) console.timeEnd("reset: total");
+    if (isDebug()) console.timeEnd("reset: total");
   }
 
   /**
