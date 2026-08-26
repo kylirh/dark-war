@@ -2100,8 +2100,10 @@ export class Renderer {
 
     const anchoredCallouts: AnchoredWorldCallout[] = [];
     for (const callout of callouts) {
-      const speaker = callout.callout.speakerId
-        ? entities.find((entity) => entity.id === callout.callout.speakerId)
+      const speakerId = callout.callout.speakerId;
+      const speaker = speakerId
+        ? state.players.find((p) => p.id === speakerId) ||
+          entities.find((entity) => entity.id === speakerId)
         : undefined;
       let anchorX: number;
       let anchorY: number;
