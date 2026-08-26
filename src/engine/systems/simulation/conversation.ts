@@ -149,9 +149,11 @@ export function updateConversationSessions(state: GameState): void {
     speakersNeeded.add(session.speakerId);
   }
 
+  // First match wins, matching the .find() this replaces. Entity ids are
+  // unique, so this only matters if that ever stops being true.
   const foundSpeakers = new Map<string, Entity>();
   for (const entity of state.entities) {
-    if (speakersNeeded.has(entity.id)) {
+    if (speakersNeeded.has(entity.id) && !foundSpeakers.has(entity.id)) {
       foundSpeakers.set(entity.id, entity);
       if (foundSpeakers.size === speakersNeeded.size) break;
     }
