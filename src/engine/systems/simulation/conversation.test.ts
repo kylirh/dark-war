@@ -215,3 +215,96 @@ describe("conversation", () => {
     expect(client.getConversationView()).toBeUndefined();
   });
 });
+
+describe("updateConversationSessions", () => {
+  it("keeps a session alive while the speaker is present and in range", () => {
+    const { state, builder } = setup();
+    startConversation(state, state.player, builder);
+
+    updateConversationSessions(state);
+
+    expect(state.conversations.has(state.player.id)).toBe(true);
+  });
+
+  it("ends the session when the speaker walks out of range", () => {
+    const { state, builder } = setup();
+    startConversation(state, state.player, builder);
+
+    builder.worldX = state.player.worldX + 40 * 32;
+
+    updateConversationSessions(state);
+
+    expect(state.conversations.has(state.player.id)).toBe(false);
+  });
+
+  it("ends the session when the speaker is removed from the world", () => {
+    const { state, builder } = setup();
+    startConversation(state, state.player, builder);
+
+    state.entityManager.destroy(builder.id);
+
+    updateConversationSessions(state);
+
+    expect(state.conversations.has(state.player.id)).toBe(false);
+  });
+
+  it("ends the session when the speaker dies", () => {
+    const { state, builder } = setup();
+    startConversation(state, state.player, builder);
+
+    builder.hp = 0;
+
+    updateConversationSessions(state);
+
+    expect(state.conversations.has(state.player.id)).toBe(false);
+  });
+
+  it("ends the session when the player dies", () => {
+    const { state, builder } = setup();
+    startConversation(state, state.player, builder);
+
+    state.player.hp = 0;
+
+    updateConversationSessions(state);
+
+    expect(state.conversations.has(state.player.id)).toBe(false);
+  });
+
+  it("ends the session when the authored node no longer exists", () => {
+    const { state, builder } = setup();
+    startConversation(state, state.player, builder);
+    state.conversations.get(state.player.id)!.nodeId = "no-such-node";
+
+    updateConversationSessions(state);
+
+    expect(state.conversations.has(state.player.id)).toBe(false);
+  });
+
+  it("resolves each session against its own speaker", () => {
+    // The speaker lookup is now a prebuilt map rather than a per-session scan;
+    // this checks one session ending does not disturb another.
+    const { state, builder } = setup();
+    const other = createWorkshopBuilder(
+      state.player.gridX - 1,
+      state.player.gridY,
+    );
+    other.id = "second-speaker";
+    state.entityManager.spawn(other);
+
+    startConversation(state, state.player, builder);
+    expect(state.conversations.size).toBe(1);
+
+    // Remove the *other* actor; the live session must be untouched.
+    state.entityManager.destroy(other.id);
+    updateConversationSessions(state);
+
+    expect(state.conversations.has(state.player.id)).toBe(true);
+  });
+
+  it("is a no-op when nobody is talking", () => {
+    const { state } = setup();
+
+    expect(() => updateConversationSessions(state)).not.toThrow();
+    expect(state.conversations.size).toBe(0);
+  });
+});
