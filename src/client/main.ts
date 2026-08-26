@@ -285,7 +285,6 @@ class DarkWar {
   private calloutComposer: CalloutComposer;
   private readonly worldCalloutManager = new WorldCalloutManager();
   private preferences: UserPreferences;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private inputHandler: InputHandler;
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
@@ -2987,7 +2986,6 @@ class MainMenuApp implements DarkWarApplication {
       const port = result.port ?? 7777;
 
       // Start UDP broadcast so others can discover us
-      const localIps = (await window.native?.serverGetLocalIps()) ?? [];
       await window.native?.discoveryStartBroadcast({
         name: gameName,
         host: playerName,
@@ -3004,7 +3002,6 @@ class MainMenuApp implements DarkWarApplication {
         playerName,
       );
       this.gameMenu.setMultiplayerConnectionState("connecting");
-      void localIps; // used by broadcast above
     } catch (err) {
       this.gameMenu.setMultiplayerStatusMessage(
         `Error: ${err instanceof Error ? err.message : String(err)}`,
