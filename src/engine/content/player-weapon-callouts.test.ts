@@ -89,4 +89,24 @@ describe("selectPlayerWeaponCallout", () => {
       selectPlayerWeaponCallout(WeaponType.LAND_MINE, "reloaded", "command"),
     ).toBeUndefined();
   });
+
+  it("partitions every WeaponType into quipping and silent", () => {
+    // Fails when a new WeaponType is added without deciding which side it is
+    // on, rather than letting it default to silence unnoticed.
+    const QUIPPING = new Set<WeaponType>([
+      WeaponType.PISTOL,
+      WeaponType.SMG,
+      WeaponType.SHOTGUN,
+      WeaponType.LASER,
+    ]);
+
+    for (const weapon of Object.values(WeaponType)) {
+      const { emitted } = collectLines(weapon, "reloaded");
+      if (QUIPPING.has(weapon)) {
+        expect(emitted, `${weapon} should quip on reload`).toBeGreaterThan(0);
+      } else {
+        expect(emitted, `${weapon} should stay silent on reload`).toBe(0);
+      }
+    }
+  });
 });
