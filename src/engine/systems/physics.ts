@@ -13,7 +13,6 @@
  * - Wall sliding allows smooth corridor navigation
  */
 
-import { bresenhamLine } from "../math/bresenham";
 import { System, Circle, Box, Response } from "detect-collisions";
 import {
   GameState,
@@ -28,6 +27,7 @@ import {
   MAP_HEIGHT,
   TILE_DEFINITIONS,
 } from "../types";
+import { bresenhamLine } from "../utils/bresenham";
 import { RNG } from "../utils/rng";
 import { GameEntity } from "../entities/game-entity";
 import { BulletEntity } from "../entities/bullet-entity";

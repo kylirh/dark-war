@@ -10,7 +10,7 @@ import {
   CELL_CONFIG,
   ONLINE_TIME_SCALE,
 } from "../../types";
-import { bresenhamLine } from "../../math/bresenham";
+import { bresenhamLine } from "../../utils/bresenham";
 import { TileSource } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
 import {
