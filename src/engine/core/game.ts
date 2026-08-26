@@ -350,7 +350,10 @@ export class Game {
           mutantCount++;
         }
         // Remove tile from available pool
-        freeTiles.splice(tileIndex, 1);
+        // O(1) removal: swap with last element and pop
+        const last = freeTiles[freeTiles.length - 1];
+        freeTiles[tileIndex] = last;
+        freeTiles.pop();
       }
     }
     if (DEBUG) console.log(`Spawned ${ratCount} rats, ${mutantCount} mutants`);
@@ -360,7 +363,10 @@ export class Game {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.AMMO));
-      freeTiles.splice(tileIndex, 1);
+      // O(1) removal: swap with last element and pop
+      const last = freeTiles[freeTiles.length - 1];
+      freeTiles[tileIndex] = last;
+      freeTiles.pop();
     }
 
     for (
@@ -371,28 +377,40 @@ export class Game {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.MEDKIT));
-      freeTiles.splice(tileIndex, 1);
+      // O(1) removal: swap with last element and pop
+      const last = freeTiles[freeTiles.length - 1];
+      freeTiles[tileIndex] = last;
+      freeTiles.pop();
     }
 
     for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.KEYCARD));
-      freeTiles.splice(tileIndex, 1);
+      // O(1) removal: swap with last element and pop
+      const last = freeTiles[freeTiles.length - 1];
+      freeTiles[tileIndex] = last;
+      freeTiles.pop();
     }
 
     for (let i = 0; i < 4 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.GRENADE));
-      freeTiles.splice(tileIndex, 1);
+      // O(1) removal: swap with last element and pop
+      const last = freeTiles[freeTiles.length - 1];
+      freeTiles[tileIndex] = last;
+      freeTiles.pop();
     }
 
     for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.LAND_MINE));
-      freeTiles.splice(tileIndex, 1);
+      // O(1) removal: swap with last element and pop
+      const last = freeTiles[freeTiles.length - 1];
+      freeTiles[tileIndex] = last;
+      freeTiles.pop();
     }
 
     const spawnItems = (count: number, type: ItemType): void => {
@@ -400,7 +418,10 @@ export class Game {
         const tileIndex = RNG.int(freeTiles.length);
         const [x, y] = freeTiles[tileIndex];
         this.state.entityManager.spawn(new ItemEntity(x, y, type));
-        freeTiles.splice(tileIndex, 1);
+        // O(1) removal: swap with last element and pop
+        const last = freeTiles[freeTiles.length - 1];
+        freeTiles[tileIndex] = last;
+        freeTiles.pop();
       }
     };
 
@@ -1122,7 +1143,10 @@ export class Game {
         const [x, y] = freeTiles[tileIndex];
         if (dist([x, y], start) > 8) {
           entities.push(new MonsterEntity(x, y, pickType(), depth));
-          freeTiles.splice(tileIndex, 1);
+          // O(1) removal: swap with last element and pop
+          const last = freeTiles[freeTiles.length - 1];
+          freeTiles[tileIndex] = last;
+          freeTiles.pop();
         }
       }
     }
@@ -1139,7 +1163,10 @@ export class Game {
         const [x, y] = freeTiles[tileIndex];
         if (dist([x, y], start) > 14) {
           entities.push(new MonsterEntity(x, y, type, depth));
-          freeTiles.splice(tileIndex, 1);
+          // O(1) removal: swap with last element and pop
+          const last = freeTiles[freeTiles.length - 1];
+          freeTiles[tileIndex] = last;
+          freeTiles.pop();
           break;
         }
       }
@@ -1155,7 +1182,10 @@ export class Game {
         const tileIndex = RNG.int(freeTiles.length);
         const [x, y] = freeTiles[tileIndex];
         entities.push(new ItemEntity(x, y, type, amount));
-        freeTiles.splice(tileIndex, 1);
+        // O(1) removal: swap with last element and pop
+        const last = freeTiles[freeTiles.length - 1];
+        freeTiles[tileIndex] = last;
+        freeTiles.pop();
       }
     };
 
@@ -1194,7 +1224,10 @@ export class Game {
           entities.push(
             new MonsterEntity(x, y, MonsterType.UTILITY_BOT, depth),
           );
-          freeTiles.splice(tileIndex, 1);
+          // O(1) removal: swap with last element and pop
+          const last = freeTiles[freeTiles.length - 1];
+          freeTiles[tileIndex] = last;
+          freeTiles.pop();
           break;
         }
       }
@@ -1257,7 +1290,10 @@ export class Game {
       const item = new ItemEntity(x, y, drop.type, drop.amount);
       if (typeof drop.heal === "number") item.heal = drop.heal;
       snapshot.entities.push(item);
-      freeTiles.splice(i, 1);
+      // O(1) removal: swap with last element and pop
+      const last = freeTiles[freeTiles.length - 1];
+      freeTiles[i] = last;
+      freeTiles.pop();
     }
     this.pendingDropsByDepth.delete(depth);
   }
