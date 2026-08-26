@@ -69,9 +69,24 @@ describe("selectPlayerWeaponCallout", () => {
     expect(pistol.has("Anyone got batteries?")).toBe(false);
   });
 
-  it("does not emit reload quips for melee weapons", () => {
+  it("combines common and ballistic reload lines for SMG", () => {
+    const { lines } = collectLines(WeaponType.SMG, "reloaded");
+
+    expect(lines).toHaveLength(11);
+    expect(lines.get("Back in business.")).toBe("speech");
+    expect(lines.get("RELOAD!!")).toBe("speech");
+    expect(lines.has("RECHARGE!!")).toBe(false);
+  });
+
+  it("does not emit reload quips for unsupported weapons", () => {
     expect(
       selectPlayerWeaponCallout(WeaponType.MELEE, "reloaded", "command"),
+    ).toBeUndefined();
+    expect(
+      selectPlayerWeaponCallout(WeaponType.GRENADE, "reloaded", "command"),
+    ).toBeUndefined();
+    expect(
+      selectPlayerWeaponCallout(WeaponType.LAND_MINE, "reloaded", "command"),
     ).toBeUndefined();
   });
 });
