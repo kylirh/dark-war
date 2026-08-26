@@ -49,29 +49,24 @@
   --disabled: var(--sys-color-darkgrey);
 }
 
-/* TODO: Consider replacing WOFF fonts with TTF fonts */
 @font-face {
   font-family: Chicago;
-  src: url("../fonts/chicago-flf.woff") format("woff");
-  src: url("../fonts/chicago-flf.woff2") format("woff2");
+  src: url("../fonts/chicago-flf.ttf") format("truetype");
 }
 
 @font-face {
   font-family: Monaco;
-  src: url("../fonts/monaco.woff") format("woff");
-  src: url("../fonts/monaco.woff2") format("woff2");
+  src: url("../fonts/monaco.ttf") format("truetype");
 }
 
 /* Fonts below are recreations by Giles Booth */
 @font-face {
   font-family: Chicago_12;
-  src: url("../fonts/chikarego2.woff") format("woff");
-  src: url("../fonts/chikarego2.woff2") format("woff2");
+  src: url("../fonts/chikarego2.ttf") format("truetype");
 }
 @font-face {
   font-family: Geneva_9;
-  src: url("../fonts/finders-keepers.woff") format("woff");
-  src: url("../fonts/finders-keepers.woff2") format("woff2");
+  src: url("../fonts/finders-keepers.ttf") format("truetype");
 }
 ::-webkit-scrollbar {
   width: 22px;
