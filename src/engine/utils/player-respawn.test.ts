@@ -1,4 +1,13 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+/**
+ * Coverage for the shared death-drop rules.
+ *
+ * This runs on both the offline simulation and the authoritative server, so
+ * the tests pin the whole contract: which items become world entities, how
+ * stackables are split, that core devices stay attached to the character, and
+ * that the drop happens exactly once per death.
+ */
+
+import { describe, it, expect, beforeEach } from "vitest";
 import {
   GameState,
   Player,
@@ -19,7 +28,9 @@ describe("dropPlayerInventoryOnDeath", () => {
       gridY: 10,
       worldX: 320,
       worldY: 320,
-      inventorySlots: Array.from({ length: 36 }, () => ({ type: null })),
+      inventorySlots: Array.from({ length: INVENTORY_TOTAL_SLOTS }, () => ({
+        type: null,
+      })),
       itemCounts: {},
       ammo: 0,
       ammoReserve: 0,
@@ -81,7 +92,9 @@ describe("dropPlayerInventoryOnDeath", () => {
     expect(entities).toHaveLength(3);
     for (const entity of entities) {
       expect(entity.type).toBe(ItemType.GRENADE);
-      expect(entity.amount).toBeUndefined(); // Stackable individual entities (grenades) do not have amount initialized
+      // spawnDrop passes amount: 1, but ItemEntity only stores `amount` for
+      // AMMO, POWERCELL, COIN and ROCK - for a grenade it is discarded.
+      expect(entity.amount).toBeUndefined();
       expect(entity.deathDrop).toBe(true);
     }
   });
@@ -117,21 +130,6 @@ describe("dropPlayerInventoryOnDeath", () => {
     const types = entities.map((e) => e.type);
     expect(types.filter((t) => t === ItemType.PISTOL)).toHaveLength(2);
     expect(types.filter((t) => t === ItemType.LASER_PISTOL)).toHaveLength(1);
-  });
-
-  it("correctly handles non-stackable items like PISTOL", () => {
-    const player = makePlayer();
-    player.inventorySlots[0].type = ItemType.PISTOL;
-    player.inventorySlots[1].type = ItemType.LASER_PISTOL;
-
-    const dropped = dropPlayerInventoryOnDeath(state, player);
-
-    expect(dropped).toBe(2);
-    const entities = state.entityManager.entities as ItemEntity[];
-    expect(entities).toHaveLength(2);
-    const types = entities.map((e) => e.type);
-    expect(types).toContain(ItemType.PISTOL);
-    expect(types).toContain(ItemType.LASER_PISTOL);
   });
 
   it("retains core devices and updates player flags", () => {
@@ -191,5 +189,69 @@ describe("dropPlayerInventoryOnDeath", () => {
     expect(player.matterManipulatorActive).toBe(false);
     expect(player.itemCounts).toEqual({});
     expect(player.inventoryDroppedOnDeath).toBe(true);
+  });
+
+  it("drops keycards and land mines from their dedicated counters", () => {
+    // These two, like ammo and grenades, are tracked as flat player fields
+    // rather than in itemCounts, so they need their own stackableQuantity arm.
+    const player = makePlayer({ keys: 2, landMines: 1 });
+
+    const dropped = dropPlayerInventoryOnDeath(state, player);
+
+    expect(dropped).toBe(3);
+    const types = (state.entityManager.entities as ItemEntity[]).map(
+      (e) => e.type,
+    );
+    expect(types.filter((t) => t === ItemType.KEYCARD)).toHaveLength(2);
+    expect(types.filter((t) => t === ItemType.LAND_MINE)).toHaveLength(1);
+  });
+
+  it("places every drop at the player's exact world position", () => {
+    // Loot has to land where the player died, not snapped to the tile centre.
+    const player = makePlayer({ worldX: 333.5, worldY: 412.25, grenades: 2 });
+    player.inventorySlots[0].type = ItemType.PISTOL;
+
+    dropPlayerInventoryOnDeath(state, player);
+
+    const entities = state.entityManager.entities as ItemEntity[];
+    expect(entities.length).toBeGreaterThan(0);
+    for (const entity of entities) {
+      expect(entity.worldX).toBe(333.5);
+      expect(entity.worldY).toBe(412.25);
+      // Without matching prev coordinates the first render interpolates the
+      // item in from wherever the fresh entity started.
+      expect(entity.prevWorldX).toBe(entity.worldX);
+      expect(entity.prevWorldY).toBe(entity.worldY);
+      expect(entity.deathDrop).toBe(true);
+    }
+  });
+
+  it("drops nothing on a second call for the same death", () => {
+    const player = makePlayer({ grenades: 2 });
+
+    expect(dropPlayerInventoryOnDeath(state, player)).toBe(2);
+    expect(dropPlayerInventoryOnDeath(state, player)).toBe(0);
+    expect(state.entityManager.entities).toHaveLength(2);
+  });
+
+  it("drops nothing for an empty inventory", () => {
+    const dropped = dropPlayerInventoryOnDeath(state, makePlayer());
+
+    expect(dropped).toBe(0);
+    expect(state.entityManager.entities).toHaveLength(0);
+  });
+
+  it("never drops a core device even when the player carries both", () => {
+    const player = makePlayer({ hasCTDM: true, hasMatterManipulator: true });
+    player.inventorySlots[0].type = ItemType.CTDM;
+    player.inventorySlots[1].type = ItemType.MATTER_MANIPULATOR;
+
+    dropPlayerInventoryOnDeath(state, player);
+
+    const types = (state.entityManager.entities as ItemEntity[]).map(
+      (e) => e.type,
+    );
+    expect(types).not.toContain(ItemType.CTDM);
+    expect(types).not.toContain(ItemType.MATTER_MANIPULATOR);
   });
 });
