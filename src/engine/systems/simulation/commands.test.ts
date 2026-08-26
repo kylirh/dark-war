@@ -1,3 +1,12 @@
+/**
+ * Coverage for the simulation command queue and the player-side guards in
+ * resolveCommand.
+ *
+ * Commands are the only way player and AI intent enters the simulation, so
+ * these tests pin the per-tick queueing rules (including the real-time
+ * coalescing of repeated player input) and the retention window.
+ */
+
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   GameState,
@@ -5,7 +14,6 @@ import {
   CommandType,
   EntityKind,
   Player,
-  EventType,
 } from "../../types";
 import {
   enqueueCommand,
@@ -102,7 +110,7 @@ describe("Simulation Commands Management", () => {
       expect(cmds[0].actorId).toBe("p1");
     });
 
-    it("does not replace existing player command if TURN_BASED mode", () => {
+    it("keeps both player commands in PLANNING mode", () => {
       state.sim.mode = "PLANNING";
 
       enqueueCommand(state, {
@@ -125,6 +133,78 @@ describe("Simulation Commands Management", () => {
 
       const cmds = getCommandsForTick(state, 15);
       expect(cmds).toHaveLength(2);
+      expect(cmds[0].type).toBe(CommandType.MOVE);
+      expect(cmds[1].type).toBe(CommandType.WAIT);
+    });
+
+    it("coalesces per actor, not per tick, in REALTIME mode", () => {
+      state.sim.mode = "REALTIME";
+
+      enqueueCommand(state, {
+        type: CommandType.MOVE,
+        tick: 15,
+        source: "PLAYER",
+        actorId: "p1",
+        priority: 0,
+        data: { type: "MOVE", dx: 1, dy: 0 },
+      });
+      enqueueCommand(state, {
+        type: CommandType.MOVE,
+        tick: 15,
+        source: "PLAYER",
+        actorId: "p2",
+        priority: 0,
+        data: { type: "MOVE", dx: 0, dy: 1 },
+      });
+      enqueueCommand(state, {
+        type: CommandType.WAIT,
+        tick: 15,
+        source: "PLAYER",
+        actorId: "p1",
+        priority: 0,
+        data: { type: "WAIT" },
+      });
+
+      // p1's second command replaces its first; p2 is untouched. Coalescing on
+      // tick alone would drop a second player's input in online play.
+      const cmds = getCommandsForTick(state, 15);
+      expect(cmds).toHaveLength(2);
+      expect(cmds.map((c) => c.actorId)).toEqual(["p1", "p2"]);
+      expect(cmds[0].type).toBe(CommandType.WAIT);
+      expect(cmds[1].type).toBe(CommandType.MOVE);
+    });
+
+    it("never coalesces AI commands, even in REALTIME mode", () => {
+      state.sim.mode = "REALTIME";
+
+      for (let i = 0; i < 2; i++) {
+        enqueueCommand(state, {
+          type: CommandType.WAIT,
+          tick: 15,
+          source: "AI",
+          actorId: "m1",
+          priority: 0,
+          data: { type: "WAIT" },
+        });
+      }
+
+      expect(getCommandsForTick(state, 15)).toHaveLength(2);
+    });
+
+    it("assigns every command a distinct id", () => {
+      for (let i = 0; i < 3; i++) {
+        enqueueCommand(state, {
+          type: CommandType.WAIT,
+          tick: 30,
+          source: "AI",
+          actorId: `m${i}`,
+          priority: 0,
+          data: { type: "WAIT" },
+        });
+      }
+
+      const ids = getCommandsForTick(state, 30).map((c) => c.id);
+      expect(new Set(ids).size).toBe(3);
     });
   });
 
@@ -152,7 +232,7 @@ describe("Simulation Commands Management", () => {
   });
 
   describe("cleanupOldCommands", () => {
-    it("removes commands older than 50 ticks from current tick", () => {
+    it("keeps the trailing 50-tick window and drops everything older", () => {
       enqueueCommand(state, {
         type: CommandType.WAIT,
         tick: 49,
