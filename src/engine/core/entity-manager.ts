@@ -11,6 +11,12 @@ import { Entity, EntityKind, Item } from "../types";
  * `entities.push(...)` / `entities = entities.filter(...)` is what previously
  * left physics bodies and network state out of sync.
  *
+ * An `items` index is maintained alongside the entity array so item-heavy hot
+ * paths (pickup radius checks) do not rescan every entity. It is kept correct
+ * by the fact that every mutation funnels through {@link spawn}, {@link destroy},
+ * {@link destroyWhere} and {@link replaceAll} — one more reason direct mutation
+ * of the entity array is forbidden, since it would desync the index silently.
+ *
  * Lifecycle tracking (`spawnedIds` / `removedIds`) accumulates until a consumer
  * applies it and calls {@link clearLifecycle}. Whole-list swaps via
  * {@link replaceAll} (level transitions, deserialize) reset tracking — callers
@@ -27,7 +33,8 @@ export class EntityManager {
 
   constructor(entities: Entity[] = []) {
     this._entities = entities;
-    this._items = entities.filter((e) => e.kind === EntityKind.ITEM) as Item[];
+    this._items = [];
+    for (const entity of entities) this.index(entity);
   }
 
   /** The canonical entity array. Read freely; mutate only via this class. */
@@ -35,17 +42,20 @@ export class EntityManager {
     return this._entities;
   }
 
-  /** Read-only index of all item entities. */
-  get items(): Item[] {
+  /**
+   * Index of every {@link EntityKind.ITEM} entity, in spawn order.
+   *
+   * Typed readonly because mutating it would desync it from `entities`; add and
+   * remove through {@link spawn} / {@link destroy} like any other entity.
+   */
+  get items(): readonly Item[] {
     return this._items;
   }
 
   /** Add an entity to the world. */
   spawn<T extends Entity>(entity: T): T {
     this._entities.push(entity);
-    if (entity.kind === EntityKind.ITEM) {
-      this._items.push(entity as unknown as Item);
-    }
+    this.index(entity);
     this.markSpawned(entity.id);
     return entity;
   }
@@ -62,14 +72,7 @@ export class EntityManager {
     if (index === -1) return;
     const entity = this._entities[index];
     this._entities.splice(index, 1);
-
-    if (entity.kind === EntityKind.ITEM) {
-      const itemIndex = this._items.findIndex((item) => item.id === id);
-      if (itemIndex !== -1) {
-        this._items.splice(itemIndex, 1);
-      }
-    }
-
+    this.unindex(entity);
     this.markRemoved(id);
   }
 
@@ -79,14 +82,7 @@ export class EntityManager {
       const entity = this._entities[i];
       if (predicate(entity)) {
         this._entities.splice(i, 1);
-        if (entity.kind === EntityKind.ITEM) {
-          const itemIndex = this._items.findIndex(
-            (item) => item.id === entity.id,
-          );
-          if (itemIndex !== -1) {
-            this._items.splice(itemIndex, 1);
-          }
-        }
+        this.unindex(entity);
         this.markRemoved(entity.id);
       }
     }
@@ -115,9 +111,7 @@ export class EntityManager {
     this._items.length = 0;
     for (const entity of entities) {
       this._entities.push(entity);
-      if (entity.kind === EntityKind.ITEM) {
-        this._items.push(entity as unknown as Item);
-      }
+      this.index(entity);
     }
     this.clearLifecycle();
   }
@@ -126,6 +120,18 @@ export class EntityManager {
   clearLifecycle(): void {
     this.spawnedIds.clear();
     this.removedIds.clear();
+  }
+
+  /** Add an entity to the kind indexes, if it belongs to any. */
+  private index(entity: Entity): void {
+    if (entity.kind === EntityKind.ITEM) this._items.push(entity as Item);
+  }
+
+  /** Remove an entity from the kind indexes, if it belongs to any. */
+  private unindex(entity: Entity): void {
+    if (entity.kind !== EntityKind.ITEM) return;
+    const at = this._items.indexOf(entity as Item);
+    if (at !== -1) this._items.splice(at, 1);
   }
 
   private markSpawned(id: string): void {
