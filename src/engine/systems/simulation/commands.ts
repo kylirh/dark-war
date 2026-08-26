@@ -85,7 +85,6 @@ import {
   areAllLivingPlayersResting,
   stopPlayerResting,
 } from "./sim-helpers";
-import { ONLINE_TIME_SCALE } from "../../types";
 
 // ========================================
 // Command Management
@@ -296,9 +295,7 @@ function resolveWaitCommand(state: GameState, cmd: Command): boolean {
   if (!player) return false;
 
   if (player.resting) {
-    stopPlayerResting(player);
-    state.sim.targetTimeScale =
-      state.multiplayer.mode === "online" ? ONLINE_TIME_SCALE : 0.85;
+    stopPlayerResting(state, player);
     pushEvent(state, {
       type: EventType.MESSAGE,
       data: { type: "MESSAGE", message: "You wake up." },
@@ -1373,7 +1370,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
         msg(state, "You're already at full health.");
         return;
       }
-      const heal = 15;
+      const heal = ITEM_DEFS[ItemType.MEDKIT].healAmount ?? 0;
       player.hp = Math.min(player.hpMax, player.hp + heal);
       consumeOne(player, ItemType.MEDKIT);
       const healSounds = [SoundEffect.HEAL_1, SoundEffect.HEAL_2];
@@ -1657,10 +1654,9 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
 
   for (const item of itemsNearby) {
     const worldItem = item as { type: ItemType };
-    // Medkits and powercells bypass the full-inventory check (auto-consumed)
-    const bypassCheck =
-      worldItem.type === ItemType.MEDKIT ||
-      worldItem.type === ItemType.POWERCELL;
+    // Powercells retain their existing full-pack behavior; medkits are capped
+    // emergency resources and must respect the normal inventory path.
+    const bypassCheck = worldItem.type === ItemType.POWERCELL;
 
     if (!bypassCheck && !canAddToInventory(player, worldItem.type)) {
       pushEvent(state, {

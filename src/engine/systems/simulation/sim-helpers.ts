@@ -8,6 +8,7 @@ import {
   Monster,
   Player,
   CELL_CONFIG,
+  ONLINE_TIME_SCALE,
 } from "../../types";
 import { TileSource } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
@@ -78,12 +79,20 @@ export function areAllLivingPlayersResting(state: GameState): boolean {
   );
 }
 
-/** Stop resting and clear movement/healing state. */
-export function stopPlayerResting(player: Player): void {
+/**
+ * Stop resting and clear movement/healing state. Wake immediately returns the
+ * simulation to a normal-speed frame so stale rest acceleration cannot turn
+ * the next movement input into a brief speed burst.
+ */
+export function stopPlayerResting(state: GameState, player: Player): void {
   player.resting = false;
   player.restNextHealTick = undefined;
   player.velocityX = 0;
   player.velocityY = 0;
+  const normalTimeScale =
+    state.multiplayer.mode === "online" ? ONLINE_TIME_SCALE : 0.85;
+  state.sim.timeScale = normalTimeScale;
+  state.sim.targetTimeScale = normalTimeScale;
 }
 
 export function getClosestPlayer(

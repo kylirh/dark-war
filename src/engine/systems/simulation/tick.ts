@@ -145,7 +145,7 @@ export function processRestingPlayers(state: GameState, tick: number): void {
     player.velocityY = 0;
 
     if (player.hp <= 0 || player.hp >= player.hpMax) {
-      stopPlayerResting(player);
+      stopPlayerResting(state, player);
       continue;
     }
 
@@ -157,7 +157,7 @@ export function processRestingPlayers(state: GameState, tick: number): void {
     player.hp = Math.min(player.hpMax, player.hp + 1);
     player.restNextHealTick = tick + REST_HEAL_INTERVAL_TICKS;
     if (player.hp >= player.hpMax) {
-      stopPlayerResting(player);
+      stopPlayerResting(state, player);
       pushEvent(state, {
         type: EventType.MESSAGE,
         data: { type: "MESSAGE", message: "You are fully healed." },

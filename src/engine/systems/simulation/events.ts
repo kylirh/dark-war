@@ -135,7 +135,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     if (player.hp <= 0) return;
 
     const wasResting = player.resting;
-    if (wasResting) stopPlayerResting(player);
+    if (wasResting) stopPlayerResting(state, player);
 
     // Armor (e.g. macrometal jacket) softens normal blows to at least 1 HP,
     // while naturally sub-1 attacks such as an icky lump's remain sub-1.
@@ -880,10 +880,31 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
 
   switch (item.type) {
     case ItemType.MEDKIT: {
-      // Medkits are carried now (used on demand by selecting + clicking).
-      player.itemCounts[ItemType.MEDKIT] =
-        (player.itemCounts[ItemType.MEDKIT] ?? 0) + 1;
-      addToInventory(player, ItemType.MEDKIT);
+      const currentCount = player.itemCounts[ItemType.MEDKIT] ?? 0;
+      const maxCarry = ITEM_DEFS[ItemType.MEDKIT].maxCarry;
+      if (maxCarry !== undefined && currentCount >= maxCarry) {
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: {
+            type: "MESSAGE",
+            message: `You cannot carry more than ${maxCarry} medkits.`,
+          },
+          cause: event.id,
+        });
+        return;
+      }
+      if (!addToInventory(player, ItemType.MEDKIT)) {
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: {
+            type: "MESSAGE",
+            message: "Your pack is full — you leave the medkit.",
+          },
+          cause: event.id,
+        });
+        return;
+      }
+      player.itemCounts[ItemType.MEDKIT] = currentCount + 1;
       pushEvent(state, {
         type: EventType.MESSAGE,
         data: { type: "MESSAGE", message: "You pick up a medkit." },

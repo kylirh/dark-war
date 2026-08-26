@@ -18,6 +18,7 @@ import { applyWallDamageAt } from "../../utils/walls";
 import { SoundEffect } from "../../content/sound-effects";
 import { setStateTile } from "../../utils/state-tiles";
 import { selectPlayerWeaponCallout } from "../../content/player-weapon-callouts";
+import { MEDKIT_HEAL_AMOUNT } from "../../content/item-defs";
 
 function emittingReloadCommandId(
   weapon: WeaponType,
@@ -104,7 +105,7 @@ describe("using the active item", () => {
     setActive(game, ItemType.MEDKIT);
 
     use(game);
-    expect(player.hp).toBe(18); // +15
+    expect(player.hp).toBe(3 + MEDKIT_HEAL_AMOUNT);
     expect(player.itemCounts[ItemType.MEDKIT] ?? 0).toBe(0);
     expect(player.inventorySlots[0].type).toBe(null); // slot cleared
     expect(
@@ -116,6 +117,25 @@ describe("using the active item", () => {
             sound.effect === SoundEffect.HEAL_2,
         ),
     ).toBe(true);
+  });
+
+  it("clamps medkit healing and cannot revive a dead player", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.hp = player.hpMax - 2;
+    player.itemCounts[ItemType.MEDKIT] = 1;
+    setActive(game, ItemType.MEDKIT);
+
+    use(game);
+    expect(player.hp).toBe(player.hpMax);
+
+    player.hp = 0;
+    player.itemCounts[ItemType.MEDKIT] = 1;
+    player.inventorySlots[0] = { type: ItemType.MEDKIT };
+    use(game);
+    expect(player.hp).toBe(0);
+    expect(player.itemCounts[ItemType.MEDKIT]).toBe(1);
   });
 
   it("swallowing the black pill is fatal", () => {

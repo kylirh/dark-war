@@ -36,7 +36,16 @@ export interface ItemDef {
   collectible?: boolean;
   /** Stacks as a count rather than occupying a unique slot. */
   stackable?: boolean;
+  /** Fixed health restored when this item is used. */
+  healAmount?: number;
+  /** Maximum number carried by one player, when capped. */
+  maxCarry?: number;
 }
+
+/** Emergency recovery amount; resting remains the primary healing route. */
+export const MEDKIT_HEAL_AMOUNT = 10;
+/** Keep medkits meaningful without letting them become a second health bar. */
+export const MEDKIT_MAX_CARRY = 2;
 
 export const ITEM_DEFS: Record<ItemType, ItemDef> = {
   [ItemType.PISTOL]: {
@@ -50,7 +59,16 @@ export const ITEM_DEFS: Record<ItemType, ItemDef> = {
     findable: true,
     stackable: true,
   },
-  [ItemType.MEDKIT]: { name: "Medkit", category: "consumable", findable: true },
+  [ItemType.MEDKIT]: {
+    name: "Medkit",
+    category: "consumable",
+    findable: true,
+    consumable: true,
+    collectible: true,
+    stackable: true,
+    healAmount: MEDKIT_HEAL_AMOUNT,
+    maxCarry: MEDKIT_MAX_CARRY,
+  },
   [ItemType.KEYCARD]: {
     name: "Keycard",
     category: "key",

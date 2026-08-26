@@ -54,6 +54,46 @@ describe("picking up new items lands them in the inventory", () => {
     ).toBe(true);
   });
 
+  it("picks up a medkit into its capped emergency inventory slot", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const { player, state, itemId } = pickUp(game, ItemType.MEDKIT);
+
+    expect(player.itemCounts[ItemType.MEDKIT]).toBe(1);
+    expect(
+      player.inventorySlots.filter((slot) => slot.type === ItemType.MEDKIT),
+    ).toHaveLength(1);
+    expect(state.entities.some((entity) => entity.id === itemId)).toBe(false);
+  });
+
+  it("leaves a medkit on the ground when the carry limit is reached", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.itemCounts[ItemType.MEDKIT] = 2;
+    player.inventorySlots[0] = { type: ItemType.MEDKIT };
+    player.inventorySlots[1] = { type: ItemType.MEDKIT };
+
+    const { state, itemId } = pickUp(game, ItemType.MEDKIT);
+
+    expect(player.itemCounts[ItemType.MEDKIT]).toBe(2);
+    expect(state.entities.some((entity) => entity.id === itemId)).toBe(true);
+    expect(state.story[0]).toBe("You cannot carry more than 2 medkits.");
+  });
+
+  it("respects a full inventory when picking up a medkit", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.inventorySlots.forEach((slot) => (slot.type = ItemType.PISTOL));
+
+    const { state, itemId } = pickUp(game, ItemType.MEDKIT);
+
+    expect(state.entities.some((entity) => entity.id === itemId)).toBe(true);
+    expect(player.itemCounts[ItemType.MEDKIT] ?? 0).toBe(0);
+    expect(state.story[0]).toBe("Your pack is full — you leave the medkit.");
+  });
+
   it("stacks coins by count", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);

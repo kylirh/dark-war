@@ -16,6 +16,7 @@ import { SoundEffect } from "../content/sound-effects";
 import { TerrainPrototypeTransitionMode } from "../systems/terrain/terrain-prototype";
 import { setStateDamageAtIndex, setStateTile } from "../utils/state-tiles";
 import { FixtureType, StructureType } from "./world-semantics";
+import { MEDKIT_HEAL_AMOUNT } from "../content/item-defs";
 
 describe("Game serialize/deserialize round-trip", () => {
   beforeEach(() => RNG.reseed(424242));
@@ -44,10 +45,66 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(after.player.gridX).toBe(before.player.gridX);
     expect(after.player.gridY).toBe(before.player.gridY);
     expect(after.entities.length).toBe(before.entities.length);
+    const restoredMedkit = after.entities.find(
+      (entity) =>
+        entity.kind === EntityKind.ITEM && entity.type === ItemType.MEDKIT,
+    ) as Item | undefined;
+    expect(restoredMedkit?.heal).toBe(MEDKIT_HEAL_AMOUNT);
     expect(after.worldPlane.visuals).toBeDefined();
     expect(after.worldPlane.visuals!.layers.coordinateHash).toEqual(
       before.worldPlane.visuals!.layers.coordinateHash,
     );
+  });
+
+  it("uses rare deterministic offline medkits while keeping one online", () => {
+    RNG.reseed(9001);
+    const firstOffline = new Game({ mode: "offline" });
+    firstOffline.reset(1);
+    const firstPositions = firstOffline
+      .getState()
+      .entities.filter(
+        (entity) =>
+          entity.kind === EntityKind.ITEM && entity.type === ItemType.MEDKIT,
+      )
+      .map((entity) => [entity.gridX, entity.gridY]);
+
+    RNG.reseed(9001);
+    const secondOffline = new Game({ mode: "offline" });
+    secondOffline.reset(1);
+    const secondPositions = secondOffline
+      .getState()
+      .entities.filter(
+        (entity) =>
+          entity.kind === EntityKind.ITEM && entity.type === ItemType.MEDKIT,
+      )
+      .map((entity) => [entity.gridX, entity.gridY]);
+
+    expect(firstPositions).toEqual(secondPositions);
+    expect(firstPositions).toHaveLength(1);
+
+    RNG.reseed(9001);
+    const offlineBetweenDrops = new Game({ mode: "offline" });
+    offlineBetweenDrops.reset(2);
+    expect(
+      offlineBetweenDrops
+        .getState()
+        .entities.filter(
+          (entity) =>
+            entity.kind === EntityKind.ITEM && entity.type === ItemType.MEDKIT,
+        ),
+    ).toHaveLength(0);
+
+    RNG.reseed(9001);
+    const online = new Game({ mode: "online" });
+    online.reset(1);
+    expect(
+      online
+        .getState()
+        .entities.filter(
+          (entity) =>
+            entity.kind === EntityKind.ITEM && entity.type === ItemType.MEDKIT,
+        ),
+    ).toHaveLength(1);
   });
 
   it("rejects legacy scalar saves without a world plane", () => {

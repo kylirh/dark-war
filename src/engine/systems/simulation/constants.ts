@@ -14,8 +14,8 @@ export const MAX_EVENTS_PER_TICK = 1000;
 export const MAX_COMMANDS_PER_TICK = 1000;
 /** World-speed multiplier while every living player on a plane is resting. */
 export const REST_TIME_SCALE = 8;
-/** Resting restores one health point every half-second of simulated time. */
-export const REST_HEAL_INTERVAL_TICKS = 10;
+/** Resting restores one health point every 1.5 seconds of simulated time. */
+export const REST_HEAL_INTERVAL_TICKS = 30;
 /** Sleeping players take twice as much incoming damage. */
 export const REST_DAMAGE_MULTIPLIER = 2;
 export const GRENADE_FUSE_TICKS = 14; // ~0.7s at 20 ticks/sec

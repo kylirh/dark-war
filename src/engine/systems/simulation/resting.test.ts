@@ -10,7 +10,11 @@ import {
   hasRestThreat,
   pushEvent,
 } from "./sim-helpers";
-import { REST_DAMAGE_MULTIPLIER, REST_HEAL_INTERVAL_TICKS } from "./constants";
+import {
+  REST_DAMAGE_MULTIPLIER,
+  REST_HEAL_INTERVAL_TICKS,
+  REST_TIME_SCALE,
+} from "./constants";
 import { stepSimulationTick } from "./tick";
 
 function emptyGame(mode: "offline" | "online" = "offline"): Game {
@@ -93,11 +97,33 @@ describe("player resting", () => {
     const state = game.getState();
     state.player.hp = state.player.hpMax - 2;
     wait(game);
+    // Reproduce the accelerated frame state used by the client while resting.
+    state.sim.timeScale = REST_TIME_SCALE;
 
     for (let i = 0; i < REST_HEAL_INTERVAL_TICKS * 2 + 2; i++) {
       stepSimulationTick(state);
     }
 
+    expect(state.player.hp).toBe(state.player.hpMax);
+    expect(state.player.resting).toBe(false);
+    expect(state.sim.timeScale).toBe(0.85);
+    expect(state.sim.targetTimeScale).toBe(0.85);
+  });
+
+  it("does not heal before the slower rest interval elapses", () => {
+    const game = emptyGame();
+    const state = game.getState();
+    state.player.hp = state.player.hpMax - 1;
+    wait(game);
+
+    for (let i = 0; i < REST_HEAL_INTERVAL_TICKS - 1; i++) {
+      stepSimulationTick(state);
+    }
+
+    expect(state.player.hp).toBe(state.player.hpMax - 1);
+    expect(state.player.resting).toBe(true);
+
+    stepSimulationTick(state);
     expect(state.player.hp).toBe(state.player.hpMax);
     expect(state.player.resting).toBe(false);
   });
@@ -115,6 +141,8 @@ describe("player resting", () => {
     state.entityManager.spawn(attacker);
     wait(game);
     expect(state.player.resting).toBe(true);
+    state.sim.timeScale = REST_TIME_SCALE;
+    state.sim.targetTimeScale = REST_TIME_SCALE;
 
     // The enemy approaches after rest begins.
     attacker.worldX = state.player.worldX + 16;
@@ -133,6 +161,8 @@ describe("player resting", () => {
 
     expect(state.player.hp).toBe(10 - 2 * REST_DAMAGE_MULTIPLIER);
     expect(state.player.resting).toBe(false);
+    expect(state.sim.timeScale).toBe(0.85);
+    expect(state.sim.targetTimeScale).toBe(0.85);
   });
 
   it("preserves resting state through save/load", () => {

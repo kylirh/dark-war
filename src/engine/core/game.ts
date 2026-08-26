@@ -78,6 +78,10 @@ const MIN_COMPLETION_REACHABLE_TILES = 50;
 // Bounded dungeon levels — large, generated in full up front.
 const DUNGEON_WIDTH = 128;
 const DUNGEON_HEIGHT = 96;
+/** One emergency medkit every third offline dungeon level (1, 4, 7, ...). */
+const OFFLINE_MEDKIT_LEVEL_INTERVAL = 3;
+/** Multiplayer keeps one medkit per generated dungeon plane available. */
+const ONLINE_MEDKITS_PER_DUNGEON_LEVEL = 1;
 
 interface LevelSnapshot {
   depth: number;
@@ -359,7 +363,11 @@ export class Game {
       freeTiles.splice(tileIndex, 1);
     }
 
-    for (let i = 0; i < 6 && freeTiles.length > 0; i++) {
+    for (
+      let i = 0;
+      i < this.medkitSpawnCount(depth) && freeTiles.length > 0;
+      i++
+    ) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.MEDKIT));
@@ -499,6 +507,20 @@ export class Game {
       }
     }
     return tiles;
+  }
+
+  /**
+   * Balance medkit availability by game mode. Offline placement still uses
+   * the seeded level-generation RNG, so a given generation seed produces the
+   * same rare pickup locations. Online planes keep one source available so a
+   * shared group is not permanently punished by a single player taking it.
+   */
+  private medkitSpawnCount(depth: number): number {
+    if (depth <= 0) return 0;
+    if (this.multiplayerMode === "online") {
+      return ONLINE_MEDKITS_PER_DUNGEON_LEVEL;
+    }
+    return depth % OFFLINE_MEDKIT_LEVEL_INTERVAL === 1 ? 1 : 0;
   }
 
   public addStory(message: string): void {
@@ -1138,7 +1160,7 @@ export class Game {
     };
 
     spawnItems(per(260), ItemType.AMMO);
-    spawnItems(per(450), ItemType.MEDKIT);
+    spawnItems(this.medkitSpawnCount(depth), ItemType.MEDKIT);
     spawnItems(per(900), ItemType.KEYCARD);
     spawnItems(per(650), ItemType.GRENADE);
     spawnItems(per(900), ItemType.LAND_MINE);

@@ -1,7 +1,7 @@
 import { EntityKind, ItemType } from "../types";
 import { GameEntity } from "./game-entity";
 import { RNG } from "../utils/rng";
-import { itemName } from "../content/item-defs";
+import { ITEM_DEFS, itemName } from "../content/item-defs";
 
 /**
  * Represents an item that can be picked up and used
@@ -35,7 +35,7 @@ export class ItemEntity extends GameEntity {
     if (type === ItemType.AMMO) {
       this.amount = amount ?? 8 + RNG.int(10);
     } else if (type === ItemType.MEDKIT) {
-      this.heal = 6 + RNG.int(8);
+      this.heal = ITEM_DEFS[type].healAmount;
     } else if (type === ItemType.POWERCELL) {
       this.amount = amount ?? 20 + RNG.int(21);
     } else if (type === ItemType.COIN) {

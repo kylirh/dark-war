@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SerializedState, EntityKind } from "../engine/types";
+import { SerializedState, EntityKind, ItemType } from "../engine/types";
 import {
   FixtureType,
   GroundType,
@@ -128,6 +128,21 @@ describe("computeStateDelta / applyStateDelta", () => {
   it("round-trips entity add and removal", () => {
     const next = baseState();
     next.entities = [player("p1", 10), entity("e2", 7), entity("e3", 9)];
+    roundTrip(baseState(), next);
+  });
+
+  it("round-trips medkit pickup data over the entity delta", () => {
+    const next = baseState();
+    next.entities.push({
+      id: "medkit-1",
+      kind: EntityKind.ITEM,
+      worldX: 14,
+      worldY: 16,
+      type: ItemType.MEDKIT,
+      name: "Medkit",
+      heal: 10,
+    } as unknown as AnyEntity);
+
     roundTrip(baseState(), next);
   });
 
