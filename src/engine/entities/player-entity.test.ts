@@ -163,34 +163,36 @@ describe("PlayerEntity resetForRespawn", () => {
     expect(types).not.toContain(ItemType.MATTER_MANIPULATOR);
   });
 
-  it("does not duplicate a core device already in the starter loadout", () => {
+  it("grants exactly one of each device however many times it is called", () => {
     const p = new PlayerEntity(0, 0);
     p.hasCTDM = true;
+    p.hasMatterManipulator = true;
+
     p.resetForRespawn();
-    // Run it twice: the second reset must not stack a second CTDM.
+    p.resetForRespawn();
     p.resetForRespawn();
 
-    const ctdmSlots = p.inventorySlots.filter((s) => s.type === ItemType.CTDM);
-    expect(ctdmSlots).toHaveLength(1);
+    const types = p.inventorySlots.map((s) => s.type);
+    expect(types.filter((t) => t === ItemType.CTDM)).toHaveLength(1);
+    expect(types.filter((t) => t === ItemType.MATTER_MANIPULATOR)).toHaveLength(
+      1,
+    );
   });
 
-  it("drops core devices rather than overwriting a full inventory", () => {
+  it("discards the previous life's inventory wholesale", () => {
+    // Object.assign swaps in the starter's slot array, so nothing from the old
+    // inventory survives - this is what makes the reset total rather than a
+    // merge. Note it also means addCoreDevice always runs against a fresh
+    // starter loadout with free slots.
     const p = new PlayerEntity(0, 0);
-    p.hasCTDM = true;
-    p.hasMatterManipulator = true;
+    p.inventorySlots.forEach((slot) => (slot.type = ItemType.ROCK));
+
     p.resetForRespawn();
 
-    // Fill every slot, then reset again. addCoreDevice looks for a null slot
-    // and silently gives up if there is none - it never evicts an item.
-    const filled = p.inventorySlots.map(() => ItemType.ROCK);
-    p.inventorySlots.forEach((slot, i) => (slot.type = filled[i]));
-    p.hasCTDM = true;
-    p.hasMatterManipulator = true;
-
-    expect(() => p.resetForRespawn()).not.toThrow();
-    // The starter loadout re-runs first, so slots are starter items again and
-    // the devices do fit. What matters is that it never throws or evicts.
-    expect(p.inventorySlots.length).toBe(filled.length);
+    const types = p.inventorySlots.map((s) => s.type);
+    expect(types).not.toContain(ItemType.ROCK);
+    expect(types).toContain(ItemType.BUTCHER_KNIFE);
+    expect(types.filter((t) => t === null).length).toBeGreaterThan(0);
   });
 
   it("clears combat state carried over from the previous life", () => {
