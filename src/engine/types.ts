@@ -330,6 +330,8 @@ export const STACKABLE_ITEMS: ItemType[] = [
   ItemType.WATER,
 ];
 
+export const STACKABLE_ITEMS_SET = new Set<ItemType>(STACKABLE_ITEMS);
+
 export interface Player extends BaseEntity {
   kind: EntityKind.PLAYER;
   hpMax: number;

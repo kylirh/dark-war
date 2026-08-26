@@ -12,6 +12,7 @@ import {
   TileType,
   CELL_CONFIG,
   STACKABLE_ITEMS,
+  STACKABLE_ITEMS_SET,
 } from "../../types";
 import { ItemEntity } from "../../entities/item-entity";
 import { MONSTER_DEFS } from "../../content/monster-defs";
@@ -1052,7 +1053,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       const def = ITEM_DEFS[item.type];
       const name = itemName(item.type);
 
-      if (STACKABLE_ITEMS.includes(item.type)) {
+      if (STACKABLE_ITEMS_SET.has(item.type)) {
         const amt = positiveAmount(item.amount, 1);
         player.itemCounts[item.type] =
           (player.itemCounts[item.type] ?? 0) + amt;

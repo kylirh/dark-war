@@ -5,6 +5,7 @@ import {
   ItemType,
   Player,
   STACKABLE_ITEMS,
+  STACKABLE_ITEMS_SET,
   WeaponType,
 } from "../types";
 import { itemName } from "../content/item-defs";
@@ -34,7 +35,7 @@ export function isInventoryFull(player: Player): boolean {
 }
 
 export function canAddToInventory(player: Player, itemType: ItemType): boolean {
-  if (STACKABLE_ITEMS.includes(itemType)) {
+  if (STACKABLE_ITEMS_SET.has(itemType)) {
     return player.inventorySlots.some(
       (s) => s.type === itemType || s.type === null,
     );
@@ -57,7 +58,7 @@ export function addToInventory(
         )
       : player.inventorySlots.find((slot) => slot.type === null);
 
-  if (STACKABLE_ITEMS.includes(itemType)) {
+  if (STACKABLE_ITEMS_SET.has(itemType)) {
     // Stack into existing slot first
     const existing = player.inventorySlots.find((s) => s.type === itemType);
     if (existing) return true; // slot already present, count tracked by flat prop
@@ -109,7 +110,7 @@ export function getSlotDisplayCount(
       return player.itemCounts[ItemType.POWERCELL] ?? null;
     default:
       // Misc stackable collectibles track their count in itemCounts.
-      if (STACKABLE_ITEMS.includes(slot.type)) {
+      if (STACKABLE_ITEMS_SET.has(slot.type)) {
         return player.itemCounts[slot.type] ?? 0;
       }
       return null;
