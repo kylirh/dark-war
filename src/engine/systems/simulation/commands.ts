@@ -13,7 +13,6 @@ import {
   ItemType,
   WeaponType,
   CELL_CONFIG,
-  Entity,
 } from "../../types";
 import { inBoundsFor, idxFor } from "../../utils/helpers";
 import {
@@ -362,53 +361,40 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
     return false;
   }
 
-  // Check entity blocking - first try grid-based, then distance-based for continuous movement
-  let blocker: Entity | undefined = undefined;
+  // Entity blocking. One pass: the first player or monster standing on the
+  // target tile wins, and failing that the first monster within melee range of
+  // it (continuous movement means a monster can overlap the tile without its
+  // grid cell matching). Scanning entities in order — rather than players as a
+  // group first — preserves the original precedence: when a monster and a
+  // player share the target tile, whichever was spawned earlier blocks, and a
+  // monster blocking converts the move into a melee attack below.
+  const checkContinuous = actor.kind === EntityKind.PLAYER && "worldX" in actor;
+  const targetWorldX = nx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+  const targetWorldY = ny * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+  const MELEE_RANGE_SQ = CELL_CONFIG.w * CELL_CONFIG.w; // One tile range, squared
 
-  // 1. Check players (small array)
-  for (const p of state.players) {
-    if (p.gridX === nx && p.gridY === ny) {
-      blocker = p;
+  let blocker: Entity | undefined;
+  let nearbyMonster: Entity | undefined;
+
+  const entities = state.entities;
+  for (let i = 0, len = entities.length; i < len; i++) {
+    const entity = entities[i];
+    const isMonster = entity.kind === EntityKind.MONSTER;
+    if (!isMonster && entity.kind !== EntityKind.PLAYER) continue;
+
+    if (entity.gridX === nx && entity.gridY === ny) {
+      blocker = entity;
       break;
     }
-  }
 
-  // 2. If no player is blocking, check monsters (must iterate entities)
-  // Also check continuous coordinates in the SAME loop to save a second O(N) pass.
-  if (!blocker) {
-    let continuousBlocker: Entity | undefined = undefined;
-    const checkContinuous = actor.kind === EntityKind.PLAYER && "worldX" in actor;
-
-    // Only compute distances if necessary
-    const targetWorldX = checkContinuous ? nx * CELL_CONFIG.w + CELL_CONFIG.w / 2 : 0;
-    const targetWorldY = checkContinuous ? ny * CELL_CONFIG.h + CELL_CONFIG.h / 2 : 0;
-    const MELEE_RANGE_SQ = CELL_CONFIG.w * CELL_CONFIG.w; // One tile range, squared
-
-    // Direct iteration of entities array is fast, avoiding .find() callback overhead
-    const entities = state.entities;
-    for (let i = 0, len = entities.length; i < len; i++) {
-      const e = entities[i];
-      if (e.kind === EntityKind.MONSTER) {
-        if (e.gridX === nx && e.gridY === ny) {
-          blocker = e;
-          break; // Found primary blocker, can stop searching
-        }
-
-        // Keep track of continuous blocker if we haven't found one yet
-        if (checkContinuous && !continuousBlocker && "worldX" in e) {
-          const dx = e.worldX - targetWorldX;
-          const dy = e.worldY - targetWorldY;
-          if (dx * dx + dy * dy < MELEE_RANGE_SQ) {
-            continuousBlocker = e;
-          }
-        }
-      }
-    }
-
-    if (!blocker) {
-      blocker = continuousBlocker;
+    if (checkContinuous && isMonster && !nearbyMonster && "worldX" in entity) {
+      const dx = entity.worldX - targetWorldX;
+      const dy = entity.worldY - targetWorldY;
+      if (dx * dx + dy * dy < MELEE_RANGE_SQ) nearbyMonster = entity;
     }
   }
+
+  blocker ??= nearbyMonster;
 
   if (blocker) {
     // Don't attack your own friendly pets by walking into them.
