@@ -1,3 +1,12 @@
+/**
+ * Coverage for user-preference persistence.
+ *
+ * Preferences come back from localStorage as untrusted JSON, so every field is
+ * run through a normalizer on load. These tests pin the normalizers, the
+ * legacy-theme migration, and the rule that neither load nor save may throw -
+ * both are called during startup, where an exception is a black screen.
+ */
+
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   loadPreferences,
@@ -74,6 +83,100 @@ describe("preferences", () => {
         ...DEFAULT_PREFERENCES,
         keyBindings: { ...DEFAULT_KEY_BINDINGS },
       });
+    });
+  });
+
+  describe("value normalization", () => {
+    const load = (
+      raw: Record<string, unknown>,
+    ): ReturnType<typeof loadPreferences> => {
+      localStorageMock["darkwar-preferences"] = JSON.stringify(raw);
+      return loadPreferences();
+    };
+
+    it("clamps volumes into 0..1 and rejects non-finite values", () => {
+      expect(load({ sfxVolume: 5 }).sfxVolume).toBe(1);
+      expect(load({ sfxVolume: -3 }).sfxVolume).toBe(0);
+      expect(load({ sfxVolume: NaN }).sfxVolume).toBe(
+        DEFAULT_PREFERENCES.sfxVolume,
+      );
+      expect(load({ musicVolume: "loud" }).musicVolume).toBe(
+        DEFAULT_PREFERENCES.musicVolume,
+      );
+    });
+
+    it("accepts only the three supported zoom levels", () => {
+      expect(load({ zoom: 2 }).zoom).toBe(2);
+      expect(load({ zoom: 3 }).zoom).toBe(3);
+      // Anything else - including a plausible-looking 4 - falls back to 1.
+      expect(load({ zoom: 4 }).zoom).toBe(1);
+      expect(load({ zoom: 1.5 }).zoom).toBe(1);
+      expect(load({ zoom: "2" }).zoom).toBe(1);
+    });
+
+    it("treats any theme other than light as dark", () => {
+      expect(load({ theme: "light" }).theme).toBe("light");
+      expect(load({ theme: "dark" }).theme).toBe("dark");
+      expect(load({ theme: "sepia" }).theme).toBe("dark");
+    });
+
+    it("falls back to the legacy theme key when no theme is stored", () => {
+      // Migration path for preferences written before theme moved into the
+      // preferences blob.
+      localStorageMock["darkwar-preferences"] = JSON.stringify({});
+      localStorageMock["darkwar-ui-theme"] = "light";
+      expect(loadPreferences().theme).toBe("light");
+    });
+
+    it("requires devTools to be exactly true", () => {
+      expect(load({ devTools: true }).devTools).toBe(true);
+      expect(load({ devTools: "true" }).devTools).toBe(false);
+      expect(load({ devTools: 1 }).devTools).toBe(false);
+    });
+  });
+
+  describe("key binding normalization", () => {
+    it("merges stored bindings over the defaults", () => {
+      localStorageMock["darkwar-preferences"] = JSON.stringify({
+        keyBindings: { moveUp: "ArrowUp" },
+      });
+      const prefs = loadPreferences();
+      expect(prefs.keyBindings.moveUp).toBe("ArrowUp");
+      expect(prefs.keyBindings.moveLeft).toBe(DEFAULT_KEY_BINDINGS.moveLeft);
+    });
+
+    it("ignores empty or non-string bindings", () => {
+      localStorageMock["darkwar-preferences"] = JSON.stringify({
+        keyBindings: { moveUp: "", moveLeft: 42, moveDown: null },
+      });
+      const prefs = loadPreferences();
+      expect(prefs.keyBindings.moveUp).toBe(DEFAULT_KEY_BINDINGS.moveUp);
+      expect(prefs.keyBindings.moveLeft).toBe(DEFAULT_KEY_BINDINGS.moveLeft);
+      expect(prefs.keyBindings.moveDown).toBe(DEFAULT_KEY_BINDINGS.moveDown);
+    });
+
+    it("drops bindings for actions absent from KEY_BINDING_DEFINITIONS", () => {
+      // normalizeKeyBindings iterates KEY_BINDING_DEFINITIONS, which no longer
+      // lists weapon1-4 (inventory slot keys took over weapon selection). A
+      // stored weapon binding is therefore discarded, not honored. Pinning this
+      // so the omission stays deliberate rather than looking like a lost edit.
+      localStorageMock["darkwar-preferences"] = JSON.stringify({
+        keyBindings: { weapon1: "KeyZ" },
+      });
+      expect(loadPreferences().keyBindings.weapon1).toBe(
+        DEFAULT_KEY_BINDINGS.weapon1,
+      );
+    });
+
+    it("returns a fresh bindings object rather than aliasing the defaults", () => {
+      // DEFAULT_PREFERENCES.keyBindings IS DEFAULT_KEY_BINDINGS by reference,
+      // so a load that handed back the shared object would let a rebind corrupt
+      // the defaults for the rest of the session.
+      const prefs = loadPreferences();
+      expect(prefs.keyBindings).not.toBe(DEFAULT_KEY_BINDINGS);
+      prefs.keyBindings.moveUp = "KeyQ";
+      expect(DEFAULT_KEY_BINDINGS.moveUp).toBe("KeyW");
+      expect(loadPreferences().keyBindings.moveUp).toBe("KeyW");
     });
   });
 
