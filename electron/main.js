@@ -342,15 +342,20 @@ ipcMain.handle("save:read", async () => {
 
 ipcMain.handle("save:list", async () => {
   try {
-    const saves = [];
+    const promises = [];
     for (let slot = 0; slot < SAVE_SLOT_COUNT; slot++) {
-      try {
-        const data = await fs.promises.readFile(saveSlotFile(slot), "utf8");
-        saves.push({ slot, data });
-      } catch (e) {
-        if (e.code !== "ENOENT") throw e;
-      }
+      promises.push(
+        fs.promises
+          .readFile(saveSlotFile(slot), "utf8")
+          .then((data) => ({ slot, data }))
+          .catch((e) => {
+            if (e.code !== "ENOENT") throw e;
+            return null;
+          }),
+      );
     }
+    const results = await Promise.all(promises);
+    const saves = results.filter((r) => r !== null);
     return { ok: true, saves };
   } catch (e) {
     return { ok: false, error: e.message, saves: [] };
