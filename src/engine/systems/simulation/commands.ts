@@ -12,6 +12,7 @@ import {
   ItemType,
   WeaponType,
   CELL_CONFIG,
+  Entity,
 } from "../../types";
 import { inBoundsFor, idxFor } from "../../utils/helpers";
 import {
@@ -1633,21 +1634,27 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
 
   // Find items within pickup radius (24px for continuous movement)
   const PICKUP_RADIUS = 24;
-  const itemsNearby = state.entities.filter((e) => {
-    if (e.kind !== EntityKind.ITEM) return false;
-    if (ITEM_DEFS[(e as Item).type]?.collectible === false) return false;
+  const PICKUP_RADIUS_SQ = PICKUP_RADIUS * PICKUP_RADIUS;
+  const itemsNearby: Entity[] = [];
+
+  const items = state.entityManager.items;
+  for (let i = 0; i < items.length; i++) {
+    const e = items[i];
+    if (ITEM_DEFS[e.type]?.collectible === false) continue;
 
     // Use continuous coordinates if available
     if ("worldX" in actor && "worldX" in e) {
       const dx = e.worldX - actor.worldX;
       const dy = e.worldY - actor.worldY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      return dist <= PICKUP_RADIUS;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= PICKUP_RADIUS_SQ) {
+        itemsNearby.push(e as unknown as Entity);
+      }
+    } else if (e.gridX === actor.gridX && e.gridY === actor.gridY) {
+      // Fallback to grid coordinates
+      itemsNearby.push(e as unknown as Entity);
     }
-
-    // Fallback to grid coordinates
-    return e.gridX === actor.gridX && e.gridY === actor.gridY;
-  });
+  }
 
   const player = actor as Player;
   let anyPickedUp = false;
