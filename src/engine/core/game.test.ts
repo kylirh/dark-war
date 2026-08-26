@@ -572,3 +572,55 @@ describe("Game multiplayer player management", () => {
     expect(game.respawnPlayer()).toBe(false);
   });
 });
+
+/**
+ * `state.players` is a parallel index of the PLAYER-kind entities, maintained
+ * alongside `state.entities` by every add/remove path. Several hot-path lookups
+ * scan it instead of filtering the full entity array, which is only valid while
+ * the two stay in lockstep.
+ */
+describe("state.players stays in sync with state.entities", () => {
+  /** Every PLAYER in entities appears in players, by identity, and vice versa. */
+  function expectPlayerIndexConsistent(state: ReturnType<Game["getState"]>) {
+    const playerEntities = state.entities.filter(
+      (entity) => entity.kind === EntityKind.PLAYER,
+    );
+    expect(new Set(state.players)).toEqual(new Set(playerEntities));
+    for (const player of state.players) {
+      // Identity, not just id equality: the lookups return these objects and
+      // callers mutate them.
+      expect(state.entities.includes(player)).toBe(true);
+    }
+  }
+
+  it("holds for a fresh single-player game", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    expect(state.players).toHaveLength(1);
+    expectPlayerIndexConsistent(state);
+  });
+
+  it("holds across level transitions", () => {
+    const game = new Game({ mode: "offline" });
+    for (const depth of [0, 1, 2, 5]) {
+      game.reset(depth);
+      expectPlayerIndexConsistent(game.getState());
+    }
+  });
+
+  it("holds as network players join and leave", () => {
+    const game = new Game({ mode: "online" });
+    game.reset(1);
+
+    game.addNetworkPlayer("p-two");
+    game.addNetworkPlayer("p-three");
+    expectPlayerIndexConsistent(game.getState());
+    expect(game.getState().players.length).toBeGreaterThanOrEqual(3);
+
+    game.removeNetworkPlayer("p-two");
+    expectPlayerIndexConsistent(game.getState());
+    expect(game.getState().players.some((p) => p.id === "p-two")).toBe(false);
+    expect(game.getState().entities.some((e) => e.id === "p-two")).toBe(false);
+  });
+});
