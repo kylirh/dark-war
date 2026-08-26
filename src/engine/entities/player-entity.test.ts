@@ -67,3 +67,78 @@ describe("PlayerEntity starter loadout", () => {
     expect(sawLaser).toBe(true);
   });
 });
+
+describe("PlayerEntity resetForRespawn", () => {
+  it("resets basic stats and items to starter values while preserving id", () => {
+    const p = new PlayerEntity(0, 0);
+    const originalId = p.id;
+
+    // Modify some basic stats and items
+    p.ammo = 100;
+    p.grenades = 5;
+    p.inventorySlots[0].type = ItemType.MEDKIT;
+
+    p.resetForRespawn();
+
+    expect(p.id).toBe(originalId);
+    // Starter kit has 0 grenades, and either 12 or 0 ammo depending on weapon roll
+    expect(p.grenades).toBe(0);
+    expect([0, 12]).toContain(p.ammo);
+    // inventory should be reset to starter loadout, no plasma rifle
+    expect(p.inventorySlots[0].type).not.toBe(ItemType.MEDKIT);
+  });
+
+  it("preserves progression stats and fully restores hp", () => {
+    const p = new PlayerEntity(0, 0);
+
+    // Simulate progression and damage
+    p.hpMax = 50;
+    p.hp = 10;
+    p.sight = 12;
+    p.score = 5000;
+    p.laserChargeMax = 200;
+    p.panicChargeMax = 150;
+
+    p.resetForRespawn();
+
+    expect(p.hpMax).toBe(50);
+    expect(p.hp).toBe(50); // Restored to max
+    expect(p.sight).toBe(12);
+    expect(p.score).toBe(5000);
+    expect(p.laserChargeMax).toBe(200);
+    expect(p.panicChargeMax).toBe(150);
+  });
+
+  it("handles core devices (CTDM and Matter Manipulator) correctly", () => {
+    const p = new PlayerEntity(0, 0);
+
+    // Set devices and active states
+    p.hasCTDM = true;
+    p.ctdmEnabled = true;
+    p.hasMatterManipulator = true;
+    p.matterManipulatorActive = true;
+
+    // Clear inventory to ensure devices can be added
+    p.inventorySlots.forEach(slot => slot.type = null);
+
+    p.resetForRespawn();
+
+    expect(p.hasCTDM).toBe(true);
+    expect(p.ctdmEnabled).toBe(false); // Active state reset
+    expect(p.hasMatterManipulator).toBe(true);
+    expect(p.matterManipulatorActive).toBe(false); // Active state reset
+
+    const types = p.inventorySlots.map(s => s.type);
+    expect(types).toContain(ItemType.CTDM);
+    expect(types).toContain(ItemType.MATTER_MANIPULATOR);
+  });
+
+  it("resets inventoryDroppedOnDeath flag", () => {
+    const p = new PlayerEntity(0, 0);
+    p.inventoryDroppedOnDeath = true;
+
+    p.resetForRespawn();
+
+    expect(p.inventoryDroppedOnDeath).toBe(false);
+  });
+});
