@@ -31,9 +31,13 @@ describe("MonsterEntity", () => {
   });
 
   it("spawns Zyth and Terrorist Collaborator with a pistol and no laser charge", () => {
-    // Add ItemType to imports if needed, we'll assume it's imported for now, oh wait we need to import it
     const zyth = new MonsterEntity(0, 0, MonsterType.ZYTH, 5);
-    const collaborator = new MonsterEntity(0, 0, MonsterType.TERRORIST_COLLABORATOR, 6);
+    const collaborator = new MonsterEntity(
+      0,
+      0,
+      MonsterType.TERRORIST_COLLABORATOR,
+      6,
+    );
 
     expect(zyth.equippedWeapon).toBe(ItemType.PISTOL);
     expect(zyth.laserCharge).toBe(0);
@@ -43,7 +47,12 @@ describe("MonsterEntity", () => {
   });
 
   describe("inventory and initial loadout", () => {
+    // MonsterEntity draws its loadout from the shared global RNG, so each
+    // sampling test reseeds to stay deterministic and independent of the ones
+    // that ran before it.
+
     it("respects cannotCarryItems flag, ensuring 0 bullets/grenades/mines", () => {
+      RNG.reseed(1);
       // Wild dog and icky lump have cannotCarryItems
       const dog = new MonsterEntity(0, 0, MonsterType.WILD_DOG, 1);
       const lump = new MonsterEntity(0, 0, MonsterType.ICKY_LUMP, 1);
@@ -58,9 +67,9 @@ describe("MonsterEntity", () => {
     });
 
     it("generates random bullets and occasional grenades for ranged monsters", () => {
-      // Test skulker (behavior: ranged, rangedBullets: [3, 8])
-      // Force random to max chance for grenades and max bullets
-      RNG.reseed(0); // Find a seed that works or iterate
+      // Skulker is behavior: "ranged" with flags.rangedBullets [3, 8].
+      // Seeded so the sampling below is deterministic rather than flaky.
+      RNG.reseed(0);
       let hasGrenade = false;
       for (let i = 0; i < 20; i++) {
         const skulker = new MonsterEntity(0, 0, MonsterType.SKULKER, 1);
@@ -76,7 +85,7 @@ describe("MonsterEntity", () => {
     });
 
     it("generates occasional grenades or land mines for melee monsters", () => {
-      // Test mutant (behavior: melee)
+      // Mutant is behavior: "melee" with no cannotCarryItems flag.
       let hasGrenade = false;
       let hasMine = false;
 
