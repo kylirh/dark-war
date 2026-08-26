@@ -285,7 +285,6 @@ class DarkWar {
   private calloutComposer: CalloutComposer;
   private readonly worldCalloutManager = new WorldCalloutManager();
   private preferences: UserPreferences;
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   private inputHandler: InputHandler;
   private playerActedThisTick: boolean = false;
   private autoMovePath: [number, number][] | null = null;
