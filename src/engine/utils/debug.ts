@@ -16,6 +16,7 @@ try {
 }
 
 try {
+  // @ts-ignore
   if (typeof process !== "undefined" && process.env.VITE_DEBUG === "true") {
     _debug = true;
   }
