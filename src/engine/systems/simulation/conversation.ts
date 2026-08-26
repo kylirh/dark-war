@@ -127,11 +127,9 @@ function anyOfflineConversationActive(state: GameState): boolean {
 
 /** Speaker still present and within talking range of the player. */
 function speakerReachable(
-  state: GameState,
   player: Player,
-  speakerId: string,
+  speaker: Entity | undefined,
 ): Entity | null {
-  const speaker = state.entities.find((e) => e.id === speakerId);
   if (!speaker) return null;
   if (
     Math.abs(speaker.gridX - player.gridX) > TALK_RANGE_TILES ||
@@ -144,12 +142,27 @@ function speakerReachable(
 
 /** Close sessions whose player, speaker, or authored node is no longer valid. */
 export function updateConversationSessions(state: GameState): void {
+  if (state.conversations.size === 0) return;
+
+  const speakersNeeded = new Set<string>();
+  for (const session of state.conversations.values()) {
+    speakersNeeded.add(session.speakerId);
+  }
+
+  // First match wins, matching the .find() this replaces. Entity ids are
+  // unique, so this only matters if that ever stops being true.
+  const foundSpeakers = new Map<string, Entity>();
+  for (const entity of state.entities) {
+    if (speakersNeeded.has(entity.id) && !foundSpeakers.has(entity.id)) {
+      foundSpeakers.set(entity.id, entity);
+      if (foundSpeakers.size === speakersNeeded.size) break;
+    }
+  }
+
   for (const [playerId, session] of Array.from(state.conversations.entries())) {
-    const player = state.entities.find(
-      (entity) => entity.id === playerId && entity.kind === EntityKind.PLAYER,
-    ) as Player | undefined;
+    const player = state.players.find((p) => p.id === playerId);
     const speaker = player
-      ? speakerReachable(state, player, session.speakerId)
+      ? speakerReachable(player, foundSpeakers.get(session.speakerId))
       : null;
     const node = DIALOGUE_DEFS[session.dialogueId]?.nodes[session.nodeId];
     const speakerAlive =
@@ -406,7 +419,8 @@ export function applyDialogueChoice(
   const session = state.conversations.get(player.id);
   if (!session || session.revision !== expectedRevision) return; // stale/duplicate
 
-  const speaker = speakerReachable(state, player, session.speakerId);
+  const speakerEntity = state.entities.find((e) => e.id === session.speakerId);
+  const speaker = speakerReachable(player, speakerEntity);
   if (!speaker) {
     endConversation(state, player.id);
     return;

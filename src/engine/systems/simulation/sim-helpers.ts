@@ -10,6 +10,7 @@ import {
   CELL_CONFIG,
   ONLINE_TIME_SCALE,
 } from "../../types";
+import { bresenhamLine } from "../../utils/bresenham";
 import { TileSource } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
 import {
@@ -292,36 +293,14 @@ export function hasClearLineOfSight(
   const gridX2 = Math.floor(endWorldX / CELL_CONFIG.w);
   const gridY2 = Math.floor(endWorldY / CELL_CONFIG.h);
 
-  const dx = Math.abs(gridX2 - gridX1);
-  const dy = Math.abs(gridY2 - gridY1);
-  const sx = gridX1 < gridX2 ? 1 : -1;
-  const sy = gridY1 < gridY2 ? 1 : -1;
-  let err = dx - dy;
-
-  let x = gridX1;
-  let y = gridY1;
-
-  while (true) {
+  return bresenhamLine(gridX1, gridY1, gridX2, gridY2, (x, y) => {
     if (tiles.opaque(x, y)) {
       if ((x !== gridX1 || y !== gridY1) && (x !== gridX2 || y !== gridY2)) {
         return false;
       }
     }
-
-    if (x === gridX2 && y === gridY2) break;
-
-    const e2 = 2 * err;
-    if (e2 > -dy) {
-      err -= dy;
-      x += sx;
-    }
-    if (e2 < dx) {
-      err += dx;
-      y += sy;
-    }
-  }
-
-  return true;
+    return true;
+  });
 }
 
 export function findMeleeTarget(
