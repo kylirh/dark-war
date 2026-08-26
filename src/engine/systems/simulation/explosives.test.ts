@@ -1,6 +1,21 @@
+/**
+ * Coverage for the explosive simulation: fuse countdown, proximity triggering,
+ * landed-grenade jitter, and effect lifetime.
+ *
+ * These run against a real Game so the entity manager, event queue and level
+ * are the production ones; only RNG is pinned, since bounce direction is
+ * deliberately random.
+ */
+
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Game } from "../../core/game";
-import { ItemType, EventType, EntityKind, MonsterType, Effect } from "../../types";
+import {
+  ItemType,
+  EventType,
+  EntityKind,
+  MonsterType,
+  Effect,
+} from "../../types";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
 import { MonsterEntity } from "../../entities/monster-entity";
 import {
@@ -19,11 +34,6 @@ describe("explosives simulation", () => {
     RNG.reseed(2024);
     game = new Game({ mode: "offline" });
     game.reset(1);
-    const state = game.getState();
-    // Initialize eventQueue if not present
-    if (!state.eventQueue) {
-       state.eventQueue = [];
-    }
   });
 
   describe("triggerExplosion", () => {
@@ -39,11 +49,18 @@ describe("explosives simulation", () => {
       const explosionEvent = state.eventQueue[state.eventQueue.length - 1];
 
       expect(explosionEvent.type).toBe(EventType.EXPLOSION);
-      if (explosionEvent.type === EventType.EXPLOSION && explosionEvent.data.type === "EXPLOSION") {
+      if (
+        explosionEvent.type === EventType.EXPLOSION &&
+        explosionEvent.data.type === "EXPLOSION"
+      ) {
         expect(explosionEvent.data.x).toBe(Math.floor(x / 32));
         expect(explosionEvent.data.y).toBe(Math.floor(y / 32));
-        expect(explosionEvent.data.radius).toBe(EXPLOSIVE_CONFIG[ItemType.GRENADE].radius);
-        expect(explosionEvent.data.damage).toBe(EXPLOSIVE_CONFIG[ItemType.GRENADE].damage);
+        expect(explosionEvent.data.radius).toBe(
+          EXPLOSIVE_CONFIG[ItemType.GRENADE].radius,
+        );
+        expect(explosionEvent.data.damage).toBe(
+          EXPLOSIVE_CONFIG[ItemType.GRENADE].damage,
+        );
         expect(explosionEvent.cause).toBe("test_cause");
       } else {
         expect.fail("Expected an EXPLOSION event");
@@ -57,34 +74,54 @@ describe("explosives simulation", () => {
         const state = game.getState();
         const initialEventsCount = state.eventQueue.length;
 
-        const grenade = new ExplosiveEntity(100, 100, ItemType.GRENADE, true, 5);
+        const grenade = new ExplosiveEntity(
+          100,
+          100,
+          ItemType.GRENADE,
+          true,
+          5,
+        );
         state.entityManager.spawn(grenade);
 
         updateExplosives(state);
 
         expect(grenade.fuseTicks).toBe(4);
         expect(state.eventQueue.length).toBe(initialEventsCount); // No explosion yet
-        expect(state.entities.find(e => e.id === grenade.id)).toBeDefined();
+        expect(state.entities.find((e) => e.id === grenade.id)).toBeDefined();
       });
 
       it("triggers explosion and destroys entity when fuse reaches 0", () => {
         const state = game.getState();
 
-        const grenade = new ExplosiveEntity(100, 100, ItemType.GRENADE, true, 1);
+        const grenade = new ExplosiveEntity(
+          100,
+          100,
+          ItemType.GRENADE,
+          true,
+          1,
+        );
         state.entityManager.spawn(grenade);
 
         updateExplosives(state); // fuse goes to 0 -> explosion
 
-        const explosionEvent = state.eventQueue.find(e => e.type === EventType.EXPLOSION);
+        const explosionEvent = state.eventQueue.find(
+          (e) => e.type === EventType.EXPLOSION,
+        );
         expect(explosionEvent).toBeDefined();
 
         // Entity should be removed
-        expect(state.entities.find(e => e.id === grenade.id)).toBeUndefined();
+        expect(state.entities.find((e) => e.id === grenade.id)).toBeUndefined();
       });
 
       it("calls updateLandedGrenadeBounce if grenade has landed", () => {
         const state = game.getState();
-        const grenade = new ExplosiveEntity(100, 100, ItemType.GRENADE, true, 5);
+        const grenade = new ExplosiveEntity(
+          100,
+          100,
+          ItemType.GRENADE,
+          true,
+          5,
+        );
         grenade.hasLanded = true;
         grenade.landingWorldX = 100;
         grenade.landingWorldY = 100;
@@ -113,7 +150,7 @@ describe("explosives simulation", () => {
         state.player.worldY = 1000;
 
         // Remove monsters near 100,100
-        state.entityManager.destroyWhere(e => e.kind === EntityKind.MONSTER);
+        state.entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
 
         const mine = new ExplosiveEntity(100, 100, ItemType.LAND_MINE, true);
         state.entityManager.spawn(mine);
@@ -121,7 +158,7 @@ describe("explosives simulation", () => {
         updateExplosives(state);
 
         // Mine should still be there
-        expect(state.entities.find(e => e.id === mine.id)).toBeDefined();
+        expect(state.entities.find((e) => e.id === mine.id)).toBeDefined();
       });
 
       it("triggers when an actor enters the radius", () => {
@@ -139,8 +176,10 @@ describe("explosives simulation", () => {
         updateExplosives(state);
 
         // Mine should be destroyed and explosion triggered
-        expect(state.entities.find(e => e.id === mine.id)).toBeUndefined();
-        const explosionEvent = state.eventQueue.find(e => e.type === EventType.EXPLOSION);
+        expect(state.entities.find((e) => e.id === mine.id)).toBeUndefined();
+        const explosionEvent = state.eventQueue.find(
+          (e) => e.type === EventType.EXPLOSION,
+        );
         expect(explosionEvent).toBeDefined();
       });
 
@@ -151,32 +190,48 @@ describe("explosives simulation", () => {
         player.worldY = 100;
 
         // Remove other actors to isolate test
-        state.entityManager.destroyWhere(e => e.kind === EntityKind.MONSTER);
+        state.entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
 
-        const mine = new ExplosiveEntity(100, 100, ItemType.LAND_MINE, true, undefined, player.id, 5);
+        const mine = new ExplosiveEntity(
+          100,
+          100,
+          ItemType.LAND_MINE,
+          true,
+          undefined,
+          player.id,
+          5,
+        );
         state.entityManager.spawn(mine);
 
         updateExplosives(state);
 
         // Mine should not trigger for owner
-        expect(state.entities.find(e => e.id === mine.id)).toBeDefined();
+        expect(state.entities.find((e) => e.id === mine.id)).toBeDefined();
       });
 
       it("triggers on owner if ignoreOwnerTicks is 0", () => {
-         const state = game.getState();
+        const state = game.getState();
         const player = state.player;
         player.worldX = 100;
         player.worldY = 100;
 
-        state.entityManager.destroyWhere(e => e.kind === EntityKind.MONSTER);
+        state.entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
 
-        const mine = new ExplosiveEntity(100, 100, ItemType.LAND_MINE, true, undefined, player.id, 0);
+        const mine = new ExplosiveEntity(
+          100,
+          100,
+          ItemType.LAND_MINE,
+          true,
+          undefined,
+          player.id,
+          0,
+        );
         state.entityManager.spawn(mine);
 
         updateExplosives(state);
 
         // Mine SHOULD trigger for owner since ignore ticks expired
-        expect(state.entities.find(e => e.id === mine.id)).toBeUndefined();
+        expect(state.entities.find((e) => e.id === mine.id)).toBeUndefined();
       });
     });
   });
@@ -223,7 +278,7 @@ describe("explosives simulation", () => {
     });
 
     it("applies bounce velocity based on offset and random chance", () => {
-       const explosive = new ExplosiveEntity(115, 100, ItemType.GRENADE, true);
+      const explosive = new ExplosiveEntity(115, 100, ItemType.GRENADE, true);
       explosive.landingWorldX = 100;
       explosive.landingWorldY = 100;
       explosive.velocityX = 0;
@@ -242,6 +297,42 @@ describe("explosives simulation", () => {
   });
 
   describe("updateEffects", () => {
+    it("keeps surviving effects in order when one in the middle expires", () => {
+      // updateEffects compacts in place with a write index. An off-by-one there
+      // duplicates or drops a survivor, which a two-effect test cannot see.
+      const state = game.getState();
+      state.effects = [
+        {
+          id: "a",
+          type: "spark",
+          worldX: 0,
+          worldY: 0,
+          ageTicks: 0,
+          durationTicks: 9,
+        },
+        {
+          id: "b",
+          type: "spark",
+          worldX: 0,
+          worldY: 0,
+          ageTicks: 8,
+          durationTicks: 9,
+        },
+        {
+          id: "c",
+          type: "spark",
+          worldX: 0,
+          worldY: 0,
+          ageTicks: 0,
+          durationTicks: 9,
+        },
+      ] as Effect[];
+
+      updateEffects(state);
+
+      expect(state.effects.map((e) => e.id)).toEqual(["a", "c"]);
+    });
+
     it("increments ageTicks and removes expired effects", () => {
       const state = game.getState();
 
@@ -293,6 +384,53 @@ describe("explosives simulation", () => {
 
       expect(state.effects[0].worldX).toBe(100 + 100 * dt);
       expect(state.effects[0].worldY).toBe(100 - 50 * dt);
+    });
+  });
+
+  describe("land mine trigger radius", () => {
+    /** Isolate a mine at the origin with no other actors in range. */
+    function armedMineAt(
+      x: number,
+      y: number,
+    ): {
+      state: ReturnType<Game["getState"]>;
+      mine: ExplosiveEntity;
+    } {
+      const state = game.getState();
+      state.entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
+      state.player.worldX = 5000;
+      state.player.worldY = 5000;
+      const mine = new ExplosiveEntity(0, 0, ItemType.LAND_MINE, true);
+      mine.worldX = x;
+      mine.worldY = y;
+      state.entityManager.spawn(mine);
+      return { state, mine };
+    }
+
+    const TRIGGER_RADIUS = 32 * 0.45;
+
+    it("triggers just inside the radius", () => {
+      const { state, mine } = armedMineAt(100, 100);
+      const monster = new MonsterEntity(0, 0, MonsterType.MUTANT, 1);
+      monster.worldX = 100 + TRIGGER_RADIUS - 0.5;
+      monster.worldY = 100;
+      state.entityManager.spawn(monster);
+
+      updateExplosives(state);
+
+      expect(state.entities.find((e) => e.id === mine.id)).toBeUndefined();
+    });
+
+    it("does not trigger just outside the radius", () => {
+      const { state, mine } = armedMineAt(100, 100);
+      const monster = new MonsterEntity(0, 0, MonsterType.MUTANT, 1);
+      monster.worldX = 100 + TRIGGER_RADIUS + 0.5;
+      monster.worldY = 100;
+      state.entityManager.spawn(monster);
+
+      updateExplosives(state);
+
+      expect(state.entities.find((e) => e.id === mine.id)).toBeDefined();
     });
   });
 });
