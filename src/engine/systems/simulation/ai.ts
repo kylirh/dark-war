@@ -1284,10 +1284,8 @@ export function updateMonsterSteering(state: GameState): void {
     if (monster.fleeing) {
       // A thief that grabbed loot sprints directly away from the player.
       const fleeFrom =
-        state.entities.find(
-          (entity) =>
-            entity.id === monster.fleeingFromPlayerId &&
-            entity.kind === EntityKind.PLAYER,
+        state.players.find(
+          (player) => player.id === monster.fleeingFromPlayerId,
         ) ?? getClosestPlayer(state, monster);
       const fm = monster as any;
       if (fleeFrom && "worldX" in fleeFrom) {

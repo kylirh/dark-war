@@ -1,9 +1,19 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { Entity } from "../types";
+import { Entity, EntityKind } from "../types";
 import { EntityManager } from "./entity-manager";
 
 function ent(id: string): Entity {
   return { id } as unknown as Entity;
+}
+
+/** An ITEM-kind entity, which the manager mirrors into its `items` index. */
+function item(id: string): Entity {
+  return { id, kind: EntityKind.ITEM } as unknown as Entity;
+}
+
+/** A MONSTER-kind entity, which must never appear in the `items` index. */
+function monster(id: string): Entity {
+  return { id, kind: EntityKind.MONSTER } as unknown as Entity;
 }
 
 describe("EntityManager", () => {
@@ -85,5 +95,110 @@ describe("EntityManager", () => {
     manager.clearLifecycle();
     expect(manager.spawnedIds.size).toBe(0);
     expect(manager.removedIds.size).toBe(0);
+  });
+
+  describe("items index", () => {
+    /**
+     * The index is a denormalized view, so the only thing worth testing is that
+     * it never disagrees with the entity array it mirrors.
+     */
+    function expectIndexConsistent(m: EntityManager): void {
+      const fromEntities = m.entities.filter(
+        (entity) => entity.kind === EntityKind.ITEM,
+      );
+      expect([...m.items]).toEqual(fromEntities);
+    }
+
+    it("starts from the entities passed to the constructor", () => {
+      const seeded = new EntityManager([item("i1"), monster("m1"), item("i2")]);
+      expect(seeded.items.map((i) => i.id)).toEqual(["i1", "i2"]);
+      expectIndexConsistent(seeded);
+    });
+
+    it("stays consistent through spawn", () => {
+      manager.spawn(item("i1"));
+      manager.spawn(monster("m1"));
+      manager.spawn(item("i2"));
+      expect(manager.items.map((i) => i.id)).toEqual(["i1", "i2"]);
+      expectIndexConsistent(manager);
+    });
+
+    it("stays consistent through spawnAll", () => {
+      manager.spawnAll([item("i1"), monster("m1"), item("i2")]);
+      expect(manager.items).toHaveLength(2);
+      expectIndexConsistent(manager);
+    });
+
+    it("stays consistent through destroy by id and by reference", () => {
+      manager.spawnAll([item("i1"), item("i2"), monster("m1")]);
+      const i2 = manager.getById("i2")!;
+
+      manager.destroy("i1");
+      expectIndexConsistent(manager);
+
+      manager.destroy(i2);
+      expect(manager.items).toHaveLength(0);
+      expectIndexConsistent(manager);
+    });
+
+    it("leaves the index alone when a non-item is destroyed", () => {
+      manager.spawnAll([item("i1"), monster("m1")]);
+      manager.destroy("m1");
+      expect(manager.items.map((i) => i.id)).toEqual(["i1"]);
+      expectIndexConsistent(manager);
+    });
+
+    it("stays consistent through destroyWhere removing several items at once", () => {
+      manager.spawnAll([
+        item("i1"),
+        monster("m1"),
+        item("i2"),
+        item("i3"),
+        monster("m2"),
+      ]);
+
+      // Reverse-iterating removal is where a parallel index most easily slips.
+      manager.destroyWhere((entity) => entity.kind === EntityKind.ITEM);
+
+      expect(manager.items).toHaveLength(0);
+      expectIndexConsistent(manager);
+    });
+
+    it("stays consistent through destroyByIds", () => {
+      manager.spawnAll([item("i1"), item("i2"), item("i3")]);
+      manager.destroyByIds(new Set(["i1", "i3"]));
+      expect(manager.items.map((i) => i.id)).toEqual(["i2"]);
+      expectIndexConsistent(manager);
+    });
+
+    it("rebuilds the index on replaceAll", () => {
+      manager.spawnAll([item("old1"), item("old2")]);
+      manager.replaceAll([monster("m1"), item("new1")]);
+      expect(manager.items.map((i) => i.id)).toEqual(["new1"]);
+      expectIndexConsistent(manager);
+    });
+
+    it("empties the index when replaceAll is given no items", () => {
+      manager.spawnAll([item("i1"), item("i2")]);
+      manager.replaceAll([monster("m1")]);
+      expect(manager.items).toHaveLength(0);
+      expectIndexConsistent(manager);
+    });
+
+    it("survives a long mixed sequence of spawns and removals", () => {
+      // Churn the way a real level does, then check the index still agrees.
+      for (let i = 0; i < 40; i++) {
+        manager.spawn(i % 3 === 0 ? monster(`m${i}`) : item(`i${i}`));
+      }
+      manager.destroyByIds(new Set(["i1", "i2", "m0", "i44"]));
+      manager.destroyWhere((e) => e.id.endsWith("7"));
+      manager.spawn(item("late"));
+      manager.destroy("late");
+      manager.spawn(item("last"));
+
+      expectIndexConsistent(manager);
+      expect(manager.items.some((i) => i.id === "last")).toBe(true);
+      expect(manager.items.some((i) => i.id === "i1")).toBe(false);
+    });
   });
 });

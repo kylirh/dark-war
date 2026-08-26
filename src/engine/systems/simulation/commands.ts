@@ -3,6 +3,7 @@ import {
   Command,
   CommandType,
   EventType,
+  Entity,
   EntityKind,
   Monster,
   MonsterType,
@@ -360,33 +361,40 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
     return false;
   }
 
-  // Check entity blocking - first try grid-based, then distance-based for continuous movement
-  let blocker = state.entities.find(
-    (e) =>
-      e.gridX === nx &&
-      e.gridY === ny &&
-      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
-  );
+  // Entity blocking. One pass: the first player or monster standing on the
+  // target tile wins, and failing that the first monster within melee range of
+  // it (continuous movement means a monster can overlap the tile without its
+  // grid cell matching). Scanning entities in order — rather than players as a
+  // group first — preserves the original precedence: when a monster and a
+  // player share the target tile, whichever was spawned earlier blocks, and a
+  // monster blocking converts the move into a melee attack below.
+  const checkContinuous = actor.kind === EntityKind.PLAYER && "worldX" in actor;
+  const targetWorldX = nx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+  const targetWorldY = ny * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+  const MELEE_RANGE_SQ = CELL_CONFIG.w * CELL_CONFIG.w; // One tile range, squared
 
-  // Also check for monsters near the target position using continuous coordinates
-  if (!blocker && actor.kind === EntityKind.PLAYER && "worldX" in actor) {
-    const targetWorldX = nx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
-    const targetWorldY = ny * CELL_CONFIG.h + CELL_CONFIG.h / 2;
-    const MELEE_RANGE_SQ = CELL_CONFIG.w * CELL_CONFIG.w; // One tile range, squared
+  let blocker: Entity | undefined;
+  let nearbyMonster: Entity | undefined;
 
-    for (const entity of state.entities) {
-      if (entity.kind !== EntityKind.MONSTER) continue;
-      if (!("worldX" in entity)) continue;
+  const entities = state.entities;
+  for (let i = 0, len = entities.length; i < len; i++) {
+    const entity = entities[i];
+    const isMonster = entity.kind === EntityKind.MONSTER;
+    if (!isMonster && entity.kind !== EntityKind.PLAYER) continue;
 
+    if (entity.gridX === nx && entity.gridY === ny) {
+      blocker = entity;
+      break;
+    }
+
+    if (checkContinuous && isMonster && !nearbyMonster && "worldX" in entity) {
       const dx = entity.worldX - targetWorldX;
       const dy = entity.worldY - targetWorldY;
-
-      if (dx * dx + dy * dy < MELEE_RANGE_SQ) {
-        blocker = entity;
-        break;
-      }
+      if (dx * dx + dy * dy < MELEE_RANGE_SQ) nearbyMonster = entity;
     }
   }
+
+  blocker ??= nearbyMonster;
 
   if (blocker) {
     // Don't attack your own friendly pets by walking into them.
@@ -1633,21 +1641,27 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
 
   // Find items within pickup radius (24px for continuous movement)
   const PICKUP_RADIUS = 24;
-  const itemsNearby = state.entities.filter((e) => {
-    if (e.kind !== EntityKind.ITEM) return false;
-    if (ITEM_DEFS[(e as Item).type]?.collectible === false) return false;
+  const PICKUP_RADIUS_SQ = PICKUP_RADIUS * PICKUP_RADIUS;
+  const itemsNearby: Entity[] = [];
+
+  const items = state.entityManager.items;
+  for (let i = 0; i < items.length; i++) {
+    const e = items[i];
+    if (ITEM_DEFS[e.type]?.collectible === false) continue;
 
     // Use continuous coordinates if available
     if ("worldX" in actor && "worldX" in e) {
       const dx = e.worldX - actor.worldX;
       const dy = e.worldY - actor.worldY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      return dist <= PICKUP_RADIUS;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= PICKUP_RADIUS_SQ) {
+        itemsNearby.push(e as unknown as Entity);
+      }
+    } else if (e.gridX === actor.gridX && e.gridY === actor.gridY) {
+      // Fallback to grid coordinates
+      itemsNearby.push(e as unknown as Entity);
     }
-
-    // Fallback to grid coordinates
-    return e.gridX === actor.gridX && e.gridY === actor.gridY;
-  });
+  }
 
   const player = actor as Player;
   let anyPickedUp = false;
