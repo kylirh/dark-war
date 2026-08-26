@@ -9,6 +9,9 @@
  *
  * Deterministic: pass a seeded RandomNumberGenerator and the same seed yields
  * the same dungeon.
+ *
+ * @param _depth Unused for now but kept in the signature so future generators can
+ *               theme levels (cave-heavy, larger, more loops) by how deep the player is.
  */
 
 import { TileType, WallSet } from "../types";
@@ -38,7 +41,7 @@ const ROOM_PADDING = 1; // empty tiles required between rooms
 export function generateDungeon(
   width: number,
   height: number,
-  depth: number,
+  _depth: number,
   rng: RandomNumberGenerator,
 ): GeneratedDungeon {
   const map = new Array<TileType>(width * height).fill(TileType.WALL);
@@ -118,10 +121,6 @@ export function generateDungeon(
   const stairsDown = centers[stairsRoom] ?? start;
   set(start[0], start[1], TileType.FLOOR);
   set(stairsDown[0], stairsDown[1], TileType.STAIRS_DOWN);
-
-  // `depth` is unused for now but kept in the signature so future generators can
-  // theme levels (cave-heavy, larger, more loops) by how deep the player is.
-  void depth;
 
   return {
     map,
