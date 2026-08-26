@@ -1,3 +1,11 @@
+/**
+ * Coverage for the monster-definition table and its stat-scaling helpers.
+ *
+ * MONSTER_DEFS is the single source of truth for spawning, AI archetype
+ * selection and rendering, so the tests pin both the table's completeness and
+ * the depth-scaling curves that balance depends on.
+ */
+
 import { describe, it, expect } from "vitest";
 import {
   MONSTER_DEFS,
@@ -84,9 +92,13 @@ describe("monster definitions", () => {
     expect(monsterDmgAt(MonsterType.WORKSHOP_BUILDER, 0)).toBe(0.5); // baseDmg 0, max(0.5, 0)
   });
 
-  it("throws a TypeError when requesting stats for an invalid MonsterType", () => {
+  it("fails loudly rather than silently defaulting for an unknown type", () => {
+    // The helpers dereference MONSTER_DEFS[type] with no fallback, by design:
+    // a monster missing from the table is a content bug that should surface at
+    // spawn time, not spawn a 1 HP creature nobody notices.
     const invalidType = "NOT_A_REAL_MONSTER" as MonsterType;
     expect(() => monsterHpAt(invalidType, 1)).toThrowError(TypeError);
     expect(() => monsterDmgAt(invalidType, 1)).toThrowError(TypeError);
+    expect(() => isRangedMonster(invalidType)).toThrowError(TypeError);
   });
 });
