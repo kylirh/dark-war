@@ -342,16 +342,21 @@ ipcMain.handle("save:read", async () => {
 
 ipcMain.handle("save:list", async () => {
   try {
-    const saves = [];
-    for (let slot = 0; slot < SAVE_SLOT_COUNT; slot++) {
-      try {
-        const data = await fs.promises.readFile(saveSlotFile(slot), "utf8");
-        saves.push({ slot, data });
-      } catch (e) {
-        if (e.code !== "ENOENT") throw e;
-      }
-    }
-    return { ok: true, saves };
+    // Read every slot at once rather than awaiting them one after another;
+    // Promise.all preserves order, so slots stay ascending. An empty slot is
+    // ENOENT and is filtered out; any other error fails the whole listing.
+    const slots = await Promise.all(
+      Array.from({ length: SAVE_SLOT_COUNT }, (_unused, slot) =>
+        fs.promises
+          .readFile(saveSlotFile(slot), "utf8")
+          .then((data) => ({ slot, data }))
+          .catch((e) => {
+            if (e.code === "ENOENT") return null;
+            throw e;
+          }),
+      ),
+    );
+    return { ok: true, saves: slots.filter((entry) => entry !== null) };
   } catch (e) {
     return { ok: false, error: e.message, saves: [] };
   }
