@@ -1,5 +1,4 @@
-// Debug flag. TODO: Create a function to toggle debugging the entire game that can be triggered at runtime and also set as a build option.
-const DEBUG = false;
+import { DEBUG } from "../config/debug";
 
 import {
   GameState,

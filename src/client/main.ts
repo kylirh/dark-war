@@ -106,7 +106,7 @@ import { DialoguePanel, DialoguePanelHandlers } from "./systems/dialogue-panel";
  */
 
 /** Enable debug logging for the entire game */
-const DEBUG = false;
+import { DEBUG } from "../engine/config/debug";
 
 /** The delay between clicks to count as double-click */
 const DOUBLE_CLICK_DELAY_MS = 320;
