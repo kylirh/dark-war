@@ -104,6 +104,19 @@ interface LevelSnapshot {
 }
 
 /**
+ * Remove the tile at `index` from a free-tile pool in O(1).
+ *
+ * Swaps the last element into the hole and pops, rather than splicing. The
+ * pool is only ever sampled uniformly at random, so the reordering is
+ * unobservable, while splice shifts every following element - O(n) per spawn
+ * against a pool that holds one entry per walkable tile on the level.
+ */
+function removeFreeTileAt(pool: [number, number][], index: number): void {
+  pool[index] = pool[pool.length - 1];
+  pool.pop();
+}
+
+/**
  * Main state manager
  * Orchestrates all systems and manages state
  */
@@ -349,11 +362,7 @@ export class Game {
           );
           mutantCount++;
         }
-        // Remove tile from available pool
-        // O(1) removal: swap with last element and pop
-        const last = freeTiles[freeTiles.length - 1];
-        freeTiles[tileIndex] = last;
-        freeTiles.pop();
+        removeFreeTileAt(freeTiles, tileIndex);
       }
     }
     if (DEBUG) console.log(`Spawned ${ratCount} rats, ${mutantCount} mutants`);
@@ -363,10 +372,7 @@ export class Game {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.AMMO));
-      // O(1) removal: swap with last element and pop
-      const last = freeTiles[freeTiles.length - 1];
-      freeTiles[tileIndex] = last;
-      freeTiles.pop();
+      removeFreeTileAt(freeTiles, tileIndex);
     }
 
     for (
@@ -377,40 +383,28 @@ export class Game {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.MEDKIT));
-      // O(1) removal: swap with last element and pop
-      const last = freeTiles[freeTiles.length - 1];
-      freeTiles[tileIndex] = last;
-      freeTiles.pop();
+      removeFreeTileAt(freeTiles, tileIndex);
     }
 
     for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.KEYCARD));
-      // O(1) removal: swap with last element and pop
-      const last = freeTiles[freeTiles.length - 1];
-      freeTiles[tileIndex] = last;
-      freeTiles.pop();
+      removeFreeTileAt(freeTiles, tileIndex);
     }
 
     for (let i = 0; i < 4 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.GRENADE));
-      // O(1) removal: swap with last element and pop
-      const last = freeTiles[freeTiles.length - 1];
-      freeTiles[tileIndex] = last;
-      freeTiles.pop();
+      removeFreeTileAt(freeTiles, tileIndex);
     }
 
     for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
       const tileIndex = RNG.int(freeTiles.length);
       const [x, y] = freeTiles[tileIndex];
       this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.LAND_MINE));
-      // O(1) removal: swap with last element and pop
-      const last = freeTiles[freeTiles.length - 1];
-      freeTiles[tileIndex] = last;
-      freeTiles.pop();
+      removeFreeTileAt(freeTiles, tileIndex);
     }
 
     const spawnItems = (count: number, type: ItemType): void => {
@@ -418,10 +412,7 @@ export class Game {
         const tileIndex = RNG.int(freeTiles.length);
         const [x, y] = freeTiles[tileIndex];
         this.state.entityManager.spawn(new ItemEntity(x, y, type));
-        // O(1) removal: swap with last element and pop
-        const last = freeTiles[freeTiles.length - 1];
-        freeTiles[tileIndex] = last;
-        freeTiles.pop();
+        removeFreeTileAt(freeTiles, tileIndex);
       }
     };
 
@@ -1143,10 +1134,7 @@ export class Game {
         const [x, y] = freeTiles[tileIndex];
         if (dist([x, y], start) > 8) {
           entities.push(new MonsterEntity(x, y, pickType(), depth));
-          // O(1) removal: swap with last element and pop
-          const last = freeTiles[freeTiles.length - 1];
-          freeTiles[tileIndex] = last;
-          freeTiles.pop();
+          removeFreeTileAt(freeTiles, tileIndex);
         }
       }
     }
@@ -1163,10 +1151,7 @@ export class Game {
         const [x, y] = freeTiles[tileIndex];
         if (dist([x, y], start) > 14) {
           entities.push(new MonsterEntity(x, y, type, depth));
-          // O(1) removal: swap with last element and pop
-          const last = freeTiles[freeTiles.length - 1];
-          freeTiles[tileIndex] = last;
-          freeTiles.pop();
+          removeFreeTileAt(freeTiles, tileIndex);
           break;
         }
       }
@@ -1182,10 +1167,7 @@ export class Game {
         const tileIndex = RNG.int(freeTiles.length);
         const [x, y] = freeTiles[tileIndex];
         entities.push(new ItemEntity(x, y, type, amount));
-        // O(1) removal: swap with last element and pop
-        const last = freeTiles[freeTiles.length - 1];
-        freeTiles[tileIndex] = last;
-        freeTiles.pop();
+        removeFreeTileAt(freeTiles, tileIndex);
       }
     };
 
@@ -1224,10 +1206,7 @@ export class Game {
           entities.push(
             new MonsterEntity(x, y, MonsterType.UTILITY_BOT, depth),
           );
-          // O(1) removal: swap with last element and pop
-          const last = freeTiles[freeTiles.length - 1];
-          freeTiles[tileIndex] = last;
-          freeTiles.pop();
+          removeFreeTileAt(freeTiles, tileIndex);
           break;
         }
       }
@@ -1290,10 +1269,7 @@ export class Game {
       const item = new ItemEntity(x, y, drop.type, drop.amount);
       if (typeof drop.heal === "number") item.heal = drop.heal;
       snapshot.entities.push(item);
-      // O(1) removal: swap with last element and pop
-      const last = freeTiles[freeTiles.length - 1];
-      freeTiles[i] = last;
-      freeTiles.pop();
+      removeFreeTileAt(freeTiles, i);
     }
     this.pendingDropsByDepth.delete(depth);
   }
