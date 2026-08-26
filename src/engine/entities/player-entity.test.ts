@@ -1,3 +1,11 @@
+/**
+ * Coverage for PlayerEntity construction and respawn reset.
+ *
+ * resetForRespawn rebuilds the player from a fresh starter entity via
+ * Object.assign and then restores an explicit allow-list of progression
+ * fields, so the tests pin both halves: what survives death and what does not.
+ */
+
 import { describe, it, expect } from "vitest";
 import { PlayerEntity } from "./player-entity";
 import { EntityKind, ItemType, WeaponType } from "../types";
@@ -65,5 +73,152 @@ describe("PlayerEntity starter loadout", () => {
     // Over many rolls we should see both outcomes.
     expect(sawPistol).toBe(true);
     expect(sawLaser).toBe(true);
+  });
+});
+
+describe("PlayerEntity resetForRespawn", () => {
+  it("resets basic stats and items to starter values while preserving id", () => {
+    const p = new PlayerEntity(0, 0);
+    const originalId = p.id;
+
+    // Modify some basic stats and items
+    p.ammo = 100;
+    p.grenades = 5;
+    p.inventorySlots[0].type = ItemType.MEDKIT;
+
+    p.resetForRespawn();
+
+    expect(p.id).toBe(originalId);
+    // Starter kit has 0 grenades, and either 12 or 0 ammo depending on weapon roll
+    expect(p.grenades).toBe(0);
+    expect([0, 12]).toContain(p.ammo);
+    // inventory should be reset to starter loadout, no plasma rifle
+    expect(p.inventorySlots[0].type).not.toBe(ItemType.MEDKIT);
+  });
+
+  it("preserves progression stats and fully restores hp", () => {
+    const p = new PlayerEntity(0, 0);
+
+    // Simulate progression and damage
+    p.hpMax = 50;
+    p.hp = 10;
+    p.sight = 12;
+    p.score = 5000;
+    p.laserChargeMax = 200;
+    p.panicChargeMax = 150;
+
+    p.resetForRespawn();
+
+    expect(p.hpMax).toBe(50);
+    expect(p.hp).toBe(50); // Restored to max
+    expect(p.sight).toBe(12);
+    expect(p.score).toBe(5000);
+    expect(p.laserChargeMax).toBe(200);
+    expect(p.panicChargeMax).toBe(150);
+  });
+
+  it("handles core devices (CTDM and Matter Manipulator) correctly", () => {
+    const p = new PlayerEntity(0, 0);
+
+    // Set devices and active states
+    p.hasCTDM = true;
+    p.ctdmEnabled = true;
+    p.hasMatterManipulator = true;
+    p.matterManipulatorActive = true;
+
+    // Clear inventory to ensure devices can be added
+    p.inventorySlots.forEach((slot) => (slot.type = null));
+
+    p.resetForRespawn();
+
+    expect(p.hasCTDM).toBe(true);
+    expect(p.ctdmEnabled).toBe(false); // Active state reset
+    expect(p.hasMatterManipulator).toBe(true);
+    expect(p.matterManipulatorActive).toBe(false); // Active state reset
+
+    const types = p.inventorySlots.map((s) => s.type);
+    expect(types).toContain(ItemType.CTDM);
+    expect(types).toContain(ItemType.MATTER_MANIPULATOR);
+  });
+
+  it("resets inventoryDroppedOnDeath flag", () => {
+    const p = new PlayerEntity(0, 0);
+    p.inventoryDroppedOnDeath = true;
+
+    p.resetForRespawn();
+
+    expect(p.inventoryDroppedOnDeath).toBe(false);
+  });
+
+  it("does not grant devices the player never found", () => {
+    const p = new PlayerEntity(0, 0);
+    p.hasCTDM = false;
+    p.hasMatterManipulator = false;
+
+    p.resetForRespawn();
+
+    const types = p.inventorySlots.map((s) => s.type);
+    expect(p.hasCTDM).toBe(false);
+    expect(types).not.toContain(ItemType.CTDM);
+    expect(types).not.toContain(ItemType.MATTER_MANIPULATOR);
+  });
+
+  it("grants exactly one of each device however many times it is called", () => {
+    const p = new PlayerEntity(0, 0);
+    p.hasCTDM = true;
+    p.hasMatterManipulator = true;
+
+    p.resetForRespawn();
+    p.resetForRespawn();
+    p.resetForRespawn();
+
+    const types = p.inventorySlots.map((s) => s.type);
+    expect(types.filter((t) => t === ItemType.CTDM)).toHaveLength(1);
+    expect(types.filter((t) => t === ItemType.MATTER_MANIPULATOR)).toHaveLength(
+      1,
+    );
+  });
+
+  it("discards the previous life's inventory wholesale", () => {
+    // Object.assign swaps in the starter's slot array, so nothing from the old
+    // inventory survives - this is what makes the reset total rather than a
+    // merge. Note it also means addCoreDevice always runs against a fresh
+    // starter loadout with free slots.
+    const p = new PlayerEntity(0, 0);
+    p.inventorySlots.forEach((slot) => (slot.type = ItemType.ROCK));
+
+    p.resetForRespawn();
+
+    const types = p.inventorySlots.map((s) => s.type);
+    expect(types).not.toContain(ItemType.ROCK);
+    expect(types).toContain(ItemType.BUTCHER_KNIFE);
+    expect(types.filter((t) => t === null).length).toBeGreaterThan(0);
+  });
+
+  it("clears combat state carried over from the previous life", () => {
+    const p = new PlayerEntity(0, 0);
+    p.hp = 0;
+    p.grenades = 9;
+    p.landMines = 9;
+    p.ammoReserve = 999;
+
+    p.resetForRespawn();
+
+    expect(p.hp).toBe(p.hpMax);
+    expect(p.hp).toBeGreaterThan(0);
+    expect(p.grenades).toBe(0);
+    expect(p.landMines).toBe(0);
+  });
+
+  it("resets position, so callers must place the player themselves", () => {
+    // Object.assign copies worldX/worldY off the fresh starter entity, so the
+    // death location is lost. Game.respawn() calls setPositionFromGrid right
+    // after; this pins that ordering requirement.
+    const p = new PlayerEntity(7, 9);
+    p.resetForRespawn();
+
+    expect(p.gridX).toBe(0);
+    expect(p.gridY).toBe(0);
+    expect(p.physicsBody).toBeUndefined();
   });
 });

@@ -1917,12 +1917,14 @@ body {
     inset 0 1px 0 rgba(57, 255, 106, 0.15);
 }
 
-/* Remove browser focus ring after button click */
-.story-expand-tab:focus {
+/* Remove browser focus ring for mouse interactions, but show it for keyboard */
+.story-expand-tab:focus:not(:focus-visible) {
   outline: none;
-  box-shadow:
-    0 0 6px rgba(57, 255, 106, 0.12),
-    inset 0 1px 0 rgba(57, 255, 106, 0.15);
+}
+
+.story-expand-tab:focus-visible {
+  outline: 2px solid rgba(57, 255, 106, 0.8);
+  outline-offset: 2px;
 }
 
 .story-expand-tab:hover {
