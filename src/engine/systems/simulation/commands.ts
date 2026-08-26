@@ -3,6 +3,7 @@ import {
   Command,
   CommandType,
   EventType,
+  Entity,
   EntityKind,
   Monster,
   MonsterType,
@@ -361,30 +362,50 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
   }
 
   // Check entity blocking - first try grid-based, then distance-based for continuous movement
-  let blocker = state.entities.find(
-    (e) =>
-      e.gridX === nx &&
-      e.gridY === ny &&
-      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
-  );
+  let blocker: Entity | undefined = undefined;
 
-  // Also check for monsters near the target position using continuous coordinates
-  if (!blocker && actor.kind === EntityKind.PLAYER && "worldX" in actor) {
-    const targetWorldX = nx * CELL_CONFIG.w + CELL_CONFIG.w / 2;
-    const targetWorldY = ny * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+  // 1. Check players (small array)
+  for (const p of state.players) {
+    if (p.gridX === nx && p.gridY === ny) {
+      blocker = p;
+      break;
+    }
+  }
+
+  // 2. If no player is blocking, check monsters (must iterate entities)
+  // Also check continuous coordinates in the SAME loop to save a second O(N) pass.
+  if (!blocker) {
+    let continuousBlocker: Entity | undefined = undefined;
+    const checkContinuous = actor.kind === EntityKind.PLAYER && "worldX" in actor;
+
+    // Only compute distances if necessary
+    const targetWorldX = checkContinuous ? nx * CELL_CONFIG.w + CELL_CONFIG.w / 2 : 0;
+    const targetWorldY = checkContinuous ? ny * CELL_CONFIG.h + CELL_CONFIG.h / 2 : 0;
     const MELEE_RANGE_SQ = CELL_CONFIG.w * CELL_CONFIG.w; // One tile range, squared
 
-    for (const entity of state.entities) {
-      if (entity.kind !== EntityKind.MONSTER) continue;
-      if (!("worldX" in entity)) continue;
+    // Direct iteration of entities array is fast, avoiding .find() callback overhead
+    const entities = state.entities;
+    for (let i = 0, len = entities.length; i < len; i++) {
+      const e = entities[i];
+      if (e.kind === EntityKind.MONSTER) {
+        if (e.gridX === nx && e.gridY === ny) {
+          blocker = e;
+          break; // Found primary blocker, can stop searching
+        }
 
-      const dx = entity.worldX - targetWorldX;
-      const dy = entity.worldY - targetWorldY;
-
-      if (dx * dx + dy * dy < MELEE_RANGE_SQ) {
-        blocker = entity;
-        break;
+        // Keep track of continuous blocker if we haven't found one yet
+        if (checkContinuous && !continuousBlocker && "worldX" in e) {
+          const dx = e.worldX - targetWorldX;
+          const dy = e.worldY - targetWorldY;
+          if (dx * dx + dy * dy < MELEE_RANGE_SQ) {
+            continuousBlocker = e;
+          }
+        }
       }
+    }
+
+    if (!blocker) {
+      blocker = continuousBlocker;
     }
   }
 
