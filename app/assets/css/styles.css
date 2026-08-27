@@ -3001,3 +3001,36 @@ body {
     height: 72px;
   }
 }
+
+/* ── Scale Toggle Button ───────────────────────── */
+.scale-toggle {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 2px solid var(--modal-border, rgba(57, 255, 106, 0.4));
+  background: var(--modal-bg-soft, rgba(0, 32, 14, 0.85));
+  color: var(--modal-text, rgba(57, 255, 106, 0.9));
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 100;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  text-transform: uppercase;
+}
+
+.scale-toggle:hover {
+  background: var(--modal-text, rgba(57, 255, 106, 0.9));
+  color: var(--modal-bg, rgba(0, 20, 10, 1));
+}
+
+.scale-toggle:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.scale-toggle:focus-visible {
+  outline: 2px solid var(--modal-accent, rgba(57, 255, 106, 0.8));
+  outline-offset: 3px;
+}
