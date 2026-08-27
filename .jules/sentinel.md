@@ -1,0 +1,4 @@
+## 2024-05-24 - Untrusted LAN UDP Packets Cause XSS in Electron Game
+**Vulnerability:** The application was trusting data (`s.phase`, `s.players`, `s.maxPlayers`) parsed from unauthenticated LAN UDP discovery packets and blindly injecting them into `innerHTML` for the game lobby server list. This allowed anyone on the local network to broadcast a malicious UDP packet and execute arbitrary scripts (XSS) within the Electron UI.
+**Learning:** Even desktop applications listening on local network sockets must treat all incoming network data (especially UDP broadcasts) as completely untrusted input. Just because data doesn't come from the internet doesn't mean it's safe to inject into the DOM.
+**Prevention:** Always sanitize or strictly coerce all data parsed from network packets. Enforce strict types (e.g., using `Number()` for expected integers) at the boundary, and always use `escapeHtml()` when rendering variables derived from network payloads into HTML strings.
