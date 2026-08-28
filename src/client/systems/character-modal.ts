@@ -921,13 +921,14 @@ export class CharacterModal {
           '<div class="char-mp-searching">No games found — make sure your host is running.</div>';
         return;
       }
+      // Security: Treat all LAN discovery data as untrusted. Escape strings and coerce numbers.
       list.innerHTML = servers
         .map(
           (s, i) => `
         <div class="char-mp-server-entry">
           <div class="char-mp-server-info">
             <span class="char-mp-server-name">${escapeHtml(s.name)}</span>
-            <span class="char-mp-server-meta">${escapeHtml(s.host)} · ${s.players}/${s.maxPlayers} · ${s.phase}</span>
+            <span class="char-mp-server-meta">${escapeHtml(s.host)} · ${Number(s.players)}/${Number(s.maxPlayers)} · ${escapeHtml(s.phase)}</span>
           </div>
           <button class="imb-btn" data-char-server-index="${i}" type="button">Join</button>
         </div>`,

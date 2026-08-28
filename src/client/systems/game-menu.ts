@@ -628,13 +628,14 @@ export class GameMenu {
       return;
     }
 
+    // Security: Treat all LAN discovery data as untrusted. Escape strings and coerce numbers.
     container.innerHTML = servers
       .map(
         (s, i) => `
       <div class="imb-server-entry">
         <div class="imb-server-info">
           <span class="imb-server-name">${escapeHtml(s.name)}</span>
-          <span class="imb-server-meta">${escapeHtml(s.host)} · ${s.players}/${s.maxPlayers} players · ${s.phase}</span>
+          <span class="imb-server-meta">${escapeHtml(s.host)} · ${Number(s.players)}/${Number(s.maxPlayers)} players · ${escapeHtml(s.phase)}</span>
         </div>
         <button class="imb-btn imb-server-join-btn" data-server-index="${i}" type="button">Join</button>
       </div>
