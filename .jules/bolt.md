@@ -28,3 +28,8 @@ directly, or the index silently desyncs.
 **Caveat:** a level holds ~55 entities, so this saves well under a microsecond
 per pickup. The win is that item-scanning code now reads as such; it is not a
 measured bottleneck.
+## 2024-05-18 - Avoiding N-traversals on tick for items
+
+**Learning:** `processMonsterItemPickups`, `processMagneticPickup`, and `processHoleFalls` in `tick.ts` were iterating over the entire `state.entities` array (which can contain many non-items, such as map decorators, mobs, and the player) simply to filter for entities of kind `EntityKind.ITEM`. On every single tick, this caused unnecessary O(N) traversals checking `e.kind === EntityKind.ITEM`.
+
+**Action:** Replaced iterations over `state.entities` with `state.entityManager.items` where item operations were occurring. `state.entityManager.items` is specifically maintained as an index, making this change safe, exact, and much faster for level cycles where items are a fraction of the total entity count.
