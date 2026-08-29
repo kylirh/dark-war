@@ -926,8 +926,8 @@ export class CharacterModal {
           (s, i) => `
         <div class="char-mp-server-entry">
           <div class="char-mp-server-info">
-            <span class="char-mp-server-name">${escapeHtml(s.name)}</span>
-            <span class="char-mp-server-meta">${escapeHtml(s.host)} · ${s.players}/${s.maxPlayers} · ${s.phase}</span>
+            <span class="char-mp-server-name">${escapeHtml(String(s.name))}</span>
+            <span class="char-mp-server-meta">${escapeHtml(String(s.host))} · ${Number(s.players)}/${Number(s.maxPlayers)} · ${escapeHtml(String(s.phase))}</span>
           </div>
           <button class="imb-btn" data-char-server-index="${i}" type="button">Join</button>
         </div>`,

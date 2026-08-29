@@ -265,12 +265,12 @@ class DiscoveryManager {
         const key = `${ip}:${msg.wsPort}`;
         this._discoveredServers.set(key, {
           ip,
-          port: msg.wsPort,
-          name: msg.name,
-          host: msg.host,
-          players: msg.players,
-          maxPlayers: msg.maxPlayers ?? 4,
-          phase: msg.phase ?? "lobby",
+          port: Number(msg.wsPort) || 0,
+          name: String(msg.name || "Unknown").slice(0, 50),
+          host: String(msg.host || "Unknown").slice(0, 50),
+          players: Number(msg.players) || 0,
+          maxPlayers: Number(msg.maxPlayers) || 4,
+          phase: String(msg.phase) === "playing" ? "playing" : "lobby",
           lastSeen: Date.now(),
         });
       } catch {
