@@ -485,9 +485,7 @@ const BOT_JUNK_RANGE_PX = CELL_CONFIG.w * 12;
 function nearestJunkItem(state: GameState, bot: Monster): Item | null {
   let best: Item | null = null;
   let bestSq = BOT_JUNK_RANGE_PX * BOT_JUNK_RANGE_PX;
-  for (const entity of state.entities) {
-    if (entity.kind !== EntityKind.ITEM) continue;
-    const item = entity as Item;
+  for (const item of state.entityManager.items) {
     if (!isJunk(item.type)) continue;
     const dx = item.worldX - (bot as any).worldX;
     const dy = item.worldY - (bot as any).worldY;
@@ -1025,9 +1023,7 @@ function nearestFetchableItem(
 ): Item | null {
   let best: Item | null = null;
   let bestSq = (CELL_CONFIG.w * 10) ** 2;
-  for (const entity of state.entities) {
-    if (entity.kind !== EntityKind.ITEM) continue;
-    const item = entity as Item;
+  for (const item of state.entityManager.items) {
     if (ITEM_DEFS[item.type]?.collectible === false) continue;
     if (ITEM_DEFS[item.type]?.category === "machine") continue;
     // Skip loot the fetcher just dropped right next to the owner.
@@ -1395,9 +1391,7 @@ export function updateMonsterSteering(state: GameState): void {
         const AMMO_SEEK_RADIUS = CELL_CONFIG.w * 8;
         let nearestAmmo: Item | null = null;
         let nearestAmmoDist = AMMO_SEEK_RADIUS;
-        for (const e of state.entities) {
-          if (e.kind !== EntityKind.ITEM) continue;
-          const item = e as Item;
+        for (const item of state.entityManager.items) {
           if (item.type !== ItemType.AMMO) continue;
           const adx = item.worldX - m.worldX;
           const ady = item.worldY - m.worldY;
@@ -1423,9 +1417,7 @@ export function updateMonsterSteering(state: GameState): void {
         const POWER_CELL_SEEK_RADIUS = CELL_CONFIG.w * 8;
         let nearestPowerCell: Item | null = null;
         let nearestPowerCellDistance = POWER_CELL_SEEK_RADIUS;
-        for (const entity of state.entities) {
-          if (entity.kind !== EntityKind.ITEM) continue;
-          const item = entity as Item;
+        for (const item of state.entityManager.items) {
           if (item.type !== ItemType.POWERCELL) continue;
           const cellDx = item.worldX - m.worldX;
           const cellDy = item.worldY - m.worldY;

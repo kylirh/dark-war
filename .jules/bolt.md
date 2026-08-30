@@ -28,3 +28,7 @@ directly, or the index silently desyncs.
 **Caveat:** a level holds ~55 entities, so this saves well under a microsecond
 per pickup. The win is that item-scanning code now reads as such; it is not a
 measured bottleneck.
+
+## 2024-11-20 - Use Dedicated `items` Array for Item Iteration
+**Learning:** O(N) array scans across the generic `state.entities` list in tight game loops (e.g. for collision or item pickup checks) can become performance bottlenecks as entity counts rise.
+**Action:** Always prefer the dedicated type-specific indices like `state.entityManager.items` (which only contains items) when checking item logic in simulation ticks, avoiding redundant object iterations.
