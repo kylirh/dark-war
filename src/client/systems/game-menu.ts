@@ -634,7 +634,7 @@ export class GameMenu {
       <div class="imb-server-entry">
         <div class="imb-server-info">
           <span class="imb-server-name">${escapeHtml(s.name)}</span>
-          <span class="imb-server-meta">${escapeHtml(s.host)} · ${s.players}/${s.maxPlayers} players · ${s.phase}</span>
+          <span class="imb-server-meta">${escapeHtml(s.host)} · ${Number(s.players) || 0}/${Number(s.maxPlayers) || 0} players · ${escapeHtml(s.phase)}</span>
         </div>
         <button class="imb-btn imb-server-join-btn" data-server-index="${i}" type="button">Join</button>
       </div>
