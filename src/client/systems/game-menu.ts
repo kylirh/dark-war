@@ -628,13 +628,16 @@ export class GameMenu {
       return;
     }
 
+    // LAN discovery data is untrusted (see electron/discovery-packet.js).
+    // Escape every string and coerce every number again here — the main process
+    // sanitizes at ingest, but this template is what actually reaches the DOM.
     container.innerHTML = servers
       .map(
         (s, i) => `
       <div class="imb-server-entry">
         <div class="imb-server-info">
-          <span class="imb-server-name">${escapeHtml(s.name)}</span>
-          <span class="imb-server-meta">${escapeHtml(s.host)} · ${s.players}/${s.maxPlayers} players · ${s.phase}</span>
+          <span class="imb-server-name">${escapeHtml(String(s.name))}</span>
+          <span class="imb-server-meta">${escapeHtml(String(s.host))} · ${Number(s.players) || 0}/${Number(s.maxPlayers) || 0} players · ${escapeHtml(String(s.phase))}</span>
         </div>
         <button class="imb-btn imb-server-join-btn" data-server-index="${i}" type="button">Join</button>
       </div>
