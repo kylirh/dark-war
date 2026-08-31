@@ -2,6 +2,8 @@
  * Reusable retro system modal window.
  */
 
+import { escapeHtml } from "./html-escape";
+
 export interface RetroModalOptions {
   id: string;
   title: string;
@@ -37,15 +39,15 @@ export class RetroModal {
       <div class="imb-dialog-titlebar" data-drag-handle="true">
         <button
           class="imb-dialog-close retro-window-button retro-window-button-close"
-          data-close="${options.id}"
+          data-close="${escapeHtml(options.id)}"
           type="button"
           title="Close"
-          aria-label="Close ${options.title}"
+          aria-label="Close ${escapeHtml(options.title)}"
         >
           <span>X</span>
         </button>
         <div class="imb-dialog-stripes"></div>
-        <span class="imb-dialog-title">${options.title}</span>
+        <span class="imb-dialog-title">${escapeHtml(options.title)}</span>
         <div class="imb-dialog-stripes"></div>
       </div>
       <div class="imb-dialog-body">${options.body}</div>
