@@ -137,7 +137,7 @@ describe("a friendly pet fights for its owner", () => {
 
     for (let i = 0; i < 60; i++) stepSimulationTick(state);
 
-    const foeNow = state.entities.find((e) => e.id === foe.id) as
+    const foeNow = state.entityManager.getById(foe.id) as
       | { hp: number }
       | undefined;
     // The foe was bitten (damaged or already finished off).

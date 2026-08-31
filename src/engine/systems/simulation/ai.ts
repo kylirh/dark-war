@@ -394,9 +394,9 @@ function steerBuilder(state: GameState, monster: Monster): void {
   }
 
   if (agent.currentGoal === "flee") {
-    const attacker = state.entities.find(
-      (entity) => entity.id === monster.lastAttackerId,
-    );
+    const attacker = monster.lastAttackerId
+      ? state.entityManager.getById(monster.lastAttackerId)
+      : undefined;
     if (attacker) {
       const dx = m.worldX - attacker.worldX;
       const dy = m.worldY - attacker.worldY;
@@ -412,10 +412,8 @@ function steerBuilder(state: GameState, monster: Monster): void {
   }
 
   if (agent.currentGoal === "follow" && monster.ownerId) {
-    const owner = state.entities.find(
-      (entity) =>
-        entity.id === monster.ownerId && entity.kind === EntityKind.PLAYER,
-    );
+    const found = state.entityManager.getById(monster.ownerId);
+    const owner = found?.kind === EntityKind.PLAYER ? found : undefined;
     if (owner) {
       const distance = Math.hypot(
         owner.worldX - m.worldX,
@@ -506,9 +504,9 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
     m.alertLevel = Math.max(0, m.alertLevel - MONSTER_ALERT_DECAY);
 
     // Refresh last known position if attacker still exists
-    const attacker = state.entities.find(
-      (e) => e.id === m.lastAttackerId,
-    ) as any;
+    const attacker = m.lastAttackerId
+      ? (state.entityManager.getById(m.lastAttackerId) as any)
+      : undefined;
     if (attacker) {
       m.lastKnownPlayerX = attacker.worldX;
       m.lastKnownPlayerY = attacker.worldY;
@@ -1009,9 +1007,11 @@ function nearestHostileMonster(
 }
 
 function petOwner(state: GameState, pet: Monster): Player | null {
-  const owner = state.entities.find(
-    (e) => e.kind === EntityKind.PLAYER && e.id === pet.ownerId,
-  ) as Player | undefined;
+  const found = pet.ownerId
+    ? state.entityManager.getById(pet.ownerId)
+    : undefined;
+  const owner =
+    found?.kind === EntityKind.PLAYER ? (found as Player) : undefined;
   return owner ?? getClosestPlayer(state, pet);
 }
 
@@ -1492,9 +1492,9 @@ function decideUtilityBotCommand(
 
   // Provoked: fight back if attacker is in melee range
   if (m.alertLevel > 0) {
-    const attacker = state.entities.find(
-      (e) => e.id === m.lastAttackerId,
-    ) as any;
+    const attacker = m.lastAttackerId
+      ? (state.entityManager.getById(m.lastAttackerId) as any)
+      : undefined;
     if (attacker) {
       const dx = attacker.worldX - m.worldX;
       const dy = attacker.worldY - m.worldY;
