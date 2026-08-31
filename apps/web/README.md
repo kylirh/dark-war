@@ -45,6 +45,11 @@ One-time setup, if it ever has to be redone:
 
 ## Notes
 
+- Full-screen illustrations (title, menu, mission-briefing art) ship as **WebP**
+  at quality 88, which is visually indistinguishable from the PNG originals at
+  1:1 and about 82% smaller. Keep new illustration art in WebP. The gameplay
+  atlas (`sprites.png`) stays PNG — it is sampled pixel-exactly and must not be
+  lossily compressed.
 - For a public deployment, serve over **HTTPS** and point multiplayer at a
   **`wss://`** server (browsers block mixed `ws://` content on `https://` pages).
 - Verified loading + starting a new game in a headless browser.

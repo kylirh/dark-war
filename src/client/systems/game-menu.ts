@@ -200,7 +200,7 @@ export class GameMenu {
 
         <!-- ── Main view ── -->
         <div class="imb-pause-view" data-pause-view="main">
-          <img src="assets/img/logo.png" class="imb-pause-logo" alt="Dark War" />
+          <img src="assets/img/logo.webp" class="imb-pause-logo" alt="Dark War" />
           <div class="imb-pause-message hidden" id="pause-menu-message"></div>
           <div class="imb-pause-options" role="menu" aria-label="Pause menu">
             ${this.pauseItems

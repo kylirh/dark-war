@@ -2935,7 +2935,7 @@ class MainMenuApp implements DarkWarApplication {
     this.backdrop.className = "main-menu-backdrop";
     this.backdrop.style.setProperty(
       "--main-menu-art",
-      'url("../img/main.png")',
+      'url("../img/main.webp")',
     );
     document.body.appendChild(this.backdrop);
     document.body.classList.add("main-menu-active");
