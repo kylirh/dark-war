@@ -24,6 +24,11 @@ import { Music } from "./music";
 import { Sound } from "./sound";
 import { DiscoveredServer } from "./game-menu";
 import { escapeHtml } from "./html-escape";
+import {
+  SERVER_LIST_ERROR,
+  SERVER_LIST_UNRENDERED,
+  setStatusText,
+} from "./live-region";
 
 export type ModalTab = "inventory" | "settings" | "game";
 
@@ -77,7 +82,7 @@ export class CharacterModal {
   private gameView: GameView = "main";
   private gameViewEls: Map<GameView, HTMLElement> = new Map();
   private mpRefreshTimer: number | null = null;
-  private mpLastServerKey = "";
+  private mpLastServerKey: string = SERVER_LIST_UNRENDERED;
   private mpPlayerName = "Player";
   private mpGameName = "Dark War";
 
@@ -627,6 +632,8 @@ export class CharacterModal {
     const hostStatus = document.createElement("div");
     hostStatus.id = "char-mp-host-status";
     hostStatus.className = "char-mp-status hidden";
+    hostStatus.setAttribute("role", "status");
+    hostStatus.setAttribute("aria-live", "polite");
     const hostBtn = document.createElement("button");
     hostBtn.type = "button";
     hostBtn.className = "char-modal-game-btn";
@@ -658,11 +665,14 @@ export class CharacterModal {
     const serverList = document.createElement("div");
     serverList.id = "char-mp-server-list";
     serverList.className = "char-mp-server-list";
+    serverList.setAttribute("aria-live", "polite");
     serverList.innerHTML =
       '<div class="char-mp-searching">Searching for games…</div>';
     const browseStatus = document.createElement("div");
     browseStatus.id = "char-mp-browse-status";
     browseStatus.className = "char-mp-status hidden";
+    browseStatus.setAttribute("role", "status");
+    browseStatus.setAttribute("aria-live", "polite");
     const refreshBtn = document.createElement("button");
     refreshBtn.type = "button";
     refreshBtn.className = "imb-btn";
@@ -707,6 +717,8 @@ export class CharacterModal {
     const joinStatus = document.createElement("div");
     joinStatus.id = "char-mp-join-status";
     joinStatus.className = "char-mp-status hidden";
+    joinStatus.setAttribute("role", "status");
+    joinStatus.setAttribute("aria-live", "polite");
     const joinBtn = document.createElement("button");
     joinBtn.type = "button";
     joinBtn.className = "char-modal-game-btn";
@@ -735,6 +747,8 @@ export class CharacterModal {
     const lobbyStatus = document.createElement("div");
     lobbyStatus.id = "char-mp-lobby-status";
     lobbyStatus.className = "char-mp-lobby-status";
+    lobbyStatus.setAttribute("role", "status");
+    lobbyStatus.setAttribute("aria-live", "polite");
     lobbyStatus.textContent = "Waiting for players…";
     const lobbyPlayers = document.createElement("div");
     lobbyPlayers.id = "char-mp-lobby-players";
@@ -874,7 +888,7 @@ export class CharacterModal {
   }
 
   private openBrowseGames(): void {
-    this.mpLastServerKey = "";
+    this.mpLastServerKey = SERVER_LIST_UNRENDERED;
     this._opts.onMultiplayerStartDiscovery?.();
     this.setGameView("browse");
     this.refreshServerList();
@@ -946,6 +960,11 @@ export class CharacterModal {
           });
         });
     } catch {
+      // Guarded like the success path: this runs on a timer and the list is an
+      // aria-live region, so an unconditional rewrite would re-announce the
+      // same error every tick for as long as scanning keeps failing.
+      if (this.mpLastServerKey === SERVER_LIST_ERROR) return;
+      this.mpLastServerKey = SERVER_LIST_ERROR;
       list.innerHTML =
         '<div class="char-mp-searching">Error scanning network.</div>';
     }
@@ -1011,8 +1030,7 @@ export class CharacterModal {
           : "char-mp-join-status";
     const el = this.window.querySelector<HTMLElement>(`#${id}`);
     if (!el) return;
-    el.textContent = msg;
-    el.classList.toggle("hidden", !msg);
+    setStatusText(el, msg);
   }
 
   private syncLobbyView(
@@ -1036,11 +1054,14 @@ export class CharacterModal {
       if (title)
         title.textContent = isHost ? `${this.mpGameName} — Lobby` : "Lobby";
       if (status)
-        status.textContent = isHost
-          ? players.length === 1
-            ? "Waiting for others…"
-            : `${players.length} players connected`
-          : "Waiting for host to start…";
+        setStatusText(
+          status,
+          isHost
+            ? players.length === 1
+              ? "Waiting for others…"
+              : `${players.length} players connected`
+            : "Waiting for host to start…",
+        );
       if (playersEl) {
         playersEl.innerHTML = players
           .map(
