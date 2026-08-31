@@ -28,3 +28,39 @@ point it is used, and keep the render-side escaping anyway. Treat an IPC or
 `JSON.parse` result as `unknown` no matter what interface it is annotated with.
 Escaping stays the template's job — sanitizing markup at ingest would corrupt
 legitimate names and double-escape once `escapeHtml` runs.
+
+## 2026-08-31 - One escaper in four copies, and the one that diverged
+
+**What was found:** `escapeHtml` existed as four byte-identical private copies
+(`game-menu`, `character-modal`, `save-slots`, `intro-story`). None escaped
+`'`, so any value placed in a single-quoted attribute could break out. All ten
+call sites happened to be text nodes, so nothing was exploitable through them
+— but it is a loaded gun sitting in four places at once.
+
+**The tell:** `save-slots.ts` had a fifth function, `escapeAttribute`, that
+added the `'` escaping. Somebody hit the gap, fixed it where they hit it, and
+the other three files kept the weaker version. That divergence is the real
+argument against copy-pasted helpers: the copies do not stay identical, and the
+one that gets fixed is not the one the next person reads.
+
+**The live bug underneath it:** `escapeAttribute` was used on a save preview
+interpolated into `style="--save-preview: url('...')"`. HTML escaping is the
+wrong tool in that position, and does nothing. The HTML parser decodes `&#39;`
+back to `'` _before_ the CSS parser sees the value, so the escaped payload
+still closes the CSS string. Verified in a real browser: the old output parsed
+to **two** declarations, the second being
+`background-image: url("http://evil.test/x")`. There is no CSP in this app, so
+rendering that slot would have fired the request. Save records are read off
+disk and can be hand-edited.
+
+**Action:** One `escapeHtml` in `src/client/systems/html-escape.ts`, escaping
+`& < > " '` so it is correct for text and both quoted attribute forms.
+`escapeAttribute` is gone. The preview is now checked against
+`isSafeImageDataUrl` — base64 has no quotes or parens, so a matching value is
+inherently safe inside `url()` — and a non-matching one renders no preview.
+
+**Prevention:** Escaping is per-context, not per-value. HTML escaping stops
+protecting the moment the value crosses into a nested language — CSS in
+`style`, JS in `on*`, a URL in `href`. Validate those against an allowlist or
+set them through the DOM. And when a helper has been copied, assume the copies
+have drifted and check all of them before trusting any of them.

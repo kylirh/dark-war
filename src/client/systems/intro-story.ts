@@ -3,6 +3,7 @@
  */
 
 import { Music } from "./music";
+import { escapeHtml } from "./html-escape";
 
 interface IntroStorySlide {
   imageSrc: string;
@@ -223,12 +224,4 @@ export class IntroStory {
     if (!this.hadModalOpenClass)
       document.body.classList.remove("imb-modal-open");
   }
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }

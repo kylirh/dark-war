@@ -12,6 +12,7 @@ import {
 } from "./preferences";
 import { Sound } from "./sound";
 import { LobbyPlayer } from "../../net/multiplayer-client";
+import { escapeHtml } from "./html-escape";
 
 // ─── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1416,14 +1417,6 @@ export class GameMenu {
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────────
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function sanitizeName(name: string): string {
   return name.trim().slice(0, 24);

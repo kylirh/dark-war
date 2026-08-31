@@ -23,6 +23,7 @@ import {
 import { Music } from "./music";
 import { Sound } from "./sound";
 import { DiscoveredServer } from "./game-menu";
+import { escapeHtml } from "./html-escape";
 
 export type ModalTab = "inventory" | "settings" | "game";
 
@@ -41,14 +42,6 @@ export interface CharacterModalOptions {
   onMultiplayerGetServers?: () => Promise<DiscoveredServer[]>;
   onMultiplayerStartDiscovery?: () => void;
   onMultiplayerStopDiscovery?: () => void;
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 export class CharacterModal {
