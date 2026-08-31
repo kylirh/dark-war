@@ -28,3 +28,12 @@ directly, or the index silently desyncs.
 **Caveat:** a level holds ~55 entities, so this saves well under a microsecond
 per pickup. The win is that item-scanning code now reads as such; it is not a
 measured bottleneck.
+
+## 2026-08-27 - Entity ID lookups to Map
+
+**Learning:** Replaced `state.entities.find((e) => e.id === ...)` lookups with `state.entityManager.getById(...)`.
+Many systems were looping through the N-sized array to find specific actors and items via their ID.
+
+**Action:** Switched to O(1) Map lookups provided by the `EntityManager`. `getById()` accesses a dedicated map under the hood. For components where `find` relied on complex type guards (e.g. testing `kind === EntityKind.PLAYER`), I destructured to get the item first and then cast.
+
+**Caveat:** Similarly, with ~55 entities in a typical level, avoiding the scan offers small microsecond-level savings per lookup. It keeps hot paths from unnecessary loops, but is primarily a structural health cleanup.

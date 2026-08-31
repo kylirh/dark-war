@@ -394,9 +394,9 @@ function steerBuilder(state: GameState, monster: Monster): void {
   }
 
   if (agent.currentGoal === "flee") {
-    const attacker = state.entities.find(
-      (entity) => entity.id === monster.lastAttackerId,
-    );
+    const attacker = monster.lastAttackerId
+      ? state.entityManager.getById(monster.lastAttackerId)
+      : undefined;
     if (attacker) {
       const dx = m.worldX - attacker.worldX;
       const dy = m.worldY - attacker.worldY;
@@ -412,10 +412,7 @@ function steerBuilder(state: GameState, monster: Monster): void {
   }
 
   if (agent.currentGoal === "follow" && monster.ownerId) {
-    const owner = state.entities.find(
-      (entity) =>
-        entity.id === monster.ownerId && entity.kind === EntityKind.PLAYER,
-    );
+    const owner = state.entityManager.getById(monster.ownerId);
     if (owner) {
       const distance = Math.hypot(
         owner.worldX - m.worldX,
@@ -508,9 +505,7 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
     m.alertLevel = Math.max(0, m.alertLevel - MONSTER_ALERT_DECAY);
 
     // Refresh last known position if attacker still exists
-    const attacker = state.entities.find(
-      (e) => e.id === m.lastAttackerId,
-    ) as any;
+    const attacker = state.entityManager.getById(m.lastAttackerId) as any;
     if (attacker) {
       m.lastKnownPlayerX = attacker.worldX;
       m.lastKnownPlayerY = attacker.worldY;
@@ -1011,9 +1006,9 @@ function nearestHostileMonster(
 }
 
 function petOwner(state: GameState, pet: Monster): Player | null {
-  const owner = state.entities.find(
-    (e) => e.kind === EntityKind.PLAYER && e.id === pet.ownerId,
-  ) as Player | undefined;
+  const owner = pet.ownerId
+    ? (state.entityManager.getById(pet.ownerId) as Player | undefined)
+    : undefined;
   return owner ?? getClosestPlayer(state, pet);
 }
 
@@ -1500,9 +1495,7 @@ function decideUtilityBotCommand(
 
   // Provoked: fight back if attacker is in melee range
   if (m.alertLevel > 0) {
-    const attacker = state.entities.find(
-      (e) => e.id === m.lastAttackerId,
-    ) as any;
+    const attacker = state.entityManager.getById(m.lastAttackerId) as any;
     if (attacker) {
       const dx = attacker.worldX - m.worldX;
       const dy = attacker.worldY - m.worldY;
@@ -1726,13 +1719,17 @@ function decideMonsterCommand(
   }
 
   // Attack utility bot if it's in the way
-  const nearbyBot = state.entities.find((e) => {
-    if (e.kind !== EntityKind.MONSTER) return false;
-    if ((e as any).type !== MonsterType.UTILITY_BOT) return false;
+  let nearbyBot: any = undefined;
+  for (const e of state.entities) {
+    if (e.kind !== EntityKind.MONSTER) continue;
+    if ((e as any).type !== MonsterType.UTILITY_BOT) continue;
     const dx = e.worldX - monster.worldX;
     const dy = e.worldY - monster.worldY;
-    return Math.sqrt(dx * dx + dy * dy) <= CELL_CONFIG.w * 1.5;
-  });
+    if (Math.sqrt(dx * dx + dy * dy) <= CELL_CONFIG.w * 1.5) {
+      nearbyBot = e;
+      break;
+    }
+  }
   if (nearbyBot) {
     updateWildDogVocal(state, monster, nearbyBot as Monster);
     return {
@@ -1748,19 +1745,23 @@ function decideMonsterCommand(
 
   // Monsters scrap with each other when crowded and alert
   if (!inMeleeRange && (monster.alertLevel ?? 0) > 0 && RNG.chance(0.4)) {
-    const blockingMonster = state.entities.find((e) => {
-      if (e.kind !== EntityKind.MONSTER || e.id === monster.id) return false;
-      if ((e as any).type === MonsterType.UTILITY_BOT) return false;
+    let blockingMonster: any = undefined;
+    for (const e of state.entities) {
+      if (e.kind !== EntityKind.MONSTER || e.id === monster.id) continue;
+      if ((e as any).type === MonsterType.UTILITY_BOT) continue;
       if (
         monster.type === MonsterType.ICKY_LUMP &&
         (e as Monster).type === MonsterType.ICKY_LUMP
       ) {
-        return false;
+        continue;
       }
       const dx = e.worldX - monster.worldX;
       const dy = e.worldY - monster.worldY;
-      return Math.sqrt(dx * dx + dy * dy) <= CELL_CONFIG.w * 1.5;
-    });
+      if (Math.sqrt(dx * dx + dy * dy) <= CELL_CONFIG.w * 1.5) {
+        blockingMonster = e;
+        break;
+      }
+    }
     if (blockingMonster) {
       updateWildDogVocal(state, monster, blockingMonster as Monster);
       return {
@@ -1887,12 +1888,17 @@ function decideMonsterCommand(
       return false;
     }
 
-    const blocker = state.entities.find(
-      (e) =>
+    let blocker: any = undefined;
+    for (const e of state.entities) {
+      if (
         e.gridX === nx &&
         e.gridY === ny &&
-        (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
-    );
+        (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER)
+      ) {
+        blocker = e;
+        break;
+      }
+    }
 
     if (blocker) return false;
 

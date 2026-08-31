@@ -285,6 +285,9 @@ describe("Simulation Commands Management", () => {
         nextActTick: 0,
       } as Player;
       state.entities = [player];
+      state.entityManager = {
+        getById: (id: string) => state.entities.find((e) => e.id === id),
+      } as any;
     });
 
     it("ignores commands from dead players", () => {

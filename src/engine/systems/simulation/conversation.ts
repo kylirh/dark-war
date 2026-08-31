@@ -200,7 +200,7 @@ function conditionMet(
       return (player?.itemCounts[condition.item] ?? 0) > 0;
     }
     case "speakerHasLoot": {
-      const speaker = state.entities.find((entity) => entity.id === speakerId);
+      const speaker = state.entityManager.getById(speakerId);
       return (
         speaker?.kind === EntityKind.MONSTER &&
         (speaker as Monster).fleeing === true &&
@@ -208,7 +208,7 @@ function conditionMet(
       );
     }
     case "speakerHasNoLoot": {
-      const speaker = state.entities.find((entity) => entity.id === speakerId);
+      const speaker = state.entityManager.getById(speakerId);
       return (
         speaker?.kind !== EntityKind.MONSTER ||
         (speaker as Monster).fleeing !== true ||
@@ -220,7 +220,7 @@ function conditionMet(
     case "speakerNotWonOver":
       return !playerHasWonOverSnagglepuss(state, playerId, speakerId);
     case "speakerWonOverAndUnowned": {
-      const speaker = state.entities.find((entity) => entity.id === speakerId);
+      const speaker = state.entityManager.getById(speakerId);
       return (
         speaker?.kind === EntityKind.MONSTER &&
         !(speaker as Monster).ownerId &&
@@ -228,14 +228,14 @@ function conditionMet(
       );
     }
     case "speakerIsOwner": {
-      const speaker = state.entities.find((entity) => entity.id === speakerId);
+      const speaker = state.entityManager.getById(speakerId);
       return (
         speaker?.kind === EntityKind.MONSTER &&
         (speaker as Monster).ownerId === playerId
       );
     }
     case "speakerUnowned": {
-      const speaker = state.entities.find((entity) => entity.id === speakerId);
+      const speaker = state.entityManager.getById(speakerId);
       return (
         speaker?.kind === EntityKind.MONSTER && !(speaker as Monster).ownerId
       );
@@ -419,7 +419,7 @@ export function applyDialogueChoice(
   const session = state.conversations.get(player.id);
   if (!session || session.revision !== expectedRevision) return; // stale/duplicate
 
-  const speakerEntity = state.entities.find((e) => e.id === session.speakerId);
+  const speakerEntity = state.entityManager.getById(session.speakerId);
   const speaker = speakerReachable(player, speakerEntity);
   if (!speaker) {
     endConversation(state, player.id);
@@ -519,7 +519,7 @@ export function buildConversationView(
   if (!session) return undefined;
   const dialogue = DIALOGUE_DEFS[session.dialogueId];
   const node: DialogueNode | undefined = dialogue?.nodes[session.nodeId];
-  const speaker = state.entities.find((e) => e.id === session.speakerId);
+  const speaker = state.entityManager.getById(session.speakerId);
   if (!node || !speaker || !speaker.social) return undefined;
 
   const def = SOCIAL_DEFS[speaker.social.defId];
