@@ -7,6 +7,16 @@ import { escapeHtml } from "./html-escape";
 export interface RetroModalOptions {
   id: string;
   title: string;
+  /**
+   * Raw markup for the dialog body, inserted verbatim.
+   *
+   * Unlike `id` and `title`, this is **not** escaped — panels build their own
+   * markup here and need the tags to survive. That makes it the one sink in
+   * this component that stays the caller's responsibility: anything in `body`
+   * that did not come from a literal in the source (a player name, a save
+   * field, a LAN discovery packet) must be run through `escapeHtml` before it
+   * reaches this option.
+   */
   body: string;
   initialPosition: { top: number; left: number };
   className?: string;
