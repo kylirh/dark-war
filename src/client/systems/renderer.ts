@@ -167,7 +167,6 @@ export class Renderer {
       backgroundColor: 0x4954aa,
       antialias: false, // Disable antialiasing for sharp pixels
       roundPixels: true, // Ensure pixel-perfect rendering
-      preserveDrawingBuffer: true, // Allows reliable save-slot screenshots.
     });
 
     // Scale the stage to render at configured scale
@@ -351,14 +350,6 @@ export class Renderer {
     );
     if (renderedPreview) return renderedPreview;
 
-    const copied = this.capturePlayerSnapshotFromCanvas(
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
-    );
-    if (copied) return copied;
-
     return this.capturePlayerSnapshotFromRenderer(
       sourceX,
       sourceY,
@@ -367,6 +358,16 @@ export class Renderer {
     );
   }
 
+  /**
+   * Fallback capture: re-renders the stage into a render texture.
+   *
+   * This deliberately does not read back the live WebGL canvas. Doing that
+   * would need `preserveDrawingBuffer: true` on the renderer, which keeps the
+   * drawing buffer alive between frames and costs on every frame of play, for
+   * the sake of a path only ever taken when the sprite-sheet preview is
+   * unavailable. `extract` re-renders on demand instead, so it works with the
+   * buffer discarded as usual.
+   */
   private capturePlayerSnapshotFromRenderer(
     sourceX: number,
     sourceY: number,
@@ -386,31 +387,8 @@ export class Renderer {
     }
   }
 
-  private capturePlayerSnapshotFromCanvas(
-    sourceX: number,
-    sourceY: number,
-    sourceWidth: number,
-    sourceHeight: number,
-  ): string | null {
-    try {
-      return this.canvasToPreviewDataUrl(
-        this.canvas,
-        sourceX,
-        sourceY,
-        sourceWidth,
-        sourceHeight,
-      );
-    } catch {
-      return null;
-    }
-  }
-
   private canvasToPreviewDataUrl(
     sourceCanvas: HTMLCanvasElement,
-    sourceX: number = 0,
-    sourceY: number = 0,
-    sourceWidth: number = sourceCanvas.width,
-    sourceHeight: number = sourceCanvas.height,
   ): string | null {
     const preview = document.createElement("canvas");
     preview.width = 320;
@@ -422,10 +400,10 @@ export class Renderer {
     context.fillRect(0, 0, preview.width, preview.height);
     context.drawImage(
       sourceCanvas,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
+      0,
+      0,
+      sourceCanvas.width,
+      sourceCanvas.height,
       0,
       0,
       preview.width,
