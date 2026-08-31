@@ -1,0 +1,71 @@
+name: Deploy web
+
+# Publishes the static web client (apps/web) to GitHub Pages at
+# https://darkwar.kylir.com on every commit that lands on main.
+#
+# The custom domain lives in the repo's Pages settings; the CNAME file written
+# below keeps it intact if publishing is ever switched back to a branch source.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never publish two commits at once, and never cancel a deploy mid-flight —
+# a half-applied Pages deploy would leave the site inconsistent.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # The web build never touches Electron; skipping its ~100 MB binary
+      # download keeps installs fast.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Gate the deploy on the same checks CI runs, so a broken main can never
+      # reach the public site.
+      - name: Type-check (client + server)
+        run: npm run type-check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build static web client
+        run: npm run build:web
+
+      - name: Write CNAME
+        run: echo "darkwar.kylir.com" > apps/web/dist/CNAME
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: apps/web/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
