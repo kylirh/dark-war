@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="Dark War" />
   <title>Dark War</title>
-  <!-- publicDir:"app" serves app/ at root, so these resolve to app/assets/... -->
+  <link rel="icon" type="image/png" href="assets/img/app-icon.png" />
   <link rel="stylesheet" href="assets/css/system.css" />
   <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
@@ -49,7 +49,9 @@
           <div id="hpbar" class="hp-bar-inner" style="--hp-width: 100%"></div>
         </div>
         <span id="hp" class="hp-overlay-text">—</span>
+        <span id="resting-status" class="resting-status" aria-live="polite"></span>
       </div>
+      <!-- Inventory bar is injected by InventoryBar component before .viewport -->
       <div class="viewport">
         <canvas id="game" width="2080" height="1184" aria-label="Game Canvas" role="img"></canvas>
       </div>
@@ -58,6 +60,9 @@
         <div class="game-over-content">
           <h1 class="game-over-text">GAME OVER</h1>
           <h2 class="game-over-score" id="game-over-score">Score: 0</h2>
+          <button class="new-game-button" id="respawn-button" type="button">
+            Respawn
+          </button>
           <button class="new-game-button" id="new-game-button" type="button">
             New Game
           </button>
@@ -67,22 +72,25 @@
       <!-- Story overlay: floating CRT terminal over game -->
       <div id="story-overlay" class="story-overlay" aria-live="polite" aria-label="Story">
         <div id="story-panel" class="story-panel">
-          <!-- Expand/collapse button: upper-right corner of glass pane -->
-          <button id="story-expand-tab" class="story-expand-tab" type="button" aria-label="Toggle story">
-            <span class="story-tab-label">+</span>
+          <!-- Expand/collapse button — upper-right corner of glass pane -->
+          <button id="story-expand-tab" class="story-expand-tab" type="button" aria-label="Toggle story" aria-expanded="false" aria-controls="story-scroll">
+            <span class="story-tab-label" aria-hidden="true">+</span>
           </button>
           <div id="story-scroll" class="story-scroll">
             <ul id="story" class="story-messages"></ul>
           </div>
         </div>
       </div>
-      <button class="scale-toggle" id="scaleToggle" aria-label="Zoom" title="Zoom">
-        1X
-      </button>
     </div>
+
   </div>
 
-  <!-- Vite dev entry: compiled on-demand with HMR -->
+  <!-- Vite dev entry: compiled on-demand with HMR. publicDir:"app" serves
+       app/ at root in dev, so the asset paths above resolve unchanged.
+
+       Everything else in this file must stay byte-identical to app/index.html,
+       which is the page Electron and the static web build ship. See
+       src/client/dev-entry-parity.test.ts. -->
   <script type="module" src="/src/client/main.ts"></script>
   <script>
     (function () {
@@ -98,6 +106,7 @@
       });
     })();
 
+    // ── Story overlay expand/collapse ────────────────────────
     const storyOverlay = document.getElementById("story-overlay");
     const storyPanel = document.getElementById("story-panel");
     const storyScroll = document.getElementById("story-scroll");
@@ -109,6 +118,7 @@
 
     function setStoryHeight() {
       if (storyExpanded) {
+        // Panel top at 8px, overlay bottom at 30px → height = H − 38
         const h = gameArea.clientHeight - 38;
         storyPanel.style.height = Math.max(200, h) + "px";
       } else {
@@ -119,14 +129,17 @@
     storyExpandTab.addEventListener("click", () => {
       storyExpanded = !storyExpanded;
       storyOverlay.classList.toggle("expanded", storyExpanded);
+      storyExpandTab.setAttribute("aria-expanded", String(storyExpanded));
       storyTabLabel.textContent = storyExpanded ? "−" : "+";
       setStoryHeight();
+      // On expand: jump to newest immediately
       if (storyExpanded) {
         storyScroll.scrollTop = storyScroll.scrollHeight;
       }
-      storyExpandTab.blur();
     });
 
+    // On collapse: wait for the height transition to finish before scrolling
+    // to bottom — setting scrollTop during the animation doesn't stick reliably.
     storyPanel.addEventListener("transitionend", (e) => {
       if (e.propertyName === "height" && !storyExpanded) {
         storyScroll.scrollTop = storyScroll.scrollHeight;
@@ -135,19 +148,6 @@
 
     window.addEventListener("resize", () => {
       if (storyExpanded) setStoryHeight();
-    });
-
-    const scaleToggle = document.getElementById("scaleToggle");
-    const scales = [1, 2, 3];
-    let currentScaleIndex = 0;
-
-    scaleToggle.addEventListener("click", () => {
-      currentScaleIndex = (currentScaleIndex + 1) % scales.length;
-      const newScale = scales[currentScaleIndex];
-      scaleToggle.textContent = `${newScale}X`;
-      if (window.darkWarApp && window.darkWarApp.setScale) {
-        window.darkWarApp.setScale(newScale);
-      }
     });
   </script>
 </body>
