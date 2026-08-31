@@ -64,3 +64,10 @@ protecting the moment the value crosses into a nested language — CSS in
 `style`, JS in `on*`, a URL in `href`. Validate those against an allowlist or
 set them through the DOM. And when a helper has been copied, assume the copies
 have drifted and check all of them before trusting any of them.
+
+## 2026-08-31 - Unescaped RetroModal title and id
+
+**Vulnerability:** The `RetroModal` component (`src/client/systems/retro-modal.ts`) interpolated unescaped properties like `options.title` and `options.id` directly into the DOM via `innerHTML`.
+**Learning:** Reusable UI components that build DOM strings using template literals and `innerHTML` are easy sinks for XSS, even if the current callers use safe hardcoded strings. Future usages with dynamic data (like server names or usernames) could trigger XSS.
+
+**Prevention:** Escape variable insertions inside `innerHTML` template literals with `escapeHtml()` at the component level, even when every current caller passes a literal. Where a component genuinely needs raw markup — `RetroModalOptions.body` — say so in the type, so the one unescaped sink is documented rather than assumed.
