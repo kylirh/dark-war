@@ -185,6 +185,11 @@ current plane's beginning spawn and preserves that player's explored state.
 Browsers cannot host or perform UDP LAN discovery. A web client may join a
 reachable LAN server by address and should use `wss://` when served over HTTPS.
 
+The static web client is deployed to GitHub Pages at https://darkwar.kylir.com
+on every commit to `main` (`.github/workflows/deploy-web.yml`). Only the
+single-player path is reachable there today: the deployed page is HTTPS, so it
+cannot open the `ws://` addresses the join flow currently builds.
+
 ## Validation
 
 - `npm run type-check` checks client and server TypeScript.
