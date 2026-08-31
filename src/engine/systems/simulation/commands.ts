@@ -8,7 +8,6 @@ import {
   Monster,
   MonsterType,
   Player,
-  Item,
   TileType,
   ItemType,
   WeaponType,
@@ -1790,10 +1789,12 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
 
   // Interacting toward a vending machine buys a random item for coins.
   if (actor.kind === EntityKind.PLAYER) {
-    const machine = state.entities.find(
+    // `entityManager.items` holds exactly the ITEM-kind entities, so scanning
+    // it is equivalent to the kind check over the full array and skips every
+    // monster, bullet and player on the level.
+    const machine = state.entityManager.items.find(
       (e) =>
-        e.kind === EntityKind.ITEM &&
-        (e as Item).type === ItemType.VENDING_MACHINE &&
+        e.type === ItemType.VENDING_MACHINE &&
         e.gridX === data.x &&
         e.gridY === data.y,
     );
