@@ -1,100 +1,105 @@
-# jules bot prompts
+# Jules Bots
 
-Each bot has a standing prompt in `.jules/prompts/<name>.md`. Learning logs in
-`.jules/<name>.md` are optional, append-only context for substantive findings.
-The prompt is the source of truth for the bot. A log never overrides the
-repository instructions or the design documents.
+This directory holds the standing prompts for Dark War's automated contributors.
 
-## bot roster
+- **`.jules/prompts/<name>.md`** — a bot's complete instruction set. Point a Jules
+  bot at one of these and nothing else.
+- **`.jules/<name>.md`** — that bot's learning log, appended to over time. It
+  records what previous runs found, and what was tried and rejected.
 
-| bot       | responsibility                                                | oracle                                                     |
-| --------- | ------------------------------------------------------------- | ---------------------------------------------------------- |
-| sentinel  | security defects at untrusted-input boundaries                | a concrete, reachable exploit path                         |
-| invariant | determinism, serialization, and netcode properties            | a failing property or invariant test                       |
-| bug       | reproduced correctness defects                                | a failing regression test before the fix                   |
-| palette   | interface operability and accessibility                       | a demonstrated interaction or standards failure            |
-| bolt      | measured runtime or resource improvements                     | a reproducible before/after measurement                    |
-| janitor   | dead code, duplication, simplification, and proven small debt | an objective deletion, duplication, or simplification case |
-| test      | missing or weak behavioral coverage                           | a named decision or edge case the test would catch         |
-| scribe    | incorrect or missing contract documentation                   | a wrong or materially incomplete contract                  |
-| architect | architectural decision records                                | a documented cost imposed by the current design            |
-| world     | terrain, generation, and world-integrity behavior             | a failing world property or reproducible semantic mismatch |
-| alpha     | first-session player path and supported-target smoke coverage | a reproducible player-facing failure                       |
+**Every prompt is self-contained.** Each one restates the architecture
+constraints, verification commands, commit conventions, and stop conditions, so
+a bot never needs this file. This README is for humans deciding what to run and
+when. If you change a shared rule, change it in all eleven prompts.
 
-Each invocation has one owner, one problem, and one proposed pull request at
-most. The general rules below apply to every bot.
+A learning log never overrides `CLAUDE.md`, `AGENTS.md`, or the design documents
+in `docs/`.
 
-## shared rules
+## Roster
 
-1. Read `AGENTS.md` and the relevant files in `docs/` before editing. The
-   repository instructions and design documents are authoritative.
-2. Inspect the current branch, recent commits, learning logs, and open pull
-   requests when those are available. Do not duplicate an existing change or
-   modify a file already being changed by another bot.
-3. Select one narrow problem. Do not bundle adjacent cleanup, speculative
-   refactors, or unrelated fixes.
-4. An oracle is mandatory. If the bot cannot produce the oracle described by
-   its prompt, stop without modifying files, creating a log entry, making a
-   commit, or opening a pull request.
-5. Do not weaken tests, hide failures, invent measurements, or change a
-   documented non-goal into an implementation.
-6. Preserve the current behavior, deterministic simulation, entity lifecycle,
-   engine purity, save behavior, and multiplayer contracts unless the bot's
-   prompt explicitly owns that behavior.
-7. Do not add dependencies or modify `package.json`, `package-lock.json`, or
-   TypeScript configuration unless a human explicitly requests it.
-8. Run the relevant focused checks, then run the full repository checks:
+| Bot                               | Responsibility                                     | Oracle                                          | Cadence  |
+| --------------------------------- | -------------------------------------------------- | ----------------------------------------------- | -------- |
+| [Sentinel](prompts/sentinel.md)   | Security defects at untrusted-input boundaries     | a concrete, reachable exploit path              | daily    |
+| [Invariant](prompts/invariant.md) | Determinism, serialization, and netcode properties | a failing property test                         | daily    |
+| [Bug](prompts/bug.md)             | Reproduced correctness defects                     | a failing test, written first                   | daily    |
+| [Bolt](prompts/bolt.md)           | Measured runtime and resource improvements         | a reproducible before/after measurement         | Mon, Thu |
+| [Palette](prompts/palette.md)     | Interface operability and accessibility            | a demonstrated interaction or standards failure | Tue, Fri |
+| [Janitor](prompts/janitor.md)     | Dead code, duplication, simplification, small debt | an objective deletion or duplication case       | Tue, Fri |
+| [World](prompts/world.md)         | Terrain, generation, and world integrity           | a failing world property or differential check  | Wed      |
+| [Test](prompts/test.md)           | Missing or weak behavioral coverage                | a named uncovered decision                      | Wed      |
+| [Scribe](prompts/scribe.md)       | Incorrect or missing contract documentation        | a wrong or materially incomplete contract       | Mon      |
+| [Alpha](prompts/alpha.md)         | First-session player path across supported targets | a reproducible player-facing failure            | Thu      |
+| [Architect](prompts/architect.md) | Architectural decision records                     | a documented cost the design imposes today      | Fri      |
 
-   ```bash
-   npm run format:check
-   npm test
-   npm run type-check
-   npm run build:ts
-   git diff --check
-   ```
+Architect writes ADRs to `docs/adr/` and never changes source. Test makes
+test-only changes. Everyone else opens ordinary code pull requests.
 
-   Report only commands that were actually run. Do not fix unrelated failures.
+## Schedule
 
-9. Add a learning-log entry only when the work produces a substantive,
-   codebase-specific lesson. Never create a log entry solely to describe an
-   empty result.
-10. If a pull request is created, make exactly one focused commit when
-    practical. The commit subject and pull-request title must both use
-    lowercase Conventional Commit form, contain no decorative symbols, and be
-    fewer than 150 characters:
+Staggered so no day exceeds six bots — roughly 26 pull requests a week at
+maximum, and far fewer in practice.
 
-    ```text
-    <type>(<scope>): <imperative description>
-    ```
+| Day | Bots                                                  |
+| --- | ----------------------------------------------------- |
+| Mon | Sentinel, Invariant, Bug, Bolt, Scribe                |
+| Tue | Sentinel, Invariant, Bug, Palette, Janitor            |
+| Wed | Sentinel, Invariant, Bug, World, Test                 |
+| Thu | Sentinel, Invariant, Bug, Bolt, Alpha                 |
+| Fri | Sentinel, Invariant, Bug, Palette, Janitor, Architect |
 
-    The pull-request body may be longer so it can contain the oracle,
-    verification, risks, and deliberately excluded work. Keep its headings
-    lowercase and preserve the required casing of code identifiers and
-    commands.
+**Review capacity is the bottleneck in this system, not bot capacity.** A
+rubber-stamped pull request is worse than no pull request. If the queue backs
+up, cut cadence before cutting review depth.
 
-11. A pull request must not be used to report an empty result. If the oracle
-    is absent, end without a commit, pull request, or log update.
+## Ownership
 
-## architecture boundaries
+Rough primary areas, so same-day bots stay off each other's files. Every prompt
+also instructs the bot to check `gh pr list --state open` and avoid files an open
+bot pull request already touches.
 
-- `src/engine/` is platform-independent and must not import DOM, Pixi,
-  Electron, `ws`, Node modules, or platform globals.
-- `state.tiles` is the canonical tile accessor. Do not reintroduce scalar
-  runtime maps or editor IDs as gameplay state.
-- `worldX` and `worldY` are authoritative. `gridX` and `gridY` are derived and
-  read-only.
-- Entity lifecycle goes through `state.entityManager`; do not mutate
-  `state.entities` directly.
-- Use deterministic RNG for gameplay logic. Preserve entity ordering when it
-  can affect RNG consumption or observable behavior.
-- Compatibility with old saves, worlds, and network clients is not a goal for
-  this unreleased game. Do not add compatibility scaffolding unless requested.
+| Area                                                                  | Primary   |
+| --------------------------------------------------------------------- | --------- |
+| `electron/`, `src/net/` boundaries, DOM sinks                         | Sentinel  |
+| `src/engine/systems/simulation/`, `src/net/state-delta.ts`, RNG       | Invariant |
+| `src/engine/core/` generation, `WorldPlane`, tiles, portals, wrapping | World     |
+| `src/client/systems/` UI modules, `app/index.html`, `index.html`      | Palette   |
+| `src/client/systems/renderer.ts`, physics, server tick                | Bolt      |
+| `*.test.ts`                                                           | Test      |
+| `docs/`, TSDoc across the tree                                        | Scribe    |
+| `docs/adr/`                                                           | Architect |
 
-## pull-request review
+Bug, Janitor, and Alpha range across the tree, which makes collision checking
+their responsibility more than anyone's.
 
-The reviewer should merge only when the oracle is credible, the diff is within
-the bot's scope, the relevant checks pass, and the change respects the
-authoritative design documents. Otherwise, request narrowly scoped changes,
-close the pull request, or record a decision for human review. Never merge an
-architectural or product-direction change merely because it is technically
-plausible.
+## The Two Rules That Matter Most
+
+Everything else in the prompts serves these.
+
+**1. No oracle, no pull request.** Every bot has a specific, falsifiable thing
+that proves the work was worth doing — a failing test, a measurement, an exploit
+path. It is a gate, not a preference. A bot that may open a pull request without
+one will eventually manufacture work, because it can always find _something_ to
+change.
+
+**2. Opening nothing is a successful run.** Bots are not measured on output, and
+an empty run is the expected outcome on a healthy codebase. An empty run ends
+silently — no files, no log entry, no commit.
+
+The failure mode these prevent is already visible in this repository. Read the
+last three entries in `.jules/bolt.md`: each one ends by admitting the change was
+not a measured win. That is a bot shipping because it believed it had to.
+
+The one exception to rule 2: a bot that finds something substantive it should
+_not_ implement — too large, or needing a human decision — may open a **log-only
+pull request** touching nothing but its own `.jules/<name>.md`. That is for
+recording real findings, never for reporting an empty run.
+
+## Review
+
+Merge only when the oracle is credible, the diff is inside the bot's scope, the
+checks pass, and the change respects the authoritative design documents.
+Otherwise request narrowly scoped changes, close the pull request, or record the
+question for a human.
+
+Never merge an architectural or product-direction change merely because it is
+technically plausible.
