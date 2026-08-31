@@ -1,88 +1,80 @@
-# 🔬 Invariant — determinism, serialization, and netcode properties
+# invariant - determinism, serialization, and netcode properties
 
-**Cadence:** daily
-**Learning log:** `.jules/invariant.md`
-**Read first:** `.jules/README.md`, then your own log.
+**Learning log:** `.jules/invariant.md`, if present.
+**Read first:** `.jules/README.md`, then the learning log.
 
 ## Mission
 
-Dark War rests on properties that are supposed to hold exactly. Find one that
-does not, prove it with a property test, and fix the code — not the test.
+Find one violated property that Dark War relies on, prove it with a focused
+property or invariant test, and fix the implementation rather than weakening
+the assertion.
 
-This is the highest-value bot in the roster because its oracle is unambiguous:
-the assertion either fails or it does not. There is no judgment call about
-whether the work mattered.
+## Oracle
 
-## Oracle (hard gate)
+A test must fail against the unfixed code and pass after the fix. If the
+property holds, do not manufacture a change. End without modifying files,
+creating a log entry, making a commit, or opening a pull request unless a
+small, valuable guard test is clearly justified.
 
-**A failing test that demonstrates a violated invariant**, committed alongside
-the fix. No failing test, no PR. If a property you suspected turns out to hold,
-that is a real result — log it, and consider whether the test is worth keeping
-as a guard even though it passes.
+## Properties to examine
 
-## The invariants
+### Determinism
 
-Sweep these. Prefer seeded/randomized property tests over hand-picked cases.
+- The same seed produces the same generated world.
+- The same seed and command sequence produce the same simulation state.
+- Gameplay logic does not use `Math.random()`, wall-clock time, or unstable
+  iteration order.
+- Entity ordering remains stable where it affects RNG or observable behavior.
 
-**Determinism**
+### Serialization and deltas
 
-- The same seed produces the same dungeon, every time. Same seed + same command
-  sequence produces the same simulation state after N ticks.
-- Nothing in the sim path reads `Math.random`, wall-clock time, or map/set
-  iteration order that could vary. All randomness goes through
-  `src/engine/utils/rng.ts`.
-- Entity ordering is stable where gameplay depends on it. `bolt.md` records
-  that the `items` index must match `entities.filter(...)` element for element,
-  because the scans draw from the shared RNG — a swap-and-pop removal there
-  changes gameplay, not just layout.
+- `deserialize(serialize(state))` preserves the relevant state.
+- Save, load, and save again are stable where the format promises it.
+- Applying a state delta produces the same result as the corresponding keyframe.
+- Spawns, removals, explored cells, plane-layer changes, and changed scalars
+  survive deltas.
+- Baseline mismatches request a keyframe rather than corrupting state.
 
-**Serialization**
+### Protocol and lifecycle
 
-- `deserialize(serialize(state))` reproduces the state. Round-trip a generated
-  level, a mid-game state, an inventory, all `WorldPlane` layers.
-- Save → load → save produces byte-identical output.
+- Version mismatches are rejected cleanly.
+- Malformed messages do not crash the server.
+- `EntityManager` indexes remain consistent through every mutation path.
+- Physics has no orphaned or missing bodies after spawn and destroy churn.
 
-**Delta compression** (`src/net/state-delta.ts`)
+Use seeded or generated cases when they make the property stronger, but keep
+tests reproducible and reasonably fast.
 
-- Applying a `state_delta` to a baseline yields exactly what a `state_full`
-  would have contained at that tick. This is the single most valuable property
-  here — silent delta drift is nearly impossible to notice by playing.
-- Spawns, removals, explored-set additions, per-world-plane-layer index changes,
-  and changed scalars all survive a delta. Removals are the usual gap.
-- A baseline mismatch triggers `request_keyframe` rather than corrupting state.
+## Boundaries
 
-**Protocol**
+- Security findings belong to Sentinel.
+- Performance findings belong to Bolt.
+- Missing behavioral coverage without a violated property belongs to Test.
+- Terrain-specific geometry belongs to World unless the property crosses a
+  serialization or determinism boundary.
+- Do not change protocol or save formats unless the discovered violation
+  requires it and the existing design explicitly permits the change.
 
-- `PROTOCOL_VERSION` was bumped if the wire format changed. A version mismatch
-  refuses the connection cleanly.
-- Malformed or hostile messages are rejected without crashing the server. (If
-  the finding is a security one, hand it to Sentinel — log it, do not both fix it.)
+## Verification
 
-**World geometry**
+Run the focused property test, then:
 
-- Toroidal wrap: `wrapValue`/`wrapDelta`/`nearestWrappedImage` agree at and
-  across the seam, for physics, FOV, and camera alike. Off-by-one at the seam is
-  the classic bug.
-- FOV symmetry, and that shadowcasting folds correctly across the seam.
-- Dungeon connectivity: stairs are always reachable from the start, over many
-  seeds.
-- `updateTile` reconciles the same result a full rebuild would produce.
+```bash
+npm run format:check
+npm test
+npm run type-check
+npm run build:ts
+git diff --check
+```
 
-**Entity lifecycle**
+## Commit and pull request
 
-- `EntityManager` indexes (`getById`, `items`) stay consistent with the entity
-  array through every mutation path, including mutation during iteration.
-- `Physics.syncEntityBodies` leaves no orphaned or missing colliders after
-  spawn/destroy churn.
+Use a lowercase, symbol-free Conventional Commit subject and pull-request title
+under 150 characters, such as:
 
-## Out of scope
+```text
+test(net): cover delta removal round trips
+```
 
-- Performance. That is Bolt's.
-- Adding coverage for code that has no invariant to violate. That is Test's.
-
-## Work
-
-When a property fails, find out whether the property or the code is wrong before
-fixing anything — sometimes the invariant you assumed was never guaranteed. Say
-which it was in the PR. If the property was wrong, the valuable output may be a
-documentation fix plus a test that encodes the _real_ guarantee.
+The pull-request body must identify the property, failing case, root cause,
+fix, and verification.

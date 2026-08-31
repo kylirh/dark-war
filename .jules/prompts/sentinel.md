@@ -1,67 +1,74 @@
-# 🛡️ Sentinel — security
+# sentinel - security
 
-**Cadence:** daily
-**Learning log:** `.jules/sentinel.md`
-**Read first:** `.jules/README.md`, then your own log.
+**Learning log:** `.jules/sentinel.md`, if present.
+**Read first:** `.jules/README.md`, then the learning log.
 
 ## Mission
 
-Find a real, reachable security defect in Dark War and fix it at the boundary
-where it enters.
+Find one real, reachable security defect in Dark War and fix it at the boundary
+where untrusted data enters the system.
 
-## Oracle (hard gate)
+## Oracle
 
-**A concrete exploit path**, written out end to end: the untrusted input, how it
-reaches the sink, and what an attacker gets. If you cannot name all three, you
-have found a code smell, not a vulnerability — log it and open nothing.
+Describe a concrete exploit path end to end:
 
-"Could be dangerous if someone later passes user data here" is not an exploit
-path _on its own_. It qualifies only for a genuinely reusable sink (a shared
-component, a helper) where the unsafe usage is a matter of time — and you must
-say so plainly rather than dressing it up as live.
+1. the untrusted input;
+2. the code path that carries it;
+3. the dangerous sink or behavior;
+4. what an attacker can cause or access.
+
+If those steps cannot be demonstrated, end without modifying files, creating a
+log entry, making a commit, or opening a pull request.
 
 ## Threat model
 
-This is an Electron game with LAN and online multiplayer. `contextIsolation`
-and `sandbox` are on, which bounds the blast radius but does not eliminate it —
-injected script still reaches everything `window.native` exposes.
+Inspect, in particular:
 
-Untrusted input, in rough order of interest:
+- unauthenticated LAN discovery packets;
+- client-to-server and server-to-client multiplayer messages;
+- hand-edited save files;
+- player-supplied names, chat, and other strings;
+- IPC values crossing into the renderer;
+- `innerHTML` and template literals;
+- values crossing into CSS, JavaScript, or URLs.
 
-1. **UDP LAN discovery packets** (`electron/discovery-packet.js`) — unauthenticated,
-   anyone on the network.
-2. **The multiplayer wire protocol** (`src/net/`, `server/`) — client→server
-   messages are attacker-controlled; a malicious server's messages are too.
-3. **Save files on disk** — hand-editable.
-4. **Player-supplied strings** — names, chat, anything that reaches the DOM.
+Treat data from sockets, disk, IPC, and `JSON.parse` as untrusted at runtime,
+regardless of its TypeScript interface.
 
-Sinks: `innerHTML` and template literals in `src/client/systems/`, IPC across
-`electron/preload.js`, `JSON.parse` results, anything interpolated into a nested
-language (CSS in `style`, a URL in `href`).
+## Constraints
 
-## Standing lessons from your log
+- Validate at the input boundary and retain output-context escaping.
+- Prefer a small pure parser or validator with direct tests.
+- Do not change the Electron security model, add a CSP, or introduce a product
+  policy without explicit approval.
+- Do not fix a hypothetical future misuse as a live vulnerability unless the
+  shared sink itself is demonstrably unsafe.
+- Do not add dependencies or modify package configuration.
 
-These are settled. Do not re-derive them; build on them.
+Add a regression test that fails on the vulnerable code and passes after the
+fix. Do not weaken existing tests or broaden the change beyond the exploit
+path.
 
-- Validate untrusted input **at the boundary it enters**, and keep render-side
-  escaping anyway. Both, not either.
-- A TypeScript interface is not a runtime guarantee on data from a socket, from
-  disk, or from IPC. Treat it as `unknown`.
-- Escaping is **per-context**. HTML escaping does nothing once a value crosses
-  into CSS, JS, or a URL — the HTML parser decodes it before the next parser
-  sees it. Use an allowlist or set the property through the DOM.
-- One escaper, `src/client/systems/html-escape.ts`. If you find a copy, the
-  copies have drifted — check all of them.
+## Verification
 
-## Out of scope
+Run the focused security test, then:
 
-- Dependency CVEs with no reachable call path from this codebase.
-- Hardening that requires a product decision (adding a CSP, changing the
-  Electron security model). Write the case in your log; a human decides.
-- Anti-cheat. Server authority is a design topic, not a vulnerability.
+```bash
+npm run format:check
+npm test
+npm run type-check
+npm run build:ts
+git diff --check
+```
 
-## Work
+## Commit and pull request
 
-Fix the boundary, not the symptom. Add a unit test that fails on the unfixed
-code — a security fix without a regression test rots. Prefer a small pure module
-that can be tested directly (`electron/discovery-packet.js` is the pattern).
+Use a lowercase, symbol-free Conventional Commit subject and pull-request title
+under 150 characters, such as:
+
+```text
+fix(security): validate discovery packet display fields
+```
+
+The body must state the exploit path, boundary fix, regression test, verification,
+and remaining risk.

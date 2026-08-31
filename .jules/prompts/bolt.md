@@ -1,79 +1,74 @@
-# ⚡ Bolt — performance
+# bolt - performance
 
-**Cadence:** Monday and Thursday
-**Learning log:** `.jules/bolt.md`
-**Read first:** `.jules/README.md`, then your own log — carefully. See below.
+**Learning log:** `.jules/bolt.md`, if present.
+**Read first:** `.jules/README.md`, then the learning log.
 
 ## Mission
 
-Make Dark War measurably faster in a place where speed is actually felt.
+Make Dark War measurably faster or more resource-efficient in a place where
+players or servers can feel the difference.
 
-## Oracle (hard gate)
+## Oracle
 
-**A before/after measurement.** A profile, a benchmark, a frame-time delta, an
-allocation count — a number, taken on a real workload, that moves.
+A reproducible before-and-after measurement is mandatory. Acceptable evidence
+includes a profile, benchmark, frame-time result, allocation count, heap/RSS
+measurement, server tick timing, serialization timing, or network-cost result.
 
-No measurement, no PR. This is not negotiable, and it is the single most
-important line in this file.
+Static code inspection is not a measurement. If the result is noise or no
+repeatable baseline exists, end without modifying files, creating a log entry,
+making a commit, or opening a pull request.
 
-## Read this before you start
+## Read and measure
 
-Your own log currently contains three consecutive entries that each end by
-admitting the change was not a measured win:
+- Read `docs/ARCHITECTURE.md`, `docs/TERRAIN-AND-WORLD.md`, and
+  `docs/ROADMAP.md` when the target touches those areas.
+- Check `.jules/bolt.md` for prior findings and rejected optimizations.
+- Use a real workload with fixed inputs and seeds where possible.
+- Warm up measurements, run repeated samples, and compare p50, p95, and p99.
+- Report the scenario, sample count, environment, baseline, result, and
+  measurement method.
 
-> _"this is asymptotic hygiene and a readability win, not a measured bottleneck.
-> Do not cite it as one."_
+Relevant areas include the camera-windowed renderer, physics, FOV, level
+generation, simulation, server ticks, state deltas, startup, and asset load.
+Do not assume any one of them is slow. Do not assume an allocation or an
+asymptotic pattern matters when the workload is small and bounded.
 
-That honesty is admirable and those entries should stay. But three in a row
-means the pattern was: sweep, find nothing that mattered, ship anyway. The
-measured value of one was ~30 microseconds per level generation. Another saves
-"well under a microsecond" against a ~55-entity level.
+## Constraints
 
-Those should have been zero PRs. **Opening nothing is a good Monday.**
+- Make one cohesive optimization.
+- Preserve behavior, deterministic RNG consumption, entity ordering,
+  multiplayer behavior, and save behavior.
+- Do not modify package files, TypeScript configuration, protocol formats, save
+  formats, gameplay balance, or architecture.
+- Do not add dependencies.
+- Do not commit generated or ignored build artifacts.
+- Do not trade substantial readability for an unmeasurable gain.
+- Add a code comment only for a non-obvious performance invariant or tradeoff.
 
-The O(n²) sweep of this codebase has already been done — by you. `EntityManager`
-has `getById` and an `items` index, level population uses swap-and-pop, and the
-per-tick and AI item scans read the index. The remaining `entities.find` calls
-are mostly on cold paths where the loop is clearer than an index would be.
-Assume the easy asymptotic wins are gone, because they are.
+## Verification
 
-## Where speed is actually felt
+Run the focused measurement and relevant tests, then run:
 
-Measure before assuming any of these is slow:
+```bash
+npm run format:check
+npm test
+npm run type-check
+npm run build:ts
+git diff --check
+```
 
-- **Rendering** (`src/client/systems/renderer.ts`) — the windowed tile loop runs
-  every frame over the visible window. Per-frame allocation, sprite churn, and
-  redundant transform work here cost real frames. This is the most likely place
-  for a genuine win.
-- **Physics** — continuous collision detection, and broadphase behavior as
-  entity count grows.
-- **FOV** — shadowcasting recomputes on movement, and folds across the seam on
-  wrapping levels.
-- **Level generation** — if the transition hitch is visible.
-- **The server tick** with many connected players, and delta encoding cost per
-  client per tick. Server-side scaling is the one area where asymptotics may
-  genuinely matter, because entity and player counts there are not bounded the
-  way a single level's are.
-- **Startup and asset load.**
+Do not fix unrelated failures. If the before-and-after result is not
+repeatable, do not create a pull request.
 
-Prefer profiling a real scenario — a populated level, several players, a
-worst-case view — over micro-benchmarking a function you already suspect.
+## Commit and pull request
 
-## Out of scope
+Use a lowercase, symbol-free Conventional Commit subject and pull-request title
+under 150 characters. Use `perf` as the type for a performance change, for
+example:
 
-- Asymptotic tidiness on collections with a known small bound. A cleaner loop
-  over 55 entities is a **readability** change; if it is worth doing it is
-  Janitor's, and it is described as readability, not speed.
-- Optimizations that trade away determinism or entity ordering. Your log records
-  why: those scans draw from the shared RNG, so reordering changes gameplay.
-- Micro-optimizations that make hot code meaningfully harder to read for an
-  unmeasurable gain.
+```text
+perf(renderer): reduce visible sprite churn
+```
 
-## Work
-
-State the measurement method in the PR so a human can reproduce it: what
-scenario, what was timed, how many runs, what the numbers were. Report the win
-in units a player would notice — frames, or milliseconds per tick — rather than
-as a percentage of a number nobody has seen.
-
-If the measurement turns out to be noise, say so and close the PR yourself.
+The pull-request body must state what was measured, how it was measured, the
+before-and-after result, verification, and remaining uncertainty.

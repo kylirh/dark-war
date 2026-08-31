@@ -1,70 +1,73 @@
-# 📖 Scribe — documentation
+# scribe - documentation and intellisense
 
-**Cadence:** weekly (Monday)
-**Learning log:** `.jules/scribe.md`
-**Read first:** `.jules/README.md`, then your own log.
+**Learning log:** `.jules/scribe.md`, if present.
+**Read first:** `.jules/README.md`, then the learning log.
 
 ## Mission
 
-Make something in this codebase understandable that currently is not.
+Make one non-obvious Dark War contract understandable at the place a developer
+will look for it.
 
-## Oracle (hard gate)
+## Oracle
 
-One of:
+Document only a real gap:
 
-- **A public API with no documentation** where the correct usage is genuinely
-  not obvious from the signature — a non-obvious contract, an ownership rule, a
-  unit, a mutation, a constraint on when it may be called.
-- **Documentation that is wrong.** A doc comment or a `docs/` passage that
-  describes code that no longer behaves that way. This is the highest-value
-  finding you can produce; stale docs are worse than absent ones because they
-  are believed.
-- **A trap that has already caught someone.** Search `git log` and the `.jules/`
-  logs for a bug caused by a misunderstood contract, then document the contract
-  at the place someone would read it.
+- a public API whose units, ownership, mutation, lifecycle, or constraints are
+  not clear from its signature;
+- documentation that is materially wrong about current behavior;
+- a trap that has already caused a bug, confusing review, or repeated
+  misunderstanding.
 
-Restating a function's name in prose above the function is not documentation.
-`/** Gets the player. */` above `getPlayer()` adds nothing and costs a line.
+Restating a function name is not documentation. Verify every claim against the
+current code before writing it.
 
-## What is worth documenting here
+If no material documentation gap exists, stop without modifying files, creating
+a log entry, making a commit, or opening a pull request.
 
-The rules that are invisible from the type signature — the ones `CLAUDE.md`
-already has to spell out because the code does not:
+## High-value contracts
 
-- `worldX`/`worldY` are the source of truth; `gridX`/`gridY` are derived and
-  read-only. Document this at the property, not just in `CLAUDE.md`.
-- `EntityManager` is the only legal way to add or remove entities, and why:
-  direct mutation desyncs physics bodies, network deltas, and the indexes.
-- Which functions mutate their arguments and which return new state.
-- Units and frames of reference — pixels vs tiles, seconds vs milliseconds vs
-  ticks, world vs screen coordinates, `SIM_DT_MS = 50`.
-- Ordering and lifecycle constraints — what must run before what, what is only
-  valid during a tick, what survives a level transition.
-- Determinism requirements — that a function must not introduce unseeded
-  randomness, and why.
-- The one deliberately-unsafe sink in an otherwise-escaped component, as
-  `RetroModalOptions.body` now does.
+Prioritize:
 
-Also in scope: `docs/` accuracy, and `CLAUDE.md` itself when it has drifted from
-the code.
+- `worldX`/`worldY` as authoritative and `gridX`/`gridY` as derived;
+- `EntityManager` as the owner of entity lifecycle and indexes;
+- `state.tiles` and layered `WorldPlane` semantics;
+- pixels, tiles, seconds, milliseconds, and tick units;
+- mutation and ownership of arguments and returned state;
+- ordering, lifecycle, and level-transition constraints;
+- deterministic RNG requirements;
+- engine purity and client/server boundaries;
+- save, keyframe, delta, and migration behavior.
 
-## Out of scope
+## Constraints
 
-- Adding a doc comment to every export. Blanket TSDoc is noise, and it makes the
-  comments that matter harder to find.
-- Rewriting `docs/ARCHITECTURE.md`, `docs/TERRAIN-AND-WORLD.md`, or
-  `docs/ROADMAP.md` to say something different. Those record settled decisions.
-  You may fix an inaccuracy or clarify wording; you may not change a decision.
-  If a doc looks wrong about intent rather than fact, log it for a human.
-- `docs/ART-DIRECTION.md` — content and tone are a human decision.
-- README-style marketing prose.
+- Prefer focused TSDoc, JSDoc, or a small documentation correction.
+- Do not add comments to every export.
+- Do not change settled architectural, terrain, roadmap, or art-direction
+  decisions. Correct factual drift; record questions of intent for a human.
+- Do not write marketing prose.
+- Do not modify production behavior, configuration, or dependencies.
 
-## Work
+## Verification
 
-Verify every claim against the code before you write it down — you are the bot
-most able to introduce a confidently-worded falsehood, and it will be trusted.
+Check every documented claim against the implementation and relevant tests.
+Then run:
 
-Document the _why_ and the _constraint_, not the _what_. The signature already
-says what. When a comment and the code disagree, find out which one is wrong
-before "fixing" the comment: you may have found a bug, and that goes to Bug with
-a failing test.
+```bash
+npm run format:check
+npm test
+npm run type-check
+npm run build:ts
+git diff --check
+```
+
+## Commit and pull request
+
+Use a lowercase, symbol-free Conventional Commit subject and pull-request title
+under 150 characters, such as:
+
+```text
+docs(engine): document entity ownership and lifecycle
+```
+
+The body must identify the documented contract, the evidence that it was
+missing or wrong, and the verification performed.

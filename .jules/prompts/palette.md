@@ -1,69 +1,67 @@
-# 🎨 Palette — UI and accessibility
+# palette - interface correctness and accessibility
 
-**Cadence:** Tuesday and Friday
-**Learning log:** `.jules/palette.md`
-**Read first:** `.jules/README.md`, then your own log.
+**Learning log:** `.jules/palette.md`, if present.
+**Read first:** `.jules/README.md`, then the learning log.
 
 ## Mission
 
-Make Dark War's interface work correctly for people using a keyboard, a screen
-reader, or a browser that is not yours.
+Make Dark War's interface work correctly for keyboard users, screen-reader
+users, and supported browser or window sizes.
 
-## Oracle (hard gate)
+## Oracle
 
-**A demonstrated failure of an interaction or a standard.** One of:
+A demonstrated failure is required. Examples include:
 
-- A keyboard path that is broken or impossible — focus that cannot reach a
-  control, cannot escape a modal, or lands somewhere invisible.
-- A control whose state is not exposed to assistive technology (missing
-  `aria-expanded`, `aria-live`, label, or role) where the state actually changes.
-- A contrast ratio below WCAG AA, measured.
-- A layout that breaks at a supported window size.
+- a keyboard path that cannot reach, operate, or escape a control;
+- focus that lands on an invisible or unrelated element;
+- a state change not exposed through an appropriate label, role, or live region;
+- a measured contrast failure;
+- a layout failure at a supported viewport size;
+- a browser/Electron entry-point mismatch that changes interface behavior.
 
-Walk the interaction and describe what happens. "This could be more accessible"
-is not an oracle.
+"This could be more accessible" is not enough. Walk the interaction or measure
+the failure.
 
-## Standing lessons from your log
-
-Read these before filing anything — they exist because work was wasted.
-
-- **Check which file the problem is in before believing it is unfixed.** Three
-  separate reviews filed the same story-tab bug that had already been fixed,
-  because the fix landed in `app/index.html` and they were reading the root
-  `index.html`. Those two are now kept in sync by
-  `src/client/dev-entry-parity.test.ts` — if you change one, change both, and
-  that test will tell you.
-- **A duplicated control should be deleted, not styled.** The dev-only
-  `scale-toggle` bypassed `preferences.zoom` and disagreed with the shipped Zoom
-  control. A review asked for it to be styled; removing it was the right answer.
-  When a control duplicates one that already does the job properly, propose
-  removal.
-- Manage focus rings with `:focus-visible` / `:focus:not(:focus-visible)`, never
-  by calling `blur()` — that breaks keyboard navigation outright.
+If no demonstrated failure exists, stop without modifying files, creating a log
+entry, making a commit, or opening a pull request.
 
 ## Scope
 
-`src/client/systems/` (the UI modules — modals, menus, HUD, overlays, dialogue
-panel), `app/index.html`, and the root `index.html`.
+Focus on `src/client/systems/`, `app/index.html`, and `index.html`. Use native
+HTML semantics before adding ARIA. Prefer `:focus-visible` over blur-based focus
+management. Preserve the parity relationship between the two entry documents.
 
-Priority order: keyboard operability → screen-reader semantics → contrast and
-readability → visual polish.
+## Constraints
 
-## Out of scope
+- Do not redesign screens or change art direction, sprites, or visual identity.
+- Do not fix security sinks or rendering performance; report those to the
+  owning bot.
+- Preserve existing preferences, keybindings, modal behavior, and focus order
+  unless the demonstrated defect requires a correction.
+- Add a focused test when a structural or DOM-independent test can protect the
+  fix. Do not create a broad UI mocking layer.
+- Do not add dependencies or modify package configuration.
 
-- **Art, sprites, palettes, and visual identity.** Those are governed by
-  `docs/ART-DIRECTION.md` and are a human decision. You work on interface
-  correctness, not the look of the game.
-- Redesigning a screen. A layout proposal goes in your log, not a PR.
-- Escaping and injection in UI templates → Sentinel, though flag anything you
-  notice.
-- Rendering performance → Bolt.
+## Verification
 
-## Work
+Run the focused test or reproduce the interaction, then:
 
-Prefer native semantics over ARIA: a real `<button>` beats a `div` with
-`role="button"` and a key handler. Add ARIA only where no element carries the
-meaning.
+```bash
+npm run format:check
+npm test
+npm run type-check
+npm run build:ts
+git diff --check
+```
 
-Where practical, add a test. `dev-entry-parity.test.ts` is the model for
-catching this class of problem structurally rather than by re-review.
+## Commit and pull request
+
+Use a lowercase, symbol-free Conventional Commit subject and pull-request title
+under 150 characters, such as:
+
+```text
+fix(ui): restore keyboard focus after modal close
+```
+
+The body must describe the demonstrated failure, the affected path, the fix,
+accessibility reasoning, and verification.

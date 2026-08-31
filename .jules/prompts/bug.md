@@ -1,63 +1,71 @@
-# 🐞 Bug — reproduce, then fix
+# bug - reproduce, then fix
 
-**Cadence:** daily
-**Learning log:** `.jules/bug.md`
-**Read first:** `.jules/README.md`, then your own log.
+**Learning log:** `.jules/bug.md`, if present.
+**Read first:** `.jules/README.md`, then the learning log.
 
 ## Mission
 
-Find one genuine bug in Dark War, prove it exists, and fix it.
+Find one genuine correctness bug in Dark War, prove it, and fix its root cause.
 
-## Oracle (hard gate)
+## Oracle
 
-**A failing test, written before the fix, that fails on `main` and passes after.**
-Commit both. The test is not paperwork — it is the entire justification for the
-PR.
+Write a focused regression test that fails against the unfixed code and passes
+after the fix. The test is required before production code is changed.
 
-This rule exists because a bug bot without a reproduction requirement produces
-speculative fixes for bugs that do not exist, and those are worse than no PR at
-all: they are plausible, they read well, and they cost real review time to
-disprove.
+If the suspected bug cannot be reproduced, it is not ready for this bot. End
+without modifying files, creating a log entry, making a commit, or opening a
+pull request.
 
-If you cannot make it fail, you have not found a bug. You have found code that
-looks wrong to you. Log the suspicion — with what you tried and why it did not
-reproduce — and open nothing. A log full of honestly-failed hypotheses is a
-genuinely useful artifact.
+## Investigation
 
-## Where to look
+Start with deterministic and testable areas:
 
-Bias toward logic that is deterministic and testable without Electron, Pixi, or
-the DOM — that is where a failing test is achievable:
+- simulation commands and event cascades;
+- level generation and transitions;
+- pathfinding, wrapping, walls, repair, and helpers;
+- serialization, state deltas, and keyframes;
+- entity lifecycle and indexed lookups;
+- offline and online behavior that is supposed to agree.
 
-- `src/engine/systems/simulation/` — command resolution, event cascades
-  (damage → death → loot → chain explosion), AI decisions
-- `src/engine/core/` — level transitions, `Game` state management, generation
-- `src/engine/utils/` — pathfinding, wrap math, walls, repair, helpers
-- `src/net/` — encoding, delta application
-- `src/engine/content/` — definition consistency
+Check boundary conditions, empty collections, zero health, invalid targets,
+level edges, the toroidal seam, mutation during iteration, stale references,
+and ordering assumptions.
 
-Fruitful shapes of bug: boundary conditions (level edges, the toroidal seam,
-empty inventories, zero HP, one entity, no valid target); state that outlives
-what it describes (a dead entity's id, a stale index, a reference across a level
-transition); ordering assumptions in the event queue; mutation during iteration;
-and asymmetries between the offline and online paths, which are easy to change
-in one place only.
+## Constraints
 
-## Out of scope
+- Diagnose the root cause before editing it.
+- Preserve documented behavior and deterministic simulation.
+- Do not fix security defects, invariant properties, missing features, cosmetic
+  UI issues, or performance-only concerns owned by another bot.
+- Do not broaden the fix to unrelated call sites. If the same root cause exists
+  elsewhere, either fix it within the same narrow scope or record it in the
+  pull-request body for follow-up.
+- Do not add dependencies or change configuration.
 
-- Security defects → Sentinel.
-- Broken invariants provable as a property → Invariant. Overlap is fine; if it
-  is naturally expressed as "this property does not hold," leave it to them.
-- Missing features, unfinished work, and TODOs → Janitor or a human. An
-  unimplemented thing is not a bug.
-- Cosmetic UI issues → Palette.
+If the regression test exposes an incorrect product or design decision rather
+than an implementation bug, remove the test, record the decision needed, and
+end without a pull request.
 
-## Work
+## Verification
 
-Diagnose before fixing. State the root cause in the PR in one or two sentences —
-if you cannot, you are patching a symptom and the bug will come back wearing a
-different hat.
+After the regression test passes, run:
 
-Fix the cause at its source, even when the symptom appears somewhere else. Note
-in the PR whether other call sites share the same root cause; if several do, fix
-one properly and log the rest rather than sprawling.
+```bash
+npm run format:check
+npm test
+npm run type-check
+npm run build:ts
+git diff --check
+```
+
+## Commit and pull request
+
+Use a lowercase, symbol-free Conventional Commit subject and pull-request title
+under 150 characters, such as:
+
+```text
+fix(sim): preserve loot after chained death events
+```
+
+The pull-request body must state the reproduction, root cause, fix, regression
+test, verification, and deliberately excluded follow-up work.

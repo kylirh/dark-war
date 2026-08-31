@@ -1,166 +1,100 @@
-# Jules bots
+# jules bot prompts
 
-Each bot has two files:
+Each bot has a standing prompt in `.jules/prompts/<name>.md`. Learning logs in
+`.jules/<name>.md` are optional, append-only context for substantive findings.
+The prompt is the source of truth for the bot. A log never overrides the
+repository instructions or the design documents.
 
-- **`.jules/prompts/<name>.md`** — the bot's standing instructions. Read-only for
-  the bot. Changed by a human.
-- **`.jules/<name>.md`** — the bot's learning log. The bot appends to it. This is
-  how a bot avoids re-deriving, re-reporting, and re-fixing the same thing next
-  week.
+## bot roster
 
-Everything below applies to every bot. A bot's own prompt narrows it; it never
-overrides it.
+| bot       | responsibility                                                | oracle                                                     |
+| --------- | ------------------------------------------------------------- | ---------------------------------------------------------- |
+| sentinel  | security defects at untrusted-input boundaries                | a concrete, reachable exploit path                         |
+| invariant | determinism, serialization, and netcode properties            | a failing property or invariant test                       |
+| bug       | reproduced correctness defects                                | a failing regression test before the fix                   |
+| palette   | interface operability and accessibility                       | a demonstrated interaction or standards failure            |
+| bolt      | measured runtime or resource improvements                     | a reproducible before/after measurement                    |
+| janitor   | dead code, duplication, simplification, and proven small debt | an objective deletion, duplication, or simplification case |
+| test      | missing or weak behavioral coverage                           | a named decision or edge case the test would catch         |
+| scribe    | incorrect or missing contract documentation                   | a wrong or materially incomplete contract                  |
+| architect | architectural decision records                                | a documented cost imposed by the current design            |
+| world     | terrain, generation, and world-integrity behavior             | a failing world property or reproducible semantic mismatch |
+| alpha     | first-session player path and supported-target smoke coverage | a reproducible player-facing failure                       |
 
-## Roster and schedule
+Each invocation has one owner, one problem, and one proposed pull request at
+most. The general rules below apply to every bot.
 
-Staggered so no day exceeds five bots. Review capacity is the bottleneck in this
-system, not bot capacity — a rubber-stamped PR is worse than no PR.
+## shared rules
 
-| Bot                                                          | Cadence  | Oracle                             |
-| ------------------------------------------------------------ | -------- | ---------------------------------- |
-| 🛡️ [Sentinel](prompts/sentinel.md) — security                | daily    | a concrete exploit path            |
-| 🔬 [Invariant](prompts/invariant.md) — determinism & netcode | daily    | a failing property test            |
-| 🐞 [Bug](prompts/bug.md) — reproduce then fix                | daily    | a failing test, written first      |
-| 🎨 [Palette](prompts/palette.md) — UI & a11y                 | Tue, Fri | a broken interaction or standard   |
-| ⚡ [Bolt](prompts/bolt.md) — performance                     | Mon, Thu | a before/after measurement         |
-| 🧹 [Janitor](prompts/janitor.md) — dead code & duplication   | Tue, Fri | proven-unused, or named duplicates |
-| 🧪 [Test](prompts/test.md) — coverage                        | Wed      | a named uncovered branch           |
-| 📖 [Scribe](prompts/scribe.md) — documentation               | Mon      | an undocumented or wrong contract  |
-| 🏛️ [Architect](prompts/architect.md) — proposals             | Wed      | a cost the design imposes today    |
+1. Read `AGENTS.md` and the relevant files in `docs/` before editing. The
+   repository instructions and design documents are authoritative.
+2. Inspect the current branch, recent commits, learning logs, and open pull
+   requests when those are available. Do not duplicate an existing change or
+   modify a file already being changed by another bot.
+3. Select one narrow problem. Do not bundle adjacent cleanup, speculative
+   refactors, or unrelated fixes.
+4. An oracle is mandatory. If the bot cannot produce the oracle described by
+   its prompt, stop without modifying files, creating a log entry, making a
+   commit, or opening a pull request.
+5. Do not weaken tests, hide failures, invent measurements, or change a
+   documented non-goal into an implementation.
+6. Preserve the current behavior, deterministic simulation, entity lifecycle,
+   engine purity, save behavior, and multiplayer contracts unless the bot's
+   prompt explicitly owns that behavior.
+7. Do not add dependencies or modify `package.json`, `package-lock.json`, or
+   TypeScript configuration unless a human explicitly requests it.
+8. Run the relevant focused checks, then run the full repository checks:
 
-Architect writes ADRs and never changes source. Everyone else opens code PRs.
+   ```bash
+   npm run format:check
+   npm test
+   npm run type-check
+   npm run build:ts
+   git diff --check
+   ```
 
-Rough ownership, to keep same-day bots off each other's files:
+   Report only commands that were actually run. Do not fix unrelated failures.
 
-| Area                                                                       | Primary   |
-| -------------------------------------------------------------------------- | --------- |
-| `electron/`, `src/net/` boundaries, DOM sinks                              | Sentinel  |
-| `src/engine/systems/simulation/`, `src/net/state-delta.ts`, RNG, wrap, FOV | Invariant |
-| `src/client/systems/` UI modules, `app/index.html`, `index.html`           | Palette   |
-| `src/client/systems/renderer.ts`, physics, server tick                     | Bolt      |
-| `docs/`, TSDoc across the tree                                             | Scribe    |
-| `docs/adr/`                                                                | Architect |
+9. Add a learning-log entry only when the work produces a substantive,
+   codebase-specific lesson. Never create a log entry solely to describe an
+   empty result.
+10. If a pull request is created, make exactly one focused commit when
+    practical. The commit subject and pull-request title must both use
+    lowercase Conventional Commit form, contain no decorative symbols, and be
+    fewer than 150 characters:
 
-Bug, Janitor, and Test range across the tree — which makes rule 4 below their
-responsibility more than anyone's.
+    ```text
+    <type>(<scope>): <imperative description>
+    ```
 
-## 1. No oracle, no PR
+    The pull-request body may be longer so it can contain the oracle,
+    verification, risks, and deliberately excluded work. Keep its headings
+    lowercase and preserve the required casing of code identifiers and
+    commands.
 
-Every bot has an **oracle** — the specific, falsifiable thing that proves the
-work was worth doing. A failing test. A profiler trace. An exploit path. A
-coverage report naming an uncovered branch. The oracle is named in each prompt,
-and it is a hard gate, not a preference.
+11. A pull request must not be used to report an empty result. If the oracle
+    is absent, end without a commit, pull request, or log update.
 
-If you cannot produce the oracle, you have not found a real problem. You have
-found something you could change. Those are different, and only the first one
-gets a PR.
+## architecture boundaries
 
-## 2. Opening zero PRs is a successful run
+- `src/engine/` is platform-independent and must not import DOM, Pixi,
+  Electron, `ws`, Node modules, or platform globals.
+- `state.tiles` is the canonical tile accessor. Do not reintroduce scalar
+  runtime maps or editor IDs as gameplay state.
+- `worldX` and `worldY` are authoritative. `gridX` and `gridY` are derived and
+  read-only.
+- Entity lifecycle goes through `state.entityManager`; do not mutate
+  `state.entities` directly.
+- Use deterministic RNG for gameplay logic. Preserve entity ordering when it
+  can affect RNG consumption or observable behavior.
+- Compatibility with old saves, worlds, and network clients is not a goal for
+  this unreleased game. Do not add compatibility scaffolding unless requested.
 
-You are not measured on output. A day where you searched carefully, found
-nothing that clears your oracle, and opened nothing is a **good day**, and it
-is the expected outcome on a healthy codebase.
+## pull-request review
 
-When that happens, append a short dated entry to your learning log saying what
-you swept and why it came up empty, then stop. That entry is valuable — it
-stops the next run from re-walking the same ground.
-
-The failure mode this rule exists to prevent is real and already in these logs:
-read the last three entries in `.jules/bolt.md`. Each one ends by admitting the
-change was not a measured win. That is a bot manufacturing work because it
-believed it had to ship something. Do not do that.
-
-## 3. Scope is small and finished
-
-One problem per run. One PR. A PR that is reviewable in ten minutes gets merged;
-a PR that touches thirty files gets closed. If the fix you found is genuinely
-large, do not start it — write the case for it in your learning log and let a
-human schedule it.
-
-Never bundle an unrelated drive-by fix into a PR. Note it in the log instead.
-
-## 4. Check for collisions before you start
-
-Several bots run on the same day. Before you touch anything:
-
-- `gh pr list --state open` — read the titles and the changed files.
-- **Do not modify a file that an open bot PR already modifies.** Pick something
-  else. A merge conflict between two bots costs more review time than either PR
-  saves.
-- Do not re-report something already fixed in an open PR or in the last 30 days
-  of `git log`.
-
-## 5. Verify before you open
-
-Every PR must pass what CI runs (`.github/workflows/ci.yml`):
-
-```bash
-npm run type-check && npm test && npm run build:ts
-```
-
-Also run `npm run format` — Prettier is the formatter and there is no ESLint.
-
-If you cannot run these, say so explicitly in the PR body. Do not claim a check
-passed that you did not run.
-
-## 6. Respect the documented architecture
-
-Read `CLAUDE.md` before your first change, and the doc that governs the area you
-are touching:
-
-- `docs/ARCHITECTURE.md` — build variants and the engine-purity rule
-- `docs/TERRAIN-AND-WORLD.md` — world/tile decisions **and non-goals**
-- `docs/ROADMAP.md` — what is planned and what is deliberately deferred
-- `docs/ART-DIRECTION.md` — before any visual or content work
-
-These record settled decisions. Something that looks like an oversight is
-usually a documented non-goal. Specifically:
-
-- `src/engine/` must not import DOM, Pixi, Electron, `ws`, or node builtins.
-  `src/engine-purity.test.ts` enforces this.
-- Do not reintroduce scalar runtime tile maps or editor IDs as gameplay state.
-- Never write `gridX`/`gridY` — they are derived from `worldX`/`worldY`.
-- Never `state.entities.push(...)` or reassign `state.entities`. Entity
-  lifecycle goes through `EntityManager`.
-- Dark War is unreleased. Do not add back-compat shims for old protocol
-  versions or save formats. Bump `PROTOCOL_VERSION` when the wire format
-  changes.
-
-If your change contradicts one of these docs, the change is wrong, or the doc
-needs a human decision first. Either way: stop and write it up.
-
-## 7. Append to your learning log
-
-Every run that opens a PR appends an entry. Match the existing style — prose
-that explains the reasoning, not a changelog line. The good entries in
-`.jules/palette.md` and `.jules/sentinel.md` are the model.
-
-```markdown
-## YYYY-MM-DD - Short title
-
-**What was found:** ...
-
-**Action:** ...
-
-**Prevention:** what a future run should check, or believe, to avoid this class
-of problem — or to avoid re-reporting this exact thing.
-```
-
-Record the _caveats too_. If the win was small, say it was small. A log that
-oversells past work makes the next run overconfident.
-
-## 8. PR format
-
-Title: `<emoji> <Name>: <short description>`, e.g.
-`🛡️ Sentinel: fix XSS in LAN discovery packet rendering`
-
-Body:
-
-- **The oracle** — the proof this was worth doing, up front. Paste the failing
-  test output, the measurement, the exploit path.
-- **What changed** and why this approach over the alternatives.
-- **Verification** — the commands you actually ran and their results.
-- **What you deliberately did not do**, if you found adjacent problems.
-
-Write plainly. Do not pad the body, and do not describe a small change as a
-significant one.
+The reviewer should merge only when the oracle is credible, the diff is within
+the bot's scope, the relevant checks pass, and the change respects the
+authoritative design documents. Otherwise, request narrowly scoped changes,
+close the pull request, or record a decision for human review. Never merge an
+architectural or product-direction change merely because it is technically
+plausible.

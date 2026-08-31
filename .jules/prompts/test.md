@@ -1,75 +1,85 @@
-# 🧪 Test — coverage that would catch something
+# test - behavioral coverage
 
-**Cadence:** weekly (Wednesday)
-**Learning log:** `.jules/test.md`
-**Read first:** `.jules/README.md`, then your own log.
+**Learning log:** `.jules/test.md`, if present.
+**Read first:** `.jules/README.md`, then the learning log.
 
 ## Mission
 
-Add a test that would fail if someone broke the behavior it covers.
+Add or improve one test that would fail if a plausible future change broke the
+behavior it protects.
 
-## Oracle (hard gate)
+## Oracle
 
-**A named uncovered branch or edge case, plus a statement of the bug that would
-slip through without the test.** Not an uncovered _file_ — an uncovered
-_decision_.
+Name the uncovered decision or edge case and state the plausible regression it
+would catch. An uncovered file is not enough. A test that merely asserts a
+literal definition contains its own visible keys is not valuable.
 
-Before writing anything, answer in one sentence: _what plausible future change
-does this test catch?_ If the honest answer is "someone deleting this function,"
-you are testing that TypeScript works. Skip it.
+Before editing, answer: "What future change would this test catch?" If the
+honest answer is not specific, stop without modifying files, creating a log
+entry, making a commit, or opening a pull request.
 
-## Read this before you start
+## What to test
 
-You have run roughly twelve times and the repository now has 83 test files
-against 88 source files. The obvious coverage is gone. Roughly a dozen PRs in
-`git log` are `🧪 Add tests for X`, and the remaining X are thinner than the
-ones already done.
+Prioritize observable behavior with branches, consequences, and failure paths:
 
-You are the bot most at risk of manufacturing work, because a test can always be
-added. **Weekly cadence, and a frequent empty run, is the expected shape of this
-job now.** A week where you report "coverage is adequate; the gaps I found are
-not worth testing" is a good week and a genuinely useful log entry.
+- command and event cascades such as damage, death, loot, and explosions;
+- empty inventories, zero health, invalid targets, and missing entities;
+- map boundaries, toroidal seams, depth changes, and portal transitions;
+- malformed saves, out-of-range values, and interrupted actions;
+- offline and online paths that must agree or intentionally differ;
+- entity-manager mutation and index consistency;
+- terrain edits, repair, passability, and local visual invalidation;
+- save/load and state-delta round trips;
+- regressions identified in `git log` or existing learning logs.
 
-Existing coverage is not evidence of quality. A test that asserts a definition
-object has the keys it visibly has does not catch anything. If you find tests
-like that — including your own — noting them in the log is more valuable than
-adding another.
+## Test quality
 
-## What is worth testing here
+- Test behavior rather than implementation details or call counts.
+- Prefer one meaningful sequence over many shallow assertions.
+- Keep fixtures small, isolated, deterministic, and readable.
+- Use seeded randomness where randomness is part of the behavior.
+- Avoid unnecessary mocks, snapshots, sleeps, and timeout increases.
+- Do not delete or weaken a test merely because it is difficult to maintain.
+- Do not duplicate an invariant already covered by `invariant`.
+- Tests belong beside the code as `*.test.ts` files and use the existing Vitest
+  setup.
 
-Behavior with branches, edge cases, and consequences:
+If a new test exposes a current production bug and fails against the current
+code, do not leave a failing test or fix production code. Report the bug for
+`bug` and end without a pull request.
 
-- **Event cascades** in `src/engine/systems/simulation/` — damage → death →
-  loot drop → chain explosion. Ordering, and what happens when a step fails.
-- **Boundary conditions** — empty inventory, zero and negative HP, one entity,
-  no valid target, the map edge, the toroidal seam, depth 0 vs deep floors.
-- **Failure paths** — malformed save, missing file, out-of-range value,
-  disconnect mid-action. These are usually the real gaps.
-- **Offline/online divergence** — logic that must behave the same in both, or
-  deliberately differently (CTDM is offline-only).
-- **Regressions** — a bug from `git log` with no test guarding it.
+## Constraints
 
-## Not worth testing
+- Test-only changes. Do not modify production code, package files, TypeScript
+  configuration, or dependencies.
+- Do not add a client mocking layer for Electron, Pixi, or the DOM when the
+  behavior belongs in a pure module.
+- Do not chase a coverage percentage without a meaningful behavioral oracle.
 
-- Getters, constructors that only assign fields, and pass-through wrappers.
-- That a content definition object contains its own literal values. `MONSTER_DEFS`
-  having a `name` key is not a behavior. _Structural validation_ — every entry
-  has a valid behavior archetype, every loot id resolves to a real item — is
-  worth it, and is largely done.
-- Anything requiring Electron, Pixi, or the DOM. The suite deliberately covers
-  deterministic logic only; do not add a mocking layer to reach into those.
-- Re-testing an invariant Invariant already property-tests.
+## Verification
 
-## Work
+Run the focused test, then:
 
-Tests live beside the code as `*.test.ts` and run on Vitest. Match the style of
-the neighbours.
+```bash
+npm run format:check
+npm test
+npm run type-check
+npm run build:ts
+git diff --check
+```
 
-Prefer one test that exercises a real sequence over ten that each assert one
-field. Assert on observable outcomes, not on internal call counts — a test
-coupled to implementation detail will fail on every refactor and teach everyone
-to distrust the suite.
+Where practical, temporarily break the protected behavior to confirm the new
+test fails, then restore the implementation and confirm it passes. Do not leave
+intentional mutations in the pull request.
 
-**Verify the test fails against broken code.** Temporarily break the behavior,
-confirm red, restore, confirm green. A test that passes no matter what is worse
-than nothing, and this step is the only thing that proves it isn't one.
+## Commit and pull request
+
+Use a lowercase, symbol-free Conventional Commit subject and pull-request title
+under 150 characters, such as:
+
+```text
+test(respawn): cover current-plane death recovery
+```
+
+The body must identify the gap, the future regression, the test change, and the
+verification performed.
