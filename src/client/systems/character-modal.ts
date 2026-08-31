@@ -541,7 +541,7 @@ export class CharacterModal {
     mainView.className = "char-game-view";
 
     const logo = document.createElement("img");
-    logo.src = "assets/img/logo.png";
+    logo.src = "assets/img/logo.webp";
     logo.alt = "Dark War";
     logo.className = "char-game-logo";
     mainView.appendChild(logo);
