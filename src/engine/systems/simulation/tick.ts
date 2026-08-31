@@ -171,19 +171,21 @@ export function processRestingPlayers(state: GameState, tick: number): void {
 // ========================================
 
 export function processMonsterItemPickups(state: GameState): void {
-  const monsters: Monster[] = [];
+  // Copied out of the live index rather than iterated in place: adaptive-weapon
+  // monsters spawn their dropped weapon mid-loop, which appends to the index.
   const items: Item[] = [];
+  for (const item of state.entityManager.items) {
+    if (ITEM_DEFS[item.type]?.collectible !== false) items.push(item);
+  }
+  if (items.length === 0) return;
+
+  const monsters: Monster[] = [];
   for (const e of state.entities) {
     if (e.kind === EntityKind.MONSTER && (e as Monster).hp > 0) {
       monsters.push(e as Monster);
-    } else if (
-      e.kind === EntityKind.ITEM &&
-      ITEM_DEFS[(e as Item).type]?.collectible !== false
-    ) {
-      items.push(e as Item);
     }
   }
-  if (monsters.length === 0 || items.length === 0) return;
+  if (monsters.length === 0) return;
 
   const PICKUP_RADIUS = 24;
   const MEDKIT_PICKUP_RADIUS = 48; // Desperate monsters grab medkits from further away
@@ -363,9 +365,7 @@ function processMagneticPickup(state: GameState): void {
   const worldH = state.mapHeight * CELL_CONFIG.h;
 
   const collected = new Set<string>();
-  for (const item of state.entities) {
-    if (item.kind !== EntityKind.ITEM) continue;
-    const itm = item as Item;
+  for (const itm of state.entityManager.items) {
     if (ITEM_DEFS[itm.type]?.collectible === false) continue;
     if (ITEM_DEFS[itm.type]?.category === "machine") continue;
     if (collected.has(itm.id)) continue;
@@ -411,7 +411,7 @@ function processMagneticPickup(state: GameState): void {
     }
     itm.prevWorldX = itm.worldX;
     itm.prevWorldY = itm.worldY;
-    item.physicsBody?.setPosition(itm.worldX, itm.worldY);
+    itm.physicsBody?.setPosition(itm.worldX, itm.worldY);
   }
 }
 
@@ -542,13 +542,11 @@ function processHoleFalls(state: GameState): void {
   // depth. (Online's per-depth worlds don't share state, so items just drop.)
   const offline = state.multiplayer?.mode !== "online";
   const fallenItemIds = new Set<string>();
-  for (const entity of state.entities) {
-    if (entity.kind !== EntityKind.ITEM) continue;
-    const tile = state.tiles.getTile(entity.gridX, entity.gridY);
+  for (const item of state.entityManager.items) {
+    const tile = state.tiles.getTile(item.gridX, item.gridY);
     if (tile !== TileType.HOLE) continue;
-    fallenItemIds.add(entity.id);
+    fallenItemIds.add(item.id);
     if (offline) {
-      const item = entity as Item;
       if (!state.itemsFellThrough) state.itemsFellThrough = [];
       state.itemsFellThrough.push({
         type: item.type,

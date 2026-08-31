@@ -123,6 +123,27 @@ describe("EntityManager", () => {
       expectIndexConsistent(manager);
     });
 
+    it("keeps items in entity-array order across interleaved removals", () => {
+      // Per-tick item scans (magnetic pickup, hole falls, monster pickup) read
+      // this index instead of filtering `entities`, and some of them draw from
+      // the shared RNG as they go. Equal *order* — not just equal membership —
+      // is what keeps those scans deterministic, so a future swap-and-pop
+      // removal here would be a silent behavior change, not an optimization.
+      manager.spawnAll([
+        item("i1"),
+        monster("m1"),
+        item("i2"),
+        item("i3"),
+        monster("m2"),
+        item("i4"),
+      ]);
+      manager.destroy("i2");
+      manager.destroy("m1");
+
+      expect(manager.items.map((i) => i.id)).toEqual(["i1", "i3", "i4"]);
+      expectIndexConsistent(manager);
+    });
+
     it("stays consistent through spawnAll", () => {
       manager.spawnAll([item("i1"), monster("m1"), item("i2")]);
       expect(manager.items).toHaveLength(2);
