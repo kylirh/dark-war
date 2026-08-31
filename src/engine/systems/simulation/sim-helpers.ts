@@ -208,7 +208,7 @@ export function canActorAct(
   actorId: string,
   tick: number,
 ): boolean {
-  const entity = state.entities.find((e) => e.id === actorId);
+  const entity = state.entityManager.getById(actorId);
   if (!entity) return false;
 
   // Dead check

@@ -54,7 +54,7 @@ describe("damage → death event pipeline", () => {
     });
     processEventQueue(state);
 
-    const survivor = state.entities.find((e) => e.id === monster.id) as Monster;
+    const survivor = state.entityManager.getById(monster.id) as Monster;
     expect(survivor).toBeDefined();
     expect(survivor.hp).toBe(startHp - 1);
   });
@@ -149,7 +149,7 @@ describe("explosion event pipeline", () => {
     triggerExplosion(state, monster.worldX, monster.worldY, ItemType.GRENADE);
     processEventQueue(state);
 
-    const survivor = state.entities.find((e) => e.id === monster.id) as
+    const survivor = state.entityManager.getById(monster.id) as
       | Monster
       | undefined;
     // Either it took blast damage or it was destroyed outright.
