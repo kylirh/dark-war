@@ -33,7 +33,6 @@ export type FacingDirection = "down" | "up" | "left" | "right";
 // Sprite sheet configuration
 export const SPRITE_SHEET_PATH = "assets/img/sprites.png";
 export const SPRITE_SIZE = 32;
-export const SPRITES_PER_ROW = 16;
 
 const WALL_AUTOTILE_BASE_ROWS: Record<string, number> = {
   [TileType.WALL]: 18,
