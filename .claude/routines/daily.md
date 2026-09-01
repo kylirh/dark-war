@@ -40,22 +40,24 @@ ToolSearch: select:mcp__github__list_pull_requests,mcp__github__pull_request_rea
 
 Owner is `kylirh`, repo is `dark-war`.
 
-Two things this toolset cannot do, both verified against the live sandbox:
+Verified against the live sandbox:
 
-- **There is no branch-deletion tool**, and `git push origin --delete` returns
-  HTTP 403.
-- The same 403 comes from `git-receive-pack`, the endpoint **every** push uses,
-  so pushing commits may be blocked too. `git push --dry-run` succeeds anyway —
-  it never contacts that endpoint, so it proves nothing. Don't trust it.
+- **Reads work** — `list_pull_requests`, `pull_request_read`, cloning, fetching.
+- **Writes work.** A real `git push` creating a new branch succeeds, so ordinary
+  commits and the Phase 2 pull request go out over plain git as normal.
+- **Ref deletion does not.** There is no branch-deletion tool, and
+  `git push origin --delete` returns HTTP 403 from `git-receive-pack`. That is
+  specific to deletion — the same credential creates and updates refs fine, so a
+  403 there says nothing about pushing in general.
 
-Test push capability once, early, with a real push to a throwaway ref. If it
-403s, do not spend the run producing commits you cannot deliver: use
-`mcp__github__create_branch` plus `mcp__github__create_or_update_file` to write
-changes through the API instead, and if that also fails, stop and report the
-blocker as the first line of your run summary. A run that quietly produces
+`git push --dry-run` never contacts `git-receive-pack`, so it proves nothing
+either way. Confirm with a real push if you need to.
+
+If a push ever does 403, do not spend the run producing commits you cannot
+deliver: use `mcp__github__create_branch` plus `mcp__github__create_or_update_file`
+to write changes through the API instead, and if that also fails, stop and report
+the blocker as the first line of your run summary. A run that quietly produces
 nothing because it could not write is a failed run reported as a success.
-
-Reads (`list_pull_requests`, `pull_request_read`, cloning, fetching) all work.
 
 ## Before you start
 
