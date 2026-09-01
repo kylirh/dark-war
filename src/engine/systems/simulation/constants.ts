@@ -39,7 +39,6 @@ export const EXPLOSION_KNOCKBACK_MIN_DISTANCE = 14;
 export const IDLE_WANDER_SPEED = MONSTER_SPEED * 0.5;
 export const UTILITY_BOT_SPEED = MONSTER_SPEED * 0.6;
 export const UTILITY_BOT_FOLLOW_DIST_PX = CELL_CONFIG.w * 2.5; // ~80px follow offset from player
-export const UTILITY_BOT_REPAIR_SEARCH_RADIUS = 20; // grid tiles
 export const UTILITY_BOT_REPAIR_COOLDOWN = 8; // extra ticks between repairs
 export const IDLE_WANDER_DIRECTIONS: [number, number][] = [
   [1, 0],
