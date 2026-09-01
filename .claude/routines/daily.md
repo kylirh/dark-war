@@ -190,17 +190,37 @@ rather than sprawling the merge.
 
 ### Clean up branches
 
-After all merges, delete remote branches that are fully merged into `main`:
+After all merges, delete the remote branches that are left over. **Do not use
+`git branch -r --merged` as your source of truth.** This repository squash-merges,
+so a merged branch's tip is never an ancestor of `main` and that command reports
+almost every landed Jules branch as unmerged. Ask GitHub which pull requests
+merged instead, and use ancestry only as a supplement for branches that never had
+a pull request.
 
 ```bash
 git fetch --prune origin
-git branch -r --merged origin/main | sed 's#origin/##' | grep -v -E '^(main|HEAD)'
+
+# branches whose pull request was merged (the authoritative list)
+gh pr list --state merged --limit 200 --json headRefName --jq '.[].headRefName' | sort -u > merged-heads.txt
+
+# plus branches already contained in main by ancestry
+git branch -r --merged origin/main | sed 's#origin/##' | tr -d ' ' \
+  | grep -vE '^(main|HEAD)' | sort -u >> merged-heads.txt
+
+# what still exists on origin, and what is still in flight
+git ls-remote --heads origin | sed 's#.*refs/heads/##' | sort -u > remote-heads.txt
+gh pr list --state open --limit 200 --json headRefName --jq '.[].headRefName' | sort -u > open-heads.txt
 ```
 
-Delete each survivor of that list with `git push origin --delete <branch>`,
-except: `main`, anything with an open pull request, and `backup/*` branches.
+Delete a branch only when it appears in both `remote-heads.txt` and
+`merged-heads.txt`, and is none of: `main`, a `backup/*` branch, or a branch
+listed in `open-heads.txt`. Delete each with
+`git push origin --delete <branch>`, and delete the scratch files rather than
+committing them.
+
 **Never delete an unmerged branch** — including branches left over from closed
-pull requests. List those in the run summary and let a human decide.
+pull requests, which is what most of the stale Jules branches are. List those in
+the run summary and let a human decide.
 
 ---
 
