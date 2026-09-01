@@ -207,7 +207,7 @@ export class GameMenu {
         <div class="imb-pause-view" data-pause-view="main">
           <img src="assets/img/logo.webp" class="imb-pause-logo" alt="Dark War" />
           <div class="imb-pause-message hidden" id="pause-menu-message"></div>
-          <div class="imb-pause-options" role="menu" aria-label="Pause menu">
+          <div class="imb-pause-options">
             ${this.pauseItems
               .map(
                 (item, index) => `
@@ -216,7 +216,6 @@ export class GameMenu {
                 data-pause-action="${item.action}"
                 data-pause-index="${index}"
                 type="button"
-                role="menuitem"
               >${item.label}</button>
             `,
               )
@@ -540,6 +539,22 @@ export class GameMenu {
         );
         this.pauseMenuSelection = index;
         this.syncPauseMenu();
+      });
+
+      button.addEventListener("focus", () => {
+        const index = Number.parseInt(
+          (button as HTMLElement).dataset.pauseIndex ?? "0",
+          10,
+        );
+        if (this.pauseMenuSelection !== index) {
+          this.pauseMenuSelection = index;
+          document
+            .querySelectorAll<HTMLElement>("[data-pause-index]")
+            .forEach((btn) => {
+              const i = Number.parseInt(btn.dataset.pauseIndex ?? "0", 10);
+              btn.classList.toggle("selected", i === index);
+            });
+        }
       });
     });
   }
@@ -1084,8 +1099,6 @@ export class GameMenu {
         const isEnabled = item ? this.isPauseItemEnabled(item) : true;
         button.classList.toggle("selected", isSelected);
         button.classList.toggle("disabled", !isEnabled);
-        button.setAttribute("aria-selected", String(isSelected));
-        button.setAttribute("aria-disabled", String(!isEnabled));
         if (button instanceof HTMLButtonElement) button.disabled = !isEnabled;
         if (this.pauseMenuView === "main" && isSelected && isEnabled) {
           button.dataset.initialFocus = "true";
@@ -1394,6 +1407,7 @@ export class GameMenu {
     this.listeningForKey = null;
     this.shouldFocusPauseMenu = true;
     this.showModal("pause-dialog");
+    this.syncPauseMenu();
   }
 
   public closePauseMenu(force = false): void {

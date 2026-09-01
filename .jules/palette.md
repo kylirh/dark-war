@@ -26,3 +26,11 @@ desyncing control look official.
 **Prevention:** When a UI bug is reported that you believe is already fixed,
 check _which_ file the reporter was looking at before dismissing it. A stale
 duplicate reads exactly like a regression.
+
+## 2024-11-20 - GameMenu Keyboard Focus and ARIA Navigation
+
+**Learning:** The pause menu in `GameMenu` misused ARIA `role="menu"` on a container with native `<button>`s, breaking screen reader expectations for keyboard interactions. Furthermore, opening the menu stranded keyboard focus on the background canvas because it lacked a call to sync and apply focus, and Tab navigation desynced internal selection state from actual DOM focus.
+
+**Action:** Removed invalid `role="menu"`, `role="menuitem"`, and `aria-selected` attributes to let buttons function naturally. Added `this.syncPauseMenu()` in `openPauseMenu()` to properly shift focus into the dialog upon opening. Added a `focus` event listener to sync internal selection when a user navigates via the `Tab` key.
+
+**Prevention:** Do not use `role="menu"` for lists of buttons navigating views or performing app actions unless implementing strict roving tabindex or `aria-activedescendant` logic. Ensure modals actively move `document.activeElement` into themselves upon opening.
