@@ -57,3 +57,11 @@ test in `entity-manager.test.ts`.
 
 **Learning:** Dozens of hotspots in the simulation loop (such as command parsing, event processing, and conversation states) used `state.entities.find((e) => e.id === someId)` to fetch an entity by its unique ID. This is an O(N) array scan performed very frequently.
 **Action:** Replaced these lookups with `state.entityManager.getById(someId)`, leveraging `EntityManager`'s internal O(1) `Map` mapping IDs to entities. Always use `getById(id)` over `entities.find` when possible.
+
+## 2024-05-18 - Object Pooling for PIXI.Sprite
+
+**What was found:** `Renderer` instantiated thousands of PIXI `Sprite` objects on every frame (via `createSpriteFromFrame` and similar methods), and then destroyed them at the end of the frame using `child.destroy()`. This led to high garbage collection overhead and excessive JS allocation times, negatively impacting the frame rate (benchmark showed ~2.7ms per frame baseline for 500 frames).
+
+**Action:** Implemented a simple array-based object pool (`this.spritePool: Sprite[] = []`) in `Renderer`. The sprite creation methods now `pop()` a sprite from the pool if available, explicitly resetting properties (`texture`, `alpha`, `tint`, `rotation`, `scale`, `anchor`, and `zIndex`) to prevent state leakage. Instead of `destroy()`, children of type `Sprite` are now pushed back into the pool during `destroyFrameChildren`.
+
+**Prevention:** Next time an object pool is implemented for renderable elements, remember to reset *all* modified properties on retrieval from the pool (especially `anchor` and `zIndex`) to avoid visual artifacts.

@@ -123,6 +123,7 @@ export class Renderer {
   private shakeIntensity: number = 0;
   private resizeObserver?: ResizeObserver;
   private resizeDebounceTimer?: ReturnType<typeof setTimeout>;
+  private spritePool: Sprite[] = [];
 
   constructor(canvasId: string, initialScale: number = 1.0) {
     this.scale = initialScale;
@@ -875,7 +876,18 @@ export class Renderer {
     const texture = this.getTexture(x, y);
     if (!texture) return null;
 
-    const sprite = new Sprite(texture);
+    let sprite = this.spritePool.pop();
+    if (sprite) {
+      sprite.texture = texture;
+      sprite.alpha = 1;
+      sprite.tint = 0xffffff;
+      sprite.rotation = 0;
+      sprite.scale.set(1, 1);
+      sprite.anchor.set(0, 0);
+      sprite.zIndex = 0;
+    } else {
+      sprite = new Sprite(texture);
+    }
     sprite.x = screenX;
     sprite.y = screenY;
     sprite.width = CELL_CONFIG.w;
@@ -897,7 +909,17 @@ export class Renderer {
     );
     if (!texture) return null;
 
-    const sprite = new Sprite(texture);
+    let sprite = this.spritePool.pop();
+    if (sprite) {
+      sprite.texture = texture;
+      sprite.alpha = 1;
+      sprite.tint = 0xffffff;
+      sprite.rotation = 0;
+      sprite.scale.set(1, 1);
+      sprite.zIndex = 0;
+    } else {
+      sprite = new Sprite(texture);
+    }
     sprite.x = screenX;
     sprite.y = screenY + frame.yOffset;
     sprite.width = frame.renderWidth;
@@ -953,7 +975,15 @@ export class Renderer {
       huge: [1.18, 0.72],
     };
     const [scaleX, scaleY] = scaleBySize[size];
-    const shadow = new Sprite(texture);
+    let shadow = this.spritePool.pop();
+    if (shadow) {
+      shadow.texture = texture;
+      shadow.alpha = 1;
+      shadow.tint = 0xffffff;
+      shadow.rotation = 0;
+    } else {
+      shadow = new Sprite(texture);
+    }
     shadow.anchor.set(0.5, 0.5);
     shadow.x = screenX;
     shadow.y = screenY - 3;
@@ -996,7 +1026,15 @@ export class Renderer {
     const texture = this.getGlowTexture(color);
     if (!texture) return;
 
-    const glow = new Sprite(texture);
+    let glow = this.spritePool.pop();
+    if (glow) {
+      glow.texture = texture;
+      glow.alpha = 1;
+      glow.tint = 0xffffff;
+      glow.rotation = 0;
+    } else {
+      glow = new Sprite(texture);
+    }
     glow.anchor.set(0.5, 0.5);
     glow.x = screenX;
     glow.y = screenY;
@@ -2225,7 +2263,11 @@ export class Renderer {
   private destroyFrameChildren(container: Container): void {
     const children = container.removeChildren();
     for (const child of children) {
-      child.destroy({ children: true, context: true });
+      if (child instanceof Sprite) {
+        this.spritePool.push(child);
+      } else {
+        child.destroy({ children: true, context: true });
+      }
     }
   }
 
