@@ -1,5 +1,4 @@
-
-## 2024-05-19 - Document worldX/worldY as authoritative
+## 2026-09-01 - Document worldX/worldY as authoritative
 
 **What was found:** The `CLAUDE.md` and `.jules/prompts/scribe.md` explicitly noted that `worldX`/`worldY` are the authoritative source of truth and `gridX`/`gridY` are derived and read-only, but the actual TSDoc comments on `GameEntity` and `BaseEntity` just stated "Read-only grid X coordinate derived from worldX" and "World X coordinate in pixels" without enforcing the constraint or fully explaining the _why_.
 
