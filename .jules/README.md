@@ -9,51 +9,34 @@ This directory holds the standing prompts for Dark War's automated contributors.
 
 **Every prompt is self-contained.** Each one restates the architecture
 constraints, verification commands, commit conventions, and stop conditions, so
-a bot never needs this file. This README is for humans deciding what to run and
-when. If you change a shared rule, change it in all eleven prompts.
+a bot never needs this file. This README is for humans choosing a bot. If you
+change a shared rule, change it in all eleven prompts.
 
 A learning log never overrides `CLAUDE.md`, `AGENTS.md`, or the design documents
 in `docs/`.
 
 ## Roster
 
-| Bot                               | Responsibility                                     | Oracle                                          | Cadence  |
-| --------------------------------- | -------------------------------------------------- | ----------------------------------------------- | -------- |
-| [Sentinel](prompts/sentinel.md)   | Security defects at untrusted-input boundaries     | a concrete, reachable exploit path              | daily    |
-| [Invariant](prompts/invariant.md) | Determinism, serialization, and netcode properties | a failing property test                         | daily    |
-| [Bug](prompts/bug.md)             | Reproduced correctness defects                     | a failing test, written first                   | daily    |
-| [Bolt](prompts/bolt.md)           | Measured runtime and resource improvements         | a reproducible before/after measurement         | Mon, Thu |
-| [Palette](prompts/palette.md)     | Interface operability and accessibility            | a demonstrated interaction or standards failure | Tue, Fri |
-| [Janitor](prompts/janitor.md)     | Dead code, duplication, simplification, small debt | an objective deletion or duplication case       | Tue, Fri |
-| [World](prompts/world.md)         | Terrain, generation, and world integrity           | a failing world property or differential check  | Wed      |
-| [Test](prompts/test.md)           | Missing or weak behavioral coverage                | a named uncovered decision                      | Wed      |
-| [Scribe](prompts/scribe.md)       | Incorrect or missing contract documentation        | a wrong or materially incomplete contract       | Mon      |
-| [Alpha](prompts/alpha.md)         | First-session player path across supported targets | a reproducible player-facing failure            | Thu      |
-| [Architect](prompts/architect.md) | Architectural decision records                     | a documented cost the design imposes today      | Fri      |
+| Bot                               | Responsibility                                     | Oracle                                          |
+| --------------------------------- | -------------------------------------------------- | ----------------------------------------------- |
+| [Sentinel](prompts/sentinel.md)   | Security defects at untrusted-input boundaries     | a concrete, reachable exploit path              |
+| [Invariant](prompts/invariant.md) | Determinism, serialization, and netcode properties | a failing property test                         |
+| [Bug](prompts/bug.md)             | Reproduced correctness defects                     | a failing test, written first                   |
+| [Bolt](prompts/bolt.md)           | Measured runtime and resource improvements         | a reproducible before/after measurement         |
+| [Palette](prompts/palette.md)     | Interface operability and accessibility            | a demonstrated interaction or standards failure |
+| [Janitor](prompts/janitor.md)     | Dead code, duplication, simplification, small debt | an objective deletion or duplication case       |
+| [World](prompts/world.md)         | Terrain, generation, and world integrity           | a failing world property or differential check  |
+| [Test](prompts/test.md)           | Missing or weak behavioral coverage                | a named uncovered decision                      |
+| [Scribe](prompts/scribe.md)       | Incorrect or missing contract documentation        | a wrong or materially incomplete contract       |
+| [Alpha](prompts/alpha.md)         | First-session player path across supported targets | a reproducible player-facing failure            |
+| [Architect](prompts/architect.md) | Architectural decision records                     | a documented current design cost                |
 
 Architect writes ADRs to `docs/adr/` and never changes source. Test makes
 test-only changes. Everyone else opens ordinary code pull requests.
 
-## Schedule
-
-Staggered so no day exceeds six bots — roughly 26 pull requests a week at
-maximum, and far fewer in practice.
-
-| Day | Bots                                                  |
-| --- | ----------------------------------------------------- |
-| Mon | Sentinel, Invariant, Bug, Bolt, Scribe                |
-| Tue | Sentinel, Invariant, Bug, Palette, Janitor            |
-| Wed | Sentinel, Invariant, Bug, World, Test                 |
-| Thu | Sentinel, Invariant, Bug, Bolt, Alpha                 |
-| Fri | Sentinel, Invariant, Bug, Palette, Janitor, Architect |
-
-**Review capacity is the bottleneck in this system, not bot capacity.** A
-rubber-stamped pull request is worse than no pull request. If the queue backs
-up, cut cadence before cutting review depth.
-
 ## Ownership
 
-Rough primary areas, so same-day bots stay off each other's files. Every prompt
+Rough primary areas, so bots stay off each other's files. Every prompt
 also instructs the bot to check `gh pr list --state open` and avoid files an open
 bot pull request already touches.
 
@@ -81,18 +64,12 @@ path. It is a gate, not a preference. A bot that may open a pull request without
 one will eventually manufacture work, because it can always find _something_ to
 change.
 
-**2. Opening nothing is a successful run.** Bots are not measured on output, and
-an empty run is the expected outcome on a healthy codebase. An empty run ends
-silently — no files, no log entry, no commit.
+**2. A no-change result is successful.** If the oracle is absent, stop silently:
+do not modify files, write a log entry, commit, or open a pull request.
 
-The failure mode these prevent is already visible in this repository. Read the
-last three entries in `.jules/bolt.md`: each one ends by admitting the change was
-not a measured win. That is a bot shipping because it believed it had to.
-
-The one exception to rule 2: a bot that finds something substantive it should
-_not_ implement — too large, or needing a human decision — may open a **log-only
-pull request** touching nothing but its own `.jules/<name>.md`. That is for
-recording real findings, never for reporting an empty run.
+Do not create a pull request solely to update a learning log. A log entry belongs
+only in the same substantive pull request as the implementation or
+documentation change.
 
 ## Review
 
