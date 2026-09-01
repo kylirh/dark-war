@@ -226,7 +226,12 @@ rather than sprawling the merge.
 
 ### Clean up branches
 
-After all merges, delete the remote branches that are left over. **Do not use
+The repository has `delete_branch_on_merge` enabled, so GitHub deletes each
+head branch as its pull request merges. Anything still on origin is therefore
+either older than that setting, or never merged. Expect this step to find little
+or nothing — that is the healthy state, not a reason to look harder.
+
+For what is left over: **Do not use
 `git branch -r --merged` as your source of truth.** This repository squash-merges,
 so a merged branch's tip is never an ancestor of `main` and that command reports
 almost every landed Jules branch as unmerged. Ask GitHub which pull requests
