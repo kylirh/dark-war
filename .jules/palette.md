@@ -27,7 +27,7 @@ desyncing control look official.
 check _which_ file the reporter was looking at before dismissing it. A stale
 duplicate reads exactly like a regression.
 
-## 2024-11-20 - GameMenu Keyboard Focus and ARIA Navigation
+## 2026-09-01 - GameMenu Keyboard Focus and ARIA Navigation
 
 **Learning:** The pause menu in `GameMenu` misused ARIA `role="menu"` on a container with native `<button>`s, breaking screen reader expectations for keyboard interactions. Furthermore, opening the menu stranded keyboard focus on the background canvas because it lacked a call to sync and apply focus, and Tab navigation desynced internal selection state from actual DOM focus.
 
