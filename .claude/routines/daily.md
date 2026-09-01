@@ -24,6 +24,39 @@ Phase 2 pull request, touch a pull request that is not from Jules, change CI
 workflows, secrets, `package.json`, `package-lock.json`, or TypeScript
 configuration, or add a dependency.
 
+## GitHub access in this environment
+
+**`gh` is not installed.** Every GitHub operation goes through the built-in
+`mcp__github__*` tools, which are present even when no connectors are attached.
+Load the ones you need first:
+
+```text
+ToolSearch: select:mcp__github__list_pull_requests,mcp__github__pull_request_read,
+            mcp__github__merge_pull_request,mcp__github__update_pull_request,
+            mcp__github__add_issue_comment,mcp__github__create_pull_request,
+            mcp__github__create_branch,mcp__github__create_or_update_file,
+            mcp__github__list_workflow_runs
+```
+
+Owner is `kylirh`, repo is `dark-war`.
+
+Two things this toolset cannot do, both verified against the live sandbox:
+
+- **There is no branch-deletion tool**, and `git push origin --delete` returns
+  HTTP 403.
+- The same 403 comes from `git-receive-pack`, the endpoint **every** push uses,
+  so pushing commits may be blocked too. `git push --dry-run` succeeds anyway —
+  it never contacts that endpoint, so it proves nothing. Don't trust it.
+
+Test push capability once, early, with a real push to a throwaway ref. If it
+403s, do not spend the run producing commits you cannot deliver: use
+`mcp__github__create_branch` plus `mcp__github__create_or_update_file` to write
+changes through the API instead, and if that also fails, stop and report the
+blocker as the first line of your run summary. A run that quietly produces
+nothing because it could not write is a failed run reported as a success.
+
+Reads (`list_pull_requests`, `pull_request_read`, cloning, fetching) all work.
+
 ## Before you start
 
 1. Read `CLAUDE.md` and `AGENTS.md`. They are authoritative and override this file.
@@ -57,10 +90,9 @@ body contains the footer link `jules.google.com/task/`. Branch names
 `janitor-*`, `invariant-*`, `scribe-*`, `alpha-*`, with `/` or `-` separators)
 corroborate but do not decide.
 
-```bash
-gh pr list --state open --limit 100 \
-  --json number,title,headRefName,body,isDraft,mergeable,createdAt,files
-```
+Use `mcp__github__list_pull_requests` with `state: "open"`, requesting at
+least the `number`, `title`, `body`, `head`, and `draft` fields — the body is
+what carries the Jules footer.
 
 Anything without that footer is out of scope: leave it completely alone.
 
@@ -79,10 +111,13 @@ Work one pull request at a time, all the way to merged or closed, before
 starting the next. Earlier merges change what later ones must be tested against.
 
 ```bash
-gh pr checkout <number>
+git fetch origin pull/<number>/head:pr-<number>
+git checkout pr-<number>
 git merge origin/main          # never rebase, never force-push a Jules branch
 git diff origin/main...HEAD
 ```
+
+Read the pull request itself with `mcp__github__pull_request_read`.
 
 Judge it against the bot's own oracle from `.jules/README.md`. The oracle is a
 gate, not a preference:
@@ -129,7 +164,9 @@ git diff --check
 ```
 
 CI runs type-check, test, and build; `format:check` is not in CI, so it is on
-you. Also run `gh pr checks <number>` and require green before merging.
+you. Check CI with `mcp__github__list_workflow_runs` for the head sha, or read
+the pull request's status through `mcp__github__pull_request_read`, and require
+green before merging.
 
 You cannot launch Electron in this environment. For renderer, UI, input, or
 sound changes, say so plainly — reason from the code and from `npm run build:web`
@@ -172,11 +209,10 @@ lowercase Conventional Commit form, no emoji or decorative symbols, under 150
 characters. Jules titles like `⚡ Bolt: [O(1) Entity Lookups]` do not go into
 `main`'s history.
 
-```bash
-gh pr edit <number> --title "<type>(<scope>): <imperative description>"
-gh pr merge <number> --squash --delete-branch \
-  --subject "<type>(<scope>): <imperative description>"
-```
+Retitle with `mcp__github__update_pull_request`, then merge with
+`mcp__github__merge_pull_request` using `merge_method: "squash"` and a
+`commit_title` matching the new title. Leave `commit_message` empty rather than
+letting GitHub paste the Jules body into `main`'s history.
 
 Then re-sync `main` before the next pull request.
 
@@ -197,26 +233,28 @@ almost every landed Jules branch as unmerged. Ask GitHub which pull requests
 merged instead, and use ancestry only as a supplement for branches that never had
 a pull request.
 
+Build the merged set from `mcp__github__list_pull_requests` with
+`state: "closed"`, keeping every pull request with a non-null `merged_at` and
+taking its `head.ref`. The `merged` boolean in list output is unreliable — use
+`merged_at`. Supplement it with ancestry, which catches branches that never had
+a pull request:
+
 ```bash
 git fetch --prune origin
-
-# branches whose pull request was merged (the authoritative list)
-gh pr list --state merged --limit 200 --json headRefName --jq '.[].headRefName' | sort -u > merged-heads.txt
-
-# plus branches already contained in main by ancestry
-git branch -r --merged origin/main | sed 's#origin/##' | tr -d ' ' \
-  | grep -vE '^(main|HEAD)' | sort -u >> merged-heads.txt
-
-# what still exists on origin, and what is still in flight
-git ls-remote --heads origin | sed 's#.*refs/heads/##' | sort -u > remote-heads.txt
-gh pr list --state open --limit 200 --json headRefName --jq '.[].headRefName' | sort -u > open-heads.txt
+git branch -r --merged origin/main | sed 's#origin/##' | tr -d ' ' | grep -vE '^(main|HEAD)'
+git ls-remote --heads origin | sed 's#.*refs/heads/##' | sort -u
 ```
 
-Delete a branch only when it appears in both `remote-heads.txt` and
-`merged-heads.txt`, and is none of: `main`, a `backup/*` branch, or a branch
-listed in `open-heads.txt`. Delete each with
-`git push origin --delete <branch>`, and delete the scratch files rather than
-committing them.
+A branch is deletable when it still exists on origin, is in the merged set, and
+is none of: `main`, a `backup/*` branch, or the head of an open pull request.
+
+Attempt `git push origin --delete <branch>` for each. **Expect this to fail
+with a 403** — it did on every branch in testing. One attempt is enough to
+confirm; do not retry five times. On failure, list the branches you would have
+deleted in the run summary and move on. Do not treat this as a reason to abort
+the rest of the run.
+
+Keep scratch files in a temp directory, never in the working tree.
 
 **Never delete an unmerged branch** — including branches left over from closed
 pull requests, which is what most of the stale Jules branches are. List those in
@@ -251,8 +289,11 @@ duplication, a provably unreachable branch, a specific uncovered decision. No
 oracle, no entry.
 
 Branch from `main` as `claude/daily-<YYYY-MM-DD>`, keep the pull request
-reviewable in ten minutes, run the full verification set above, and open it with
-`gh pr create`. **Do not merge it** — it is for human review.
+reviewable in ten minutes, and run the full verification set above. Push the
+branch and open the pull request with `mcp__github__create_pull_request`; if
+pushing 403s, create the branch and write the files through
+`mcp__github__create_branch` and `mcp__github__create_or_update_file` instead.
+**Do not merge it** — it is for human review.
 
 Body headings lowercase, covering: **oracle**, **change**, **verification** (the
 commands you actually ran and their real results), and **excluded** (adjacent
