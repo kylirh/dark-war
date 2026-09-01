@@ -1,7 +1,7 @@
 # 0001 - Offline and Online Action Routing
 
 **Status:** Proposed
-**Date:** 2024-11-20
+**Date:** 2026-09-01
 
 ## Context
 
