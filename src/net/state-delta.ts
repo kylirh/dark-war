@@ -63,7 +63,6 @@ export interface StateDelta {
   relationships?: SerializedState["relationships"];
   consumedSpawnMarkers?: string[];
   multiplayer?: SerializedState["multiplayer"];
-  exploredByPlayer?: Record<string, number[]>;
   // `sim`, `effects`, `sounds`, and `callouts` are tiny / ephemeral and always sent.
   sim: SerializedState["sim"];
   effects: Effect[];
@@ -166,10 +165,6 @@ export function computeStateDelta(
   const planeChanges = diffWorldPlane(base.plane, next.plane);
   if (planeChanges) delta.planeChanges = planeChanges;
 
-  if (!shallowJsonEqual(base.exploredByPlayer, next.exploredByPlayer)) {
-    delta.exploredByPlayer = next.exploredByPlayer;
-  }
-
   return delta;
 }
 
@@ -232,10 +227,6 @@ export function applyStateDelta(
     next.explored = delta.exploredFull;
   } else if (delta.exploredAdded && delta.exploredAdded.length > 0) {
     next.explored = [...(base.explored ?? []), ...delta.exploredAdded];
-  }
-
-  if (delta.exploredByPlayer !== undefined) {
-    next.exploredByPlayer = delta.exploredByPlayer;
   }
 
   if (delta.planeChanges) {

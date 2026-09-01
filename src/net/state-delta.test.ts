@@ -159,12 +159,6 @@ describe("computeStateDelta / applyStateDelta", () => {
     roundTrip(baseState(), next);
   });
 
-  it("round-trips exploredByPlayer", () => {
-    const next = baseState();
-    next.exploredByPlayer = { p1: [0, 1, 2], p2: [5, 6] };
-    roundTrip(baseState(), next);
-  });
-
   it("round-trips changes in every world-plane layer", () => {
     const next = baseState();
     next.plane.ground[0] = GroundType.WATER_SHALLOW;
