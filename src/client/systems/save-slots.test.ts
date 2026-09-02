@@ -95,7 +95,13 @@ describe("readSaveSlot", () => {
   it("falls back to defaults if fields are not strings", async () => {
     store.set(
       "darkwar-save-slot-1",
-      JSON.stringify({ version: 1, state: { depth: 0 }, characterName: 123, region: ["not a string"], savedAt: {} }),
+      JSON.stringify({
+        version: 1,
+        state: { depth: 0 },
+        characterName: 123,
+        region: ["not a string"],
+        savedAt: {},
+      }),
     );
     const record = await readSaveSlot(0);
     expect(record?.characterName).toBe("Captain Hazard");
