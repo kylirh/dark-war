@@ -71,3 +71,11 @@ have drifted and check all of them before trusting any of them.
 **Learning:** Reusable UI components that build DOM strings using template literals and `innerHTML` are easy sinks for XSS, even if the current callers use safe hardcoded strings. Future usages with dynamic data (like server names or usernames) could trigger XSS.
 
 **Prevention:** Escape variable insertions inside `innerHTML` template literals with `escapeHtml()` at the component level, even when every current caller passes a literal. Where a component genuinely needs raw markup — `RetroModalOptions.body` — say so in the type, so the one unescaped sink is documented rather than assumed.
+
+## $(date +%Y-%m-%d) - Local Denial of Service via Type Confusion in Untrusted Save Files
+
+**What was found:** The `parseSaveRecord` function (`src/client/systems/save-slots.ts`) read fields like `characterName`, `region`, and `savedAt` from `JSON.parse` output and implicitly trusted them to be strings via type assertion (`as Partial<SaveSlotRecord>`). An attacker could manually edit their save file to inject non-string values (like a number `123`). The UI rendering pipeline passed this invalid data into `escapeHtml()`, which expects a string and invokes `.replace()`. The resulting TypeError would throw during rendering, causing the entire save slots menu to blank out or crash — a local Denial of Service (DoS).
+
+**Action:** Updated `parseSaveRecord` to strictly coerce `characterName`, `region`, and `savedAt` properties to strings via `typeof` checks before returning them. If the field is not a string, it falls back to the safe default, preventing non-strings from reaching `escapeHtml()`. Also added a regression test to ensure malicious types are discarded rather than triggering a crash.
+
+**Prevention:** TypeScript interfaces provide no runtime guarantees at system boundaries (IPC, network sockets, or files from disk). All values from `JSON.parse` must be defensively validated (e.g., checking `typeof === "string"`) before assignment, rather than blindly asserted `as SomeType`.

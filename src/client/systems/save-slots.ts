@@ -65,9 +65,9 @@ function parseSaveRecord(
     return {
       version: 1,
       slot: parsedSlot,
-      characterName: record.characterName ?? SAVE_CHARACTER_NAME,
-      savedAt: record.savedAt ?? new Date(0).toISOString(),
-      region: record.region ?? "Unknown Region",
+      characterName: typeof record.characterName === "string" ? record.characterName : SAVE_CHARACTER_NAME,
+      savedAt: typeof record.savedAt === "string" ? record.savedAt : new Date(0).toISOString(),
+      region: typeof record.region === "string" ? record.region : "Unknown Region",
       screenshotDataUrl: record.screenshotDataUrl ?? null,
       state: record.state,
     };
