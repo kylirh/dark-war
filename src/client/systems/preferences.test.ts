@@ -220,10 +220,12 @@ describe("preferences", () => {
 
       const prefs: UserPreferences = { ...DEFAULT_PREFERENCES };
 
-      // This should not throw
-      expect(() => savePreferences(prefs)).not.toThrow();
-
-      stringifySpy.mockRestore();
+      try {
+        // This should not throw
+        expect(() => savePreferences(prefs)).not.toThrow();
+      } finally {
+        stringifySpy.mockRestore();
+      }
     });
   });
 });
