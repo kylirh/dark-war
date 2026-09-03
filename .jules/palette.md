@@ -34,3 +34,9 @@ duplicate reads exactly like a regression.
 **Action:** Removed invalid `role="menu"`, `role="menuitem"`, and `aria-selected` attributes to let buttons function naturally. Added `this.syncPauseMenu()` in `openPauseMenu()` to properly shift focus into the dialog upon opening. Added a `focus` event listener to sync internal selection when a user navigates via the `Tab` key.
 
 **Prevention:** Do not use `role="menu"` for lists of buttons navigating views or performing app actions unless implementing strict roving tabindex or `aria-activedescendant` logic. Ensure modals actively move `document.activeElement` into themselves upon opening.
+
+## 2026-09-03 - Focus-visible outlines and decorative window controls
+
+**Learning:** Mouse activation should not leave focus styling on every control, but removing focus styling entirely would make keyboard navigation invisible. Window-control glyphs are decorative when the button already has an accessible label.
+
+**Action:** Use `:focus-visible` for interactive focus styling and mark the visual window-control glyphs `aria-hidden="true"` so keyboard users retain a clear focus indicator without duplicate screen-reader announcements.

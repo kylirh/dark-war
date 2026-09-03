@@ -162,7 +162,7 @@ export class CharacterModal {
     closeBtn.type = "button";
     closeBtn.title = "Close";
     closeBtn.setAttribute("aria-label", "Close");
-    closeBtn.innerHTML = "<span>✕</span>";
+    closeBtn.innerHTML = '<span aria-hidden="true">✕</span>';
     closeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       this.close();

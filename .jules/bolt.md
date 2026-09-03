@@ -53,6 +53,7 @@ removal path splices, so the index matches `entities.filter(...)` element for
 element, and these scans draw from the shared RNG. A swap-and-pop removal in
 `EntityManager` would change gameplay, not just layout — hence the ordering
 test in `entity-manager.test.ts`.
+
 ## 2026-09-02 - O(1) Entity Lookups in Simulation Systems
 
 **Learning:** Dozens of hotspots in the simulation loop (such as command parsing, event processing, and conversation states) used `state.entities.find((e) => e.id === someId)` to fetch an entity by its unique ID. This is an O(N) array scan performed very frequently.
