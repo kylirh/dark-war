@@ -54,6 +54,32 @@ describe("actor-factory", () => {
         "outside/surface:prefab:marker:7",
       );
     });
+
+    it("is structurally deterministic and ignores object reference differences", () => {
+      const address1: WorldAddress = { spaceId: "outside", planeId: "surface" };
+      const address2: WorldAddress = { spaceId: "outside", planeId: "surface" };
+
+      // Ensure the test is actually checking distinct object references
+      expect(address1).not.toBe(address2);
+      expect(address1).toEqual(address2);
+
+      expect(stableSpawnMarkerId(address1, "p", 1)).toBe(
+        stableSpawnMarkerId(address2, "p", 1),
+      );
+    });
+
+    it("handles edge cases robustly (e.g. empty strings and colons)", () => {
+      const emptyAddress: WorldAddress = { spaceId: "", planeId: "" };
+
+      // Empty strings
+      expect(stableSpawnMarkerId(emptyAddress, "", "")).toBe("/::marker:");
+
+      // Input values containing colons
+      const colonAddress: WorldAddress = { spaceId: "a:b", planeId: "c:d" };
+      expect(stableSpawnMarkerId(colonAddress, "e:f", "g:h")).toBe(
+        "a:b/c:d:e:f:marker:g:h",
+      );
+    });
   });
 
   describe("consumeSpawnMarker", () => {
