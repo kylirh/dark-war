@@ -7,6 +7,7 @@ import {
   getSlotKeyLabel,
   getSlotLabel,
 } from "../../engine/utils/inventory";
+import { escapeHtml } from "./html-escape";
 
 const SLOT_SIZE = 44; // Slot outer size including border and padding
 const ICON_SIZE = 32;
@@ -224,7 +225,7 @@ export class InventoryBar {
     const actions = getSlotActions(slot.type);
     const count = getSlotDisplayCount(this._lastPlayer, index);
 
-    let html = `<div class="inv-tip-name">${label}</div>`;
+    let html = `<div class="inv-tip-name">${escapeHtml(label)}</div>`;
     if (count !== null && count !== undefined) {
       html += `<div class="inv-tip-count">Count: ${count}</div>`;
     }
@@ -233,7 +234,7 @@ export class InventoryBar {
       html += `<div class="inv-tip-count">Status: ${status}</div>`;
     }
     if (actions.length > 0) {
-      html += `<div class="inv-tip-actions">${actions.join("<br>")}</div>`;
+      html += `<div class="inv-tip-actions">${actions.map((a) => escapeHtml(a)).join("<br>")}</div>`;
     }
 
     this.tooltipEl.innerHTML = html;
