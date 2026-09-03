@@ -102,7 +102,6 @@ export class GameMenu {
   private mpJoinPort = "7777";
   private mpLobbyPlayers: LobbyPlayer[] = [];
   private mpIsHost = false;
-  private mpPhase: "lobby" | "playing" = "lobby";
   private mpConnectionState:
     | "disconnected"
     | "connecting"
@@ -798,7 +797,6 @@ export class GameMenu {
   ): void {
     this.mpLobbyPlayers = players;
     this.mpIsHost = isHost;
-    this.mpPhase = phase;
 
     if (phase === "playing" && this.mpConnectionState !== "playing") {
       this.mpConnectionState = "playing";
