@@ -126,4 +126,29 @@ describe("flutterbang explodes on death", () => {
 
     expect(state.effects.some((e) => e.type === "explosion")).toBe(true);
   });
+
+  it("does not produce an explosion effect when it dies from an explosion", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+
+    const bat = new MonsterEntity(
+      state.player.gridX + 5,
+      state.player.gridY,
+      MonsterType.FLUTTERBANG,
+      1,
+    );
+    bat.grenades = 0; // flutterbangs don't drop grenades, but prevent logic from running it
+    bat.landMines = 0;
+    state.entityManager.spawn(bat);
+
+    pushEvent(state, {
+      type: EventType.DEATH,
+      data: { type: "DEATH", entityId: bat.id, fromExplosion: true },
+    });
+    processEventQueue(state);
+
+    expect(state.effects.some((e) => e.type === "explosion")).toBe(false);
+  });
 });
