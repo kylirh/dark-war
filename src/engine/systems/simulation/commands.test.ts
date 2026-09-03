@@ -19,6 +19,7 @@ import {
   Player,
 } from "../../types";
 import { Game } from "../../core/game";
+import { EntityManager } from "../../core/entity-manager";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { setPositionFromGrid } from "../../utils/helpers";
 import {
@@ -285,6 +286,7 @@ describe("Simulation Commands Management", () => {
         nextActTick: 0,
       } as Player;
       state.entities = [player];
+      state.entityManager = new EntityManager(state.entities);
     });
 
     it("ignores commands from dead players", () => {
