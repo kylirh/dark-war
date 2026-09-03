@@ -32,4 +32,33 @@ describe("parseMultiplayerConfig", () => {
     expect(cfg.roomId).toBe("default");
     expect(cfg.playerName).toBe("Player");
   });
+
+  it("handles invalid JSON strings gracefully", () => {
+    const cfg = parseMultiplayerConfig('{"invalid":"json"}');
+    expect(cfg).toEqual({
+      mode: "offline",
+      serverUrl: "ws://localhost:7777",
+      roomId: "default",
+      playerName: "Player",
+    });
+  });
+
+  it("handles unexpected objects gracefully", () => {
+    const cfg = parseMultiplayerConfig({ unexpected: "object" } as any);
+    expect(cfg).toEqual({
+      mode: "offline",
+      serverUrl: "ws://localhost:7777",
+      roomId: "default",
+      playerName: "Player",
+    });
+  });
+
+  it("handles null gracefully", () => {
+    const cfg = parseMultiplayerConfig(null as any);
+    expect(cfg.mode).toBe("offline");
+  });
+
+  it("throws on invalid array structures due to URLSearchParams", () => {
+    expect(() => parseMultiplayerConfig(["invalid"] as any)).toThrow();
+  });
 });
