@@ -186,7 +186,7 @@ describe("Game serialize/deserialize round-trip", () => {
     game.reset(1);
     const state = game.getState();
     state.pendingAlerts.push({
-      message: "You take 3 damage!",
+      message: "A private status update.",
       audiencePlayerIds: [state.player.id],
     });
 

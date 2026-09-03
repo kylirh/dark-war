@@ -193,8 +193,6 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       effect: hitSounds[Math.floor(Math.random() * hitSounds.length)],
     });
 
-    alertPlayer(state, `You take ${data.amount} damage!`, player.id);
-
     if (player.hp <= 0) {
       // Stop movement immediately on death to prevent sliding
       player.velocityX = 0;
@@ -852,23 +850,6 @@ export function grantCoreDevice(player: Player, itemType: ItemType): boolean {
   return false;
 }
 
-const PICKUP_LOG_TYPES = new Set<ItemType>([
-  ItemType.KEYCARD,
-  ItemType.LASER_PISTOL,
-  ItemType.GYROJET_SMG,
-  ItemType.GYROJET_SHOTGUN,
-  ItemType.MACRO_METAL_SWORD,
-  ItemType.VIBRA_SWORD,
-  ItemType.PICKAXE,
-  ItemType.MACROMETAL_JACKET,
-  ItemType.PANIC_BUTTON,
-  ItemType.BLACK_PILL,
-]);
-
-function shouldKeepPickupLog(itemType: ItemType): boolean {
-  return PICKUP_LOG_TYPES.has(itemType);
-}
-
 function processPickupItemEvent(state: GameState, event: GameEvent): void {
   const data = event.data as {
     type: "PICKUP_ITEM";
@@ -890,19 +871,9 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       const currentCount = player.itemCounts[ItemType.MEDKIT] ?? 0;
       const maxCarry = ITEM_DEFS[ItemType.MEDKIT].maxCarry;
       if (maxCarry !== undefined && currentCount >= maxCarry) {
-        alertPlayer(
-          state,
-          `You cannot carry more than ${maxCarry} medkits.`,
-          player.id,
-        );
         return;
       }
       if (!addToInventory(player, ItemType.MEDKIT)) {
-        alertPlayer(
-          state,
-          "Your pack is full — you leave the medkit.",
-          player.id,
-        );
         return;
       }
       player.itemCounts[ItemType.MEDKIT] = currentCount + 1;
@@ -917,11 +888,6 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
     case ItemType.KEYCARD:
       player.keys++;
       addToInventory(player, ItemType.KEYCARD);
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "You pick up a keycard." },
-        cause: event.id,
-      });
       break;
     case ItemType.PISTOL:
       if (!player.inventorySlots.some((s) => s.type === ItemType.PISTOL)) {
@@ -931,22 +897,11 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
           player.selectedBarSlot,
         );
         if (!added) {
-          alertPlayer(
-            state,
-            "Your pack is full — you leave the pistol.",
-            player.id,
-          );
           return;
         }
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "You pick up a pistol." },
-          cause: event.id,
-        });
       } else {
         // Already have a pistol — convert to ammo
         player.ammoReserve += 12;
-        alertPlayer(state, "You already have a pistol. +12 ammo.", player.id);
       }
       break;
     case ItemType.GRENADE: {
@@ -971,8 +926,6 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
           },
           cause: event.id,
         });
-      } else {
-        alertPlayer(state, "CTDM already installed.", player.id);
       }
       break;
     case ItemType.MATTER_MANIPULATOR:
@@ -986,8 +939,6 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
           },
           cause: event.id,
         });
-      } else {
-        alertPlayer(state, "You already have a Matter Manipulator.", player.id);
       }
       break;
     case ItemType.POWERCELL: {
@@ -1002,8 +953,6 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       // currency, junk). This is what makes new items actually land in the
       // inventory instead of vanishing.
       const def = ITEM_DEFS[item.type];
-      const name = itemName(item.type);
-
       if (STACKABLE_ITEMS_SET.has(item.type)) {
         const amt = positiveAmount(item.amount, 1);
         player.itemCounts[item.type] =
@@ -1018,11 +967,6 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
         isWeapon ? player.selectedBarSlot : -1,
       );
       if (!added) {
-        alertPlayer(
-          state,
-          `Your pack is full — you leave the ${name}.`,
-          player.id,
-        );
         return; // leave the item on the ground (don't destroy)
       }
 
@@ -1037,13 +981,6 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
         player.armor = Math.max(player.armor, ARMOR_PER_JACKET);
       }
 
-      if (shouldKeepPickupLog(item.type)) {
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: `You pick up the ${name}.` },
-          cause: event.id,
-        });
-      }
       break;
     }
   }

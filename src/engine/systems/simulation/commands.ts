@@ -1650,7 +1650,6 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
   }
 
   const player = actor as Player;
-  let anyPickedUp = false;
 
   for (const item of itemsNearby) {
     const worldItem = item as { type: ItemType };
@@ -1659,7 +1658,6 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
     const bypassCheck = worldItem.type === ItemType.POWERCELL;
 
     if (!bypassCheck && !canAddToInventory(player, worldItem.type)) {
-      alertMsg(state, "Inventory full!", actor.id);
       continue;
     }
 
@@ -1667,11 +1665,6 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
       type: EventType.PICKUP_ITEM,
       data: { type: "PICKUP_ITEM", actorId: actor.id, itemId: item.id },
     });
-    anyPickedUp = true;
-  }
-
-  if (!anyPickedUp && itemsNearby.length === 0) {
-    alertMsg(state, "Nothing to pick up!", actor.id);
   }
 }
 
