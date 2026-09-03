@@ -63,12 +63,10 @@ export interface StateDelta {
   relationships?: SerializedState["relationships"];
   consumedSpawnMarkers?: string[];
   multiplayer?: SerializedState["multiplayer"];
-  // `sim`, `effects`, `sounds`, `alerts`, and `callouts` are tiny / ephemeral
-  // and always sent.
+  // `sim`, `effects`, `sounds`, and `callouts` are tiny / ephemeral and always sent.
   sim: SerializedState["sim"];
   effects: Effect[];
   sounds: NonNullable<SerializedState["sounds"]>;
-  alerts: NonNullable<SerializedState["alerts"]>;
   callouts: NonNullable<SerializedState["callouts"]>;
 
   // Array sub-diffs.
@@ -108,7 +106,6 @@ export function computeStateDelta(
     sim: next.sim,
     effects: next.effects ?? [],
     sounds: next.sounds ?? [],
-    alerts: next.alerts ?? [],
     callouts: next.callouts ?? [],
   };
 
@@ -180,7 +177,6 @@ export function applyStateDelta(
     sim: delta.sim,
     effects: delta.effects,
     sounds: delta.sounds,
-    alerts: delta.alerts,
     callouts: delta.callouts,
   };
 

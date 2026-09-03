@@ -559,14 +559,6 @@ export interface WorldReactionCallout extends WorldCalloutBase {
 /** Ephemeral, world-anchored presentation emitted by simulation or players. */
 export type WorldCallout = WorldTextCallout | WorldReactionCallout;
 
-/** Short, screen-anchored feedback emitted for one or more players. */
-export interface PlayerAlert {
-  message: string;
-  durationMs?: number;
-  /** When present, only these players should receive the alert. */
-  audiencePlayerIds?: string[];
-}
-
 // ========================================
 // Simulation System (NEW)
 // ========================================
@@ -794,8 +786,6 @@ export interface GameState {
   holeCreatedTiles?: Set<number>; // Track newly created holes for fall-through checks
   /** Sound effects queued during simulation for local or network playback. */
   pendingSounds: SoundCue[];
-  /** Ephemeral screen alerts awaiting local presentation or network delivery. */
-  pendingAlerts: PlayerAlert[];
   /** Ephemeral world callouts awaiting local presentation or network broadcast. */
   pendingCallouts: WorldCallout[];
   /** Development-only visual slice; never serialized into production saves. */
@@ -861,7 +851,6 @@ export interface SerializedState {
     targetTimeScale: number;
   };
   sounds: SoundCue[]; // Sound effects to play on receiving client
-  alerts: PlayerAlert[]; // Ephemeral screen alerts for this snapshot only
   callouts: WorldCallout[]; // Ephemeral world callouts for this snapshot only
   effects: Effect[]; // Visual effects (explosions, etc.)
 }

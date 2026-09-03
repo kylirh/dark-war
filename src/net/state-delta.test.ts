@@ -84,7 +84,6 @@ function baseState(): SerializedState {
     sim: { nowTick: 100, mode: "REALTIME", timeScale: 1, targetTimeScale: 1 },
     multiplayer: { mode: "online", localPlayerId: "p1" },
     sounds: [],
-    alerts: [],
     callouts: [],
     effects: [],
   };
@@ -237,19 +236,6 @@ describe("computeStateDelta / applyStateDelta", () => {
         priority: "normal",
       },
     ];
-    roundTrip(baseState(), next);
-  });
-
-  it("round-trips ephemeral player alerts on every delta", () => {
-    const next = baseState();
-    next.alerts = [
-      {
-        message: "*click* Out of ammo!",
-        durationMs: 2_000,
-        audiencePlayerIds: ["p1"],
-      },
-    ];
-
     roundTrip(baseState(), next);
   });
 

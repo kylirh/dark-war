@@ -1,5 +1,4 @@
 import { Player, SimulationState } from "../../engine/types";
-import { AlertManager } from "./alert-manager";
 
 export class UI {
   private storyElement: HTMLElement;
@@ -8,7 +7,6 @@ export class UI {
   private hpBarElement: HTMLElement;
   private restingStatusElement: HTMLElement;
   private gameOverScoreElement: HTMLElement;
-  private readonly alertManager: AlertManager;
 
   private lastStoryLength = 0;
   private userScrolledUp = false;
@@ -20,7 +18,6 @@ export class UI {
     this.hpBarElement = this.getElement("hpbar");
     this.restingStatusElement = this.getElement("resting-status");
     this.gameOverScoreElement = this.getElement("game-over-score");
-    this.alertManager = new AlertManager(this.getElement("alert-overlay"));
 
     this.storyScrollElement.addEventListener("scroll", () => {
       const el = this.storyScrollElement;
@@ -66,16 +63,6 @@ export class UI {
     }
   }
 
-  /** Show a short, transient message above the persistent story log. */
-  public showAlert(message: string, durationMs?: number): void {
-    this.alertManager.show(message, durationMs);
-  }
-
-  /** Clear transient alerts when starting a fresh game context. */
-  public clearAlerts(): void {
-    this.alertManager.clear();
-  }
-
   public updateAll(
     player: Player,
     _depth: number,
@@ -86,10 +73,5 @@ export class UI {
   ): void {
     this.updateStats(player);
     this.updateStory(story);
-  }
-
-  /** Dispose of transient HUD elements and their timers. */
-  public dispose(): void {
-    this.alertManager.dispose();
   }
 }

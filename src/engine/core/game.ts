@@ -226,7 +226,6 @@ export class Game {
       changedTiles: new Set(),
       holeCreatedTiles: new Set(),
       pendingSounds: [],
-      pendingAlerts: [],
       pendingCallouts: [],
     };
   }
@@ -319,7 +318,6 @@ export class Game {
       changedTiles: new Set(),
       holeCreatedTiles: new Set(),
       pendingSounds: [],
-      pendingAlerts: [],
       pendingCallouts: [],
     };
 
@@ -330,6 +328,7 @@ export class Game {
       // The CTDM and Matter Manipulator are no longer world items — the workshop
       // builder hands them over in conversation — so nothing to filter here.
       this.state.entityManager.spawnAll(outside.entities);
+      this.addStory("The city is quiet. Megacorp waits to the northeast.");
       this.updateFOV();
       if (isDebug()) console.timeEnd("reset: total");
       return;
@@ -460,6 +459,12 @@ export class Game {
     this.state.visible.clear();
     this.state.explored.clear();
     this.state.accessible.clear();
+    this.addStory(
+      "Terrain laboratory: rebuild the bright world one tile at a time.",
+    );
+    this.addStory(
+      "Prototype: [ lowers gold; ] raises mint; \\ compares shore resolvers.",
+    );
     this.updateFOV();
   }
 
@@ -477,6 +482,9 @@ export class Game {
     for (const index of result.dirtyCellIndices) {
       this.state.changedTiles?.add(index);
     }
+    this.addStory(
+      `Terrain elevation ${result.previousElevation} → ${result.nextElevation}; ${result.dirtyCellIndices.length} visual cells resolved.`,
+    );
     return result;
   }
 
@@ -488,7 +496,13 @@ export class Game {
       prototype.transitionMode === TerrainPrototypeTransitionMode.BLOB_47
         ? TerrainPrototypeTransitionMode.DUAL_GRID
         : TerrainPrototypeTransitionMode.BLOB_47;
-    setTerrainPrototypeTransitionMode(prototype, nextMode);
+    const resolvedCells = setTerrainPrototypeTransitionMode(
+      prototype,
+      nextMode,
+    );
+    this.addStory(
+      `Shore resolver: ${nextMode}; ${resolvedCells} comparison-cache cells rebuilt.`,
+    );
     return nextMode;
   }
 
@@ -564,7 +578,7 @@ export class Game {
     const wraps = this.state.levelKind === "outside";
     let visible = computeFOV(this.state.tiles, player, explored, wraps);
 
-    if (this.checkExplorationCompletion(explored, accessible)) {
+    if (this.checkExplorationCompletion(player, explored, accessible)) {
       explored = this.completeLevelExploration(player);
       visible = computeFOV(this.state.tiles, player, explored, wraps);
     }
@@ -756,10 +770,6 @@ export class Game {
         !callout.audiencePlayerIds ||
         callout.audiencePlayerIds.includes(playerId),
     );
-    state.alerts = this.state.pendingAlerts.filter(
-      (alert) =>
-        !alert.audiencePlayerIds || alert.audiencePlayerIds.includes(playerId),
-    );
     return state;
   }
 
@@ -777,6 +787,9 @@ export class Game {
    */
   public toggleGodMode(): void {
     this.state.options.godMode = !this.state.options.godMode;
+    this.addStory(
+      this.state.options.godMode ? "God Mode enabled." : "God Mode disabled.",
+    );
   }
 
   /**
@@ -1552,9 +1565,6 @@ export class Game {
       sounds: this.state.pendingSounds.map(
         ({ sourceId: _sourceId, ...sound }) => sound,
       ),
-      // Alerts are transient presentation state and must never be persisted in
-      // a save. Online per-player snapshots attach the live queue below.
-      alerts: [],
       callouts: this.state.pendingCallouts.map((callout) => ({
         ...callout,
         audiencePlayerIds: callout.audiencePlayerIds
@@ -1669,7 +1679,6 @@ export class Game {
       changedTiles: new Set(),
       holeCreatedTiles: new Set(),
       pendingSounds: [],
-      pendingAlerts: [],
       pendingCallouts: [],
     };
 
@@ -1711,7 +1720,7 @@ export class Game {
     this.updateFOV();
   }
 
-  private hydratePlayers(players: Player[], _depth: number): Player[] {
+  private hydratePlayers(players: Player[], depth: number): Player[] {
     return players.map((player) => {
       if (player instanceof PlayerEntity) {
         return player;
@@ -1931,6 +1940,7 @@ export class Game {
   }
 
   private checkExplorationCompletion(
+    player: Player,
     explored: Set<number>,
     reachable: Set<number>,
   ): boolean {
