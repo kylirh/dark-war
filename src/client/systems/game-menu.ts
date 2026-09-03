@@ -107,7 +107,6 @@ export class GameMenu {
     | "lobby"
     | "playing" = "disconnected";
   private mpRefreshTimer: number | null = null;
-  private mpStatusMessage = "";
   private mpLastRenderedServerKey: string = SERVER_LIST_UNRENDERED;
   private mpCachedLocalIps: string[] | null = null;
 
@@ -807,7 +806,6 @@ export class GameMenu {
   }
 
   public setMultiplayerStatusMessage(message: string): void {
-    this.mpStatusMessage = message;
     // Show in current MP view if applicable
     const view = this.pauseMenuView;
     if (view === "host-game") this.setMpStatus("host", message);
