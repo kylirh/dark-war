@@ -1,3 +1,6 @@
+/**
+ * @vitest-environment jsdom
+ */
 import { describe, expect, it } from "vitest";
 import {
   SERVER_LIST_ERROR,
@@ -5,86 +8,102 @@ import {
   setStatusText,
 } from "./live-region";
 
-/**
- * The Vitest environment is `node`, so there is no DOM here. These tests drive
- * `setStatusText` through the smallest stand-in that exercises what it actually
- * relies on — a class list and a `textContent` — and record the write order,
- * which is the part that fails silently in a real browser.
- */
-function fakeElement(initialText = "", classes: string[] = []) {
-  const classSet = new Set(classes);
-  const writes: string[] = [];
-  let text = initialText;
-  return {
-    writes,
-    get textContent(): string {
-      return text;
-    },
-    set textContent(value: string) {
-      writes.push(`text:${value}`);
-      text = value;
-    },
-    get hidden(): boolean {
-      return classSet.has("hidden");
-    },
-    classList: {
-      toggle(name: string, force: boolean): void {
-        writes.push(`class:${name}=${force}`);
-        if (force) classSet.add(name);
-        else classSet.delete(name);
-      },
-    },
-  };
-}
-
 describe("setStatusText", () => {
-  it("reveals the region before writing the text", () => {
+  it("reveals the region before writing the text", async () => {
     // A mutation inside a `display: none` subtree is not announced, so the
     // hidden class has to come off first. Order is the whole point here.
-    const el = fakeElement("", ["hidden"]);
-    setStatusText(el as unknown as HTMLElement, "Connecting...");
+    const el = document.createElement("div");
+    el.classList.add("hidden");
 
-    expect(el.writes).toEqual(["class:hidden=false", "text:Connecting..."]);
-    expect(el.hidden).toBe(false);
+    const writes: string[] = [];
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type === "attributes" && record.attributeName === "class") {
+          writes.push(`class:hidden=${el.classList.contains("hidden")}`);
+        } else if (record.type === "childList") {
+          writes.push(`text:${el.textContent}`);
+        }
+      }
+    });
+    observer.observe(el, { attributes: true, childList: true, subtree: true });
+
+    setStatusText(el, "Connecting...");
+
+    // Mutation observers are async (microtask queue)
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    observer.disconnect();
+
+    expect(writes).toEqual(["class:hidden=false", "text:Connecting..."]);
+    expect(el.classList.contains("hidden")).toBe(false);
     expect(el.textContent).toBe("Connecting...");
   });
 
-  it("does not rewrite textContent when the message is unchanged", () => {
+  it("does not rewrite textContent when the message is unchanged", async () => {
     // Discovery refreshes on a timer; re-assigning an identical string still
     // replaces the text node and makes a polite region announce again.
-    const el = fakeElement("", ["hidden"]);
-    setStatusText(el as unknown as HTMLElement, "Error scanning network.");
-    el.writes.length = 0;
+    const el = document.createElement("div");
+    el.classList.add("hidden");
+    setStatusText(el, "Error scanning network.");
 
-    setStatusText(el as unknown as HTMLElement, "Error scanning network.");
-    setStatusText(el as unknown as HTMLElement, "Error scanning network.");
+    const writes: string[] = [];
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type === "childList") {
+          writes.push(`text:${el.textContent}`);
+        }
+      }
+    });
+    observer.observe(el, { childList: true, subtree: true });
 
-    expect(el.writes.filter((w) => w.startsWith("text:"))).toEqual([]);
+    setStatusText(el, "Error scanning network.");
+    setStatusText(el, "Error scanning network.");
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    observer.disconnect();
+
+    expect(writes).toEqual([]);
     expect(el.textContent).toBe("Error scanning network.");
   });
 
   it("still announces a genuinely changed message", () => {
-    const el = fakeElement("", ["hidden"]);
-    setStatusText(el as unknown as HTMLElement, "Connecting...");
-    setStatusText(el as unknown as HTMLElement, "Connection refused.");
+    const el = document.createElement("div");
+    el.classList.add("hidden");
+    setStatusText(el, "Connecting...");
+    setStatusText(el, "Connection refused.");
 
     expect(el.textContent).toBe("Connection refused.");
-    expect(el.hidden).toBe(false);
+    expect(el.classList.contains("hidden")).toBe(false);
   });
 
   it("hides the region again on an empty message", () => {
-    const el = fakeElement("Connecting...", []);
-    setStatusText(el as unknown as HTMLElement, "");
+    const el = document.createElement("div");
+    el.textContent = "Connecting...";
+    setStatusText(el, "");
 
-    expect(el.hidden).toBe(true);
+    expect(el.classList.contains("hidden")).toBe(true);
     expect(el.textContent).toBe("");
   });
 
-  it("is a no-op on an already-visible region with the same text", () => {
-    const el = fakeElement("3 players connected", []);
-    setStatusText(el as unknown as HTMLElement, "3 players connected");
+  it("is a no-op on an already-visible region with the same text", async () => {
+    const el = document.createElement("div");
+    el.textContent = "3 players connected";
 
-    expect(el.writes.filter((w) => w.startsWith("text:"))).toEqual([]);
+    const writes: string[] = [];
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type === "childList") {
+          writes.push(`text:${el.textContent}`);
+        }
+      }
+    });
+    observer.observe(el, { childList: true, subtree: true });
+
+    setStatusText(el, "3 players connected");
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    observer.disconnect();
+
+    expect(writes).toEqual([]);
   });
 });
 
