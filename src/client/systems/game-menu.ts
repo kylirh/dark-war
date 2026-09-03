@@ -99,7 +99,6 @@ export class GameMenu {
   private mpPlayerName = "Player";
   private mpGameName = "Dark War";
   private mpJoinIp = "";
-  private mpJoinPort = "7777";
   private mpLobbyPlayers: LobbyPlayer[] = [];
   private mpIsHost = false;
   private mpPhase: "lobby" | "playing" = "lobby";
