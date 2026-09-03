@@ -20,7 +20,7 @@ export type PrefabTransform =
 
 export interface SemanticPrefabMarker {
   readonly id: number;
-  readonly kind: "spawn" | "portal" | "socket" | "require";
+  readonly kind: "spawn" | "portal" | "socket" | "require" | "sign";
   readonly name: string;
   readonly x: number;
   readonly y: number;

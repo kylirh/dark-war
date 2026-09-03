@@ -5,6 +5,7 @@ import {
   OUTSIDE_MAP_WIDTH,
   TileType,
   WallSet,
+  SignPlacement,
 } from "../types";
 import { ItemEntity } from "../entities/item-entity";
 import { MonsterEntity } from "../entities/monster-entity";
@@ -23,11 +24,13 @@ import {
   createParkBuilder,
   stableSpawnMarkerId,
 } from "./actor-factory";
+import { signPlacementFromMarker } from "./signs";
 
 export interface OutsideLevelData extends Omit<DungeonData, "map"> {
   entities: Array<ItemEntity | MonsterEntity>;
   worldPlane: WorldPlane;
   workshopDoor: [number, number];
+  signs: SignPlacement[];
   consumedSpawnMarkers: Set<string>;
 }
 
@@ -146,6 +149,22 @@ export function createOutsideLevel(): OutsideLevelData {
     PARK_WORKSHOP_ORIGIN[0],
     PARK_WORKSHOP_ORIGIN[1],
   );
+  const signs: SignPlacement[] = [
+    {
+      id: "outside/surface:sign:park-welcome",
+      definitionId: "surface.park-welcome",
+      x: 13,
+      y: 58,
+    },
+    ...workshopStamp.markers
+      .filter((marker) => marker.kind === "sign")
+      .map((marker) =>
+        signPlacementFromMarker(
+          marker,
+          `settlement.workshop-garden@${PARK_WORKSHOP_ORIGIN[0]},${PARK_WORKSHOP_ORIGIN[1]}`,
+        ),
+      ),
+  ];
   // The workshop builder meets the player right on the path out of the start
   // (where the CTDM/Manipulator used to lie) and hands over that starting gear
   // in conversation. Placed here rather than at the park workshop so the player
@@ -190,6 +209,7 @@ export function createOutsideLevel(): OutsideLevelData {
     entities,
     worldPlane,
     workshopDoor,
+    signs,
     consumedSpawnMarkers,
   };
 }

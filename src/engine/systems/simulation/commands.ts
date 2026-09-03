@@ -47,6 +47,7 @@ import {
 } from "../../content/player-weapon-callouts";
 import { emitWorldTextCallout } from "../../utils/world-callouts";
 import { emitPlayerAlert } from "../../utils/player-alerts";
+import { findReadableSign } from "./signs";
 import { BulletEntity } from "../../entities/bullet-entity";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
 import { portalAt } from "../../core/world-space";
@@ -1714,6 +1715,15 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
     } else {
       resolveTalk(state, actor, talkTarget);
     }
+    return;
+  }
+
+  const sign = findReadableSign(state, actor, data.x, data.y);
+  if (sign) {
+    pushEvent(state, {
+      type: EventType.SIGN_READ,
+      data: { type: "SIGN_READ", playerId: actor.id, signId: sign.id },
+    });
     return;
   }
 

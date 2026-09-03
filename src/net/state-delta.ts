@@ -58,6 +58,10 @@ export interface StateDelta {
   story?: string[];
   /** Per-player conversation view; `null` means "conversation ended". */
   conversation?: SerializedState["conversation"] | null;
+  /** Shared sparse sign placements for the current world plane. */
+  signs?: SerializedState["signs"];
+  /** Per-player sign reader view; `null` means "reader closed". */
+  activeSign?: SerializedState["activeSign"] | null;
   /** `null` clears facts after an authoritative reset. */
   socialFacts?: SerializedState["socialFacts"] | null;
   relationships?: SerializedState["relationships"];
@@ -136,6 +140,12 @@ export function computeStateDelta(
   if (!shallowJsonEqual(base.conversation, next.conversation)) {
     delta.conversation = next.conversation ?? null;
   }
+  if (!shallowJsonEqual(base.signs ?? [], next.signs ?? [])) {
+    delta.signs = next.signs ?? [];
+  }
+  if (!shallowJsonEqual(base.activeSign, next.activeSign)) {
+    delta.activeSign = next.activeSign ?? null;
+  }
   if (!shallowJsonEqual(base.socialFacts, next.socialFacts)) {
     delta.socialFacts = next.socialFacts ?? null;
   }
@@ -199,6 +209,10 @@ export function applyStateDelta(
   if (delta.player !== undefined) next.player = delta.player;
   if (delta.conversation !== undefined) {
     next.conversation = delta.conversation ?? undefined;
+  }
+  if (delta.signs !== undefined) next.signs = delta.signs;
+  if (delta.activeSign !== undefined) {
+    next.activeSign = delta.activeSign ?? undefined;
   }
   if (delta.socialFacts !== undefined) {
     next.socialFacts = delta.socialFacts ?? undefined;

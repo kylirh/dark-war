@@ -102,6 +102,21 @@
           ],
           "x": 96,
           "y": 128
+        },
+        {
+          "class": "sign",
+          "id": 4,
+          "name": "workshop-notice",
+          "point": true,
+          "properties": [
+            {
+              "name": "darkwar.sign",
+              "type": "string",
+              "value": "settlement.workshop-notice"
+            }
+          ],
+          "x": 128,
+          "y": 32
         }
       ],
       "type": "objectgroup"

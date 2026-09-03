@@ -27,6 +27,7 @@ Point objects in an object layer use one of these classes:
 | `socket`  | `darkwar.socket`, `darkwar.direction`                        | Deterministic edge matching.                  |
 | `spawn`   | `darkwar.spawn`                                              | Entity, item, or encounter request.           |
 | `portal`  | `darkwar.targetSpace`, `darkwar.targetPlane`, `darkwar.kind` | Portal contract emitted to the placer.        |
+| `sign`    | `darkwar.sign`                                               | Data-driven readable environmental marker.    |
 | `require` | `darkwar.layer`, `darkwar.semanticKey`                       | Precondition checked before any cell changes. |
 
 Transforms rotate marker positions and socket directions. Stamping validates

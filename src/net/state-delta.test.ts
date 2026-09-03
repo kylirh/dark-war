@@ -44,6 +44,7 @@ function baseState(): SerializedState {
     relationships: [],
     consumedSpawnMarkers: [],
     portals: [],
+    signs: [],
     plane: {
       width: 2,
       height: 2,
@@ -202,6 +203,29 @@ describe("computeStateDelta / applyStateDelta", () => {
       },
     ];
     roundTrip(base, next);
+  });
+
+  it("round-trips shared signs and private sign-reader state", () => {
+    const next = baseState();
+    next.signs = [
+      {
+        id: "outside/surface:sign:park-welcome",
+        definitionId: "surface.park-welcome",
+        x: 13,
+        y: 58,
+      },
+    ];
+    next.activeSign = {
+      id: "outside/surface:sign:park-welcome",
+      title: "Civic Park",
+      text: "Welcome back, builder.",
+      artKey: "park-wayfinding",
+    };
+    roundTrip(baseState(), next);
+
+    const closed = { ...next, activeSign: undefined };
+    const clearDelta = computeStateDelta(next, closed, 3, 2);
+    expect(applyStateDelta(next, clearDelta).activeSign).toBeUndefined();
   });
 
   it("round-trips consumed spawn-marker provenance", () => {
