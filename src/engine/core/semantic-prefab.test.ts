@@ -31,6 +31,13 @@ describe("semantic prefabs", () => {
     ]);
   });
 
+  it("returns all sorted prefab keys", () => {
+    const keys = prefabKeys();
+    expect(keys.length).toBeGreaterThan(0);
+    expect(keys).toContain("cave.rest-stop");
+    expect(keys).toEqual([...keys].sort()); // Check that it is sorted
+  });
+
   it("stamps semantics and repairs derived neighborhoods", () => {
     const plane = floorPlane();
     const result = stampSemanticPrefab(
