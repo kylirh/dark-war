@@ -21,6 +21,15 @@ import { MEDKIT_HEAL_AMOUNT } from "../content/item-defs";
 describe("Game serialize/deserialize round-trip", () => {
   beforeEach(() => RNG.reseed(424242));
 
+  it("keeps the opening narrative out of the persistent story log", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(0);
+
+    expect(game.getState().story).not.toContain(
+      "The city is quiet. Megacorp waits to the northeast.",
+    );
+  });
+
   it("restores depth, map, player, and entities", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1); // a dungeon level
@@ -170,6 +179,25 @@ describe("Game serialize/deserialize round-trip", () => {
     const restored = new Game({ mode: "offline" });
     restored.deserialize(serialized);
     expect(restored.getState().pendingCallouts).toEqual([]);
+  });
+
+  it("filters alert transport data and does not restore it as world state", () => {
+    const game = new Game({ mode: "online" });
+    game.reset(1);
+    const state = game.getState();
+    state.pendingAlerts.push({
+      message: "A private status update.",
+      audiencePlayerIds: [state.player.id],
+    });
+
+    expect(game.serialize().alerts).toEqual([]);
+    expect(game.serializeForPlayer(state.player.id).alerts).toEqual([
+      state.pendingAlerts[0],
+    ]);
+
+    const restored = new Game({ mode: "online" });
+    restored.deserialize(game.serializeForPlayer(state.player.id));
+    expect(restored.getState().pendingAlerts).toEqual([]);
   });
 
   it("reuses each accessibility flood fill until its plane changes", () => {
@@ -419,7 +447,7 @@ describe("Game multiplayer player management", () => {
     expect(result?.dirtyCellIndices).toHaveLength(9);
     expect(state.changedTiles).toEqual(new Set(result?.dirtyCellIndices));
     expect(state.mapDirty).toBe(false);
-    expect(state.story[0]).toContain("9 visual cells resolved");
+    expect(state.story).toEqual([]);
   });
 
   it("toggles the development shoreline comparison without changing semantics", () => {
