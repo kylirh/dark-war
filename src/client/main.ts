@@ -2941,7 +2941,6 @@ class MainMenuApp implements DarkWarApplication {
   private mpClient: MultiplayerClient | null = null;
   private mpIsHosting = false;
   private mpPlayerName = "Player";
-  private mpGameName = "Dark War";
 
   constructor(
     private readonly startGame: (
@@ -3019,7 +3018,6 @@ class MainMenuApp implements DarkWarApplication {
     playerName: string,
   ): Promise<void> {
     if (this.disposed) return;
-    this.mpGameName = gameName;
     this.mpPlayerName = playerName;
     this.mpIsHosting = true;
 
