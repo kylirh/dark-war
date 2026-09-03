@@ -32,6 +32,23 @@ describe("world callouts", () => {
     expect(Array.from(sanitized)).toHaveLength(MAX_WORLD_CALLOUT_CODEPOINTS);
   });
 
+  it("handles NFKC normalization, C1 controls, and empty resolution", () => {
+    // NFKC normalization: "ﬁ" (U+FB01) normalizes to "fi"
+    expect(sanitizeWorldCalloutText("ﬁ")).toBe("fi");
+
+    // C1 controls (\u007f-\u009f) should be removed (replaced with space and trimmed/collapsed)
+    expect(sanitizeWorldCalloutText("test\u007f\u0080\u009ftest")).toBe(
+      "test test",
+    );
+
+    // Empty strings and strings that resolve to empty
+    expect(sanitizeWorldCalloutText("")).toBe("");
+    expect(sanitizeWorldCalloutText("   \n\t\u0000\u007f   ")).toBe("");
+
+    // Text without whitespace or controls is unaffected
+    expect(sanitizeWorldCalloutText("helloworld")).toBe("helloworld");
+  });
+
   it("anchors text to a live speaker and ignores empty input", () => {
     const state = stateForCallouts();
     const callout = emitWorldTextCallout(state, {
