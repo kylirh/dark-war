@@ -78,6 +78,7 @@ type IncomingAction =
       targetWorldY?: number;
     }
   | { type: "INTERACT"; dx: number; dy: number }
+  | { type: "SIGN_CLOSE" }
   | { type: "PICKUP" }
   | { type: "RELOAD" }
   | { type: "WAIT" }
@@ -147,6 +148,7 @@ function isIncomingAction(value: unknown): value is IncomingAction {
     value.type === "FIRE" ||
     value.type === "USE_ITEM" ||
     value.type === "INTERACT" ||
+    value.type === "SIGN_CLOSE" ||
     value.type === "PICKUP" ||
     value.type === "RELOAD" ||
     value.type === "WAIT" ||
@@ -552,6 +554,11 @@ class RoomSession {
       return;
     }
     if (player.resting && action.type !== "WAIT") return;
+
+    if (action.type === "SIGN_CLOSE") {
+      world.game.clearSignView(playerId);
+      return;
+    }
 
     // Level transitions migrate only this player between worlds.
     if (action.type === "DESCEND") {

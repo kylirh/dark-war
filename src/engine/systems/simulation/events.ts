@@ -59,6 +59,7 @@ import { triggerExplosion } from "./explosives";
 import { addToInventory } from "../../utils/inventory";
 import { reconcileSnagglepussCompanion } from "./snagglepuss-social";
 import { dropPlayerInventoryOnDeath } from "../../utils/player-respawn";
+import { signViewForPlacement } from "./signs";
 
 export function processEventQueue(state: GameState): void {
   let processed = 0;
@@ -101,6 +102,9 @@ function processEvent(state: GameState, event: GameEvent): void {
       break;
     case EventType.NPC_TALK:
       processNPCTalkEvent(state, event);
+      break;
+    case EventType.SIGN_READ:
+      processSignReadEvent(state, event);
       break;
   }
 }
@@ -1035,4 +1039,19 @@ function processNPCTalkEvent(state: GameState, event: GameEvent): void {
   // Intentionally no time-slow / pause here. A one-shot line has no modal UI to
   // dismiss. Full authored conversations own a separate guaranteed offline
   // pause/resume path; online conversations always leave shared time running.
+}
+
+function processSignReadEvent(state: GameState, event: GameEvent): void {
+  const data = event.data as {
+    type: "SIGN_READ";
+    playerId: string;
+    signId: string;
+  };
+  const view = signViewForPlacement(state, data.signId);
+  const player = state.players.find(
+    (candidate) => candidate.id === data.playerId,
+  );
+  if (!view || !player) return;
+
+  state.activeSignViews.set(player.id, view);
 }

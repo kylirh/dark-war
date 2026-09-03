@@ -80,6 +80,35 @@ test("compiles semantic prefab layers and typed markers", () => {
   );
 });
 
+test("compiles readable sign markers without leaking editor tile ids", () => {
+  const prefabSource = join(
+    root,
+    "assets-src",
+    "prefabs",
+    "settlement-workshop.tmj",
+  );
+  const registry = JSON.parse(
+    readFileSync(join(root, "assets-src", "semantic-keys.json"), "utf8"),
+  );
+  const prefab = compileTiledPrefab(
+    JSON.parse(readFileSync(prefabSource, "utf8")),
+    prefabSource,
+    root,
+    new Set(registry.keys),
+  );
+  assert.deepEqual(
+    prefab.markers.find((marker) => marker.kind === "sign"),
+    {
+      id: 4,
+      kind: "sign",
+      name: "workshop-notice",
+      x: 4,
+      y: 1,
+      properties: { "darkwar.sign": "settlement.workshop-notice" },
+    },
+  );
+});
+
 test("keeps production sprite boards aligned and transparent", () => {
   for (const filename of [
     "environment-board.png",

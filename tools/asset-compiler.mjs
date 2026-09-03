@@ -261,7 +261,7 @@ export function compileTiledPrefab(
         }
         continue;
       }
-      if (!["spawn", "portal", "socket", "require"].includes(kind)) {
+      if (!["spawn", "portal", "socket", "require", "sign"].includes(kind)) {
         throw new Error(`${sourcePath}: unsupported marker kind ${kind}`);
       }
       if (x < 0 || y < 0 || x >= width || y >= height) {

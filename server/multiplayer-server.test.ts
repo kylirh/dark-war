@@ -304,6 +304,47 @@ describe("multiplayer server (multi-world)", () => {
     void hostWelcome;
   });
 
+  it("replicates shared signs privately and clears a reader on request", async () => {
+    server = await startMultiplayerServer(0);
+    const host = connect(server.port, "Host");
+    await waitFor(host, "welcome");
+    const guest = connect(server.port, "Guest");
+    await waitFor(guest, "welcome");
+    send(host, { type: "start_game" });
+    await Promise.all([
+      waitFor(host, "state_full"),
+      waitFor(guest, "state_full"),
+    ]);
+
+    send(host, {
+      type: "action",
+      action: { type: "INTERACT", dx: 1, dy: 0 },
+      seq: 1,
+    });
+    await delay(100);
+    const hostReader = await requestState(host);
+    const guestReader = await requestState(guest);
+
+    expect(hostReader.state.activeSign).toMatchObject({
+      id: "outside/surface:sign:park-welcome",
+      title: "Civic Park",
+    });
+    expect(guestReader.state.activeSign).toBeUndefined();
+    expect(hostReader.state.signs).toEqual(guestReader.state.signs);
+
+    send(host, {
+      type: "action",
+      action: { type: "SIGN_CLOSE" },
+      seq: 2,
+    });
+    await delay(100);
+    const closed = await requestState(host);
+    expect(closed.state.activeSign).toBeUndefined();
+
+    host.close();
+    guest.close();
+  }, 15_000);
+
   it("validates and broadcasts player speech to everyone on the plane", async () => {
     server = await startMultiplayerServer(0);
     const host = connect(server.port, "Host");

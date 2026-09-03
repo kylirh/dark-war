@@ -1219,6 +1219,14 @@
             "darkwar.targetPlane": "park-workshop",
             "darkwar.targetSpace": "settlement"
           }
+        },
+        {
+          "id": 4,
+          "kind": "sign",
+          "name": "workshop-notice",
+          "x": 4,
+          "y": 1,
+          "properties": { "darkwar.sign": "settlement.workshop-notice" }
         }
       ]
     }

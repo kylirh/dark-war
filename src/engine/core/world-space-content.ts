@@ -1,6 +1,6 @@
 /** Small deterministic world planes reached through semantic portals. */
 
-import { TileType, WallSet } from "../types";
+import { SignPlacement, TileType, WallSet } from "../types";
 import { setTileFor } from "../utils/helpers";
 import { WorldPlane } from "./world-plane";
 import {
@@ -35,6 +35,7 @@ export interface AuthoredWorldPlaneData {
   readonly stairsUp: [number, number] | null;
   readonly worldPlane: WorldPlane;
   readonly portals: WorldPortal[];
+  readonly signs: SignPlacement[];
 }
 
 /** Build the first cave as an independent, bounded 2D plane. */
@@ -84,6 +85,7 @@ export function createParkGrotto(): AuthoredWorldPlaneData {
     stairsDown: start,
     stairsUp: start,
     worldPlane,
+    signs: [],
     portals: [
       {
         id: "caves/park-grotto:exit",
@@ -165,6 +167,7 @@ export function createWorkshopInterior(): AuthoredWorldPlaneData {
     stairsDown: start,
     stairsUp: start,
     worldPlane,
+    signs: [],
     portals: [
       {
         id: "settlement/park-workshop:exit",
