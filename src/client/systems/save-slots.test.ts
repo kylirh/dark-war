@@ -131,6 +131,15 @@ describe("slot validation", () => {
 });
 
 describe("listSaveSlots", () => {
+  it("returns empty slots when localStorage throws", async () => {
+    vi.mocked(localStorage.getItem).mockImplementationOnce(() => {
+      throw new Error("Disk error");
+    });
+    const slots = await listSaveSlots();
+    expect(slots).toHaveLength(SAVE_SLOT_COUNT);
+    expect(slots.every((s) => s.isEmpty)).toBe(true);
+  });
+
   it("always reports every slot, empty ones included", async () => {
     const slots = await listSaveSlots();
     expect(slots).toHaveLength(SAVE_SLOT_COUNT);
