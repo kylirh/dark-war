@@ -849,7 +849,7 @@ class RoomSession {
 
     physics.updatePhysics(state, scaledDt);
     physics.updateBullets(state, scaledDt);
-    physics.updateExplosives(state, scaledDt);
+    physics.updateExplosives(state);
 
     if (state.mapDirty) {
       state.mapDirty = false;

@@ -1526,7 +1526,7 @@ class DarkWar {
     this.physics.updateBullets(state, scaledDt);
 
     // Update explosives
-    this.physics.updateExplosives(state, scaledDt);
+    this.physics.updateExplosives(state);
 
     // Rebuild colliders immediately if walls were destroyed (outside sim tick)
     // This prevents players from colliding with invisible walls when bullets

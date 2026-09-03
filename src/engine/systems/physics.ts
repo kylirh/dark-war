@@ -1226,7 +1226,7 @@ export class Physics {
   /**
    * Update explosives - move, check collisions with monsters and walls
    */
-  public updateExplosives(state: GameState, dt: number): void {
+  public updateExplosives(state: GameState): void {
     const entityMap = new Map<string, GameEntity>();
     const explosives: ExplosiveEntity[] = [];
     for (const e of state.entities) {
