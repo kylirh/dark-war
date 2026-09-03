@@ -65,7 +65,9 @@ describe("player resting", () => {
     player.hp = player.hpMax;
     wait(game);
     expect(player.resting).toBe(false);
-    expect(state.story[0]).toBe("You are already fully healed.");
+    expect(state.pendingAlerts.at(-1)?.message).toBe(
+      "You are already fully healed.",
+    );
   });
 
   it("uses the viewing-distance radius rule to block nearby enemies", () => {
@@ -85,7 +87,9 @@ describe("player resting", () => {
 
     wait(game);
     expect(player.resting).toBe(false);
-    expect(state.story[0]).toBe("You cannot rest while an enemy is nearby.");
+    expect(state.pendingAlerts.at(-1)?.message).toBe(
+      "You cannot rest while an enemy is nearby.",
+    );
 
     nearby.worldX = player.worldX + player.sight * 32 * 2;
     nearby.worldY = player.worldY;

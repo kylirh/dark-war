@@ -22,6 +22,7 @@ import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
 import { setStateTileAtIndex } from "../../utils/state-tiles";
+import { emitPlayerAlert } from "../../utils/player-alerts";
 import {
   equippedMonsterWeaponItem,
   isAdaptiveWeaponMonster,
@@ -34,6 +35,14 @@ const METAL_ROBOT_TYPES = new Set<MonsterType>([
   MonsterType.UTILITY_BOT,
   MonsterType.DREADNAUGHT,
 ]);
+
+function alertPlayer(
+  state: GameState,
+  message: string,
+  playerId: string,
+): void {
+  emitPlayerAlert(state, message, { audiencePlayerIds: [playerId] });
+}
 import {
   MAX_EVENTS_PER_TICK,
   EXPLOSION_KNOCKBACK_MAX_DISTANCE,
@@ -163,10 +172,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
         if (flags) {
           if (flags.stunsOnHit && RNG.chance(0.5)) {
             player.slowUntilTick = state.sim.nowTick + 40; // ~2s sluggish
-            pushEvent(state, {
-              type: EventType.MESSAGE,
-              data: { type: "MESSAGE", message: "Venom slows your movements!" },
-            });
+            alertPlayer(state, "Venom slows your movements!", player.id);
           }
           if (flags.steals) {
             stealFromPlayer(state, attacker as Monster, player, flags.steals);
@@ -187,11 +193,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       effect: hitSounds[Math.floor(Math.random() * hitSounds.length)],
     });
 
-    pushEvent(state, {
-      type: EventType.MESSAGE,
-      data: { type: "MESSAGE", message: `You take ${data.amount} damage!` },
-      cause: event.id,
-    });
+    alertPlayer(state, `You take ${data.amount} damage!`, player.id);
 
     if (player.hp <= 0) {
       // Stop movement immediately on death to prevent sliding
@@ -570,12 +572,6 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
       });
     }
 
-    pushEvent(state, {
-      type: EventType.MESSAGE,
-      data: { type: "MESSAGE", message: `The ${monster.type} dies.` },
-      cause: event.id,
-    });
-
     const scoringPlayer =
       (data.sourceId
         ? state.entities.find(
@@ -711,13 +707,11 @@ function stealFromPlayer(
     monster.carriedItems.push({ type: ItemType.COIN, amount: taken });
     monster.fleeing = true;
     monster.fleeingFromPlayerId = player.id;
-    pushEvent(state, {
-      type: EventType.MESSAGE,
-      data: {
-        type: "MESSAGE",
-        message: `The ${monster.type} grabs ${taken} coins and bolts!`,
-      },
-    });
+    alertPlayer(
+      state,
+      `The ${monster.type} grabs ${taken} coins and bolts!`,
+      player.id,
+    );
     return;
   }
 
@@ -757,13 +751,11 @@ function stealFromPlayer(
       worldY: monster.worldY,
     });
   }
-  pushEvent(state, {
-    type: EventType.MESSAGE,
-    data: {
-      type: "MESSAGE",
-      message: `The ${monster.type} snatches your ${itemName(type)} and scampers off!`,
-    },
-  });
+  alertPlayer(
+    state,
+    `The ${monster.type} snatches your ${itemName(type)} and scampers off!`,
+    player.id,
+  );
 }
 
 /** Blink a monster to a random nearby passable, unoccupied tile. */
@@ -860,6 +852,23 @@ export function grantCoreDevice(player: Player, itemType: ItemType): boolean {
   return false;
 }
 
+const PICKUP_LOG_TYPES = new Set<ItemType>([
+  ItemType.KEYCARD,
+  ItemType.LASER_PISTOL,
+  ItemType.GYROJET_SMG,
+  ItemType.GYROJET_SHOTGUN,
+  ItemType.MACRO_METAL_SWORD,
+  ItemType.VIBRA_SWORD,
+  ItemType.PICKAXE,
+  ItemType.MACROMETAL_JACKET,
+  ItemType.PANIC_BUTTON,
+  ItemType.BLACK_PILL,
+]);
+
+function shouldKeepPickupLog(itemType: ItemType): boolean {
+  return PICKUP_LOG_TYPES.has(itemType);
+}
+
 function processPickupItemEvent(state: GameState, event: GameEvent): void {
   const data = event.data as {
     type: "PICKUP_ITEM";
@@ -881,47 +890,28 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       const currentCount = player.itemCounts[ItemType.MEDKIT] ?? 0;
       const maxCarry = ITEM_DEFS[ItemType.MEDKIT].maxCarry;
       if (maxCarry !== undefined && currentCount >= maxCarry) {
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: {
-            type: "MESSAGE",
-            message: `You cannot carry more than ${maxCarry} medkits.`,
-          },
-          cause: event.id,
-        });
+        alertPlayer(
+          state,
+          `You cannot carry more than ${maxCarry} medkits.`,
+          player.id,
+        );
         return;
       }
       if (!addToInventory(player, ItemType.MEDKIT)) {
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: {
-            type: "MESSAGE",
-            message: "Your pack is full — you leave the medkit.",
-          },
-          cause: event.id,
-        });
+        alertPlayer(
+          state,
+          "Your pack is full — you leave the medkit.",
+          player.id,
+        );
         return;
       }
       player.itemCounts[ItemType.MEDKIT] = currentCount + 1;
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "You pick up a medkit." },
-        cause: event.id,
-      });
       break;
     }
     case ItemType.AMMO: {
       const amount = positiveAmount(item.amount, 24);
       player.ammoReserve += amount;
       addToInventory(player, ItemType.AMMO);
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: {
-          type: "MESSAGE",
-          message: `You pick up ${amount} rounds.`,
-        },
-        cause: event.id,
-      });
       break;
     }
     case ItemType.KEYCARD:
@@ -941,14 +931,11 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
           player.selectedBarSlot,
         );
         if (!added) {
-          pushEvent(state, {
-            type: EventType.MESSAGE,
-            data: {
-              type: "MESSAGE",
-              message: "Your pack is full — you leave the pistol.",
-            },
-            cause: event.id,
-          });
+          alertPlayer(
+            state,
+            "Your pack is full — you leave the pistol.",
+            player.id,
+          );
           return;
         }
         pushEvent(state, {
@@ -959,36 +946,19 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       } else {
         // Already have a pistol — convert to ammo
         player.ammoReserve += 12;
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: {
-            type: "MESSAGE",
-            message: "You already have a pistol. +12 ammo.",
-          },
-          cause: event.id,
-        });
+        alertPlayer(state, "You already have a pistol. +12 ammo.", player.id);
       }
       break;
     case ItemType.GRENADE: {
       const amount = positiveAmount(item.amount, 1);
       player.grenades += amount;
       addToInventory(player, ItemType.GRENADE);
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "You pick up a grenade." },
-        cause: event.id,
-      });
       break;
     }
     case ItemType.LAND_MINE: {
       const amount = positiveAmount(item.amount, 1);
       player.landMines += amount;
       addToInventory(player, ItemType.LAND_MINE);
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "You pick up a land mine." },
-        cause: event.id,
-      });
       break;
     }
     case ItemType.CTDM:
@@ -1002,11 +972,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
           cause: event.id,
         });
       } else {
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: { type: "MESSAGE", message: "CTDM already installed." },
-          cause: event.id,
-        });
+        alertPlayer(state, "CTDM already installed.", player.id);
       }
       break;
     case ItemType.MATTER_MANIPULATOR:
@@ -1021,14 +987,7 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
           cause: event.id,
         });
       } else {
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: {
-            type: "MESSAGE",
-            message: "You already have a Matter Manipulator.",
-          },
-          cause: event.id,
-        });
+        alertPlayer(state, "You already have a Matter Manipulator.", player.id);
       }
       break;
     case ItemType.POWERCELL: {
@@ -1036,11 +995,6 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
       player.itemCounts[ItemType.POWERCELL] =
         (player.itemCounts[ItemType.POWERCELL] ?? 0) + 1;
       addToInventory(player, ItemType.POWERCELL);
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "You pick up a power cell." },
-        cause: event.id,
-      });
       break;
     }
     default: {
@@ -1064,14 +1018,11 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
         isWeapon ? player.selectedBarSlot : -1,
       );
       if (!added) {
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: {
-            type: "MESSAGE",
-            message: `Your pack is full — you leave the ${name}.`,
-          },
-          cause: event.id,
-        });
+        alertPlayer(
+          state,
+          `Your pack is full — you leave the ${name}.`,
+          player.id,
+        );
         return; // leave the item on the ground (don't destroy)
       }
 
@@ -1086,11 +1037,13 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
         player.armor = Math.max(player.armor, ARMOR_PER_JACKET);
       }
 
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: `You pick up the ${name}.` },
-        cause: event.id,
-      });
+      if (shouldKeepPickupLog(item.type)) {
+        pushEvent(state, {
+          type: EventType.MESSAGE,
+          data: { type: "MESSAGE", message: `You pick up the ${name}.` },
+          cause: event.id,
+        });
+      }
       break;
     }
   }
@@ -1123,11 +1076,7 @@ function processPlayerDeathEvent(state: GameState, event: GameEvent): void {
     dropPlayerInventoryOnDeath(state, player);
   }
 
-  pushEvent(state, {
-    type: EventType.MESSAGE,
-    data: { type: "MESSAGE", message: "You have died." },
-    cause: event.id,
-  });
+  alertPlayer(state, "You have died.", data.playerId);
 
   // Note: Additional death handling (showing overlay, time adjustment)
   // is done in Game.updateDeathStatus() which is called after each simulation tick

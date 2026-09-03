@@ -144,6 +144,18 @@ address, prefab instance identity, and marker id. The ledger persists on active
 and sleeping planes, so death, recruitment, migration, or absence cannot cause a
 marker to spawn the actor again.
 
+## Player-facing alerts
+
+Short transient player messages belong to the client presentation layer. The
+DOM alert overlay in `src/client/systems/alert-manager.ts` sits 16 pixels above
+the collapsed story log, passes pointer input through to the game canvas, and
+uses wall-clock durations (five seconds by default). It retains at most six
+messages in oldest-to-newest order; a new message evicts the oldest, and every
+dismissal receives a short stepped fade. Simulation systems queue ephemeral
+`pendingAlerts` with optional per-player audiences; online snapshots include
+only the local player's alerts, while deserialization and saves discard the
+queue so alerts never become durable story history.
+
 ## Authoring boundary
 
 Aseprite sources and Tiled tilesets/maps are authoring inputs. A build-time asset

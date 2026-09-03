@@ -78,7 +78,9 @@ describe("picking up new items lands them in the inventory", () => {
 
     expect(player.itemCounts[ItemType.MEDKIT]).toBe(2);
     expect(state.entities.some((entity) => entity.id === itemId)).toBe(true);
-    expect(state.story[0]).toBe("You cannot carry more than 2 medkits.");
+    expect(state.pendingAlerts.at(-1)?.message).toBe(
+      "You cannot carry more than 2 medkits.",
+    );
   });
 
   it("respects a full inventory when picking up a medkit", () => {
@@ -91,7 +93,9 @@ describe("picking up new items lands them in the inventory", () => {
 
     expect(state.entities.some((entity) => entity.id === itemId)).toBe(true);
     expect(player.itemCounts[ItemType.MEDKIT] ?? 0).toBe(0);
-    expect(state.story[0]).toBe("Your pack is full — you leave the medkit.");
+    expect(state.pendingAlerts.at(-1)?.message).toBe(
+      "Your pack is full — you leave the medkit.",
+    );
   });
 
   it("stacks coins by count", () => {
