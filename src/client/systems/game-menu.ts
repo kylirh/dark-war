@@ -98,7 +98,6 @@ export class GameMenu {
   // Multiplayer state
   private mpPlayerName = "Player";
   private mpGameName = "Dark War";
-  private mpJoinPort = "7777";
   private mpLobbyPlayers: LobbyPlayer[] = [];
   private mpIsHost = false;
   private mpConnectionState:
