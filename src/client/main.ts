@@ -1176,7 +1176,13 @@ class DarkWar {
     const state = this.game.getState();
 
     if (options.resumeTime ?? true) {
-      state.sim.targetTimeScale = REAL_TIME_SCALE;
+      // Note: we do not blindly force time scale back to REAL_TIME_SCALE here.
+      // If the player is resting, resolveCommand will intercept the action
+      // and reset the scale as part of stopPlayerResting.
+      // Overriding it here beforehand can lead to visually canceled rest logic.
+      if (!state.player.resting) {
+        state.sim.targetTimeScale = REAL_TIME_SCALE;
+      }
     }
 
     enqueueCommand(state, {
