@@ -1472,9 +1472,14 @@ export class CharacterModal {
     this.listeningForKey = null;
     this.stopDrag();
     this._isOpen = false;
+    // Opening moves focus into the modal, so closing has to hand it back;
+    // otherwise focus is stranded on a hidden button. Matches the restore in
+    // dialogue-panel and sign-reader.
+    const ownedFocus = this.window.contains(document.activeElement);
     this.scrim.style.display = "none";
     this.window.style.display = "none";
     document.body.classList.remove("imb-modal-open");
+    if (ownedFocus) document.getElementById("game")?.focus();
     this.onClose?.();
   }
 
