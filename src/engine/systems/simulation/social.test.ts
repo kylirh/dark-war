@@ -9,11 +9,11 @@ import { canTalkTo, findTalkTarget, resolveTalk } from "./social";
 import { getSocialFacts } from "./conversation";
 import { processEventQueue } from "./events";
 import {
-  Entity,
   EntityKind,
   EventType,
   ItemType,
   MonsterType,
+  Entity,
 } from "../../types";
 import { PlayerEntity } from "../../entities/player-entity";
 
@@ -23,29 +23,29 @@ describe("social actors", () => {
       const entity = {
         social: { defId: "some-def" },
         interactable: { affordances: ["talk"] },
-      } as unknown as Entity;
+      } as Entity;
       expect(canTalkTo(entity)).toBe(true);
     });
 
     it("returns false when entity lacks social component", () => {
       const entity = {
         interactable: { affordances: ["talk"] },
-      } as unknown as Entity;
+      } as Entity;
       expect(canTalkTo(entity)).toBe(false);
     });
 
     it("returns false when entity lacks interactable component", () => {
       const entity = {
         social: { defId: "some-def" },
-      } as unknown as Entity;
+      } as Entity;
       expect(canTalkTo(entity)).toBe(false);
     });
 
     it("returns false when entity interactable affordances lack talk", () => {
       const entity = {
         social: { defId: "some-def" },
-        interactable: { affordances: [] },
-      } as unknown as Entity;
+        interactable: { affordances: [] as any[] },
+      } as Entity;
       expect(canTalkTo(entity)).toBe(false);
     });
   });
