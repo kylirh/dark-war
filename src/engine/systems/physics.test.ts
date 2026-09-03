@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { Physics } from "./physics";
 import { PlayerEntity } from "../entities/player-entity";
 import { MonsterEntity } from "../entities/monster-entity";
@@ -164,6 +164,7 @@ describe("Physics.updateBullets (anti-tunnel)", () => {
       mapWidth: W,
       mapHeight: H,
       tiles: new FlatTileSource(map, W, H),
+      worldPlane: createWorldPlaneFromTiles(map, W, H),
     } as unknown as GameState;
   }
 
@@ -260,5 +261,37 @@ describe("Physics.updateBullets (anti-tunnel)", () => {
     const trail = state.effects.find((effect) => effect.type === "laser_beam");
     expect(trail?.beamPoints?.length).toBeGreaterThanOrEqual(2);
     expect(state.entities.some((e) => e.id === laser.id)).toBe(false);
+  });
+
+  it("does not use ambient Math.random for wall-impact sparks", () => {
+    const physics = new Physics();
+    const map = makeMap();
+    const state = bulletState(map);
+    const bullet = new BulletEntity(
+      120,
+      112,
+      600,
+      0,
+      5,
+      "shooter",
+      640,
+      2,
+      0,
+      0,
+    );
+    state.entityManager.spawn(bullet);
+    physics.rebuildAll(state);
+
+    const ambientRandom = vi.spyOn(Math, "random").mockImplementation(() => {
+      throw new Error("wall sparks must use deterministic RNG");
+    });
+    try {
+      physics.updateBullets(state, 1 / 60);
+      expect(
+        state.effects.filter((effect) => effect.type === "spark"),
+      ).toHaveLength(7);
+    } finally {
+      ambientRandom.mockRestore();
+    }
   });
 });
