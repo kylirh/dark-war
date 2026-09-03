@@ -8,9 +8,14 @@ import { createOutsideLevel } from "../../core/outside-level";
 import { canTalkTo, findTalkTarget, resolveTalk } from "./social";
 import { getSocialFacts } from "./conversation";
 import { processEventQueue } from "./events";
-import { EntityKind, EventType, ItemType, MonsterType } from "../../types";
+import {
+  Entity,
+  EntityKind,
+  EventType,
+  ItemType,
+  MonsterType,
+} from "../../types";
 import { PlayerEntity } from "../../entities/player-entity";
-import { Entity } from "../../types";
 
 describe("social actors", () => {
   describe("canTalkTo", () => {
@@ -18,29 +23,29 @@ describe("social actors", () => {
       const entity = {
         social: { defId: "some-def" },
         interactable: { affordances: ["talk"] },
-      } as Entity;
+      } as unknown as Entity;
       expect(canTalkTo(entity)).toBe(true);
     });
 
     it("returns false when entity lacks social component", () => {
       const entity = {
         interactable: { affordances: ["talk"] },
-      } as Entity;
+      } as unknown as Entity;
       expect(canTalkTo(entity)).toBe(false);
     });
 
     it("returns false when entity lacks interactable component", () => {
       const entity = {
         social: { defId: "some-def" },
-      } as Entity;
+      } as unknown as Entity;
       expect(canTalkTo(entity)).toBe(false);
     });
 
     it("returns false when entity interactable affordances lack talk", () => {
       const entity = {
         social: { defId: "some-def" },
-        interactable: { affordances: ["inspect"] as any[] },
-      } as Entity;
+        interactable: { affordances: [] },
+      } as unknown as Entity;
       expect(canTalkTo(entity)).toBe(false);
     });
   });
