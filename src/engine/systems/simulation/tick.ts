@@ -2,7 +2,6 @@ import {
   GameState,
   EntityKind,
   Monster,
-  MonsterType,
   Player,
   Item,
   ItemType,
