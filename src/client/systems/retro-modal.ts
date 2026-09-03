@@ -42,7 +42,7 @@ export class RetroModal {
           title="Close"
           aria-label="Close ${options.title}"
         >
-          <span>X</span>
+          <span aria-hidden="true">X</span>
         </button>
         <div class="imb-dialog-stripes"></div>
         <span class="imb-dialog-title">${options.title}</span>
