@@ -90,6 +90,7 @@ import {
 import { CalloutComposer, PlayerCalloutKind } from "./systems/callout-composer";
 import { WorldCalloutManager } from "./systems/world-callout-manager";
 import { DialoguePanel, DialoguePanelHandlers } from "./systems/dialogue-panel";
+import { SignReader, SignReaderHandlers } from "./systems/sign-reader";
 
 /**
  * Dark War - Main Entry Point
@@ -297,6 +298,7 @@ class DarkWar {
   private renderer: Renderer;
   private ui: UI;
   private dialoguePanel: DialoguePanel;
+  private signReader: SignReader;
   private readonly dialogueHandlers: DialoguePanelHandlers = {
     onChoice: (choiceId, expectedRevision) =>
       this.sendDialogueChoice(choiceId, undefined, expectedRevision),
@@ -372,6 +374,15 @@ class DarkWar {
   private lastOnlineUnavailableLogAt: number = 0;
   private hasStartedGameLoop: boolean = false;
   private dialogueWasOpen = false;
+  private signReaderWasOpen = false;
+  private readonly signReaderHandlers: SignReaderHandlers = {
+    onClose: () => {
+      this.game.clearSignView();
+      if (this.isOnlineMode()) {
+        this.sendOnlineAction({ type: "SIGN_CLOSE" });
+      }
+    },
+  };
   private readonly onCanvasClick = (): void => {
     if (this.isDialogueActive()) return;
     this.handleMouseFire();
@@ -533,6 +544,7 @@ class DarkWar {
     if (isDebug()) console.time("Create UI");
     this.ui = new UI();
     this.dialoguePanel = new DialoguePanel();
+    this.signReader = new SignReader();
     if (isDebug()) console.timeEnd("Create UI");
 
     this.inventoryBar = new InventoryBar();
@@ -1455,7 +1467,10 @@ class DarkWar {
     // still process (they step the sim directly); the world resumes the instant
     // the conversation ends and getConversationView() goes empty — a guaranteed
     // clear path independent of any pause bookkeeping.
-    if (!this.isOnlineMode() && this.game.getConversationView()) {
+    if (
+      !this.isOnlineMode() &&
+      (this.game.getConversationView() || this.game.getSignView())
+    ) {
       state.sim.timeScale = 0;
       state.sim.targetTimeScale = 0;
       return;
@@ -1642,6 +1657,7 @@ class DarkWar {
     }
 
     this.syncDialoguePanel();
+    this.syncSignReader();
     this.updateMatterManipulator();
     this.worldCalloutManager.setWorld(state.worldSpaceId, state.worldPlaneId);
     this.renderer.render(
@@ -1688,7 +1704,9 @@ class DarkWar {
   private isDialogueActive(): boolean {
     return (
       this.game.getConversationView() !== undefined ||
-      this.dialoguePanel?.isOpen() === true
+      this.dialoguePanel?.isOpen() === true ||
+      this.game.getSignView() !== undefined ||
+      this.signReader?.isOpen() === true
     );
   }
 
@@ -1708,6 +1726,24 @@ class DarkWar {
       this.inputHandler?.resetKeys();
     }
     this.dialogueWasOpen = isOpen;
+  }
+
+  /** Keep the sign reader and world input ownership synchronized. */
+  private syncSignReader(): void {
+    const view = this.game.getSignView();
+    this.signReader.update(view, this.signReaderHandlers);
+    const isOpen = view !== undefined;
+
+    if (isOpen && !this.signReaderWasOpen) {
+      const state = this.game.getState();
+      this.stopAutoMove(state);
+      this.mmMouseDown = false;
+      this.mmLastMinedIdx = null;
+      this.inputHandler?.resetKeys();
+    } else if (!isOpen && this.signReaderWasOpen) {
+      this.inputHandler?.resetKeys();
+    }
+    this.signReaderWasOpen = isOpen;
   }
 
   /**
@@ -2879,6 +2915,7 @@ class DarkWar {
     this.cancelAutoMove();
     this.gameMenu.dispose();
     this.dialoguePanel.dispose();
+    this.signReader.dispose();
     this.inputHandler.dispose();
     this.mouseTracker.destroy();
     this.multiplayerClient?.disconnect();

@@ -3073,3 +3073,110 @@ body {
     height: 72px;
   }
 }
+
+/* ── Environmental sign reader ──────────────────────────────────────────── */
+.sign-reader {
+  position: fixed;
+  left: 50%;
+  bottom: 4%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  width: min(640px, 92vw);
+  max-height: min(70vh, 520px);
+  padding: 16px;
+  background: rgba(12, 19, 25, 0.96);
+  border: 2px solid #e6c85c;
+  border-radius: 10px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.65);
+  color: #f4f0d3;
+  font-family: "Courier New", monospace;
+  z-index: 60;
+}
+.sign-reader[hidden] {
+  display: none;
+}
+.sign-reader-art {
+  position: relative;
+  width: 76px;
+  min-width: 76px;
+  height: 96px;
+  align-self: flex-start;
+  background: #c77b4f;
+  border: 3px solid #f3ca73;
+  border-radius: 4px;
+  box-shadow: 4px 5px 0 #6e4838;
+}
+.sign-reader-art::before {
+  position: absolute;
+  inset: 12px 10px;
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(47, 61, 55, 0.7);
+  color: rgba(47, 61, 55, 0.9);
+  content: "✦";
+  font-family: sans-serif;
+  font-size: 28px;
+}
+.sign-reader-body {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+.sign-reader-title {
+  margin: 0;
+  color: #ffe98d;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+}
+.sign-reader-text {
+  overflow: auto;
+  line-height: 1.45;
+  font-size: 15px;
+  white-space: pre-wrap;
+}
+.sign-reader-hint {
+  margin: 2px 0 0;
+  color: #aab8b5;
+  font-size: 12px;
+}
+.sign-reader-close {
+  align-self: flex-start;
+  padding: 7px 14px;
+  background: rgba(230, 200, 92, 0.12);
+  border: 1px solid #e6c85c;
+  border-radius: 5px;
+  color: #f4f0d3;
+  font-family: inherit;
+  cursor: pointer;
+}
+.sign-reader-close:hover,
+.sign-reader-close:focus-visible {
+  background: rgba(230, 200, 92, 0.28);
+  outline: 2px solid #fff2ad;
+  outline-offset: 1px;
+}
+
+@media (max-width: 560px) {
+  .sign-reader {
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .sign-reader-art {
+    width: 52px;
+    min-width: 52px;
+    height: 72px;
+  }
+
+  .sign-reader-art::before {
+    inset: 8px 6px;
+    font-size: 20px;
+  }
+
+  .sign-reader-text {
+    font-size: 14px;
+  }
+}

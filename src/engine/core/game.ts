@@ -18,6 +18,8 @@ import {
   MultiplayerMode,
   WallSet,
   LevelKind,
+  SignPlacement,
+  SignView,
 } from "../types";
 import { createOutsideLevel, OUTSIDE_CAVE_MOUTH } from "./outside-level";
 import { EntityManager } from "./entity-manager";
@@ -64,6 +66,7 @@ import {
   deserializeWorldPlane,
   serializeWorldPlane,
 } from "./world-semantics";
+import { validateSigns } from "./signs";
 import {
   applyTerrainPrototypeElevationEdit,
   createTerrainPrototypePlane,
@@ -99,6 +102,7 @@ interface LevelSnapshot {
   enhancedVision: boolean;
   worldPlane: WorldPlane;
   portals: WorldPortal[];
+  signs: SignPlacement[];
   consumedSpawnMarkers: Set<string>;
 }
 
@@ -133,6 +137,8 @@ export class Game {
   private levels = new Map<string, LevelSnapshot>();
   private multiplayerMode: MultiplayerMode;
   private localPlayerId?: string;
+  /** The last sign view received by an online client. */
+  private lastSignView?: SignView;
   /** Items that fell through holes, awaiting deposit onto a deeper level. */
   private pendingDropsByDepth = new Map<
     number,
@@ -185,6 +191,8 @@ export class Game {
       tiles: worldPlane,
       worldPlane,
       portals: createProgressionPortals(initialAddress, 0, [0, 0], null),
+      signs: [],
+      activeSignViews: new Map(),
       consumedSpawnMarkers: new Set(),
       visible: new Set(),
       explored,
@@ -237,6 +245,7 @@ export class Game {
   public reset(depth: number = 0): void {
     if (isDebug()) console.time("reset: total");
     this.lastConversationView = undefined;
+    this.lastSignView = undefined;
     this.isDead = false;
     this.levels = new Map();
     const outside = depth === 0 ? createOutsideLevel() : null;
@@ -277,6 +286,8 @@ export class Game {
         dungeonLevel ? dungeonLevel.stairsUp : null,
         outside?.workshopDoor ?? null,
       ),
+      signs: outside?.signs ?? [],
+      activeSignViews: new Map(),
       consumedSpawnMarkers: outside?.consumedSpawnMarkers ?? new Set(),
       visible: new Set(),
       explored,
@@ -327,6 +338,11 @@ export class Game {
     this.state.entityManager.spawn(this.state.player);
 
     if (outside) {
+      validateSigns(
+        this.state.signs,
+        this.state.mapWidth,
+        this.state.mapHeight,
+      );
       // The CTDM and Matter Manipulator are no longer world items — the workshop
       // builder hands them over in conversation — so nothing to filter here.
       this.state.entityManager.spawnAll(outside.entities);
@@ -446,6 +462,9 @@ export class Game {
     this.state.tiles = prototype.world;
     this.state.worldPlane = prototype.world;
     this.state.portals = [];
+    this.state.signs = [];
+    this.state.activeSignViews.clear();
+    this.lastSignView = undefined;
     this.state.terrainPrototype = prototype;
     this.state.stairsDown = [31, 8];
     this.state.stairsUp = null;
@@ -638,6 +657,7 @@ export class Game {
     this.state.players = this.state.players.filter((p) => p.id !== playerId);
     this.state.entityManager.destroy(playerId);
     endConversation(this.state, playerId);
+    this.state.activeSignViews.delete(playerId);
     this.state.playerSocialFacts.delete(playerId);
     this.accessibilityCache.delete(playerId);
     this.state.exploredByPlayer.delete(playerId);
@@ -679,6 +699,7 @@ export class Game {
       (player) => player.id !== playerId,
     );
     this.state.entityManager.destroy(playerId);
+    this.state.activeSignViews.delete(playerId);
     this.state.exploredByPlayer.delete(playerId);
     this.state.visibilityByPlayer.delete(playerId);
 
@@ -698,6 +719,22 @@ export class Game {
 
   /** Last conversation view received over the network (online rendering). */
   private lastConversationView?: ConversationView;
+
+  /** Return the local player's currently open contextual sign, if any. */
+  public getSignView(): SignView | undefined {
+    if (this.state.multiplayer.mode === "online") {
+      return this.lastSignView;
+    }
+    return this.state.activeSignViews.get(this.state.multiplayer.localPlayerId);
+  }
+
+  /** Close a sign reader locally or clear one player's server-side view. */
+  public clearSignView(playerId = this.state.multiplayer.localPlayerId): void {
+    this.state.activeSignViews.delete(playerId);
+    if (playerId === this.state.multiplayer.localPlayerId) {
+      this.lastSignView = undefined;
+    }
+  }
 
   /** The local player's active conversation view, or undefined if none. */
   public getConversationView(): ConversationView | undefined {
@@ -727,6 +764,7 @@ export class Game {
     // Per-player private social state: this player's conversation view,
     // narrative facts, and relationship edges only — never another player's.
     state.conversation = buildConversationView(this.state, playerId);
+    state.activeSign = this.state.activeSignViews.get(playerId);
     state.socialFacts = serializeSocialFactsFor(this.state, playerId);
     state.relationships = state.relationships.filter(
       (edge) => edge.source === playerId || edge.target === playerId,
@@ -817,6 +855,7 @@ export class Game {
         source: { ...portal.source },
         destination: { ...portal.destination },
       })),
+      signs: this.state.signs.map((sign) => ({ ...sign })),
       consumedSpawnMarkers: new Set(this.state.consumedSpawnMarkers),
     };
     this.levels.set(
@@ -855,6 +894,10 @@ export class Game {
       source: { ...portal.source },
       destination: { ...portal.destination },
     }));
+    validateSigns(snapshot.signs, snapshot.mapWidth, snapshot.mapHeight);
+    this.state.signs = snapshot.signs.map((sign) => ({ ...sign }));
+    this.state.activeSignViews.clear();
+    this.lastSignView = undefined;
     this.state.consumedSpawnMarkers = new Set(snapshot.consumedSpawnMarkers);
     this.refreshTileSource();
     this.state.explored = new Set(snapshot.explored);
@@ -963,6 +1006,7 @@ export class Game {
         level.stairsDown,
         level.stairsUp,
       ),
+      signs: [],
       consumedSpawnMarkers: new Set(),
     };
   }
@@ -998,6 +1042,7 @@ export class Game {
         enhancedVision: false,
         worldPlane: cave.worldPlane,
         portals: cave.portals,
+        signs: cave.signs,
         consumedSpawnMarkers: new Set(),
       };
     }
@@ -1025,6 +1070,7 @@ export class Game {
         enhancedVision: false,
         worldPlane: workshop.worldPlane,
         portals: workshop.portals,
+        signs: workshop.signs,
         consumedSpawnMarkers: new Set(),
       };
     }
@@ -1495,6 +1541,7 @@ export class Game {
         ),
         enhancedVision: snapshot.enhancedVision,
         portals: snapshot.portals,
+        signs: snapshot.signs.map((sign) => ({ ...sign })),
         consumedSpawnMarkers: Array.from(snapshot.consumedSpawnMarkers).sort(),
       };
     });
@@ -1516,6 +1563,7 @@ export class Game {
       simulationSeed: this.state.simulationSeed,
       plane: serializeWorldPlane(this.state.worldPlane),
       portals: this.state.portals,
+      signs: this.state.signs.map((sign) => ({ ...sign })),
       floorVariant: this.state.floorVariant,
       wallSet: this.state.wallSet,
       stairsDown: this.state.stairsDown,
@@ -1574,6 +1622,8 @@ export class Game {
     }
     // The active conversation view is per-player transient presentation state.
     this.lastConversationView = data.conversation;
+    this.lastSignView =
+      this.multiplayerMode === "online" ? data.activeSign : undefined;
     if (!Array.isArray(data.players) || data.players.length === 0) {
       throw new Error("Invalid save: missing player data");
     }
@@ -1590,6 +1640,8 @@ export class Game {
     });
     const mapWidth = worldPlane.width;
     const mapHeight = worldPlane.height;
+    const signs = data.signs ?? [];
+    validateSigns(signs, mapWidth, mapHeight);
     const players = this.hydratePlayers(serializedPlayers, data.depth);
     const localPlayerId = data.multiplayer.localPlayerId;
     this.localPlayerId = localPlayerId;
@@ -1626,6 +1678,11 @@ export class Game {
       tiles: worldPlane,
       worldPlane,
       portals: data.portals,
+      signs: signs.map((sign) => ({ ...sign })),
+      activeSignViews:
+        this.multiplayerMode === "online" && data.activeSign
+          ? new Map([[localPlayerId, { ...data.activeSign }]])
+          : new Map(),
       stairsDown: data.stairsDown,
       stairsUp: data.stairsUp,
       playerStart: data.stairsUp ?? data.stairsDown,
@@ -1683,6 +1740,8 @@ export class Game {
         wraps: level.levelKind === "outside",
         variantSeed: level.depth,
       });
+      const signs = level.signs ?? [];
+      validateSigns(signs, levelPlane.width, levelPlane.height);
       this.levels.set(worldAddressKey(levelAddress), {
         depth: level.depth,
         worldSpaceId: levelAddress.spaceId,
@@ -1702,6 +1761,7 @@ export class Game {
         enhancedVision: level.enhancedVision,
         worldPlane: levelPlane,
         portals: level.portals,
+        signs: signs.map((sign) => ({ ...sign })),
         consumedSpawnMarkers: new Set(level.consumedSpawnMarkers),
       });
     }

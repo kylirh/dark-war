@@ -1787,6 +1787,61 @@ export class Renderer {
       };
     };
 
+    // Signs are sparse world fixtures rather than entities: they share the
+    // world visibility rules but never participate in collision or depth
+    // simulation. One generic board/post treatment keeps their content fully
+    // data-driven while making them discoverable in authored scenes.
+    for (const sign of state.signs) {
+      const tileIndex = sign.x + sign.y * state.mapWidth;
+      const isRevealed = usingShadowFov ? explored.has(tileIndex) : true;
+      const isVisible = usingShadowFov
+        ? enhancedVision
+          ? explored.has(tileIndex)
+          : visible.has(tileIndex)
+        : true;
+      if (!isRevealed) continue;
+
+      const worldX = this.wrapImage(
+        sign.x * CELL_CONFIG.w + CELL_CONFIG.w / 2,
+        camCenterX,
+        worldW,
+        wraps,
+      );
+      const worldY = this.wrapImage(
+        sign.y * CELL_CONFIG.h + CELL_CONFIG.h / 2,
+        camCenterY,
+        worldH,
+        wraps,
+      );
+      const screenX = offsetX + worldX;
+      const screenY = offsetY + worldY;
+      if (
+        screenX < -CELL_CONFIG.w ||
+        screenY < -CELL_CONFIG.h * 2 ||
+        screenX > viewW + CELL_CONFIG.w ||
+        screenY > viewH + CELL_CONFIG.h
+      ) {
+        continue;
+      }
+
+      const alpha = !isVisible && usingShadowFov ? 0.45 : 1;
+      const graphic = new Graphics();
+      graphic
+        .rect(screenX - 11, screenY - 24, 22, 14)
+        .fill({ color: 0xf3ca73, alpha })
+        .stroke({ color: 0x6e4838, width: 2, alpha });
+      graphic.rect(screenX - 1, screenY - 10, 2, 11).fill({
+        color: 0xc77b4f,
+        alpha,
+      });
+      graphic.rect(screenX - 6, screenY - 20, 12, 2).fill({
+        color: 0x6e4838,
+        alpha: alpha * 0.7,
+      });
+      graphic.zIndex = worldY + CELL_CONFIG.h / 2;
+      this.entityContainer.addChild(graphic);
+    }
+
     const playerFrameKey = (
       moving: boolean,
       facing: FacingDirection,

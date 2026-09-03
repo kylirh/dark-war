@@ -259,6 +259,26 @@ export interface ConversationView {
   revision: number;
 }
 
+/** A stable, non-blocking sign placement on a world plane. */
+export interface SignPlacement {
+  /** Stable world-local identity used by saves and network deltas. */
+  id: string;
+  /** Key into the data-driven sign definition registry. */
+  definitionId: string;
+  /** Grid position of the sign's planted post or wall mount. */
+  x: number;
+  y: number;
+}
+
+/** The private presentation view opened by one player reading a sign. */
+export interface SignView {
+  id: string;
+  title: string;
+  text: string;
+  /** Semantic artwork key for the client reader treatment. */
+  artKey: string;
+}
+
 export interface BaseEntity {
   id: string;
   kind: EntityKind;
@@ -669,6 +689,7 @@ export enum EventType {
   PICKUP_ITEM = "PICKUP_ITEM",
   PLAYER_DEATH = "PLAYER_DEATH",
   NPC_TALK = "NPC_TALK",
+  SIGN_READ = "SIGN_READ",
 }
 
 export interface GameEvent {
@@ -703,7 +724,8 @@ export type EventData =
   | { type: "DOOR_OPEN"; x: number; y: number }
   | { type: "PICKUP_ITEM"; actorId: string; itemId: string }
   | { type: "PLAYER_DEATH"; playerId: string }
-  | { type: "NPC_TALK"; npcId: string; message: string };
+  | { type: "NPC_TALK"; npcId: string; message: string }
+  | { type: "SIGN_READ"; playerId: string; signId: string };
 
 // ========================================
 // Map and Room Types
@@ -748,6 +770,10 @@ export interface GameState {
   /** Authoritative compositional storage for the active world plane. */
   worldPlane: import("./core/world-plane").WorldPlane;
   portals: import("./core/world-space").WorldPortal[];
+  /** Sparse authored/generated signs; signs never alter tile collision. */
+  signs: SignPlacement[];
+  /** Runtime-only sign reader views keyed by player id. */
+  activeSignViews: Map<string, SignView>;
   visible: Set<number>;
   explored: Set<number>;
   accessible: Set<number>;
@@ -826,6 +852,8 @@ export interface SerializedState {
   simulationSeed: number;
   plane: SerializedWorldPlane;
   portals: import("./core/world-space").WorldPortal[];
+  /** Shared sign placements on the active world plane. */
+  signs: SignPlacement[];
   floorVariant: number;
   wallSet: WallSet;
   stairsDown: [number, number];
@@ -844,6 +872,8 @@ export interface SerializedState {
    * serialize includes none; `serializeForPlayer` fills in only that player's.
    */
   conversation?: ConversationView;
+  /** The local player's transient sign reader view, never part of saves. */
+  activeSign?: SignView;
   /** The LOCAL player's social facts (per speaker). Per-player and private. */
   socialFacts?: Record<string, SocialFacts>;
   /** Stable spawn provenance already consumed on the active plane. */
@@ -873,6 +903,7 @@ export interface SerializedLevelState {
   levelKind: LevelKind;
   plane: SerializedWorldPlane;
   portals: import("./core/world-space").WorldPortal[];
+  signs: SignPlacement[];
   floorVariant: number;
   wallSet: WallSet;
   stairsDown: [number, number];

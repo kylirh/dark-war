@@ -32,6 +32,7 @@ export type NetworkAction =
       targetWorldY?: number;
     }
   | { type: "INTERACT"; dx: number; dy: number }
+  | { type: "SIGN_CLOSE" }
   | { type: "PICKUP" }
   | { type: "RELOAD" }
   | { type: "WAIT" }
