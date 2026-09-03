@@ -570,7 +570,7 @@ class DarkWar {
     this.gameLoop = new GameLoop(
       {
         update: (dt) => this.update(dt),
-        render: (alpha) => this.render(alpha),
+        render: () => this.render(),
       },
       1000 / 60, // 60Hz physics
     );
@@ -701,7 +701,7 @@ class DarkWar {
     }
     this.hasStartedGameLoop = true;
     if (isDebug()) console.time("First render");
-    this.render(0);
+    this.render();
     if (isDebug()) console.timeEnd("First render");
 
     this.reinitializePhysicsForCurrentState();
@@ -833,7 +833,7 @@ class DarkWar {
       this.game.addStory(
         `Connected as ${playerId.slice(0, 8)} in room ${roomId}.`,
       );
-      this.render(0);
+      this.render();
     });
 
     client.onState((serializedState) => {
@@ -844,12 +844,12 @@ class DarkWar {
       this.onlineConnected = false;
       this.hasOnlineSnapshot = false;
       this.game.addStory("Disconnected from multiplayer server.");
-      this.render(0);
+      this.render();
     });
 
     client.onError((message) => {
       this.game.addStory(message);
-      this.render(0);
+      this.render();
     });
   }
 
@@ -914,7 +914,7 @@ class DarkWar {
     this.interpolateRemoteEntities(state);
 
     this.hasOnlineSnapshot = true;
-    this.render(0);
+    this.render();
   }
 
   /** Record this snapshot's server positions for remote-entity interpolation. */
@@ -1210,7 +1210,7 @@ class DarkWar {
 
     this.lastOnlineUnavailableLogAt = now;
     this.game.addStory("Multiplayer action unavailable while disconnected.");
-    this.render(0);
+    this.render();
   }
 
   private getReadyOnlineClient(): MultiplayerClient | null {
@@ -1612,7 +1612,7 @@ class DarkWar {
   /**
    * Render game at variable framerate with interpolation (called by GameLoop)
    */
-  private render(alpha: number): void {
+  private render(): void {
     const state = this.game.getState();
     const isDead = this.isLocalPlayerDead();
     const player = state.player;
@@ -1630,7 +1630,6 @@ class DarkWar {
     this.renderer.render(
       state,
       isDead,
-      alpha,
       this.worldCalloutManager.getActive(performance.now()),
     );
     this.ui.updateAll(
@@ -2689,7 +2688,7 @@ class DarkWar {
     this.syncGameOverOverlay(false);
     this.reinitializePhysicsForCurrentState();
     this.lastPlayerHp = this.game.getState().player.hp;
-    this.render(0);
+    this.render();
     this.centerOnPlayerSoon(LEVEL_TRANSITION_CAMERA_DELAY_MS);
   }
 
@@ -2712,7 +2711,7 @@ class DarkWar {
     this.syncGameOverOverlay(false);
     this.reinitializePhysicsForCurrentState();
 
-    this.render(0);
+    this.render();
     // Center on player after new game starts
     this.centerOnPlayerSoon(INITIAL_CAMERA_CENTER_DELAY_MS);
     this.lastPlayerHp = this.game.getState().player.hp;
@@ -2724,7 +2723,7 @@ class DarkWar {
   private handleSave(): void {
     if (this.isOnlineMode()) {
       this.game.addStory("Save is disabled in online multiplayer.");
-      this.render(0);
+      this.render();
       return;
     }
 
@@ -2733,7 +2732,7 @@ class DarkWar {
     this.gameMenu.closePauseMenu(true);
     this.saveSlotDialog.open("save").catch(() => {
       this.game.addStory("Unable to open save slots.");
-      this.render(0);
+      this.render();
     });
   }
 
@@ -2743,7 +2742,7 @@ class DarkWar {
   private async handleLoad(): Promise<void> {
     if (this.isOnlineMode()) {
       this.game.addStory("Load is disabled in online multiplayer.");
-      this.render(0);
+      this.render();
       return;
     }
 
@@ -2752,7 +2751,7 @@ class DarkWar {
     this.gameMenu.closePauseMenu(true);
     this.saveSlotDialog.open("load").catch(() => {
       this.game.addStory("Unable to open save slots.");
-      this.render(0);
+      this.render();
     });
   }
 
@@ -2761,7 +2760,7 @@ class DarkWar {
    */
   private async saveGameToSlot(slot: number): Promise<boolean> {
     try {
-      this.render(0);
+      this.render();
       const serializedState = { ...this.game.serialize(), callouts: [] };
       const screenshotDataUrl = await this.renderer.capturePlayerSnapshot(
         this.game.getState(),
@@ -2774,12 +2773,12 @@ class DarkWar {
       );
       await writeSaveSlot(slot, record);
       this.game.addStory(`Game saved to slot ${slot + 1}.`);
-      this.render(0);
+      this.render();
       return true;
     } catch (error) {
       console.error("Failed to save game:", error);
       this.game.addStory("Save failed.");
-      this.render(0);
+      this.render();
       return false;
     }
   }
@@ -2802,19 +2801,19 @@ class DarkWar {
       this.game.deserialize(record.state);
       this.reinitializePhysicsForCurrentState();
       this.syncGameOverOverlay(this.game.getState().player.hp <= 0);
-      this.render(0);
+      this.render();
       this.centerOnPlayerSoon(LEVEL_TRANSITION_CAMERA_DELAY_MS);
       this.lastPlayerHp = this.game.getState().player.hp;
       if (!options.quiet) {
         this.game.addStory(`Game loaded from slot ${slot + 1}.`);
-        this.render(0);
+        this.render();
       }
       return true;
     } catch (error) {
       console.error("Failed to load save:", error);
       if (!options.quiet) {
         this.game.addStory("Failed to load game.");
-        this.render(0);
+        this.render();
       }
       return false;
     }
@@ -2837,12 +2836,12 @@ class DarkWar {
     try {
       await deleteSaveSlot(slot);
       this.game.addStory(`Deleted save slot ${slot + 1}.`);
-      this.render(0);
+      this.render();
       return true;
     } catch (error) {
       console.error("Failed to delete save:", error);
       this.game.addStory("Failed to delete save.");
-      this.render(0);
+      this.render();
       return false;
     }
   }
@@ -2853,7 +2852,7 @@ class DarkWar {
   public setScale(scale: number): void {
     this.renderer.setScale(scale);
     const state = this.game.getState();
-    this.renderer.render(state, this.isLocalPlayerDead(), 0);
+    this.renderer.render(state, this.isLocalPlayerDead());
     this.renderer.centerOnPlayer(state.player, false);
   }
 

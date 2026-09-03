@@ -199,7 +199,6 @@ export class Renderer {
         this.render(
           this.pendingRender.state,
           this.pendingRender.isDead,
-          0,
           this.pendingRender.callouts,
         );
         this.pendingRender = undefined;
@@ -1088,12 +1087,10 @@ export class Renderer {
    * Render the entire game state with interpolation
    * @param state Game state
    * @param isDead Whether player is dead
-   * @param alpha Interpolation factor (0.0 to 1.0) for smooth movement
    */
   public render(
     state: GameState,
     isDead: boolean = false,
-    alpha: number = 0,
     callouts: readonly WorldCalloutView[] = [],
   ): void {
     if (!this.ready) {
