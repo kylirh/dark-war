@@ -144,25 +144,15 @@ function speakerReachable(
 export function updateConversationSessions(state: GameState): void {
   if (state.conversations.size === 0) return;
 
-  const speakersNeeded = new Set<string>();
-  for (const session of state.conversations.values()) {
-    speakersNeeded.add(session.speakerId);
-  }
-
-  // First match wins, matching the .find() this replaces. Entity ids are
-  // unique, so this only matters if that ever stops being true.
-  const foundSpeakers = new Map<string, Entity>();
-  for (const entity of state.entities) {
-    if (speakersNeeded.has(entity.id) && !foundSpeakers.has(entity.id)) {
-      foundSpeakers.set(entity.id, entity);
-      if (foundSpeakers.size === speakersNeeded.size) break;
-    }
+  const playerById = new Map<string, Player>();
+  for (const p of state.players) {
+    playerById.set(p.id, p);
   }
 
   for (const [playerId, session] of Array.from(state.conversations.entries())) {
-    const player = state.players.find((p) => p.id === playerId);
+    const player = playerById.get(playerId);
     const speaker = player
-      ? speakerReachable(player, foundSpeakers.get(session.speakerId))
+      ? speakerReachable(player, state.entityManager.getById(session.speakerId))
       : null;
     const node = DIALOGUE_DEFS[session.dialogueId]?.nodes[session.nodeId];
     const speakerAlive =
