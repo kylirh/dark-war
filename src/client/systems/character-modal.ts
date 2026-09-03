@@ -128,6 +128,9 @@ export class CharacterModal {
     this.window = document.createElement("div");
     this.window.className = "imb-dialog char-modal-window";
     this.window.style.display = "none";
+    this.window.setAttribute("role", "dialog");
+    this.window.setAttribute("aria-modal", "true");
+    this.window.setAttribute("aria-label", "Character Menu");
 
     this.window.appendChild(this.buildTitlebar());
     this.window.appendChild(this.buildTabBar());
@@ -190,6 +193,7 @@ export class CharacterModal {
   private buildTabBar(): HTMLElement {
     const tabBar = document.createElement("div");
     tabBar.className = "char-modal-tabs";
+    tabBar.setAttribute("role", "tablist");
 
     const tabs: { id: ModalTab; label: string }[] = [
       { id: "inventory", label: "Inventory" },
@@ -201,6 +205,9 @@ export class CharacterModal {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "char-modal-tab-btn";
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("id", `char-tab-${tab.id}`);
+      btn.setAttribute("aria-controls", `char-panel-${tab.id}`);
       btn.textContent = tab.label;
       btn.dataset.tab = tab.id;
       btn.addEventListener("click", () => this.switchTab(tab.id));
@@ -218,18 +225,27 @@ export class CharacterModal {
     const invPanel = this.buildInventoryPanel();
     invPanel.className = "char-modal-panel char-inv-panel";
     invPanel.dataset.panel = "inventory";
+    invPanel.setAttribute("role", "tabpanel");
+    invPanel.setAttribute("id", "char-panel-inventory");
+    invPanel.setAttribute("aria-labelledby", "char-tab-inventory");
     this.tabPanels.set("inventory", invPanel);
     panels.appendChild(invPanel);
 
     const settingsPanel = this.buildSettingsPanel();
     settingsPanel.className = "char-modal-panel char-settings-panel";
     settingsPanel.dataset.panel = "settings";
+    settingsPanel.setAttribute("role", "tabpanel");
+    settingsPanel.setAttribute("id", "char-panel-settings");
+    settingsPanel.setAttribute("aria-labelledby", "char-tab-settings");
     this.tabPanels.set("settings", settingsPanel);
     panels.appendChild(settingsPanel);
 
     const gamePanel = this.buildGamePanel();
     gamePanel.className = "char-modal-panel char-game-panel-wrap";
     gamePanel.dataset.panel = "game";
+    gamePanel.setAttribute("role", "tabpanel");
+    gamePanel.setAttribute("id", "char-panel-game");
+    gamePanel.setAttribute("aria-labelledby", "char-tab-game");
     this.tabPanels.set("game", gamePanel);
     panels.appendChild(gamePanel);
 
@@ -1414,8 +1430,11 @@ export class CharacterModal {
     this._currentTab = tab;
     this.listeningForKey = null;
 
-    for (const [id, btn] of this.tabButtons)
-      btn.classList.toggle("active", id === tab);
+    for (const [id, btn] of this.tabButtons) {
+      const isActive = id === tab;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-selected", String(isActive));
+    }
     for (const [id, panel] of this.tabPanels)
       panel.style.display = id === tab ? "" : "none";
 
@@ -1443,10 +1462,12 @@ export class CharacterModal {
     document.body.classList.add("imb-modal-open");
     this.switchTab(tab);
     this.renderInventory(player);
+    this.tabButtons.get(tab)?.focus();
   }
 
   public close(): void {
     if (!this._isOpen) return;
+    const ownedFocus = this.window.contains(document.activeElement);
     this.cancelGrab();
     this.hideSlotTooltip();
     this.listeningForKey = null;
@@ -1455,6 +1476,7 @@ export class CharacterModal {
     this.scrim.style.display = "none";
     this.window.style.display = "none";
     document.body.classList.remove("imb-modal-open");
+    if (ownedFocus) document.getElementById("game")?.focus();
     this.onClose?.();
   }
 

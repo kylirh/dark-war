@@ -40,3 +40,11 @@ duplicate reads exactly like a regression.
 **Learning:** Mouse activation should not leave focus styling on every control, but removing focus styling entirely would make keyboard navigation invisible. Window-control glyphs are decorative when the button already has an accessible label.
 
 **Action:** Use `:focus-visible` for interactive focus styling and mark the visual window-control glyphs `aria-hidden="true"` so keyboard users retain a clear focus indicator without duplicate screen-reader announcements.
+
+## 2026-09-03 - Character Modal Keyboard Focus and Tab ARIA Roles
+
+**Learning:** The character modal lacked ARIA standard attributes (`role="dialog"`, `aria-modal`, `aria-label`) rendering it opaque to assistive technologies upon opening. Focus management was missing when opening the modal, causing the active element to remain on the background canvas. Additionally, the modal's tabs lacked proper `role="tablist"`, `role="tab"`, `role="tabpanel"`, and `aria-selected` attributes, hiding tab state from screen readers.
+
+**Action:** Added `role="dialog"`, `aria-modal="true"`, and an accessible label to the character modal window. Automatically shifted focus into the modal tab list (`tabButtons.get(tab)?.focus()`) inside `open()`. Decorated the custom tab implementation with standard ARIA roles (`tablist`, `tab`, `tabpanel`) and dynamically toggled `aria-selected` during tab switches so users are aware of the active view.
+
+**Prevention:** Always mark modal containers with `role="dialog"` and `aria-modal="true"`, and explicitly shift focus into them upon presentation. When building custom tab views, implement the full set of tab roles and `aria-selected` to convey state to screen readers.
