@@ -917,8 +917,8 @@ export class Physics {
           const baseAngle =
             Math.atan2(bullet.velocityY, bullet.velocityX) + Math.PI;
           for (let s = 0; s < 7; s++) {
-            const angle = baseAngle + (Math.random() - 0.5) * 1.8;
-            const sparkSpeed = 60 + Math.random() * 120;
+            const angle = baseAngle + (RNG.float() - 0.5) * 1.8;
+            const sparkSpeed = 60 + RNG.float() * 120;
             state.effects.push({
               id: crypto.randomUUID(),
               type: "spark",
