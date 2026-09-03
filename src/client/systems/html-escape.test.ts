@@ -49,4 +49,44 @@ describe("escapeHtml", () => {
     el.innerHTML = `<span>${escapeHtml("Kylir's Camp & Co")}</span>`;
     expect(el.innerHTML).toBe("<span>Kylir&#39;s Camp &amp; Co</span>");
   });
+
+  describe("security boundaries", () => {
+    it("neutralizes complex XSS polyglots", () => {
+      const payload = `javascript://%250Aalert(1)//"onerror=alert(1)//<svg/onload=alert(1)>"-alert(1)"`;
+      const result = escapeHtml(payload);
+      expect(result).not.toContain("<svg");
+      expect(result).not.toContain('"onerror');
+      expect(result).toContain("&lt;svg/onload=alert(1)&gt;");
+      expect(result).toContain("&quot;onerror=alert(1)//");
+    });
+
+    it("neutralizes mixed quotes and tag injections", () => {
+      const payload = `><script>alert('XSS')</script><img src="x" onerror="alert('XSS')">`;
+      const result = escapeHtml(payload);
+      expect(result).not.toContain("<script>");
+      expect(result).not.toContain("<img");
+      expect(result).toBe(
+        "&gt;&lt;script&gt;alert(&#39;XSS&#39;)&lt;/script&gt;&lt;img src=&quot;x&quot; onerror=&quot;alert(&#39;XSS&#39;)&quot;&gt;",
+      );
+    });
+  });
+
+  describe("type coercion boundaries", () => {
+    it("throws on non-string inputs to prevent local DoS", () => {
+      // Using explicit any to bypass TypeScript for testing runtime boundary
+      expect(() => escapeHtml(null as any)).toThrow(TypeError);
+      expect(() => escapeHtml(undefined as any)).toThrow(TypeError);
+
+      // Numbers don't have a .replace method
+      expect(() => escapeHtml(123 as any)).toThrow(TypeError);
+
+      // Arrays don't have the string .replace method signature
+      expect(() => escapeHtml(["a", "b"] as any)).toThrow(TypeError);
+
+      // Objects don't have a .replace method
+      expect(() => escapeHtml({ toString: () => "evil" } as any)).toThrow(
+        TypeError,
+      );
+    });
+  });
 });
