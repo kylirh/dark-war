@@ -1253,14 +1253,14 @@ export class CharacterModal {
     const label = getSlotLabel(slot.type);
     const actions = getSlotActions(slot.type);
     const count = getSlotDisplayCount(this._player, index);
-    let html = `<div class="inv-tip-name">${label}</div>`;
+    let html = `<div class="inv-tip-name">${escapeHtml(label)}</div>`;
     if (count !== null && count !== undefined)
       html += `<div class="inv-tip-count">Count: ${count}</div>`;
     if (slot.type === ItemType.CTDM) {
       html += `<div class="inv-tip-count">Status: ${this._player.ctdmEnabled ? "ON" : "OFF"}</div>`;
     }
     if (actions.length > 0)
-      html += `<div class="inv-tip-actions">${actions.join("<br>")}</div>`;
+      html += `<div class="inv-tip-actions">${actions.map((a) => escapeHtml(a)).join("<br>")}</div>`;
     this.tooltipEl.innerHTML = html;
     this.tooltipEl.style.display = "";
     const rect = slotEl.getBoundingClientRect();
