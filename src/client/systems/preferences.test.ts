@@ -218,9 +218,9 @@ describe("preferences", () => {
           throw new Error("TypeError: Converting circular structure to JSON");
         });
 
-      const prefs: UserPreferences = { ...DEFAULT_PREFERENCES };
-
       try {
+        const prefs: UserPreferences = { ...DEFAULT_PREFERENCES };
+
         // This should not throw
         expect(() => savePreferences(prefs)).not.toThrow();
       } finally {
