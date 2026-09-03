@@ -13,8 +13,7 @@ Medkits are emergency recovery, not a replacement for planning a safe rest:
 - A medkit restores 10 HP, clamps at maximum health, is consumed on use, and
   cannot revive a dead player.
 - A player can carry at most two medkits. Pickup respects the ordinary inventory
-  capacity, and a rejected pickup remains on the ground without routine pickup
-  feedback.
+  capacity, and a rejected pickup remains on the ground with feedback.
 - Offline surface play has no random medkit scatter. Dungeon levels 1, 4, 7,
   and so on receive one rare medkit; other dungeon levels receive none. The
   level-generation RNG determines its location, so the result is repeatable

@@ -26,7 +26,7 @@
     "type-check": "npm run type-check:client && npm run type-check:server",
     "type-check:client": "tsc --noEmit",
     "type-check:server": "tsc --noEmit -p tsconfig.server.json",
-    "test": "vitest run && node --test tools/asset-compiler.test.mjs tools/commit-message.test.mjs",
+    "test": "vitest run && node --test tools/asset-compiler.test.mjs",
     "test:watch": "vitest",
     "format": "prettier --write \"{src,server,electron,tools,scripts}/**/*.{ts,js,mjs,json,css}\" \"*.{ts,js,json}\" \"docs/**/*.md\"",
     "format:check": "prettier --check \"{src,server,electron,tools,scripts}/**/*.{ts,js,mjs,json,css}\" \"*.{ts,js,json}\"",

@@ -46,7 +46,6 @@ import {
   selectPlayerWeaponCallout,
 } from "../../content/player-weapon-callouts";
 import { emitWorldTextCallout } from "../../utils/world-callouts";
-import { emitPlayerAlert } from "../../utils/player-alerts";
 import { BulletEntity } from "../../entities/bullet-entity";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
 import { portalAt } from "../../core/world-space";
@@ -297,16 +296,29 @@ function resolveWaitCommand(state: GameState, cmd: Command): boolean {
 
   if (player.resting) {
     stopPlayerResting(state, player);
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "You wake up." },
+    });
     return true;
   }
 
   if (player.hp >= player.hpMax) {
-    alertMsg(state, "You are already fully healed.", player.id);
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "You are already fully healed." },
+    });
     return false;
   }
 
   if (hasRestThreat(state, player)) {
-    alertMsg(state, "You cannot rest while an enemy is nearby.", player.id);
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: {
+        type: "MESSAGE",
+        message: "You cannot rest while an enemy is nearby.",
+      },
+    });
     return false;
   }
 
@@ -319,6 +331,10 @@ function resolveWaitCommand(state: GameState, cmd: Command): boolean {
   } else if (areAllLivingPlayersResting(state)) {
     state.sim.targetTimeScale = REST_TIME_SCALE;
   }
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: { type: "MESSAGE", message: "You lie down to rest." },
+  });
   return true;
 }
 
@@ -611,11 +627,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             const targetY = player.gridY + dy;
             const targetTile = state.tiles.getTile(targetX, targetY);
             if (targetTile === TileType.HOLOWALL) {
-              alertMsg(
-                state,
-                "The pickaxe cannot affect the holowall.",
-                player.id,
-              );
+              msg(state, "The pickaxe cannot affect the holowall.", cmd.id);
               return;
             }
             if (
@@ -633,6 +645,10 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             }
           }
           state.pendingSounds.push({ effect: SoundEffect.MISS });
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "You swing at empty air." },
+          });
           return;
         }
 
@@ -659,7 +675,10 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             "depleted",
             cmd.id,
           );
-          alertMsg(state, "*click* Out of ammo!", player.id);
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "*click* Out of ammo!" },
+          });
           return;
         }
 
@@ -700,7 +719,10 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             "depleted",
             cmd.id,
           );
-          alertMsg(state, "*click* Out of ammo!", player.id);
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "*click* Out of ammo!" },
+          });
           return;
         }
         player.ammo--;
@@ -724,7 +746,10 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             "depleted",
             cmd.id,
           );
-          alertMsg(state, "*click* Out of shells!", player.id);
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "*click* Out of shells!" },
+          });
           return;
         }
         const PELLETS = 6;
@@ -760,7 +785,13 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             effect: SoundEffect.CLICK,
             sourceId: player.id,
           });
-          alertMsg(state, "Laser depleted — insert a power cell.", player.id);
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: {
+              type: "MESSAGE",
+              message: "Laser depleted — insert a power cell.",
+            },
+          });
           return;
         }
         player.laserCharge = Math.max(0, player.laserCharge - 5);
@@ -796,7 +827,10 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       }
       case WeaponType.GRENADE: {
         if (player.grenades <= 0) {
-          alertMsg(state, "No grenades left!", player.id);
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "No grenades left!" },
+          });
           return;
         }
 
@@ -844,7 +878,10 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
       }
       case WeaponType.LAND_MINE: {
         if (player.landMines <= 0) {
-          alertMsg(state, "No land mines left!", player.id);
+          pushEvent(state, {
+            type: EventType.MESSAGE,
+            data: { type: "MESSAGE", message: "No land mines left!" },
+          });
           return;
         }
 
@@ -1082,10 +1119,6 @@ function msg(state: GameState, message: string, cause?: string): void {
   });
 }
 
-function alertMsg(state: GameState, message: string, playerId: string): void {
-  emitPlayerAlert(state, message, { audiencePlayerIds: [playerId] });
-}
-
 /**
  * Eating a cookie near a wild Snagglepuss improves that player's relationship.
  * A won-over creature may then be recruited through its conversation.
@@ -1162,7 +1195,7 @@ function resolveMineCommand(state: GameState, cmd: Command): void {
     !inBoundsFor(tileX, tileY, state.mapWidth, state.mapHeight) ||
     !withinManipulatorReach(player, tileX, tileY)
   ) {
-    alertMsg(state, "That's out of reach.", player.id);
+    msg(state, "That's out of reach.");
     return;
   }
 
@@ -1174,16 +1207,12 @@ function resolveMineCommand(state: GameState, cmd: Command): void {
     structure === StructureType.WORKSHOP ||
     structure === StructureType.WORKSHOP_FOOTPRINT
   ) {
-    alertMsg(
-      state,
-      "The workshop is a permanent part of the settlement.",
-      player.id,
-    );
+    msg(state, "The workshop is a permanent part of the settlement.", cmd.id);
     return;
   }
   const dropped = minedItemForTile(tile);
   if (dropped === null) {
-    alertMsg(state, "There's nothing to mine there.", player.id);
+    msg(state, "There's nothing to mine there.");
     return;
   }
 
@@ -1215,18 +1244,18 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
 
   const tileType = placedTileForItem(itemType);
   if (tileType === null) {
-    alertMsg(state, `You can't place the ${itemName(itemType)}.`, player.id);
+    msg(state, `You can't place the ${itemName(itemType)}.`);
     return;
   }
   if ((player.itemCounts[itemType] ?? 0) <= 0) {
-    alertMsg(state, `No ${itemName(itemType)} left to place.`, player.id);
+    msg(state, `No ${itemName(itemType)} left to place.`);
     return;
   }
   if (
     !inBoundsFor(tileX, tileY, state.mapWidth, state.mapHeight) ||
     !withinManipulatorReach(player, tileX, tileY)
   ) {
-    alertMsg(state, "That's out of reach.", player.id);
+    msg(state, "That's out of reach.");
     return;
   }
 
@@ -1240,7 +1269,7 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
     existing !== TileType.STAIRS_DOWN &&
     existing !== TileType.DOOR_OPEN;
   if (!buildable) {
-    alertMsg(state, "You can't build there.", player.id);
+    msg(state, "You can't build there.");
     return;
   }
 
@@ -1251,7 +1280,7 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
       e.gridY === tileY,
   );
   if (occupied) {
-    alertMsg(state, "Something's in the way.", player.id);
+    msg(state, "Something's in the way.");
     return;
   }
 
@@ -1277,7 +1306,7 @@ function resolveShapeTerrainCommand(state: GameState, cmd: Command): void {
     !state.worldPlane.inBounds(tileX, tileY) ||
     !withinManipulatorReach(player, tileX, tileY)
   ) {
-    alertMsg(state, "That's out of reach.", player.id);
+    msg(state, "That's out of reach.");
     return;
   }
   const index = state.worldPlane.indexFor(tileX, tileY);
@@ -1295,7 +1324,7 @@ function resolveShapeTerrainCommand(state: GameState, cmd: Command): void {
     structure !== StructureType.NONE ||
     fixture !== FixtureType.NONE
   ) {
-    alertMsg(state, "Clear this cell before shaping its terrain.", player.id);
+    msg(state, "Clear this cell before shaping its terrain.");
     return;
   }
   const occupied = state.entities.some(
@@ -1306,17 +1335,16 @@ function resolveShapeTerrainCommand(state: GameState, cmd: Command): void {
       entity.gridY === tileY,
   );
   if (occupied) {
-    alertMsg(state, "Something's in the way.", player.id);
+    msg(state, "Something's in the way.");
     return;
   }
 
   const previous = state.worldPlane.layers.elevation[index];
   const next = previous + delta;
   if (next < MIN_EDITABLE_ELEVATION || next > MAX_EDITABLE_ELEVATION) {
-    alertMsg(
+    msg(
       state,
       `Terrain shaping is limited to ${MIN_EDITABLE_ELEVATION} through ${MAX_EDITABLE_ELEVATION}.`,
-      player.id,
     );
     return;
   }
@@ -1342,11 +1370,11 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
   switch (active) {
     case ItemType.MEDKIT: {
       if ((player.itemCounts[ItemType.MEDKIT] ?? 0) <= 0) {
-        alertMsg(state, "No medkits left.", player.id);
+        msg(state, "No medkits left.");
         return;
       }
       if (player.hp >= player.hpMax) {
-        alertMsg(state, "You're already at full health.", player.id);
+        msg(state, "You're already at full health.");
         return;
       }
       const heal = ITEM_DEFS[ItemType.MEDKIT].healAmount ?? 0;
@@ -1356,12 +1384,12 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       state.pendingSounds.push({
         effect: healSounds[RNG.int(healSounds.length)],
       });
-      alertMsg(state, `You patch yourself up. +${heal} HP`, player.id);
+      msg(state, `You patch yourself up. +${heal} HP`, cmd.id);
       return;
     }
     case ItemType.COOKIE: {
       if ((player.itemCounts[ItemType.COOKIE] ?? 0) <= 0) {
-        alertMsg(state, "No cookies left.", player.id);
+        msg(state, "No cookies left.");
         return;
       }
       const heal = 6;
@@ -1371,7 +1399,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       state.pendingSounds.push({
         effect: eatSounds[RNG.int(eatSounds.length)],
       });
-      alertMsg(state, `You eat a cookie. +${heal} HP`, player.id);
+      msg(state, `You eat a cookie. +${heal} HP`, cmd.id);
       // The aroma can win over a nearby snagglepuss.
       befriendNearbySnagglepuss(state, player);
       return;
@@ -1379,11 +1407,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
     case ItemType.BLACK_PILL: {
       removeFromInventory(player, ItemType.BLACK_PILL);
       player.hp = 0;
-      alertMsg(
-        state,
-        "You swallow the black pill. Everything goes dark...",
-        player.id,
-      );
+      msg(state, "You swallow the black pill. Everything goes dark...", cmd.id);
       pushEvent(state, {
         type: EventType.PLAYER_DEATH,
         data: { type: "PLAYER_DEATH", playerId: player.id },
@@ -1393,7 +1417,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
     }
     case ItemType.POWERCELL: {
       if ((player.itemCounts[ItemType.POWERCELL] ?? 0) <= 0) {
-        alertMsg(state, "No power cells left.", player.id);
+        msg(state, "No power cells left.");
         return;
       }
       consumeOne(player, ItemType.POWERCELL);
@@ -1401,17 +1425,13 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       player.laserCharge = player.laserChargeMax;
       player.panicCharge = player.panicChargeMax;
       state.pendingSounds.push({ effect: SoundEffect.RECHARGE });
-      alertMsg(
-        state,
-        "Power cell spent — energy gear fully charged.",
-        player.id,
-      );
+      msg(state, "Power cell spent — energy gear fully charged.", cmd.id);
       return;
     }
     case ItemType.BONE:
     case ItemType.ROCK: {
       if ((player.itemCounts[active] ?? 0) <= 0) {
-        alertMsg(state, "Nothing left to throw.", player.id);
+        msg(state, "Nothing left to throw.");
         return;
       }
       const THROW_SPEED = 340;
@@ -1432,22 +1452,27 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       state.entityManager.spawn(thrown);
       consumeOne(player, active);
       queuePlayerThrowSound(state, player);
+      msg(
+        state,
+        `You hurl the ${active === ItemType.ROCK ? "rock" : "bone"}.`,
+        cmd.id,
+      );
       return;
     }
     case ItemType.HOLOWALL: {
       if ((player.itemCounts[ItemType.HOLOWALL] ?? 0) <= 0) {
-        alertMsg(state, "No holowalls left.", player.id);
+        msg(state, "No holowalls left.");
         return;
       }
       const angle = player.facingAngle;
       const tx = player.gridX + Math.round(Math.cos(angle));
       const ty = player.gridY + Math.round(Math.sin(angle));
       if (!inBoundsFor(tx, ty, state.mapWidth, state.mapHeight)) {
-        alertMsg(state, "You can't place that there.", player.id);
+        msg(state, "You can't place that there.");
         return;
       }
       if (state.tiles.getTile(tx, ty) !== TileType.FLOOR) {
-        alertMsg(state, "The holowall needs open floor.", player.id);
+        msg(state, "The holowall needs open floor.");
         return;
       }
       const occupied = state.entities.some(
@@ -1457,13 +1482,14 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
           e.gridY === ty,
       );
       if (occupied) {
-        alertMsg(state, "Something's in the way.", player.id);
+        msg(state, "Something's in the way.");
         return;
       }
       setStateTile(state, tx, ty, TileType.HOLOWALL);
       state.mapDirty = true;
       consumeOne(player, ItemType.HOLOWALL);
       state.pendingSounds.push({ effect: SoundEffect.PLACE_WALL });
+      msg(state, "You deploy a holowall.", cmd.id);
       return;
     }
     case ItemType.PANIC_BUTTON: {
@@ -1472,33 +1498,24 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
           effect: SoundEffect.CLICK,
           sourceId: player.id,
         });
-        alertMsg(
+        msg(
           state,
           "The panic button is still charging — feed it a power cell.",
-          player.id,
         );
         return;
       }
       if (state.multiplayer?.mode === "online") {
-        alertMsg(
-          state,
-          "The teleporter sparks but co-op warp isn't wired yet.",
-          player.id,
-        );
+        msg(state, "The teleporter sparks but co-op warp isn't wired yet.");
         return;
       }
       if (state.depth <= 0) {
-        alertMsg(state, "You're already at the surface.", player.id);
+        msg(state, "You're already at the surface.");
         return;
       }
       player.panicCharge = 0;
       state.shouldAscend = true; // warp one level toward the entrance
       state.pendingSounds.push({ effect: SoundEffect.PANIC_BUTTON });
-      alertMsg(
-        state,
-        "PANIC! The teleporter yanks you toward safety!",
-        player.id,
-      );
+      msg(state, "PANIC! The teleporter yanks you toward safety!", cmd.id);
       return;
     }
     default: {
@@ -1509,11 +1526,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
         category !== "weapon-ranged" &&
         category !== "throwable"
       ) {
-        alertMsg(
-          state,
-          `You can't attack with the ${itemName(active)}.`,
-          player.id,
-        );
+        msg(state, `You can't attack with the ${itemName(active)}.`);
         return;
       }
       // Weapons, grenades, mines, melee, or empty hands → fire/attack.
@@ -1544,7 +1557,7 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
   // Laser pistol: reload with a power cell.
   if (active === ItemType.LASER_PISTOL || player.weapon === WeaponType.LASER) {
     if (player.laserCharge >= player.laserChargeMax) {
-      alertMsg(state, "Laser already fully charged.", player.id);
+      msg(state, "Laser already fully charged.");
       return;
     }
     if ((player.itemCounts[ItemType.POWERCELL] ?? 0) <= 0) {
@@ -1555,7 +1568,7 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
         "depleted",
         cmd.id,
       );
-      alertMsg(state, "No power cells to charge the laser.", player.id);
+      msg(state, "No power cells to charge the laser.");
       return;
     }
     consumeOne(player, ItemType.POWERCELL);
@@ -1577,7 +1590,7 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
     player.weapon === WeaponType.SMG ||
     player.weapon === WeaponType.SHOTGUN;
   if (!usesAmmo) {
-    alertMsg(state, "Nothing to reload.", player.id);
+    msg(state, "Nothing to reload.");
     return;
   }
 
@@ -1589,7 +1602,7 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
         : 12;
   const needed = Math.max(0, magSize - player.ammo);
   if (needed === 0) {
-    alertMsg(state, "Magazine already full.", player.id);
+    msg(state, "Magazine already full.");
     return;
   }
   if (player.ammoReserve <= 0) {
@@ -1600,7 +1613,7 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
       "depleted",
       cmd.id,
     );
-    alertMsg(state, "You're out of ammo!", player.id);
+    msg(state, "You're out of ammo!");
     return;
   }
   const take = Math.min(needed, player.ammoReserve);
@@ -1650,6 +1663,7 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
   }
 
   const player = actor as Player;
+  let anyPickedUp = false;
 
   for (const item of itemsNearby) {
     const worldItem = item as { type: ItemType };
@@ -1658,12 +1672,24 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
     const bypassCheck = worldItem.type === ItemType.POWERCELL;
 
     if (!bypassCheck && !canAddToInventory(player, worldItem.type)) {
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "Inventory full!" },
+      });
       continue;
     }
 
     pushEvent(state, {
       type: EventType.PICKUP_ITEM,
       data: { type: "PICKUP_ITEM", actorId: actor.id, itemId: item.id },
+    });
+    anyPickedUp = true;
+  }
+
+  if (!anyPickedUp && itemsNearby.length === 0) {
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "Nothing to pick up!" },
     });
   }
 }
@@ -1740,6 +1766,10 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
         type: EventType.DOOR_OPEN,
         data: { type: "DOOR_OPEN", x: data.x, y: data.y },
       });
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "You unlock the door." },
+      });
     } else {
       const doorFiddleSounds = [
         SoundEffect.DOOR_FIDDLE_1,
@@ -1750,7 +1780,10 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
         worldX: data.x * CELL_CONFIG.w + CELL_CONFIG.w / 2,
         worldY: data.y * CELL_CONFIG.h + CELL_CONFIG.h / 2,
       });
-      alertMsg(state, "The door is locked.", actor.id);
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "The door is locked." },
+      });
     }
   }
 
@@ -1784,11 +1817,7 @@ const VENDING_STOCK: ItemType[] = [
 function buyFromVending(state: GameState, player: Player): void {
   const coins = player.itemCounts[ItemType.COIN] ?? 0;
   if (coins < VENDING_COST) {
-    alertMsg(
-      state,
-      `The vending machine wants ${VENDING_COST} coins.`,
-      player.id,
-    );
+    msg(state, `The vending machine wants ${VENDING_COST} coins.`);
     return;
   }
   const left = coins - VENDING_COST;
@@ -1804,7 +1833,7 @@ function buyFromVending(state: GameState, player: Player): void {
   item.worldX = player.worldX;
   item.worldY = player.worldY;
   state.entityManager.spawn(item);
-  alertMsg(state, `The machine dispenses a ${itemName(type)}.`, player.id);
+  msg(state, `The machine dispenses a ${itemName(type)}.`);
 }
 
 // ========================================
@@ -1870,11 +1899,27 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
     ["stairs", "ladder", "cave-mouth", "door"],
   );
   if (!portal) {
-    alertMsg(state, "No stairs here.", player.id);
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "No stairs here." },
+    });
     return;
   }
 
   // Trigger level change (handled by Game.ts after tick completes)
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: {
+      type: "MESSAGE",
+      message:
+        portal.kind === "door"
+          ? "You step through the doorway..."
+          : portal.kind === "cave-mouth"
+            ? "You enter the grotto..."
+            : "You descend deeper...",
+    },
+  });
+
   // Set flag for Game.ts to handle
   state.descendTarget = undefined;
   state.pendingPortalId = portal.id;
@@ -1898,9 +1943,25 @@ function resolveAscendCommand(state: GameState, cmd: Command): void {
     ["stairs", "ladder", "cave-mouth", "door"],
   );
   if (!portal) {
-    alertMsg(state, "No stairs here.", player.id);
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: "No stairs here." },
+    });
     return;
   }
+
+  pushEvent(state, {
+    type: EventType.MESSAGE,
+    data: {
+      type: "MESSAGE",
+      message:
+        portal.kind === "door"
+          ? "You step back through the doorway..."
+          : portal.kind === "cave-mouth"
+            ? "You climb toward daylight..."
+            : "You ascend...",
+    },
+  });
 
   state.pendingPortalId = portal.id;
   state.shouldAscend = true;

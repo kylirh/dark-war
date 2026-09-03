@@ -38,7 +38,6 @@ import { idxFor, tileAtFor } from "../utils/helpers";
 import { wrapValue } from "../utils/wrap";
 import { applyWallDamageAtIndex } from "../utils/walls";
 import { SoundEffect } from "../content/sound-effects";
-import { emitPlayerAlert } from "../utils/player-alerts";
 
 import { pushEvent } from "./simulation/sim-helpers";
 
@@ -1157,8 +1156,12 @@ export class Physics {
         this.removeStateEntity(state, bullet);
         return;
       }
-      emitPlayerAlert(state, "The wild dog sniffs the bone but stays wary.", {
-        audiencePlayerIds: [bullet.ownerId],
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: {
+          type: "MESSAGE",
+          message: "The wild dog sniffs the bone but stays wary.",
+        },
       });
       this.dropThrownItem(state, bullet);
       return;

@@ -418,8 +418,6 @@ describe("Matter Manipulator", () => {
         state.worldPlane.indexFor(tileX, tileY)
       ],
     ).toBe(12);
-    expect(state.pendingAlerts.at(-1)?.message).toContain(
-      "limited to -12 through 12",
-    );
+    expect(state.story[0]).toContain("limited to -12 through 12");
   });
 });

@@ -2,6 +2,7 @@ import {
   GameState,
   Command,
   CommandType,
+  EventType,
   EntityKind,
   Monster,
   MonsterType,
@@ -58,6 +59,7 @@ import {
   makeWaitCommand,
   makeIdleWanderCommand,
   hasClearLineOfSight,
+  pushEvent,
   canActorAct,
 } from "./sim-helpers";
 import { advanceAgentDecisionEpoch, selectAgentGoal } from "./agent-decisions";
@@ -1069,6 +1071,13 @@ function steerFetcherPet(state: GameState, monster: Monster): void {
         drop.worldY = m.worldY;
         state.entityManager.spawn(drop);
       }
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: {
+          type: "MESSAGE",
+          message: `${monster.name ?? "Snagglepuss"} drops some loot at your feet!`,
+        },
+      });
       state.relationships.adjust(owner.id, monster.id, {
         affinity: 2,
         grievance: -1,
@@ -1174,6 +1183,10 @@ function decideFriendlyPetCommand(
   const enemy = nearestHostileMonster(state, monster, PET_MELEE_RANGE_PX);
   if (enemy) {
     const name = monster.name ?? "Your pet";
+    pushEvent(state, {
+      type: EventType.MESSAGE,
+      data: { type: "MESSAGE", message: `${name} bites the ${enemy.type}!` },
+    });
     return {
       id: "",
       tick,
@@ -1572,10 +1585,30 @@ function decideUtilityBotCommand(
         worldX: bwx,
         worldY: bwy,
       });
+      const nuzzleMessages = [
+        "The utility bot nuggles up to you.",
+        "The utility bot purrs and nuzzles into you.",
+        "The utility bot makes happy, content noises.",
+      ];
       emitWorldReaction(state, {
         reactionId: "heart",
         speakerId: monster.id,
         priority: "ambient",
+      });
+      pushEvent(state, {
+        type: EventType.MESSAGE,
+        data: {
+          type: "MESSAGE",
+          message: deterministicChoice(
+            {
+              simulationSeed: state.simulationSeed,
+              actorStableId: monster.id,
+              decisionEpoch: advanceAgentDecisionEpoch(monster),
+              purpose: "utility-bot-nuzzle-bark",
+            },
+            nuzzleMessages,
+          ),
+        },
       });
     }
   }
