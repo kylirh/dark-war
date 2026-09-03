@@ -106,33 +106,59 @@ export function dropPlayerInventoryOnDeath(
     }
   }
 
-  const retainedCoreTypes = new Set<ItemType>();
-  if (
-    player.hasCTDM ||
-    player.inventorySlots.some((slot) => slot.type === ItemType.CTDM)
-  ) {
-    player.hasCTDM = true;
-    retainedCoreTypes.add(ItemType.CTDM);
-  }
-  if (
-    player.hasMatterManipulator ||
-    player.inventorySlots.some(
-      (slot) => slot.type === ItemType.MATTER_MANIPULATOR,
-    )
-  ) {
-    player.hasMatterManipulator = true;
-    retainedCoreTypes.add(ItemType.MATTER_MANIPULATOR);
+  let hasCtdmInSlot = false;
+  let hasMatterManipulatorInSlot = false;
+
+  const slots = player.inventorySlots;
+  const len = slots.length;
+
+  for (let i = 0; i < len; i++) {
+    const type = slots[i].type;
+    if (type === ItemType.CTDM) hasCtdmInSlot = true;
+    else if (type === ItemType.MATTER_MANIPULATOR)
+      hasMatterManipulatorInSlot = true;
   }
 
-  player.inventorySlots = player.inventorySlots.map((slot) =>
-    slot.type && retainedCoreTypes.has(slot.type)
-      ? { type: slot.type }
-      : { type: null },
-  );
-  for (const type of retainedCoreTypes) {
-    if (player.inventorySlots.some((slot) => slot.type === type)) continue;
-    const empty = player.inventorySlots.find((slot) => slot.type === null);
-    if (empty) empty.type = type;
+  const keepCtdm = player.hasCTDM || hasCtdmInSlot;
+  const keepMm = player.hasMatterManipulator || hasMatterManipulatorInSlot;
+
+  if (keepCtdm) player.hasCTDM = true;
+  if (keepMm) player.hasMatterManipulator = true;
+
+  let nextEmptySlotIndex = -1;
+  for (let i = 0; i < len; i++) {
+    const slot = slots[i];
+    const type = slot.type;
+    if (
+      (type === ItemType.CTDM && keepCtdm) ||
+      (type === ItemType.MATTER_MANIPULATOR && keepMm)
+    ) {
+      // Retain this core item
+    } else {
+      // Clear anything else
+      slot.type = null;
+      if (nextEmptySlotIndex === -1) {
+        nextEmptySlotIndex = i;
+      }
+    }
+  }
+
+  if (keepCtdm && !hasCtdmInSlot && nextEmptySlotIndex !== -1) {
+    slots[nextEmptySlotIndex].type = ItemType.CTDM;
+    while (
+      nextEmptySlotIndex < len &&
+      slots[nextEmptySlotIndex].type !== null
+    ) {
+      nextEmptySlotIndex++;
+    }
+  }
+  if (
+    keepMm &&
+    !hasMatterManipulatorInSlot &&
+    nextEmptySlotIndex !== -1 &&
+    nextEmptySlotIndex < len
+  ) {
+    slots[nextEmptySlotIndex].type = ItemType.MATTER_MANIPULATOR;
   }
 
   player.itemCounts = {};
