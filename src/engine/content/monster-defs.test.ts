@@ -94,7 +94,7 @@ describe("monster definitions", () => {
 
   it("fails loudly rather than silently defaulting for an unknown type", () => {
     // The helpers dereference MONSTER_DEFS[type] with no fallback, by design:
-    // a monster missing from the table is a content bug that should surface at
+    // a monster missing from the table is a content error that should surface at
     // spawn time, not spawn a 1 HP creature nobody notices.
     const invalidType = "NOT_A_REAL_MONSTER" as MonsterType;
     expect(() => monsterHpAt(invalidType, 1)).toThrowError(TypeError);

@@ -263,15 +263,19 @@ export const MONSTER_DEFS: Record<MonsterType, MonsterDef> = {
 
 export function monsterHpAt(type: MonsterType, depth: number): number {
   const d = MONSTER_DEFS[type];
+  if (!d) throw new TypeError(`Missing monster definition for: ${type}`);
   return Math.max(1, d.baseHp + Math.floor(depth * d.hpPerDepth));
 }
 
 export function monsterDmgAt(type: MonsterType, depth: number): number {
   const d = MONSTER_DEFS[type];
+  if (!d) throw new TypeError(`Missing monster definition for: ${type}`);
   return Math.max(0.5, d.baseDmg + Math.floor(depth * d.dmgPerDepth));
 }
 
 /** True if the creature uses the ranged (skulker-style) combat archetype. */
 export function isRangedMonster(type: MonsterType): boolean {
-  return MONSTER_DEFS[type].behavior === "ranged";
+  const d = MONSTER_DEFS[type];
+  if (!d) throw new TypeError(`Missing monster definition for: ${type}`);
+  return d.behavior === "ranged";
 }
