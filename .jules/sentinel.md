@@ -71,3 +71,13 @@ have drifted and check all of them before trusting any of them.
 **Learning:** Reusable UI components that build DOM strings using template literals and `innerHTML` are easy sinks for XSS, even if the current callers use safe hardcoded strings. Future usages with dynamic data (like server names or usernames) could trigger XSS.
 
 **Prevention:** Escape variable insertions inside `innerHTML` template literals with `escapeHtml()` at the component level, even when every current caller passes a literal. Where a component genuinely needs raw markup — `RetroModalOptions.body` — say so in the type, so the one unescaped sink is documented rather than assumed.
+
+## 2026-09-02 - Local Denial of Service via Type Confusion in Untrusted Save Files
+
+**What was found:** The `parseSaveRecord` function (`src/client/systems/save-slots.ts`) read `characterName`, `region`, and `savedAt` from `JSON.parse` output and implicitly trusted them to be strings via type assertion (`as Partial<SaveSlotRecord>`). The `?? default` fallbacks only replace `null`/`undefined`, so any other type passed straight through. A hand-edited save file with `"characterName": 123` reaches `escapeHtml()` in `renderOccupiedSlot`, which calls `.replace()` on it and throws a `TypeError`. That throw escapes the `this.slots.map(...)` that builds `grid.innerHTML`, so the whole save-slot grid fails to render — a local Denial of Service.
+
+`characterName` and `region` are the two live crash vectors; both are escaped directly. `savedAt` is not — it goes through `formatSavedAt`, where `Date.parse` of a non-string yields `NaN` and the function returns `"Unknown date"`. It is coerced here anyway so the parsed record actually matches its declared `string` type, not because it crashes today.
+
+**Action:** Updated `parseSaveRecord` to coerce `characterName`, `region`, and `savedAt` with `typeof` checks before returning them, falling back to the existing defaults. Added a regression test that feeds a non-string value for each of the three fields and asserts the defaults come back.
+
+**Prevention:** TypeScript interfaces provide no runtime guarantees at system boundaries (IPC, network sockets, or files from disk). All values from `JSON.parse` must be defensively validated (e.g., checking `typeof === "string"`) before assignment, rather than blindly asserted `as SomeType`.

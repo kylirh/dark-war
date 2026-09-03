@@ -262,12 +262,27 @@ export interface ConversationView {
 export interface BaseEntity {
   id: string;
   kind: EntityKind;
-  gridX: number; // Derived from worldX (getter in GameObject)
-  gridY: number; // Derived from worldY (getter in GameObject)
+  /**
+   * Derived grid X coordinate.
+   * Do not assign this; mutate {@link worldX} instead.
+   */
+  readonly gridX: number;
+  /**
+   * Derived grid Y coordinate.
+   * Do not assign this; mutate {@link worldY} instead.
+   */
+  readonly gridY: number;
   nextActTick?: number;
 
-  // Continuous world coordinates (source of truth)
+  /**
+   * Continuous world X coordinate in pixels.
+   * This is the authoritative source of truth for entity position.
+   */
   worldX: number;
+  /**
+   * Continuous world Y coordinate in pixels.
+   * This is the authoritative source of truth for entity position.
+   */
   worldY: number;
   prevWorldX: number;
   prevWorldY: number;
