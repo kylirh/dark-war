@@ -47,22 +47,48 @@ describe("preferences", () => {
       });
     });
 
-    it("parses valid JSON from localStorage", () => {
-      const savedPrefs: Partial<UserPreferences> = {
+    it("returns default preferences when localStorage contains an empty object", () => {
+      localStorageMock["darkwar-preferences"] = JSON.stringify({});
+      const prefs = loadPreferences();
+      expect(prefs).toEqual({
+        ...DEFAULT_PREFERENCES,
+        keyBindings: { ...DEFAULT_KEY_BINDINGS },
+      });
+    });
+
+    it("parses a full valid JSON config from localStorage", () => {
+      const fullBindings = {
+        ...DEFAULT_KEY_BINDINGS,
+        moveUp: "ArrowUp",
+        moveDown: "ArrowDown",
+      };
+      const savedPrefs: UserPreferences = {
         sfxVolume: 0.8,
         musicVolume: 0.2,
         theme: "light",
         zoom: 2,
         devTools: true,
+        keyBindings: fullBindings,
       };
       localStorageMock["darkwar-preferences"] = JSON.stringify(savedPrefs);
 
       const prefs = loadPreferences();
-      expect(prefs.sfxVolume).toBe(0.8);
-      expect(prefs.musicVolume).toBe(0.2);
-      expect(prefs.theme).toBe("light");
-      expect(prefs.zoom).toBe(2);
-      expect(prefs.devTools).toBe(true);
+      expect(prefs).toEqual(savedPrefs);
+    });
+
+    it("merges a partial config from localStorage with defaults", () => {
+      const partialPrefs = {
+        sfxVolume: 0.1,
+        theme: "light" as const,
+      };
+      localStorageMock["darkwar-preferences"] = JSON.stringify(partialPrefs);
+
+      const prefs = loadPreferences();
+      expect(prefs).toEqual({
+        ...DEFAULT_PREFERENCES,
+        ...partialPrefs,
+        keyBindings: { ...DEFAULT_KEY_BINDINGS },
+      });
     });
 
     it("falls back to defaults when JSON is invalid", () => {
