@@ -8,7 +8,6 @@ import {
   getSlotLabel,
 } from "../../engine/utils/inventory";
 
-const SLOT_SIZE = 44; // Slot outer size including border and padding
 const ICON_SIZE = 32;
 const SPRITESHEET_URL = "assets/img/sprites.png";
 
