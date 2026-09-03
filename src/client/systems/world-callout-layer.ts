@@ -23,6 +23,49 @@ interface LayoutRect {
   bottom: number;
 }
 
+class SpatialGrid {
+  private readonly cellSize = 128;
+  private readonly buckets = new Map<string, LayoutRect[]>();
+
+  public insert(rect: LayoutRect): void {
+    const minX = Math.floor(rect.left / this.cellSize);
+    const maxX = Math.floor(rect.right / this.cellSize);
+    const minY = Math.floor(rect.top / this.cellSize);
+    const maxY = Math.floor(rect.bottom / this.cellSize);
+
+    for (let x = minX; x <= maxX; x++) {
+      for (let y = minY; y <= maxY; y++) {
+        const key = `${x},${y}`;
+        let bucket = this.buckets.get(key);
+        if (!bucket) {
+          bucket = [];
+          this.buckets.set(key, bucket);
+        }
+        bucket.push(rect);
+      }
+    }
+  }
+
+  public findOverlap(rect: LayoutRect): LayoutRect | undefined {
+    const minX = Math.floor(rect.left / this.cellSize);
+    const maxX = Math.floor(rect.right / this.cellSize);
+    const minY = Math.floor(rect.top / this.cellSize);
+    const maxY = Math.floor(rect.bottom / this.cellSize);
+
+    for (let x = minX; x <= maxX; x++) {
+      for (let y = minY; y <= maxY; y++) {
+        const key = `${x},${y}`;
+        const bucket = this.buckets.get(key);
+        if (bucket) {
+          const match = bucket.find((other) => overlaps(rect, other));
+          if (match) return match;
+        }
+      }
+    }
+    return undefined;
+  }
+}
+
 /** Draws active world callouts with compact, collision-aware placement. */
 export class WorldCalloutLayer {
   public constructor(private readonly container: Container) {}
@@ -35,7 +78,8 @@ export class WorldCalloutLayer {
     const children = this.container.removeChildren();
     for (const child of children) child.destroy({ children: true });
 
-    const occupied: LayoutRect[] = [];
+    const grid = new SpatialGrid();
+    let occupiedCount = 0;
     const ordered = [...callouts].sort(
       (left, right) => priorityRank(right.callout) - priorityRank(left.callout),
     );
@@ -53,8 +97,8 @@ export class WorldCalloutLayer {
       let top = Math.round(callout.anchorY - bounds.height - 18);
       let rect = rectAt(left, top, bounds.width, bounds.height);
 
-      for (let attempt = 0; attempt < occupied.length + 2; attempt++) {
-        const collision = occupied.find((other) => overlaps(rect, other));
+      for (let attempt = 0; attempt < occupiedCount + 2; attempt++) {
+        const collision = grid.findOverlap(rect);
         if (!collision) break;
         top = collision.top - bounds.height - CALLOUT_GAP;
         rect = rectAt(left, top, bounds.width, bounds.height);
@@ -73,7 +117,8 @@ export class WorldCalloutLayer {
       display.scale.set(callout.scale);
       display.pivot.set(bounds.width / 2, bounds.height / 2);
       this.container.addChild(display);
-      occupied.push(rect);
+      grid.insert(rect);
+      occupiedCount++;
     }
   }
 
