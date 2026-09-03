@@ -14,6 +14,7 @@ import { idxFor } from "../../utils/helpers";
 import { RNG } from "../../utils/rng";
 import { wrapDelta } from "../../utils/wrap";
 import { ITEM_DEFS } from "../../content/item-defs";
+import { emitPlayerAlert } from "../../utils/player-alerts";
 import { MONSTER_DEFS, isRangedMonster } from "../../content/monster-defs";
 import { SoundEffect } from "../../content/sound-effects";
 import { MonsterEntity } from "../../entities/monster-entity";
@@ -157,10 +158,6 @@ export function processRestingPlayers(state: GameState, tick: number): void {
     player.restNextHealTick = tick + REST_HEAL_INTERVAL_TICKS;
     if (player.hp >= player.hpMax) {
       stopPlayerResting(state, player);
-      pushEvent(state, {
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "You are fully healed." },
-      });
     }
   }
 }
@@ -244,13 +241,6 @@ export function processMonsterItemPickups(state: GameState): void {
         if (item.type === ItemType.LASER_PISTOL) {
           monster.laserCharge = MONSTER_LASER_CHARGE_MAX / 2;
         }
-        pushEvent(state, {
-          type: EventType.MESSAGE,
-          data: {
-            type: "MESSAGE",
-            message: `The ${monster.type} drops its ${ITEM_DEFS[oldWeapon].name} and equips the ${ITEM_DEFS[item.type].name}.`,
-          },
-        });
         picked = true;
       } else {
         switch (item.type) {
@@ -572,9 +562,8 @@ function triggerPlayerFall(state: GameState, player: Player): void {
     worldY: player.worldY,
   });
 
-  pushEvent(state, {
-    type: EventType.MESSAGE,
-    data: { type: "MESSAGE", message: "You fall through the floor!" },
+  emitPlayerAlert(state, "You fall through the floor!", {
+    audiencePlayerIds: [player.id],
   });
 
   pushEvent(state, {
@@ -588,14 +577,6 @@ function triggerPlayerFall(state: GameState, player: Player): void {
 }
 
 function triggerMonsterFall(state: GameState, monster: Monster): void {
-  pushEvent(state, {
-    type: EventType.MESSAGE,
-    data: {
-      type: "MESSAGE",
-      message: `The ${monster.type} falls through the floor!`,
-    },
-  });
-
   pushEvent(state, {
     type: EventType.DAMAGE,
     data: {

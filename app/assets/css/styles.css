@@ -1807,6 +1807,78 @@ body {
    Story Overlay — floating CRT terminal over game canvas
    ============================================================ */
 
+/* ── Ephemeral player alerts — 16px above the collapsed story log ── */
+.alert-overlay {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 112px; /* 8px story inset + 88px panel + 16px breathing room */
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  max-height: calc(100% - 128px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.alert-message {
+  max-width: min(560px, 100%);
+  color: #ffffff;
+  font-family: "Chicago_12", sans-serif;
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  text-shadow:
+    0 0 2px rgba(0, 0, 0, 1),
+    1px 1px 3px rgba(0, 0, 0, 0.95),
+    -1px -1px 5px rgba(0, 0, 0, 0.72),
+    0 0 9px rgba(0, 0, 0, 0.82);
+  animation: alert-message-appear 180ms steps(4, end) both;
+  pointer-events: none;
+}
+
+.alert-message-dismissing {
+  animation: alert-message-dismiss 350ms steps(5, end) both;
+}
+
+@keyframes alert-message-appear {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    filter: blur(0);
+  }
+}
+
+@keyframes alert-message-dismiss {
+  from {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+    filter: blur(0);
+  }
+  to {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    filter: blur(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .alert-message {
+    animation: none;
+  }
+
+  .alert-message-dismissing {
+    opacity: 0;
+  }
+}
+
 /* ── Overlay: always same width, inset from scrollbars ────── */
 .story-overlay {
   position: absolute;

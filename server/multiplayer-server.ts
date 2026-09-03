@@ -955,6 +955,7 @@ class RoomSession {
     for (const world of this.worlds.values()) {
       if (world.players.size > 0) {
         world.game.getState().pendingSounds.length = 0;
+        world.game.getState().pendingAlerts.length = 0;
         world.game.getState().pendingCallouts.length = 0;
       }
     }

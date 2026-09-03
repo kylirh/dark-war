@@ -35,6 +35,7 @@ describe("picking up new items lands them in the inventory", () => {
   it("adds a bone to an inventory slot with a count", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
+    const storyBefore = game.getState().story.slice();
     const { player, itemId, state } = pickUp(game, ItemType.BONE);
 
     expect(state.entities.some((e) => e.id === itemId)).toBe(false); // consumed
@@ -43,6 +44,8 @@ describe("picking up new items lands them in the inventory", () => {
     );
     expect(player.itemCounts[ItemType.BONE]).toBe(1);
     expect(state.pendingSounds).toEqual([]);
+    expect(state.story).toEqual(storyBefore);
+    expect(state.pendingAlerts).toEqual([]);
   });
 
   it("adds a panic button to the inventory", () => {
@@ -78,7 +81,7 @@ describe("picking up new items lands them in the inventory", () => {
 
     expect(player.itemCounts[ItemType.MEDKIT]).toBe(2);
     expect(state.entities.some((entity) => entity.id === itemId)).toBe(true);
-    expect(state.story[0]).toBe("You cannot carry more than 2 medkits.");
+    expect(state.pendingAlerts).toEqual([]);
   });
 
   it("respects a full inventory when picking up a medkit", () => {
@@ -91,7 +94,7 @@ describe("picking up new items lands them in the inventory", () => {
 
     expect(state.entities.some((entity) => entity.id === itemId)).toBe(true);
     expect(player.itemCounts[ItemType.MEDKIT] ?? 0).toBe(0);
-    expect(state.story[0]).toBe("Your pack is full — you leave the medkit.");
+    expect(state.pendingAlerts).toEqual([]);
   });
 
   it("stacks coins by count", () => {
@@ -121,6 +124,26 @@ describe("picking up new items lands them in the inventory", () => {
     expect(player.selectedBarSlot).toBe(selectedBefore);
     expect(player.weapon).toBe(weaponBefore);
     expect(player.laserCharge).toBe(Math.floor(player.laserChargeMax * 0.5));
+  });
+
+  it("keeps ordinary item pickups silent while preserving core-device messages", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const storyBefore = game.getState().story.slice();
+
+    const { state } = pickUp(game, ItemType.KEYCARD);
+    expect(state.story).toEqual(storyBefore);
+    expect(state.pendingAlerts).toEqual([]);
+
+    pickUp(game, ItemType.CTDM);
+    expect(state.story).toContain(
+      "CTDM installed. Danger now triggers time dilation.",
+    );
+
+    pickUp(game, ItemType.MATTER_MANIPULATOR);
+    expect(state.story).toContain(
+      "Matter Manipulator acquired. Press F to mine and place walls.",
+    );
   });
 
   it("does not place a new weapon into the selected empty slot", () => {
@@ -174,5 +197,6 @@ describe("picking up new items lands them in the inventory", () => {
     const taken = hpBefore - player.hp;
     expect(taken).toBeGreaterThan(0);
     expect(taken).toBeLessThan(5); // armor softened the blow
+    expect(state.pendingAlerts).toEqual([]);
   });
 });
