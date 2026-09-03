@@ -1711,7 +1711,7 @@ export class Game {
     this.updateFOV();
   }
 
-  private hydratePlayers(players: Player[], depth: number): Player[] {
+  private hydratePlayers(players: Player[], _depth: number): Player[] {
     return players.map((player) => {
       if (player instanceof PlayerEntity) {
         return player;
