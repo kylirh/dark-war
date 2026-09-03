@@ -98,10 +98,8 @@ export class GameMenu {
   // Multiplayer state
   private mpPlayerName = "Player";
   private mpGameName = "Dark War";
-  private mpJoinIp = "";
   private mpLobbyPlayers: LobbyPlayer[] = [];
   private mpIsHost = false;
-  private mpPhase: "lobby" | "playing" = "lobby";
   private mpConnectionState:
     | "disconnected"
     | "connecting"
@@ -797,7 +795,6 @@ export class GameMenu {
   ): void {
     this.mpLobbyPlayers = players;
     this.mpIsHost = isHost;
-    this.mpPhase = phase;
 
     if (phase === "playing" && this.mpConnectionState !== "playing") {
       this.mpConnectionState = "playing";

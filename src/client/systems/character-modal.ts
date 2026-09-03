@@ -83,7 +83,6 @@ export class CharacterModal {
   private gameViewEls: Map<GameView, HTMLElement> = new Map();
   private mpRefreshTimer: number | null = null;
   private mpLastServerKey: string = SERVER_LIST_UNRENDERED;
-  private mpPlayerName = "Player";
   private mpGameName = "Dark War";
 
   // Preferences / settings
@@ -954,7 +953,6 @@ export class CharacterModal {
               "#char-mp-browse-name",
             );
             const name = (nameInput?.value.trim() || "Player").slice(0, 24);
-            this.mpPlayerName = name;
             this.setMpStatus("browse", "Connecting…");
             this._opts.onMultiplayerJoin?.(server.ip, server.port, name);
           });
@@ -982,7 +980,6 @@ export class CharacterModal {
         ?.value.trim() || "Player"
     ).slice(0, 24);
     this.mpGameName = gameName;
-    this.mpPlayerName = playerName;
     this.setMpStatus("host", "Starting server…");
     this._opts.onMultiplayerHost?.(gameName, playerName);
   }
@@ -1010,7 +1007,6 @@ export class CharacterModal {
       this.setMpStatus("join", "Invalid port.");
       return;
     }
-    this.mpPlayerName = playerName;
     this.setMpStatus("join", "Connecting…");
     this._opts.onMultiplayerJoin?.(ip, port, playerName);
   }

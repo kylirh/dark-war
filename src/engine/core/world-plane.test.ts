@@ -10,7 +10,6 @@ import {
 
 const GROUND_GRASS = 1;
 const GROUND_WATER = 2;
-const STRUCTURE_NONE = 0;
 const STRUCTURE_TREE = 1;
 const STRUCTURE_BRIDGE = 2;
 
