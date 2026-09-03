@@ -221,7 +221,14 @@ export function resolveCommand(state: GameState, cmd: Command): void {
     ) {
       return;
     }
-    if (player?.resting && cmd.type !== CommandType.WAIT) return;
+    if (player?.resting) {
+      if (cmd.type === CommandType.WAIT) {
+        // Handled naturally by resolveWaitCommand
+      } else {
+        stopPlayerResting(state, player);
+        return; // Important: we interrupt rest, but do NOT execute the command immediately
+      }
+    }
   }
 
   let commandExecuted = true;
