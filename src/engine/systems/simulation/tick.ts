@@ -484,14 +484,26 @@ function processHoleFalls(state: GameState): void {
   const online = state.multiplayer?.mode === "online";
 
   const players = getAlivePlayers(state);
-  if (holeCreated && !online) {
+  if (!online) {
     for (const player of players) {
       const playerTileIndex = idxFor(
         player.gridX,
         player.gridY,
         state.mapWidth,
       );
-      if (holeCreatedTiles?.has(playerTileIndex)) {
+      if (holeCreated && holeCreatedTiles?.has(playerTileIndex)) {
+        triggerPlayerFall(state, player);
+        break;
+      }
+
+      const tile = state.tiles.getTile(player.gridX, player.gridY);
+      if (tile !== TileType.HOLE) continue;
+
+      const movedOntoHole =
+        Math.floor(player.prevWorldX / CELL_CONFIG.w) !== player.gridX ||
+        Math.floor(player.prevWorldY / CELL_CONFIG.h) !== player.gridY;
+
+      if (movedOntoHole) {
         triggerPlayerFall(state, player);
         break;
       }
