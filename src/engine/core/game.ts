@@ -564,7 +564,7 @@ export class Game {
     const wraps = this.state.levelKind === "outside";
     let visible = computeFOV(this.state.tiles, player, explored, wraps);
 
-    if (this.checkExplorationCompletion(player, explored, accessible)) {
+    if (this.checkExplorationCompletion(explored, accessible)) {
       explored = this.completeLevelExploration(player);
       visible = computeFOV(this.state.tiles, player, explored, wraps);
     }
@@ -1931,7 +1931,6 @@ export class Game {
   }
 
   private checkExplorationCompletion(
-    player: Player,
     explored: Set<number>,
     reachable: Set<number>,
   ): boolean {
