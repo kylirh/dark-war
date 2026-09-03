@@ -172,6 +172,52 @@ describe("social actors", () => {
     );
   });
 
+  it("does nothing if the target lacks a social component", () => {
+    const game = new Game({ mode: "offline" });
+    const state = game.getState();
+    const noSocial = new PlayerEntity(0, 0); // Player lacks a social component by default
+    state.entityManager.spawn(noSocial);
+
+    resolveTalk(state, state.player, noSocial);
+
+    expect(state.eventQueue.length).toBe(0);
+  });
+
+  it("does nothing if the target's social defId is not found", () => {
+    const game = new Game({ mode: "offline" });
+    const state = game.getState();
+    const unknownSocial = createWorkshopBuilder(0, 0);
+    unknownSocial.social = { defId: "unknown-def-id" };
+    state.entityManager.spawn(unknownSocial);
+
+    resolveTalk(state, state.player, unknownSocial);
+
+    expect(state.eventQueue.length).toBe(0);
+  });
+
+  it("handles non-player actors without crashing and does not grant items", () => {
+    const game = new Game({ mode: "offline" });
+    const state = game.getState();
+    const actorMonster = createWorkshopBuilder(0, 0); // non-player
+    actorMonster.id = "actor-monster";
+    const target = createWorkshopBuilder(1, 0); // target with items
+    state.entityManager.spawn(actorMonster);
+    state.entityManager.spawn(target);
+
+    resolveTalk(state, actorMonster, target);
+
+    // Should emit an event
+    const event = state.eventQueue.find((e) => e.type === EventType.NPC_TALK);
+    expect(event).toBeTruthy();
+
+    // But shouldn't grant items to a non-player
+    expect((actorMonster as any).hasCTDM).toBeUndefined();
+    expect((actorMonster as any).hasMatterManipulator).toBeUndefined();
+
+    // And shouldn't track social facts for non-players
+    expect(state.playerSocialFacts.size).toBe(0);
+  });
+
   it("a one-shot line never adds an unclearable pause (would soft-freeze)", () => {
     // Non-modal ambient talk must not add the pause reason reserved for full
     // authored conversations in either mode.
