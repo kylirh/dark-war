@@ -83,7 +83,6 @@ export class CharacterModal {
   private gameViewEls: Map<GameView, HTMLElement> = new Map();
   private mpRefreshTimer: number | null = null;
   private mpLastServerKey: string = SERVER_LIST_UNRENDERED;
-  private mpPlayerName = "Player";
   private mpGameName = "Dark War";
 
   // Preferences / settings
@@ -954,7 +953,6 @@ export class CharacterModal {
               "#char-mp-browse-name",
             );
             const name = (nameInput?.value.trim() || "Player").slice(0, 24);
-            this.mpPlayerName = name;
             this.setMpStatus("browse", "Connecting…");
             this._opts.onMultiplayerJoin?.(server.ip, server.port, name);
           });
@@ -982,7 +980,6 @@ export class CharacterModal {
         ?.value.trim() || "Player"
     ).slice(0, 24);
     this.mpGameName = gameName;
-    this.mpPlayerName = playerName;
     this.setMpStatus("host", "Starting server…");
     this._opts.onMultiplayerHost?.(gameName, playerName);
   }
@@ -1010,7 +1007,6 @@ export class CharacterModal {
       this.setMpStatus("join", "Invalid port.");
       return;
     }
-    this.mpPlayerName = playerName;
     this.setMpStatus("join", "Connecting…");
     this._opts.onMultiplayerJoin?.(ip, port, playerName);
   }
@@ -1257,14 +1253,14 @@ export class CharacterModal {
     const label = getSlotLabel(slot.type);
     const actions = getSlotActions(slot.type);
     const count = getSlotDisplayCount(this._player, index);
-    let html = `<div class="inv-tip-name">${label}</div>`;
+    let html = `<div class="inv-tip-name">${escapeHtml(label)}</div>`;
     if (count !== null && count !== undefined)
       html += `<div class="inv-tip-count">Count: ${count}</div>`;
     if (slot.type === ItemType.CTDM) {
       html += `<div class="inv-tip-count">Status: ${this._player.ctdmEnabled ? "ON" : "OFF"}</div>`;
     }
     if (actions.length > 0)
-      html += `<div class="inv-tip-actions">${actions.join("<br>")}</div>`;
+      html += `<div class="inv-tip-actions">${actions.map((a) => escapeHtml(a)).join("<br>")}</div>`;
     this.tooltipEl.innerHTML = html;
     this.tooltipEl.style.display = "";
     const rect = slotEl.getBoundingClientRect();

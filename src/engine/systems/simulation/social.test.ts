@@ -8,10 +8,48 @@ import { createOutsideLevel } from "../../core/outside-level";
 import { canTalkTo, findTalkTarget, resolveTalk } from "./social";
 import { getSocialFacts } from "./conversation";
 import { processEventQueue } from "./events";
-import { EntityKind, EventType, ItemType, MonsterType } from "../../types";
+import {
+  EntityKind,
+  EventType,
+  ItemType,
+  MonsterType,
+  Entity,
+} from "../../types";
 import { PlayerEntity } from "../../entities/player-entity";
 
 describe("social actors", () => {
+  describe("canTalkTo", () => {
+    it("returns true when entity has social and interactable with talk affordance", () => {
+      const entity = {
+        social: { defId: "some-def" },
+        interactable: { affordances: ["talk"] },
+      } as Entity;
+      expect(canTalkTo(entity)).toBe(true);
+    });
+
+    it("returns false when entity lacks social component", () => {
+      const entity = {
+        interactable: { affordances: ["talk"] },
+      } as Entity;
+      expect(canTalkTo(entity)).toBe(false);
+    });
+
+    it("returns false when entity lacks interactable component", () => {
+      const entity = {
+        social: { defId: "some-def" },
+      } as Entity;
+      expect(canTalkTo(entity)).toBe(false);
+    });
+
+    it("returns false when entity interactable affordances lack talk", () => {
+      const entity = {
+        social: { defId: "some-def" },
+        interactable: { affordances: [] as any[] },
+      } as Entity;
+      expect(canTalkTo(entity)).toBe(false);
+    });
+  });
+
   it("builds a workshop builder wearing social/interactable/peaceful", () => {
     const builder = createWorkshopBuilder(5, 5);
     expect(builder.id).toBe(WORKSHOP_BUILDER_ID);
@@ -132,6 +170,52 @@ describe("social actors", () => {
     expect(getSocialFacts(state, secondPlayer.id, builder.id).flags?.met).toBe(
       true,
     );
+  });
+
+  it("does nothing if the target lacks a social component", () => {
+    const game = new Game({ mode: "offline" });
+    const state = game.getState();
+    const noSocial = new PlayerEntity(0, 0); // Player lacks a social component by default
+    state.entityManager.spawn(noSocial);
+
+    resolveTalk(state, state.player, noSocial);
+
+    expect(state.eventQueue.length).toBe(0);
+  });
+
+  it("does nothing if the target's social defId is not found", () => {
+    const game = new Game({ mode: "offline" });
+    const state = game.getState();
+    const unknownSocial = createWorkshopBuilder(0, 0);
+    unknownSocial.social = { defId: "unknown-def-id" };
+    state.entityManager.spawn(unknownSocial);
+
+    resolveTalk(state, state.player, unknownSocial);
+
+    expect(state.eventQueue.length).toBe(0);
+  });
+
+  it("handles non-player actors without crashing and does not grant items", () => {
+    const game = new Game({ mode: "offline" });
+    const state = game.getState();
+    const actorMonster = createWorkshopBuilder(0, 0); // non-player
+    actorMonster.id = "actor-monster";
+    const target = createWorkshopBuilder(1, 0); // target with items
+    state.entityManager.spawn(actorMonster);
+    state.entityManager.spawn(target);
+
+    resolveTalk(state, actorMonster, target);
+
+    // Should emit an event
+    const event = state.eventQueue.find((e) => e.type === EventType.NPC_TALK);
+    expect(event).toBeTruthy();
+
+    // But shouldn't grant items to a non-player
+    expect((actorMonster as any).hasCTDM).toBeUndefined();
+    expect((actorMonster as any).hasMatterManipulator).toBeUndefined();
+
+    // And shouldn't track social facts for non-players
+    expect(state.playerSocialFacts.size).toBe(0);
   });
 
   it("a one-shot line never adds an unclearable pause (would soft-freeze)", () => {

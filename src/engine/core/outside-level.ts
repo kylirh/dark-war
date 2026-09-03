@@ -1,7 +1,6 @@
 import {
   DungeonData,
   ItemType,
-  MonsterType,
   OUTSIDE_MAP_HEIGHT,
   OUTSIDE_MAP_WIDTH,
   TileType,

@@ -98,18 +98,14 @@ export class GameMenu {
   // Multiplayer state
   private mpPlayerName = "Player";
   private mpGameName = "Dark War";
-  private mpJoinIp = "";
   private mpLobbyPlayers: LobbyPlayer[] = [];
   private mpIsHost = false;
-  private mpPhase: "lobby" | "playing" = "lobby";
   private mpConnectionState:
     | "disconnected"
     | "connecting"
     | "lobby"
     | "playing" = "disconnected";
-  private mpDiscoveredServers: DiscoveredServer[] = [];
   private mpRefreshTimer: number | null = null;
-  private mpStatusMessage = "";
   private mpLastRenderedServerKey: string = SERVER_LIST_UNRENDERED;
   private mpCachedLocalIps: string[] | null = null;
 
@@ -624,7 +620,6 @@ export class GameMenu {
     try {
       const servers = await (this.options.onMultiplayerGetServers?.() ??
         Promise.resolve([]));
-      this.mpDiscoveredServers = servers;
       this.renderServerList(list, servers);
     } catch {
       // Guarded like renderServerList: this runs on a 3s timer, and the list is
@@ -797,7 +792,6 @@ export class GameMenu {
   ): void {
     this.mpLobbyPlayers = players;
     this.mpIsHost = isHost;
-    this.mpPhase = phase;
 
     if (phase === "playing" && this.mpConnectionState !== "playing") {
       this.mpConnectionState = "playing";
@@ -811,7 +805,6 @@ export class GameMenu {
   }
 
   public setMultiplayerStatusMessage(message: string): void {
-    this.mpStatusMessage = message;
     // Show in current MP view if applicable
     const view = this.pauseMenuView;
     if (view === "host-game") this.setMpStatus("host", message);

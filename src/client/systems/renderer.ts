@@ -199,7 +199,6 @@ export class Renderer {
         this.render(
           this.pendingRender.state,
           this.pendingRender.isDead,
-          0,
           this.pendingRender.callouts,
         );
         this.pendingRender = undefined;
@@ -863,27 +862,6 @@ export class Renderer {
     return texture;
   }
 
-  /**
-   * Create a Pixi sprite from sprite sheet coordinates
-   */
-  private createSprite(
-    x: number,
-    y: number,
-    screenX: number,
-    screenY: number,
-  ): Sprite | null {
-    const texture = this.getTexture(x, y);
-    if (!texture) return null;
-
-    const sprite = new Sprite(texture);
-    sprite.x = screenX;
-    sprite.y = screenY;
-    sprite.width = CELL_CONFIG.w;
-    sprite.height = CELL_CONFIG.h;
-
-    return sprite;
-  }
-
   private createSpriteFromFrame(
     frame: RenderFrame,
     screenX: number,
@@ -1088,12 +1066,10 @@ export class Renderer {
    * Render the entire game state with interpolation
    * @param state Game state
    * @param isDead Whether player is dead
-   * @param alpha Interpolation factor (0.0 to 1.0) for smooth movement
    */
   public render(
     state: GameState,
     isDead: boolean = false,
-    alpha: number = 0,
     callouts: readonly WorldCalloutView[] = [],
   ): void {
     if (!this.ready) {
