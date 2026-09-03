@@ -12,8 +12,14 @@ import {
 } from "./preferences";
 import { Sound } from "./sound";
 import { LobbyPlayer } from "../../net/multiplayer-client";
+import { escapeHtml } from "./html-escape";
+import {
+  SERVER_LIST_ERROR,
+  SERVER_LIST_UNRENDERED,
+  setStatusText,
+} from "./live-region";
 
-// ─── Types ──────────────────────────────────────────────────────────────────────
+// ─── Types ─────────────────────────────────────────────────────────────────────
 
 type ThemeMode = "dark" | "light";
 type PauseMenuAction =
@@ -92,20 +98,15 @@ export class GameMenu {
   // Multiplayer state
   private mpPlayerName = "Player";
   private mpGameName = "Dark War";
-  private mpJoinIp = "";
-  private mpJoinPort = "7777";
   private mpLobbyPlayers: LobbyPlayer[] = [];
   private mpIsHost = false;
-  private mpPhase: "lobby" | "playing" = "lobby";
   private mpConnectionState:
     | "disconnected"
     | "connecting"
     | "lobby"
     | "playing" = "disconnected";
-  private mpDiscoveredServers: DiscoveredServer[] = [];
   private mpRefreshTimer: number | null = null;
-  private mpStatusMessage = "";
-  private mpLastRenderedServerKey = "";
+  private mpLastRenderedServerKey: string = SERVER_LIST_UNRENDERED;
   private mpCachedLocalIps: string[] | null = null;
 
   private readonly onKeyDown = (event: KeyboardEvent): void =>
@@ -199,9 +200,9 @@ export class GameMenu {
 
         <!-- ── Main view ── -->
         <div class="imb-pause-view" data-pause-view="main">
-          <img src="assets/img/logo.png" class="imb-pause-logo" alt="Dark War" />
+          <img src="assets/img/logo.webp" class="imb-pause-logo" alt="Dark War" />
           <div class="imb-pause-message hidden" id="pause-menu-message"></div>
-          <div class="imb-pause-options" role="menu" aria-label="Pause menu">
+          <div class="imb-pause-options">
             ${this.pauseItems
               .map(
                 (item, index) => `
@@ -210,7 +211,6 @@ export class GameMenu {
                 data-pause-action="${item.action}"
                 data-pause-index="${index}"
                 type="button"
-                role="menuitem"
               >${item.label}</button>
             `,
               )
@@ -318,7 +318,7 @@ export class GameMenu {
               <label for="mp-host-name">Your Name</label>
               <input class="imb-text-input" id="mp-host-name" type="text" maxlength="24" placeholder="Player" />
             </div>
-            <div id="mp-host-status" class="imb-mp-status hidden"></div>
+            <div id="mp-host-status" class="imb-mp-status hidden" role="status" aria-live="polite"></div>
             <button class="imb-pause-option" id="mp-host-btn" type="button">Start Hosting</button>
           </div>
         </div>
@@ -333,10 +333,10 @@ export class GameMenu {
             <label for="mp-browse-name">Your Name</label>
             <input class="imb-text-input" id="mp-browse-name" type="text" maxlength="24" placeholder="Player" />
           </div>
-          <div id="mp-server-list" class="imb-server-list">
+          <div id="mp-server-list" class="imb-server-list" aria-live="polite">
             <div class="imb-server-searching">Searching for games...</div>
           </div>
-          <div id="mp-browse-status" class="imb-mp-status hidden"></div>
+          <div id="mp-browse-status" class="imb-mp-status hidden" role="status" aria-live="polite"></div>
           <button class="imb-btn" id="mp-refresh-btn" type="button">Refresh</button>
         </div>
 
@@ -359,7 +359,7 @@ export class GameMenu {
               <label for="mp-join-port">Port</label>
               <input class="imb-text-input" id="mp-join-port" type="text" maxlength="6" placeholder="7777" />
             </div>
-            <div id="mp-join-status" class="imb-mp-status hidden"></div>
+            <div id="mp-join-status" class="imb-mp-status hidden" role="status" aria-live="polite"></div>
             <button class="imb-pause-option" id="mp-join-btn" type="button">Join Game</button>
           </div>
         </div>
@@ -370,7 +370,7 @@ export class GameMenu {
             <button class="imb-btn" id="mp-leave-btn" type="button">Leave</button>
             <h3 id="mp-lobby-title">Lobby</h3>
           </div>
-          <div id="mp-lobby-status" class="imb-mp-lobby-status">Waiting for players...</div>
+          <div id="mp-lobby-status" class="imb-mp-lobby-status" role="status" aria-live="polite">Waiting for players...</div>
           <div id="mp-lobby-players" class="imb-lobby-players"></div>
           <div class="imb-lobby-actions">
             <button class="imb-pause-option" id="mp-start-btn" type="button" style="display:none">Start Game</button>
@@ -535,6 +535,22 @@ export class GameMenu {
         this.pauseMenuSelection = index;
         this.syncPauseMenu();
       });
+
+      button.addEventListener("focus", () => {
+        const index = Number.parseInt(
+          (button as HTMLElement).dataset.pauseIndex ?? "0",
+          10,
+        );
+        if (this.pauseMenuSelection !== index) {
+          this.pauseMenuSelection = index;
+          document
+            .querySelectorAll<HTMLElement>("[data-pause-index]")
+            .forEach((btn) => {
+              const i = Number.parseInt(btn.dataset.pauseIndex ?? "0", 10);
+              btn.classList.toggle("selected", i === index);
+            });
+        }
+      });
     });
   }
 
@@ -585,7 +601,7 @@ export class GameMenu {
   // ── Multiplayer action handlers ─────────────────────────────────────────────────
 
   private openBrowseView(): void {
-    this.mpLastRenderedServerKey = "";
+    this.mpLastRenderedServerKey = SERVER_LIST_UNRENDERED;
     this.options.onMultiplayerStartDiscovery?.();
     this.setPauseMenuView("browse-games");
     this.refreshServerList();
@@ -604,9 +620,13 @@ export class GameMenu {
     try {
       const servers = await (this.options.onMultiplayerGetServers?.() ??
         Promise.resolve([]));
-      this.mpDiscoveredServers = servers;
       this.renderServerList(list, servers);
     } catch {
+      // Guarded like renderServerList: this runs on a 3s timer, and the list is
+      // an aria-live region, so an unconditional rewrite would re-announce the
+      // same error every tick for as long as scanning keeps failing.
+      if (this.mpLastRenderedServerKey === SERVER_LIST_ERROR) return;
+      this.mpLastRenderedServerKey = SERVER_LIST_ERROR;
       list.innerHTML =
         '<div class="imb-server-searching">Error scanning network.</div>';
     }
@@ -628,13 +648,16 @@ export class GameMenu {
       return;
     }
 
+    // LAN discovery data is untrusted (see electron/discovery-packet.js).
+    // Escape every string and coerce every number again here — the main process
+    // sanitizes at ingest, but this template is what actually reaches the DOM.
     container.innerHTML = servers
       .map(
         (s, i) => `
       <div class="imb-server-entry">
         <div class="imb-server-info">
-          <span class="imb-server-name">${escapeHtml(s.name)}</span>
-          <span class="imb-server-meta">${escapeHtml(s.host)} · ${s.players}/${s.maxPlayers} players · ${s.phase}</span>
+          <span class="imb-server-name">${escapeHtml(String(s.name))}</span>
+          <span class="imb-server-meta">${escapeHtml(String(s.host))} · ${Number(s.players) || 0}/${Number(s.maxPlayers) || 0} players · ${escapeHtml(String(s.phase))}</span>
         </div>
         <button class="imb-btn imb-server-join-btn" data-server-index="${i}" type="button">Join</button>
       </div>
@@ -730,8 +753,7 @@ export class GameMenu {
           : "mp-join-status";
     const el = document.getElementById(id);
     if (!el) return;
-    el.textContent = message;
-    el.classList.toggle("hidden", !message);
+    setStatusText(el, message);
   }
 
   // ── Public API for multiplayer state updates ────────────────────────────────────
@@ -770,7 +792,6 @@ export class GameMenu {
   ): void {
     this.mpLobbyPlayers = players;
     this.mpIsHost = isHost;
-    this.mpPhase = phase;
 
     if (phase === "playing" && this.mpConnectionState !== "playing") {
       this.mpConnectionState = "playing";
@@ -784,7 +805,6 @@ export class GameMenu {
   }
 
   public setMultiplayerStatusMessage(message: string): void {
-    this.mpStatusMessage = message;
     // Show in current MP view if applicable
     const view = this.pauseMenuView;
     if (view === "host-game") this.setMpStatus("host", message);
@@ -818,14 +838,17 @@ export class GameMenu {
     }
 
     if (lobbyStatus) {
-      if (this.mpIsHost) {
-        lobbyStatus.textContent =
-          this.mpLobbyPlayers.length === 1
+      // syncLobbyView re-runs on every lobby message, so go through
+      // setStatusText — an unguarded write would re-announce the unchanged
+      // population to a screen reader each time.
+      setStatusText(
+        lobbyStatus,
+        this.mpIsHost
+          ? this.mpLobbyPlayers.length === 1
             ? "Waiting for others to join..."
-            : `${this.mpLobbyPlayers.length} players connected`;
-      } else {
-        lobbyStatus.textContent = "Waiting for host to start...";
-      }
+            : `${this.mpLobbyPlayers.length} players connected`
+          : "Waiting for host to start...",
+      );
     }
 
     if (lobbyPlayers) {
@@ -1068,8 +1091,6 @@ export class GameMenu {
         const isEnabled = item ? this.isPauseItemEnabled(item) : true;
         button.classList.toggle("selected", isSelected);
         button.classList.toggle("disabled", !isEnabled);
-        button.setAttribute("aria-selected", String(isSelected));
-        button.setAttribute("aria-disabled", String(!isEnabled));
         if (button instanceof HTMLButtonElement) button.disabled = !isEnabled;
         if (this.pauseMenuView === "main" && isSelected && isEnabled) {
           button.dataset.initialFocus = "true";
@@ -1378,6 +1399,7 @@ export class GameMenu {
     this.listeningForKey = null;
     this.shouldFocusPauseMenu = true;
     this.showModal("pause-dialog");
+    this.syncPauseMenu();
   }
 
   public closePauseMenu(force = false): void {
@@ -1413,14 +1435,6 @@ export class GameMenu {
 }
 
 // ─── Utilities ────────────────────────────────────────────────────────────────────
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function sanitizeName(name: string): string {
   return name.trim().slice(0, 24);

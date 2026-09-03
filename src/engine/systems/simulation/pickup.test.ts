@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "../../core/game";
 import { ItemEntity } from "../../entities/item-entity";
-import { EntityKind, ItemType, EventType } from "../../types";
+import { ItemType, EventType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { processEventQueue } from "./events";

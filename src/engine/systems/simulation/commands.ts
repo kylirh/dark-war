@@ -8,7 +8,6 @@ import {
   Monster,
   MonsterType,
   Player,
-  Item,
   TileType,
   ItemType,
   WeaponType,
@@ -280,7 +279,7 @@ export function resolveCommand(state: GameState, cmd: Command): void {
 
   // Set cooldown only if command was successfully executed
   if (commandExecuted) {
-    const actor = state.entities.find((e) => e.id === cmd.actorId);
+    const actor = state.entityManager.getById(cmd.actorId);
     if (actor) {
       actor.nextActTick = state.sim.nowTick + getActionCost(state, cmd, actor);
     }
@@ -344,7 +343,7 @@ function resolveWaitCommand(state: GameState, cmd: Command): boolean {
 // ========================================
 
 function resolveMoveCommand(state: GameState, cmd: Command): boolean {
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor) return false;
 
   const data = cmd.data as { type: "MOVE"; dx: number; dy: number };
@@ -456,11 +455,11 @@ function resolveMoveCommand(state: GameState, cmd: Command): boolean {
 // ========================================
 
 function resolveMeleeCommand(state: GameState, cmd: Command): void {
-  const attacker = state.entities.find((e) => e.id === cmd.actorId);
+  const attacker = state.entityManager.getById(cmd.actorId);
   if (!attacker) return;
 
   const data = cmd.data as { type: "MELEE"; targetId: string };
-  const target = state.entities.find((e) => e.id === data.targetId);
+  const target = state.entityManager.getById(data.targetId);
   if (!target) return;
   if (
     attacker.kind === EntityKind.PLAYER &&
@@ -540,7 +539,7 @@ function resolveMeleeCommand(state: GameState, cmd: Command): void {
 // ========================================
 
 function resolveFireCommand(state: GameState, cmd: Command): void {
-  const shooter = state.entities.find((e) => e.id === cmd.actorId);
+  const shooter = state.entityManager.getById(cmd.actorId);
   if (!shooter) return;
 
   const data = cmd.data as {
@@ -1185,7 +1184,7 @@ function withinManipulatorReach(
  * placeable item. Ground terrain is unaffected.
  */
 function resolveMineCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
   const player = actor as Player;
   if (cmd.data.type !== "MINE") return;
@@ -1236,7 +1235,7 @@ function resolveMineCommand(state: GameState, cmd: Command): void {
  * Works on every level so the player can mix wall styles freely.
  */
 function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
   const player = actor as Player;
   if (cmd.data.type !== "PLACE_BLOCK") return;
@@ -1297,7 +1296,7 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
 }
 
 function resolveShapeTerrainCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((entity) => entity.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
   const player = actor as Player;
   if (cmd.data.type !== "SHAPE_TERRAIN") return;
@@ -1363,7 +1362,7 @@ function resolveShapeTerrainCommand(state: GameState, cmd: Command): void {
  * the firing logic; consumables and gear have bespoke effects.
  */
 function resolveUseItemCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
   const player = actor as Player;
   const active = player.inventorySlots[player.selectedBarSlot]?.type ?? null;
@@ -1549,7 +1548,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
 }
 
 function resolveReloadCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
   const player = actor as Player;
@@ -1636,7 +1635,7 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
 // ========================================
 
 function resolvePickupCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
   // Find items within pickup radius (24px for continuous movement)
@@ -1700,7 +1699,7 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
 // ========================================
 
 function resolveDialogueChoiceCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
   const data = cmd.data as {
     type: "DIALOGUE_CHOICE";
@@ -1718,14 +1717,14 @@ function resolveDialogueChoiceCommand(state: GameState, cmd: Command): void {
 }
 
 function resolveDialogueLeaveCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
   const data = cmd.data as { type: "DIALOGUE_LEAVE"; expectedRevision: number };
   leaveConversation(state, actor as Player, data.expectedRevision);
 }
 
 function resolveInteractCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor) return;
 
   const data = cmd.data as { type: "INTERACT"; x: number; y: number };
@@ -1790,10 +1789,12 @@ function resolveInteractCommand(state: GameState, cmd: Command): void {
 
   // Interacting toward a vending machine buys a random item for coins.
   if (actor.kind === EntityKind.PLAYER) {
-    const machine = state.entities.find(
+    // `entityManager.items` holds exactly the ITEM-kind entities, so scanning
+    // it is equivalent to the kind check over the full array and skips every
+    // monster, bullet and player on the level.
+    const machine = state.entityManager.items.find(
       (e) =>
-        e.kind === EntityKind.ITEM &&
-        (e as Item).type === ItemType.VENDING_MACHINE &&
+        e.type === ItemType.VENDING_MACHINE &&
         e.gridX === data.x &&
         e.gridY === data.y,
     );
@@ -1840,7 +1841,7 @@ function buyFromVending(state: GameState, player: Player): void {
 // ========================================
 
 function resolveRepairCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((entity) => entity.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (
     !actor ||
     actor.kind !== EntityKind.MONSTER ||
@@ -1886,7 +1887,7 @@ function resolveRepairCommand(state: GameState, cmd: Command): void {
 // ========================================
 
 function resolveDescendCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
   const player = actor as Player;
@@ -1930,7 +1931,7 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
 // ========================================
 
 function resolveAscendCommand(state: GameState, cmd: Command): void {
-  const actor = state.entities.find((e) => e.id === cmd.actorId);
+  const actor = state.entityManager.getById(cmd.actorId);
   if (!actor || actor.kind !== EntityKind.PLAYER) return;
 
   const player = actor as Player;

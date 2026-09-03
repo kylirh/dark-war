@@ -87,7 +87,7 @@ describe("explosives simulation", () => {
 
         expect(grenade.fuseTicks).toBe(4);
         expect(state.eventQueue.length).toBe(initialEventsCount); // No explosion yet
-        expect(state.entities.find((e) => e.id === grenade.id)).toBeDefined();
+        expect(state.entityManager.getById(grenade.id)).toBeDefined();
       });
 
       it("triggers explosion and destroys entity when fuse reaches 0", () => {
@@ -110,7 +110,7 @@ describe("explosives simulation", () => {
         expect(explosionEvent).toBeDefined();
 
         // Entity should be removed
-        expect(state.entities.find((e) => e.id === grenade.id)).toBeUndefined();
+        expect(state.entityManager.getById(grenade.id)).toBeUndefined();
       });
 
       it("calls updateLandedGrenadeBounce if grenade has landed", () => {
@@ -158,7 +158,7 @@ describe("explosives simulation", () => {
         updateExplosives(state);
 
         // Mine should still be there
-        expect(state.entities.find((e) => e.id === mine.id)).toBeDefined();
+        expect(state.entityManager.getById(mine.id)).toBeDefined();
       });
 
       it("triggers when an actor enters the radius", () => {
@@ -176,7 +176,7 @@ describe("explosives simulation", () => {
         updateExplosives(state);
 
         // Mine should be destroyed and explosion triggered
-        expect(state.entities.find((e) => e.id === mine.id)).toBeUndefined();
+        expect(state.entityManager.getById(mine.id)).toBeUndefined();
         const explosionEvent = state.eventQueue.find(
           (e) => e.type === EventType.EXPLOSION,
         );
@@ -206,7 +206,7 @@ describe("explosives simulation", () => {
         updateExplosives(state);
 
         // Mine should not trigger for owner
-        expect(state.entities.find((e) => e.id === mine.id)).toBeDefined();
+        expect(state.entityManager.getById(mine.id)).toBeDefined();
       });
 
       it("triggers on owner if ignoreOwnerTicks is 0", () => {
@@ -231,7 +231,7 @@ describe("explosives simulation", () => {
         updateExplosives(state);
 
         // Mine SHOULD trigger for owner since ignore ticks expired
-        expect(state.entities.find((e) => e.id === mine.id)).toBeUndefined();
+        expect(state.entityManager.getById(mine.id)).toBeUndefined();
       });
     });
   });
@@ -418,7 +418,7 @@ describe("explosives simulation", () => {
 
       updateExplosives(state);
 
-      expect(state.entities.find((e) => e.id === mine.id)).toBeUndefined();
+      expect(state.entityManager.getById(mine.id)).toBeUndefined();
     });
 
     it("does not trigger just outside the radius", () => {
@@ -430,7 +430,7 @@ describe("explosives simulation", () => {
 
       updateExplosives(state);
 
-      expect(state.entities.find((e) => e.id === mine.id)).toBeDefined();
+      expect(state.entityManager.getById(mine.id)).toBeDefined();
     });
   });
 });

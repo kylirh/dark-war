@@ -394,9 +394,9 @@ function steerBuilder(state: GameState, monster: Monster): void {
   }
 
   if (agent.currentGoal === "flee") {
-    const attacker = state.entities.find(
-      (entity) => entity.id === monster.lastAttackerId,
-    );
+    const attacker = monster.lastAttackerId
+      ? state.entityManager.getById(monster.lastAttackerId)
+      : undefined;
     if (attacker) {
       const dx = m.worldX - attacker.worldX;
       const dy = m.worldY - attacker.worldY;
@@ -412,10 +412,8 @@ function steerBuilder(state: GameState, monster: Monster): void {
   }
 
   if (agent.currentGoal === "follow" && monster.ownerId) {
-    const owner = state.entities.find(
-      (entity) =>
-        entity.id === monster.ownerId && entity.kind === EntityKind.PLAYER,
-    );
+    const found = state.entityManager.getById(monster.ownerId);
+    const owner = found?.kind === EntityKind.PLAYER ? found : undefined;
     if (owner) {
       const distance = Math.hypot(
         owner.worldX - m.worldX,
@@ -485,9 +483,7 @@ const BOT_JUNK_RANGE_PX = CELL_CONFIG.w * 12;
 function nearestJunkItem(state: GameState, bot: Monster): Item | null {
   let best: Item | null = null;
   let bestSq = BOT_JUNK_RANGE_PX * BOT_JUNK_RANGE_PX;
-  for (const entity of state.entities) {
-    if (entity.kind !== EntityKind.ITEM) continue;
-    const item = entity as Item;
+  for (const item of state.entityManager.items) {
     if (!isJunk(item.type)) continue;
     const dx = item.worldX - (bot as any).worldX;
     const dy = item.worldY - (bot as any).worldY;
@@ -508,9 +504,9 @@ function steerUtilityBot(state: GameState, monster: Monster): void {
     m.alertLevel = Math.max(0, m.alertLevel - MONSTER_ALERT_DECAY);
 
     // Refresh last known position if attacker still exists
-    const attacker = state.entities.find(
-      (e) => e.id === m.lastAttackerId,
-    ) as any;
+    const attacker = m.lastAttackerId
+      ? (state.entityManager.getById(m.lastAttackerId) as any)
+      : undefined;
     if (attacker) {
       m.lastKnownPlayerX = attacker.worldX;
       m.lastKnownPlayerY = attacker.worldY;
@@ -1011,9 +1007,11 @@ function nearestHostileMonster(
 }
 
 function petOwner(state: GameState, pet: Monster): Player | null {
-  const owner = state.entities.find(
-    (e) => e.kind === EntityKind.PLAYER && e.id === pet.ownerId,
-  ) as Player | undefined;
+  const found = pet.ownerId
+    ? state.entityManager.getById(pet.ownerId)
+    : undefined;
+  const owner =
+    found?.kind === EntityKind.PLAYER ? (found as Player) : undefined;
   return owner ?? getClosestPlayer(state, pet);
 }
 
@@ -1025,9 +1023,7 @@ function nearestFetchableItem(
 ): Item | null {
   let best: Item | null = null;
   let bestSq = (CELL_CONFIG.w * 10) ** 2;
-  for (const entity of state.entities) {
-    if (entity.kind !== EntityKind.ITEM) continue;
-    const item = entity as Item;
+  for (const item of state.entityManager.items) {
     if (ITEM_DEFS[item.type]?.collectible === false) continue;
     if (ITEM_DEFS[item.type]?.category === "machine") continue;
     // Skip loot the fetcher just dropped right next to the owner.
@@ -1395,9 +1391,7 @@ export function updateMonsterSteering(state: GameState): void {
         const AMMO_SEEK_RADIUS = CELL_CONFIG.w * 8;
         let nearestAmmo: Item | null = null;
         let nearestAmmoDist = AMMO_SEEK_RADIUS;
-        for (const e of state.entities) {
-          if (e.kind !== EntityKind.ITEM) continue;
-          const item = e as Item;
+        for (const item of state.entityManager.items) {
           if (item.type !== ItemType.AMMO) continue;
           const adx = item.worldX - m.worldX;
           const ady = item.worldY - m.worldY;
@@ -1423,9 +1417,7 @@ export function updateMonsterSteering(state: GameState): void {
         const POWER_CELL_SEEK_RADIUS = CELL_CONFIG.w * 8;
         let nearestPowerCell: Item | null = null;
         let nearestPowerCellDistance = POWER_CELL_SEEK_RADIUS;
-        for (const entity of state.entities) {
-          if (entity.kind !== EntityKind.ITEM) continue;
-          const item = entity as Item;
+        for (const item of state.entityManager.items) {
           if (item.type !== ItemType.POWERCELL) continue;
           const cellDx = item.worldX - m.worldX;
           const cellDy = item.worldY - m.worldY;
@@ -1500,9 +1492,9 @@ function decideUtilityBotCommand(
 
   // Provoked: fight back if attacker is in melee range
   if (m.alertLevel > 0) {
-    const attacker = state.entities.find(
-      (e) => e.id === m.lastAttackerId,
-    ) as any;
+    const attacker = m.lastAttackerId
+      ? (state.entityManager.getById(m.lastAttackerId) as any)
+      : undefined;
     if (attacker) {
       const dx = attacker.worldX - m.worldX;
       const dy = attacker.worldY - m.worldY;

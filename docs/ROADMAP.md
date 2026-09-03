@@ -269,10 +269,11 @@ files without coordination. Before starting:
 
 ### Handoff ledger
 
-| Milestones | Branch/owner               | Scope                                            | Status | Notes                                      |
-| ---------- | -------------------------- | ------------------------------------------------ | ------ | ------------------------------------------ |
-| M0–M8      | `codex/terrain-foundation` | Complete terrain/world foundation program        | done   | Tests, docs, and authoring sources         |
-| Product    | `codex/speech-bubbles`     | World speech, thought, and reaction callouts     | ready  | Offline/online, FOV, queues, tests         |
-| Product    | `main`                     | Item, creature, CTDM, combat, and visual polish  | done   | Full tests, type-check, and build          |
-| Product    | `claude/npcs-living-world` | Actors, Marda work, Snagglepuss, social/dialogue | ready  | Persisted state and two-client integration |
-| Next       | unassigned                 | Ordinary game content and product expansion      | open   | Build on the completed foundations         |
+| Milestones | Branch/owner                     | Scope                                            | Status | Notes                                               |
+| ---------- | -------------------------------- | ------------------------------------------------ | ------ | --------------------------------------------------- |
+| M0–M8      | `codex/terrain-foundation`       | Complete terrain/world foundation program        | done   | Tests, docs, and authoring sources                  |
+| Product    | `codex/speech-bubbles`           | World speech, thought, and reaction callouts     | ready  | Offline/online, FOV, queues, tests                  |
+| Product    | `main`                           | Item, creature, CTDM, combat, and visual polish  | done   | Full tests, type-check, and build                   |
+| Product    | `claude/npcs-living-world`       | Actors, Marda work, Snagglepuss, social/dialogue | ready  | Persisted state and two-client integration          |
+| Product    | `claude/dark-war-browser-deploy` | Static web client deployed to darkwar.kylir.com  | ready  | Pages workflow on `main`; DNS/Pages settings manual |
+| Next       | unassigned                       | Ordinary game content and product expansion      | open   | Build on the completed foundations                  |

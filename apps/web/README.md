@@ -17,6 +17,23 @@ python3 -m http.server 5180 --directory apps/web/dist
 # then open http://localhost:5180
 ```
 
+## Deployment
+
+Live at **https://darkwar.kylir.com**, published to GitHub Pages from this repo
+by [`.github/workflows/deploy-web.yml`](../../.github/workflows/deploy-web.yml)
+on every commit that lands on `main`. The workflow type-checks and runs the unit
+suite before it builds, so a broken `main` never reaches the public site.
+
+The site is served from the `dark-war` repo's own Pages site rather than from
+`kylirh.github.io`: a Pages site can hold exactly one custom domain, and that
+one already serves `kylir.com`.
+
+One-time setup, if it ever has to be redone:
+
+- DNS: a `CNAME` record for `darkwar` → `kylirh.github.io.`
+- Repo Settings → Pages: source **GitHub Actions**, custom domain
+  `darkwar.kylir.com`, Enforce HTTPS once the certificate provisions.
+
 ## How it works
 
 - Reuses the **same client bundle** the Electron app ships (`app/game.js`) — the
@@ -28,6 +45,11 @@ python3 -m http.server 5180 --directory apps/web/dist
 
 ## Notes
 
+- Full-screen illustrations (title, menu, mission-briefing art) ship as **WebP**
+  at quality 88, which is visually indistinguishable from the PNG originals at
+  1:1 and about 82% smaller. Keep new illustration art in WebP. The gameplay
+  atlas (`sprites.png`) stays PNG — it is sampled pixel-exactly and must not be
+  lossily compressed.
 - For a public deployment, serve over **HTTPS** and point multiplayer at a
   **`wss://`** server (browsers block mixed `ws://` content on `https://` pages).
 - Verified loading + starting a new game in a headless browser.

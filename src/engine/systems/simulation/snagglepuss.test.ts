@@ -11,7 +11,6 @@ import {
   CommandType,
   EventType,
 } from "../../types";
-import { idxFor } from "../../utils/helpers";
 import { setStateTile } from "../../utils/state-tiles";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";

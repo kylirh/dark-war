@@ -916,8 +916,8 @@ export class Physics {
           const baseAngle =
             Math.atan2(bullet.velocityY, bullet.velocityX) + Math.PI;
           for (let s = 0; s < 7; s++) {
-            const angle = baseAngle + (Math.random() - 0.5) * 1.8;
-            const sparkSpeed = 60 + Math.random() * 120;
+            const angle = baseAngle + (RNG.float() - 0.5) * 1.8;
+            const sparkSpeed = 60 + RNG.float() * 120;
             state.effects.push({
               id: crypto.randomUUID(),
               type: "spark",
@@ -1229,7 +1229,7 @@ export class Physics {
   /**
    * Update explosives - move, check collisions with monsters and walls
    */
-  public updateExplosives(state: GameState, dt: number): void {
+  public updateExplosives(state: GameState): void {
     const entityMap = new Map<string, GameEntity>();
     const explosives: ExplosiveEntity[] = [];
     for (const e of state.entities) {

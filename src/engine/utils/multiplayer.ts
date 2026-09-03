@@ -41,7 +41,3 @@ export function getMultiplayerConfigFromUrl(): MultiplayerConfig {
     typeof window === "undefined" ? "" : window.location.search,
   );
 }
-
-export function getMultiplayerModeFromUrl(): MultiplayerMode {
-  return getMultiplayerConfigFromUrl().mode;
-}

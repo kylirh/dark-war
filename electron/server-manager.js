@@ -11,6 +11,7 @@ const dgram = require("dgram");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
+const { APP_ID, parseDiscoveryPacket } = require("./discovery-packet");
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
@@ -18,7 +19,6 @@ const DISCOVERY_PORT = 7779;
 const DISCOVERY_BROADCAST = "255.255.255.255";
 const DISCOVERY_INTERVAL_MS = 2000;
 const DISCOVERY_TTL_MS = 7000; // remove server after 7s of silence
-const APP_ID = "dark-war-v1";
 
 // ─── Local IP detection ─────────────────────────────────────────────────────────
 
@@ -258,24 +258,14 @@ class DiscoveryManager {
     });
 
     socket.on("message", (buf, rinfo) => {
-      try {
-        const msg = JSON.parse(buf.toString("utf8"));
-        if (msg.app !== APP_ID) return;
-        const ip = rinfo.address;
-        const key = `${ip}:${msg.wsPort}`;
-        this._discoveredServers.set(key, {
-          ip,
-          port: msg.wsPort,
-          name: msg.name,
-          host: msg.host,
-          players: msg.players,
-          maxPlayers: msg.maxPlayers ?? 4,
-          phase: msg.phase ?? "lobby",
-          lastSeen: Date.now(),
-        });
-      } catch {
-        // Ignore malformed packets
-      }
+      // Untrusted input: anyone on the LAN can send this. Sanitized at the
+      // boundary so the renderer never sees raw packet fields.
+      const server = parseDiscoveryPacket(buf, rinfo.address);
+      if (!server) return;
+      this._discoveredServers.set(`${server.ip}:${server.port}`, {
+        ...server,
+        lastSeen: Date.now(),
+      });
     });
 
     socket.bind(DISCOVERY_PORT, "0.0.0.0", () => {

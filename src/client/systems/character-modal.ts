@@ -23,6 +23,12 @@ import {
 import { Music } from "./music";
 import { Sound } from "./sound";
 import { DiscoveredServer } from "./game-menu";
+import { escapeHtml } from "./html-escape";
+import {
+  SERVER_LIST_ERROR,
+  SERVER_LIST_UNRENDERED,
+  setStatusText,
+} from "./live-region";
 
 export type ModalTab = "inventory" | "settings" | "game";
 
@@ -41,14 +47,6 @@ export interface CharacterModalOptions {
   onMultiplayerGetServers?: () => Promise<DiscoveredServer[]>;
   onMultiplayerStartDiscovery?: () => void;
   onMultiplayerStopDiscovery?: () => void;
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 export class CharacterModal {
@@ -84,8 +82,7 @@ export class CharacterModal {
   private gameView: GameView = "main";
   private gameViewEls: Map<GameView, HTMLElement> = new Map();
   private mpRefreshTimer: number | null = null;
-  private mpLastServerKey = "";
-  private mpPlayerName = "Player";
+  private mpLastServerKey: string = SERVER_LIST_UNRENDERED;
   private mpGameName = "Dark War";
 
   // Preferences / settings
@@ -548,7 +545,7 @@ export class CharacterModal {
     mainView.className = "char-game-view";
 
     const logo = document.createElement("img");
-    logo.src = "assets/img/logo.png";
+    logo.src = "assets/img/logo.webp";
     logo.alt = "Dark War";
     logo.className = "char-game-logo";
     mainView.appendChild(logo);
@@ -634,6 +631,8 @@ export class CharacterModal {
     const hostStatus = document.createElement("div");
     hostStatus.id = "char-mp-host-status";
     hostStatus.className = "char-mp-status hidden";
+    hostStatus.setAttribute("role", "status");
+    hostStatus.setAttribute("aria-live", "polite");
     const hostBtn = document.createElement("button");
     hostBtn.type = "button";
     hostBtn.className = "char-modal-game-btn";
@@ -665,11 +664,14 @@ export class CharacterModal {
     const serverList = document.createElement("div");
     serverList.id = "char-mp-server-list";
     serverList.className = "char-mp-server-list";
+    serverList.setAttribute("aria-live", "polite");
     serverList.innerHTML =
       '<div class="char-mp-searching">Searching for games…</div>';
     const browseStatus = document.createElement("div");
     browseStatus.id = "char-mp-browse-status";
     browseStatus.className = "char-mp-status hidden";
+    browseStatus.setAttribute("role", "status");
+    browseStatus.setAttribute("aria-live", "polite");
     const refreshBtn = document.createElement("button");
     refreshBtn.type = "button";
     refreshBtn.className = "imb-btn";
@@ -714,6 +716,8 @@ export class CharacterModal {
     const joinStatus = document.createElement("div");
     joinStatus.id = "char-mp-join-status";
     joinStatus.className = "char-mp-status hidden";
+    joinStatus.setAttribute("role", "status");
+    joinStatus.setAttribute("aria-live", "polite");
     const joinBtn = document.createElement("button");
     joinBtn.type = "button";
     joinBtn.className = "char-modal-game-btn";
@@ -742,6 +746,8 @@ export class CharacterModal {
     const lobbyStatus = document.createElement("div");
     lobbyStatus.id = "char-mp-lobby-status";
     lobbyStatus.className = "char-mp-lobby-status";
+    lobbyStatus.setAttribute("role", "status");
+    lobbyStatus.setAttribute("aria-live", "polite");
     lobbyStatus.textContent = "Waiting for players…";
     const lobbyPlayers = document.createElement("div");
     lobbyPlayers.id = "char-mp-lobby-players";
@@ -881,7 +887,7 @@ export class CharacterModal {
   }
 
   private openBrowseGames(): void {
-    this.mpLastServerKey = "";
+    this.mpLastServerKey = SERVER_LIST_UNRENDERED;
     this._opts.onMultiplayerStartDiscovery?.();
     this.setGameView("browse");
     this.refreshServerList();
@@ -921,13 +927,16 @@ export class CharacterModal {
           '<div class="char-mp-searching">No games found — make sure your host is running.</div>';
         return;
       }
+      // LAN discovery data is untrusted (see electron/discovery-packet.js).
+      // Escape every string and coerce every number again here — the main process
+      // sanitizes at ingest, but this template is what actually reaches the DOM.
       list.innerHTML = servers
         .map(
           (s, i) => `
         <div class="char-mp-server-entry">
           <div class="char-mp-server-info">
-            <span class="char-mp-server-name">${escapeHtml(s.name)}</span>
-            <span class="char-mp-server-meta">${escapeHtml(s.host)} · ${s.players}/${s.maxPlayers} · ${s.phase}</span>
+            <span class="char-mp-server-name">${escapeHtml(String(s.name))}</span>
+            <span class="char-mp-server-meta">${escapeHtml(String(s.host))} · ${Number(s.players) || 0}/${Number(s.maxPlayers) || 0} · ${escapeHtml(String(s.phase))}</span>
           </div>
           <button class="imb-btn" data-char-server-index="${i}" type="button">Join</button>
         </div>`,
@@ -944,12 +953,16 @@ export class CharacterModal {
               "#char-mp-browse-name",
             );
             const name = (nameInput?.value.trim() || "Player").slice(0, 24);
-            this.mpPlayerName = name;
             this.setMpStatus("browse", "Connecting…");
             this._opts.onMultiplayerJoin?.(server.ip, server.port, name);
           });
         });
     } catch {
+      // Guarded like the success path: this runs on a timer and the list is an
+      // aria-live region, so an unconditional rewrite would re-announce the
+      // same error every tick for as long as scanning keeps failing.
+      if (this.mpLastServerKey === SERVER_LIST_ERROR) return;
+      this.mpLastServerKey = SERVER_LIST_ERROR;
       list.innerHTML =
         '<div class="char-mp-searching">Error scanning network.</div>';
     }
@@ -967,7 +980,6 @@ export class CharacterModal {
         ?.value.trim() || "Player"
     ).slice(0, 24);
     this.mpGameName = gameName;
-    this.mpPlayerName = playerName;
     this.setMpStatus("host", "Starting server…");
     this._opts.onMultiplayerHost?.(gameName, playerName);
   }
@@ -995,7 +1007,6 @@ export class CharacterModal {
       this.setMpStatus("join", "Invalid port.");
       return;
     }
-    this.mpPlayerName = playerName;
     this.setMpStatus("join", "Connecting…");
     this._opts.onMultiplayerJoin?.(ip, port, playerName);
   }
@@ -1015,8 +1026,7 @@ export class CharacterModal {
           : "char-mp-join-status";
     const el = this.window.querySelector<HTMLElement>(`#${id}`);
     if (!el) return;
-    el.textContent = msg;
-    el.classList.toggle("hidden", !msg);
+    setStatusText(el, msg);
   }
 
   private syncLobbyView(
@@ -1040,11 +1050,14 @@ export class CharacterModal {
       if (title)
         title.textContent = isHost ? `${this.mpGameName} — Lobby` : "Lobby";
       if (status)
-        status.textContent = isHost
-          ? players.length === 1
-            ? "Waiting for others…"
-            : `${players.length} players connected`
-          : "Waiting for host to start…";
+        setStatusText(
+          status,
+          isHost
+            ? players.length === 1
+              ? "Waiting for others…"
+              : `${players.length} players connected`
+            : "Waiting for host to start…",
+        );
       if (playersEl) {
         playersEl.innerHTML = players
           .map(
@@ -1240,14 +1253,14 @@ export class CharacterModal {
     const label = getSlotLabel(slot.type);
     const actions = getSlotActions(slot.type);
     const count = getSlotDisplayCount(this._player, index);
-    let html = `<div class="inv-tip-name">${label}</div>`;
+    let html = `<div class="inv-tip-name">${escapeHtml(label)}</div>`;
     if (count !== null && count !== undefined)
       html += `<div class="inv-tip-count">Count: ${count}</div>`;
     if (slot.type === ItemType.CTDM) {
       html += `<div class="inv-tip-count">Status: ${this._player.ctdmEnabled ? "ON" : "OFF"}</div>`;
     }
     if (actions.length > 0)
-      html += `<div class="inv-tip-actions">${actions.join("<br>")}</div>`;
+      html += `<div class="inv-tip-actions">${actions.map((a) => escapeHtml(a)).join("<br>")}</div>`;
     this.tooltipEl.innerHTML = html;
     this.tooltipEl.style.display = "";
     const rect = slotEl.getBoundingClientRect();

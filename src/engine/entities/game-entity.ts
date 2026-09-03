@@ -15,12 +15,18 @@ export abstract class GameEntity {
   /** Facing direction in radians (0 = right, PI/2 = down, PI = left, 3PI/2 = up) */
   public facingAngle: number = 0;
 
-  /** Read-only grid X coordinate derived from worldX */
+  /**
+   * Derived grid X coordinate.
+   * Do not assign this; mutate {@link worldX} instead.
+   */
   public get gridX(): number {
     return Math.floor(this.worldX / CELL_CONFIG.w);
   }
 
-  /** Read-only grid Y coordinate derived from worldY */
+  /**
+   * Derived grid Y coordinate.
+   * Do not assign this; mutate {@link worldY} instead.
+   */
   public get gridY(): number {
     return Math.floor(this.worldY / CELL_CONFIG.h);
   }
@@ -64,10 +70,16 @@ export abstract class GameEntity {
   /** Velocity in pixels per second along the Y axis */
   public velocityY: number = 0;
 
-  /** World X coordinate in pixels */
+  /**
+   * World X coordinate in pixels.
+   * This is the authoritative source of truth for entity position.
+   */
   public worldX: number;
 
-  /** World Y coordinate in pixels */
+  /**
+   * World Y coordinate in pixels.
+   * This is the authoritative source of truth for entity position.
+   */
   public worldY: number;
 
   constructor(gridX: number, gridY: number) {

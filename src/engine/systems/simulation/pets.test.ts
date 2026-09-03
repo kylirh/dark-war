@@ -3,13 +3,7 @@ import { Game } from "../../core/game";
 import { Physics } from "../physics";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { BulletEntity } from "../../entities/bullet-entity";
-import {
-  EntityKind,
-  ItemType,
-  MonsterType,
-  TileType,
-  CELL_CONFIG,
-} from "../../types";
+import { EntityKind, ItemType, MonsterType, TileType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { stepSimulationTick } from "./tick";
 import { updateMonsterSteering } from "./ai";
@@ -137,7 +131,7 @@ describe("a friendly pet fights for its owner", () => {
 
     for (let i = 0; i < 60; i++) stepSimulationTick(state);
 
-    const foeNow = state.entities.find((e) => e.id === foe.id) as
+    const foeNow = state.entityManager.getById(foe.id) as
       | { hp: number }
       | undefined;
     // The foe was bitten (damaged or already finished off).

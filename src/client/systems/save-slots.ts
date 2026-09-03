@@ -3,6 +3,7 @@
  */
 import { RetroModal } from "./retro-modal";
 import { SerializedState } from "../../engine/types";
+import { escapeHtml } from "./html-escape";
 
 export const SAVE_SLOT_COUNT = 8;
 export const SAVE_CHARACTER_NAME = "Captain Hazard";
@@ -64,9 +65,16 @@ function parseSaveRecord(
     return {
       version: 1,
       slot: parsedSlot,
-      characterName: record.characterName ?? SAVE_CHARACTER_NAME,
-      savedAt: record.savedAt ?? new Date(0).toISOString(),
-      region: record.region ?? "Unknown Region",
+      characterName:
+        typeof record.characterName === "string"
+          ? record.characterName
+          : SAVE_CHARACTER_NAME,
+      savedAt:
+        typeof record.savedAt === "string"
+          ? record.savedAt
+          : new Date(0).toISOString(),
+      region:
+        typeof record.region === "string" ? record.region : "Unknown Region",
       screenshotDataUrl: record.screenshotDataUrl ?? null,
       state: record.state,
     };
@@ -304,9 +312,10 @@ export class SaveSlotDialog {
     const slotLabel = `Slot ${slot.slot + 1}`;
     const occupiedClass = slot.isEmpty ? "is-empty" : "is-occupied";
     const selectedClass = slot.slot === this.selectedSlot ? "selected" : "";
-    const background = slot.screenshotDataUrl
-      ? ` style="--save-preview: url('${escapeAttribute(slot.screenshotDataUrl)}')"`
-      : "";
+    const background =
+      slot.screenshotDataUrl && isSafeImageDataUrl(slot.screenshotDataUrl)
+        ? ` style="--save-preview: url('${slot.screenshotDataUrl}')"`
+        : "";
     const actionLabel =
       this.mode === "save"
         ? `${slot.isEmpty ? "Save to" : "Overwrite"} ${slotLabel}`
@@ -319,7 +328,7 @@ export class SaveSlotDialog {
           class="save-slot-tile"
           data-save-slot="${slot.slot}"
           type="button"
-          aria-label="${escapeAttribute(actionLabel)}"
+          aria-label="${escapeHtml(actionLabel)}"
           ${disabled}
           ${background}
         >
@@ -518,14 +527,18 @@ function formatSavedAt(savedAt?: string): string {
   }).format(new Date(timestamp));
 }
 
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
+/**
+ * Save previews are `canvas.toDataURL("image/png")` output — base64, so free of
+ * quotes and parens. The value still lands inside a CSS `url(...)` in a `style`
+ * attribute, and HTML escaping protects nothing there: the HTML parser decodes
+ * entities before the CSS parser sees the value, so an escaped `&#39;` still
+ * closes the CSS string and lets the rest of the attribute be rewritten. Save
+ * records are read off disk and can be hand-edited, so check the shape instead
+ * and drop anything that does not match.
+ */
+const IMAGE_DATA_URL =
+  /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
 
-function escapeAttribute(str: string): string {
-  return escapeHtml(str).replace(/'/g, "&#39;");
+export function isSafeImageDataUrl(value: string): boolean {
+  return IMAGE_DATA_URL.test(value);
 }

@@ -108,7 +108,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     knockbackY?: number;
     knockbackDistance?: number;
   };
-  const target = state.entities.find((e) => e.id === data.targetId);
+  const target = state.entityManager.getById(data.targetId);
   if (!target) return;
 
   if (target.kind === EntityKind.PLAYER && state.options.godMode) {
@@ -156,7 +156,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       applyDamageKnockback(state, player, data);
       // On-hit attacker abilities: stun/slow (spider) and theft (snagglepuss/moppet).
       const attacker = data.sourceId
-        ? state.entities.find((e) => e.id === data.sourceId)
+        ? state.entityManager.getById(data.sourceId)
         : null;
       if (attacker && attacker.kind === EntityKind.MONSTER) {
         const flags = MONSTER_DEFS[(attacker as Monster).type]?.flags;
@@ -209,7 +209,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     monster.hp -= data.amount;
 
     const damageSource = data.sourceId
-      ? state.entities.find((entity) => entity.id === data.sourceId)
+      ? state.entityManager.getById(data.sourceId)
       : undefined;
     if (
       monster.type === MonsterType.SNAGGLEPUSS &&
@@ -238,7 +238,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       const mwx = monster.worldX ?? monster.gridX * CELL_CONFIG.w;
       const mwy = monster.worldY ?? monster.gridY * CELL_CONFIG.h;
       const sourceEntity = data.sourceId
-        ? state.entities.find((e) => e.id === data.sourceId)
+        ? state.entityManager.getById(data.sourceId)
         : null;
       const monsterTileIdx = idxFor(
         monster.gridX,
@@ -318,7 +318,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       data.sourceId &&
       monster.hp > 0
     ) {
-      const attacker = state.entities.find((e) => e.id === data.sourceId);
+      const attacker = state.entityManager.getById(data.sourceId);
       if (attacker?.kind === EntityKind.MONSTER) {
         monster.alertLevel = Math.max(monster.alertLevel ?? 0, 60);
         monster.lastAttackerId = data.sourceId;
@@ -544,7 +544,7 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
     fromExplosion?: boolean;
     sourceId?: string;
   };
-  const entity = state.entities.find((e) => e.id === data.entityId);
+  const entity = state.entityManager.getById(data.entityId);
   if (!entity) return;
 
   if (entity.kind === EntityKind.MONSTER) {
@@ -866,10 +866,8 @@ function processPickupItemEvent(state: GameState, event: GameEvent): void {
     actorId: string;
     itemId: string;
   };
-  const actor = state.entities.find((e) => e.id === data.actorId);
-  const item = state.entities.find((e) => e.id === data.itemId) as
-    | Item
-    | undefined;
+  const actor = state.entityManager.getById(data.actorId);
+  const item = state.entityManager.getById(data.itemId) as Item | undefined;
 
   if (!actor || !item || actor.kind !== EntityKind.PLAYER) return;
 

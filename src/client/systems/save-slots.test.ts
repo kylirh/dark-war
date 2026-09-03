@@ -14,6 +14,7 @@ import {
   writeSaveSlot,
   listSaveSlots,
   deleteSaveSlot,
+  isSafeImageDataUrl,
   SAVE_SLOT_COUNT,
 } from "./save-slots";
 
@@ -91,6 +92,23 @@ describe("readSaveSlot", () => {
     expect(record?.slot).toBe(2);
   });
 
+  it("falls back to defaults if fields are not strings", async () => {
+    store.set(
+      "darkwar-save-slot-1",
+      JSON.stringify({
+        version: 1,
+        state: { depth: 0 },
+        characterName: 123,
+        region: ["not a string"],
+        savedAt: {},
+      }),
+    );
+    const record = await readSaveSlot(0);
+    expect(record?.characterName).toBe("Captain Hazard");
+    expect(record?.region).toBe("Unknown Region");
+    expect(record?.savedAt).toBe(new Date(0).toISOString());
+  });
+
   it("backfills missing optional fields with defaults", async () => {
     store.set(
       "darkwar-save-slot-1",
@@ -139,5 +157,60 @@ describe("writeSaveSlot", () => {
       slot: 0,
       region: "Megacorp Exterior",
     });
+  });
+});
+
+/**
+ * The slot preview is interpolated into a CSS `url('...')` inside a `style`
+ * attribute. HTML escaping cannot secure that position — the HTML parser
+ * decodes entities before CSS parses the value — so the preview is checked
+ * against an allowlist instead. A save record is untrusted input like any
+ * other field here.
+ */
+describe("isSafeImageDataUrl", () => {
+  const PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
+
+  it("accepts what capturePlayerSnapshot produces", () => {
+    expect(isSafeImageDataUrl(PNG)).toBe(true);
+    expect(isSafeImageDataUrl("data:image/jpeg;base64,/9j/4AAQSkZJRg")).toBe(
+      true,
+    );
+    expect(isSafeImageDataUrl("data:image/webp;base64,UklGRh4AAABXRUJQ")).toBe(
+      true,
+    );
+  });
+
+  it("rejects a payload that would break out of the CSS url()", () => {
+    // The attack this guard exists for: close the url(), then append a
+    // declaration that fetches an attacker URL when the slot renders.
+    const breakout =
+      "data:image/png;base64,AAAA'); background-image: url('http://evil.test/x";
+    expect(isSafeImageDataUrl(breakout)).toBe(false);
+    // Parens and quotes are outside the base64 alphabet, so none survive.
+    for (const char of ["'", '"', "(", ")", ";", " ", "\\"]) {
+      expect(isSafeImageDataUrl(`data:image/png;base64,AA${char}AA`)).toBe(
+        false,
+      );
+    }
+  });
+
+  it("rejects schemes and media types that are not a still image", () => {
+    for (const value of [
+      "javascript:alert(1)",
+      "data:text/html;base64,PHNjcmlwdD4=",
+      "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=",
+      "http://evil.test/x.png",
+      "//evil.test/x.png",
+      "",
+    ]) {
+      expect(isSafeImageDataUrl(value)).toBe(false);
+    }
+  });
+
+  it("anchors both ends so nothing can be smuggled around the pattern", () => {
+    expect(isSafeImageDataUrl(` ${PNG}`)).toBe(false);
+    expect(isSafeImageDataUrl(`${PNG} `)).toBe(false);
+    expect(isSafeImageDataUrl(`x${PNG}`)).toBe(false);
+    expect(isSafeImageDataUrl(`${PNG}\n${PNG}`)).toBe(false);
   });
 });

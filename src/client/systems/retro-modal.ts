@@ -2,9 +2,21 @@
  * Reusable retro system modal window.
  */
 
+import { escapeHtml } from "./html-escape";
+
 export interface RetroModalOptions {
   id: string;
   title: string;
+  /**
+   * Raw markup for the dialog body, inserted verbatim.
+   *
+   * Unlike `id` and `title`, this is **not** escaped — panels build their own
+   * markup here and need the tags to survive. That makes it the one sink in
+   * this component that stays the caller's responsibility: anything in `body`
+   * that did not come from a literal in the source (a player name, a save
+   * field, a LAN discovery packet) must be run through `escapeHtml` before it
+   * reaches this option.
+   */
   body: string;
   initialPosition: { top: number; left: number };
   className?: string;
@@ -37,15 +49,15 @@ export class RetroModal {
       <div class="imb-dialog-titlebar" data-drag-handle="true">
         <button
           class="imb-dialog-close retro-window-button retro-window-button-close"
-          data-close="${options.id}"
+          data-close="${escapeHtml(options.id)}"
           type="button"
           title="Close"
-          aria-label="Close ${options.title}"
+          aria-label="Close ${escapeHtml(options.title)}"
         >
           <span aria-hidden="true">X</span>
         </button>
         <div class="imb-dialog-stripes"></div>
-        <span class="imb-dialog-title">${options.title}</span>
+        <span class="imb-dialog-title">${escapeHtml(options.title)}</span>
         <div class="imb-dialog-stripes"></div>
       </div>
       <div class="imb-dialog-body">${options.body}</div>

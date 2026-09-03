@@ -19,6 +19,7 @@ import {
   Player,
 } from "../../types";
 import { Game } from "../../core/game";
+import { EntityManager } from "../../core/entity-manager";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { setPositionFromGrid } from "../../utils/helpers";
 import {
@@ -31,8 +32,14 @@ import {
 
 describe("Simulation Commands Management", () => {
   let state: GameState;
+  let entityManager: EntityManager;
 
   beforeEach(() => {
+    // A real EntityManager over the array `state.entities` points at, so the
+    // id map and the array agree the way they do in production. Lookups in
+    // resolveCommand go through `state.entityManager.getById`, and a literal
+    // that set `entities` directly would leave those two views disagreeing.
+    entityManager = new EntityManager();
     state = {
       commandsByTick: new Map(),
       sim: {
@@ -40,7 +47,8 @@ describe("Simulation Commands Management", () => {
         nowTick: 100,
         targetTimeScale: 1,
       },
-      entities: [],
+      entities: entityManager.entities,
+      entityManager,
       conversations: new Map(),
       events: [],
       multiplayer: { mode: "offline" },
@@ -284,7 +292,7 @@ describe("Simulation Commands Management", () => {
         resting: false,
         nextActTick: 0,
       } as Player;
-      state.entities = [player];
+      entityManager.replaceAll([player]);
     });
 
     it("ignores commands from dead players", () => {

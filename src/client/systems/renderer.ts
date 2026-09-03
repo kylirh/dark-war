@@ -1,5 +1,5 @@
 import {
-  Application,
+  WebGLRenderer,
   Container,
   Graphics,
   Sprite,
@@ -94,7 +94,8 @@ export interface MatterManipulatorOverlay {
  * Handles rendering the game using Pixi.js
  */
 export class Renderer {
-  private app: Application;
+  private pixi: WebGLRenderer;
+  private stage: Container;
   private readonly canvas: HTMLCanvasElement;
   private mapContainer: Container;
   private entityContainer: Container;
@@ -134,8 +135,12 @@ export class Renderer {
     // Get the viewport element (parent with scrolling)
     this.viewportElement = canvas.parentElement || undefined;
 
-    // Create Pixi application
-    this.app = new Application();
+    // Drive WebGL directly instead of going through Application. Application
+    // pulls in autoDetectRenderer (and with it the whole WebGPU backend) and
+    // starts a second ticker that re-draws on its own RAF, out of phase with
+    // the game loop. This game already owns its loop and only ever wants WebGL.
+    this.pixi = new WebGLRenderer();
+    this.stage = new Container();
 
     // Initialize containers
     this.mapContainer = new Container();
@@ -159,24 +164,23 @@ export class Renderer {
     const { width: canvasWidth, height: canvasHeight } =
       this.computeViewportPixels();
 
-    // Initialize Pixi application
-    await this.app.init({
+    // Initialize the renderer
+    await this.pixi.init({
       canvas,
       width: canvasWidth,
       height: canvasHeight,
       backgroundColor: 0x4954aa,
       antialias: false, // Disable antialiasing for sharp pixels
       roundPixels: true, // Ensure pixel-perfect rendering
-      preserveDrawingBuffer: true, // Allows reliable save-slot screenshots.
     });
 
     // Scale the stage to render at configured scale
-    this.app.stage.scale.set(this.scale);
+    this.stage.scale.set(this.scale);
 
     // Add containers to stage
-    this.app.stage.addChild(this.mapContainer);
-    this.app.stage.addChild(this.entityContainer);
-    this.app.stage.addChild(this.worldCalloutContainer);
+    this.stage.addChild(this.mapContainer);
+    this.stage.addChild(this.entityContainer);
+    this.stage.addChild(this.worldCalloutContainer);
 
     const spriteSheetUrl = "./assets/img/sprites.png?v=autotiles-1";
     try {
@@ -195,7 +199,6 @@ export class Renderer {
         this.render(
           this.pendingRender.state,
           this.pendingRender.isDead,
-          0,
           this.pendingRender.callouts,
         );
         this.pendingRender = undefined;
@@ -234,7 +237,7 @@ export class Renderer {
    */
   public setScale(newScale: number): void {
     this.scale = newScale;
-    this.app.stage.scale.set(this.scale);
+    this.stage.scale.set(this.scale);
     this.resizeToViewport();
   }
 
@@ -268,20 +271,17 @@ export class Renderer {
    */
   private resizeToViewport(): void {
     const { width, height } = this.computeViewportPixels();
-    if (
-      this.app.renderer.width === width &&
-      this.app.renderer.height === height
-    ) {
+    if (this.pixi.width === width && this.pixi.height === height) {
       return;
     }
-    this.app.renderer.resize(width, height);
+    this.pixi.resize(width, height);
   }
 
   /** The visible window size in world pixels (canvas pixels / zoom). */
   private getViewWorldSize(): { viewW: number; viewH: number } {
     return {
-      viewW: this.app.renderer.width / this.scale,
-      viewH: this.app.renderer.height / this.scale,
+      viewW: this.pixi.width / this.scale,
+      viewH: this.pixi.height / this.scale,
     };
   }
 
@@ -351,14 +351,6 @@ export class Renderer {
     );
     if (renderedPreview) return renderedPreview;
 
-    const copied = this.capturePlayerSnapshotFromCanvas(
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
-    );
-    if (copied) return copied;
-
     return this.capturePlayerSnapshotFromRenderer(
       sourceX,
       sourceY,
@@ -367,6 +359,16 @@ export class Renderer {
     );
   }
 
+  /**
+   * Fallback capture: re-renders the stage into a render texture.
+   *
+   * This deliberately does not read back the live WebGL canvas. Doing that
+   * would need `preserveDrawingBuffer: true` on the renderer, which keeps the
+   * drawing buffer alive between frames and costs on every frame of play, for
+   * the sake of a path only ever taken when the sprite-sheet preview is
+   * unavailable. `extract` re-renders on demand instead, so it works with the
+   * buffer discarded as usual.
+   */
   private capturePlayerSnapshotFromRenderer(
     sourceX: number,
     sourceY: number,
@@ -374,8 +376,8 @@ export class Renderer {
     sourceHeight: number,
   ): string | null {
     try {
-      const extractedCanvas = this.app.renderer.extract.canvas({
-        target: this.app.stage,
+      const extractedCanvas = this.pixi.extract.canvas({
+        target: this.stage,
         frame: new Rectangle(sourceX, sourceY, sourceWidth, sourceHeight),
         resolution: 1,
         clearColor: 0x05070a,
@@ -386,31 +388,8 @@ export class Renderer {
     }
   }
 
-  private capturePlayerSnapshotFromCanvas(
-    sourceX: number,
-    sourceY: number,
-    sourceWidth: number,
-    sourceHeight: number,
-  ): string | null {
-    try {
-      return this.canvasToPreviewDataUrl(
-        this.canvas,
-        sourceX,
-        sourceY,
-        sourceWidth,
-        sourceHeight,
-      );
-    } catch {
-      return null;
-    }
-  }
-
   private canvasToPreviewDataUrl(
     sourceCanvas: HTMLCanvasElement,
-    sourceX: number = 0,
-    sourceY: number = 0,
-    sourceWidth: number = sourceCanvas.width,
-    sourceHeight: number = sourceCanvas.height,
   ): string | null {
     const preview = document.createElement("canvas");
     preview.width = 320;
@@ -422,10 +401,10 @@ export class Renderer {
     context.fillRect(0, 0, preview.width, preview.height);
     context.drawImage(
       sourceCanvas,
-      sourceX,
-      sourceY,
-      sourceWidth,
-      sourceHeight,
+      0,
+      0,
+      sourceCanvas.width,
+      sourceCanvas.height,
       0,
       0,
       preview.width,
@@ -883,27 +862,6 @@ export class Renderer {
     return texture;
   }
 
-  /**
-   * Create a Pixi sprite from sprite sheet coordinates
-   */
-  private createSprite(
-    x: number,
-    y: number,
-    screenX: number,
-    screenY: number,
-  ): Sprite | null {
-    const texture = this.getTexture(x, y);
-    if (!texture) return null;
-
-    const sprite = new Sprite(texture);
-    sprite.x = screenX;
-    sprite.y = screenY;
-    sprite.width = CELL_CONFIG.w;
-    sprite.height = CELL_CONFIG.h;
-
-    return sprite;
-  }
-
   private createSpriteFromFrame(
     frame: RenderFrame,
     screenX: number,
@@ -1108,12 +1066,10 @@ export class Renderer {
    * Render the entire game state with interpolation
    * @param state Game state
    * @param isDead Whether player is dead
-   * @param alpha Interpolation factor (0.0 to 1.0) for smooth movement
    */
   public render(
     state: GameState,
     isDead: boolean = false,
-    alpha: number = 0,
     callouts: readonly WorldCalloutView[] = [],
   ): void {
     if (!this.ready) {
@@ -1143,11 +1099,11 @@ export class Renderer {
     }
     this.shakeIntensity *= 0.86;
     if (this.shakeIntensity < 0.3) this.shakeIntensity = 0;
-    this.app.stage.x =
+    this.stage.x =
       this.shakeIntensity > 0
         ? (Math.random() - 0.5) * this.shakeIntensity * this.scale
         : 0;
-    this.app.stage.y =
+    this.stage.y =
       this.shakeIntensity > 0
         ? (Math.random() - 0.5) * this.shakeIntensity * this.scale
         : 0;
@@ -2157,6 +2113,11 @@ export class Renderer {
       anchoredCallouts.push({ ...callout, anchorX, anchorY });
     }
     this.worldCalloutLayer.render(anchoredCallouts, viewW, viewH);
+
+    // The scene graph is now current for this frame — draw it. Application's
+    // ticker used to do this on its own RAF; doing it here means exactly one
+    // draw per game frame, of a fully updated scene.
+    this.pixi.render(this.stage);
   }
 
   /**
