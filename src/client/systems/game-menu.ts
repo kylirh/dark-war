@@ -106,7 +106,6 @@ export class GameMenu {
     | "connecting"
     | "lobby"
     | "playing" = "disconnected";
-  private mpDiscoveredServers: DiscoveredServer[] = [];
   private mpRefreshTimer: number | null = null;
   private mpStatusMessage = "";
   private mpLastRenderedServerKey: string = SERVER_LIST_UNRENDERED;
@@ -623,7 +622,6 @@ export class GameMenu {
     try {
       const servers = await (this.options.onMultiplayerGetServers?.() ??
         Promise.resolve([]));
-      this.mpDiscoveredServers = servers;
       this.renderServerList(list, servers);
     } catch {
       // Guarded like renderServerList: this runs on a 3s timer, and the list is
