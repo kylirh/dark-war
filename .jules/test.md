@@ -1,4 +1,4 @@
-## 2026-09-03 - Explosion recursion prevention test
+## 2024-05-19 - Explosion recursion prevention test
 
 **What was found:** The `!data.fromExplosion` guard on flutterbang death explosions in `processDeathEvent` lacked test coverage, leaving it vulnerable to regressions where an explosive chain reaction could infinitely recurse.
 
