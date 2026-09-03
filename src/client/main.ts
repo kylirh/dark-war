@@ -289,7 +289,7 @@ initDebugFlag();
 /**
  * The main game application
  */
-class DarkWar {
+export class DarkWar {
   private game: Game;
   private gameLoop: GameLoop;
   private physics: Physics;

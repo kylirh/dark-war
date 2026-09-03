@@ -5,3 +5,21 @@ import { webcrypto } from "node:crypto";
 if (!(globalThis as { crypto?: unknown }).crypto) {
   (globalThis as { crypto?: unknown }).crypto = webcrypto;
 }
+
+(global as any).window = {
+  location: { search: "" },
+  addEventListener: () => {},
+  removeEventListener: () => {},
+  requestAnimationFrame: () => {},
+  native: undefined,
+};
+
+(global as any).document = {
+  getElementById: () => ({}),
+  createElement: () => ({ style: {}, classList: { add: () => {} } }),
+  body: {
+    classList: { add: () => {}, remove: () => {} },
+    appendChild: () => {},
+  },
+  documentElement: { classList: { add: () => {}, remove: () => {} } },
+};
