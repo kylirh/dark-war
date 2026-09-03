@@ -27,6 +27,27 @@ const resolveTestCell: WorldCellResolver = (layers, index) => {
   };
 };
 
+describe("createWorldPlaneLayers", () => {
+  it("allocates standard map dimensions", () => {
+    const layers = createWorldPlaneLayers(10, 10);
+    expect(layers.ground).toBeInstanceOf(Uint16Array);
+    expect(layers.structure).toBeInstanceOf(Uint16Array);
+    expect(layers.fixture).toBeInstanceOf(Uint16Array);
+    expect(layers.elevation).toBeInstanceOf(Int16Array);
+    expect(layers.damage).toBeInstanceOf(Uint8Array);
+    for (const layer of Object.values(layers)) expect(layer).toHaveLength(100);
+  });
+
+  it("handles zero dimensions", () => {
+    const layers = createWorldPlaneLayers(0, 5);
+    for (const layer of Object.values(layers)) expect(layer).toHaveLength(0);
+  });
+
+  it("throws RangeError on negative dimensions", () => {
+    expect(() => createWorldPlaneLayers(-1, 5)).toThrowError(RangeError);
+  });
+});
+
 describe("WorldPlane", () => {
   it("allocates aligned typed-array layers", () => {
     const layers = createWorldPlaneLayers(5, 4);
@@ -101,5 +122,59 @@ describe("WorldPlane", () => {
     expect(() => new WorldPlane(2, 2, invalidLayers, resolveTestCell)).toThrow(
       "WorldPlane layers must match width × height",
     );
+  });
+
+  it("throws when setTile is called without a writeCell function", () => {
+    const layers = createWorldPlaneLayers(2, 2);
+    const plane = new WorldPlane(2, 2, layers, resolveTestCell);
+
+    expect(() => plane.setTile(0, 0, TileType.FLOOR)).toThrow(
+      "This WorldPlane does not support scalar tile writes",
+    );
+  });
+
+  it("ignores setTile calls out of bounds", () => {
+    const layers = createWorldPlaneLayers(2, 2);
+    const writeCell = () => {};
+    const plane = new WorldPlane(2, 2, layers, resolveTestCell, writeCell);
+
+    // Should not throw
+    plane.setTile(-1, 0, TileType.FLOOR);
+  });
+
+  it("uses default elevation traversal check when resolveTraversal is omitted", () => {
+    const layers = createWorldPlaneLayers(3, 1);
+    layers.ground.fill(GROUND_GRASS);
+    const plane = new WorldPlane(3, 1, layers, resolveTestCell);
+
+    // Both at 0 elevation
+    expect(plane.canTraverse(0, 0, 1, 0)).toBe(true);
+
+    // Change elevation
+    layers.elevation[1] = 5;
+    expect(plane.canTraverse(0, 0, 1, 0)).toBe(false);
+  });
+
+  it("applies edits across various layers and caps values", () => {
+    const layers = createWorldPlaneLayers(2, 2);
+    layers.ground.fill(GROUND_GRASS);
+    const plane = new WorldPlane(2, 2, layers, resolveTestCell);
+
+    const changes = plane.editCell(0, 0, {
+      ground: GROUND_WATER,
+      structure: STRUCTURE_BRIDGE,
+      fixture: 42,
+      elevation: 40000, // Caps at 32767
+      damage: 300, // Caps at 255
+    });
+
+    expect(changes).toEqual([0]);
+    const index = plane.indexFor(0, 0);
+
+    expect(layers.ground[index]).toBe(GROUND_WATER);
+    expect(layers.structure[index]).toBe(STRUCTURE_BRIDGE);
+    expect(layers.fixture[index]).toBe(42);
+    expect(layers.elevation[index]).toBe(32767);
+    expect(layers.damage[index]).toBe(255);
   });
 });
