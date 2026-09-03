@@ -210,5 +210,20 @@ describe("preferences", () => {
       // This should not throw
       expect(() => savePreferences(prefs)).not.toThrow();
     });
+
+    it("silently handles errors when JSON.stringify throws", () => {
+      const stringifySpy = vi
+        .spyOn(JSON, "stringify")
+        .mockImplementationOnce(() => {
+          throw new Error("TypeError: Converting circular structure to JSON");
+        });
+
+      const prefs: UserPreferences = { ...DEFAULT_PREFERENCES };
+
+      // This should not throw
+      expect(() => savePreferences(prefs)).not.toThrow();
+
+      stringifySpy.mockRestore();
+    });
   });
 });
