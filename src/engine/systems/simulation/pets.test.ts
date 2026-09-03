@@ -8,7 +8,6 @@ import {
   ItemType,
   MonsterType,
   TileType,
-  CELL_CONFIG,
 } from "../../types";
 import { RNG } from "../../utils/rng";
 import { stepSimulationTick } from "./tick";
