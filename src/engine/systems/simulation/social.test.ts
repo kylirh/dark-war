@@ -10,8 +10,41 @@ import { getSocialFacts } from "./conversation";
 import { processEventQueue } from "./events";
 import { EntityKind, EventType, ItemType, MonsterType } from "../../types";
 import { PlayerEntity } from "../../entities/player-entity";
+import { Entity } from "../../types";
 
 describe("social actors", () => {
+  describe("canTalkTo", () => {
+    it("returns true when entity has social and interactable with talk affordance", () => {
+      const entity = {
+        social: { defId: "some-def" },
+        interactable: { affordances: ["talk"] },
+      } as Entity;
+      expect(canTalkTo(entity)).toBe(true);
+    });
+
+    it("returns false when entity lacks social component", () => {
+      const entity = {
+        interactable: { affordances: ["talk"] },
+      } as Entity;
+      expect(canTalkTo(entity)).toBe(false);
+    });
+
+    it("returns false when entity lacks interactable component", () => {
+      const entity = {
+        social: { defId: "some-def" },
+      } as Entity;
+      expect(canTalkTo(entity)).toBe(false);
+    });
+
+    it("returns false when entity interactable affordances lack talk", () => {
+      const entity = {
+        social: { defId: "some-def" },
+        interactable: { affordances: ["inspect"] as any[] },
+      } as Entity;
+      expect(canTalkTo(entity)).toBe(false);
+    });
+  });
+
   it("builds a workshop builder wearing social/interactable/peaceful", () => {
     const builder = createWorkshopBuilder(5, 5);
     expect(builder.id).toBe(WORKSHOP_BUILDER_ID);
