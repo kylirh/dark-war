@@ -107,32 +107,51 @@ export function dropPlayerInventoryOnDeath(
   }
 
   const retainedCoreTypes = new Set<ItemType>();
-  if (
-    player.hasCTDM ||
-    player.inventorySlots.some((slot) => slot.type === ItemType.CTDM)
-  ) {
+  const typesInSlots = new Set<ItemType>();
+
+  for (let i = 0; i < player.inventorySlots.length; i++) {
+    const type = player.inventorySlots[i].type;
+    if (type !== null) {
+      typesInSlots.add(type);
+    }
+  }
+
+  if (player.hasCTDM || typesInSlots.has(ItemType.CTDM)) {
     player.hasCTDM = true;
     retainedCoreTypes.add(ItemType.CTDM);
   }
+
   if (
     player.hasMatterManipulator ||
-    player.inventorySlots.some(
-      (slot) => slot.type === ItemType.MATTER_MANIPULATOR,
-    )
+    typesInSlots.has(ItemType.MATTER_MANIPULATOR)
   ) {
     player.hasMatterManipulator = true;
     retainedCoreTypes.add(ItemType.MATTER_MANIPULATOR);
   }
 
-  player.inventorySlots = player.inventorySlots.map((slot) =>
-    slot.type && retainedCoreTypes.has(slot.type)
-      ? { type: slot.type }
-      : { type: null },
-  );
+  const retainedFound = new Set<ItemType>();
+  const emptySlots: Array<{ type: ItemType | null }> = [];
+
+  for (let i = 0; i < player.inventorySlots.length; i++) {
+    const slot = player.inventorySlots[i];
+    if (slot.type && retainedCoreTypes.has(slot.type)) {
+      retainedFound.add(slot.type);
+      player.inventorySlots[i] = { type: slot.type }; // Explicitly copy to preserve old behavior of mapped slots
+    } else {
+      const emptySlot = { type: null };
+      player.inventorySlots[i] = emptySlot;
+      emptySlots.push(emptySlot);
+    }
+  }
+
+  let emptyIdx = 0;
   for (const type of retainedCoreTypes) {
-    if (player.inventorySlots.some((slot) => slot.type === type)) continue;
-    const empty = player.inventorySlots.find((slot) => slot.type === null);
-    if (empty) empty.type = type;
+    if (!retainedFound.has(type)) {
+      if (emptyIdx < emptySlots.length) {
+        emptySlots[emptyIdx].type = type;
+        emptyIdx++;
+      }
+    }
   }
 
   player.itemCounts = {};
