@@ -780,10 +780,20 @@ export interface GameState {
   enhancedVision: boolean;
   visibilityByPlayer: Map<string, Set<number>>;
   exploredByPlayer: Map<string, Set<number>>;
+  /**
+   * The active simulation entity array. Read freely; never mutate it here.
+   *
+   * Adds and removes go through {@link entityManager} — `push`, `splice`,
+   * `filter`, or reassignment desync the id/item lookup indexes, the physics
+   * bodies `Physics.syncEntityBodies` reconciles from spawn/remove diffs, and
+   * the per-entity network deltas built from the same diffs.
+   */
   entities: Entity[];
-  // Owns entity add/remove and lifecycle tracking. Shares its array with
-  // `entities` above (same reference, mutated in place). Runtime-only —
-  // never serialized.
+  /**
+   * Owns entity add/remove and lifecycle tracking. Shares its array with
+   * {@link entities} above (same reference, mutated in place). Runtime-only —
+   * never serialized.
+   */
   entityManager: EntityManager;
   /** World-level relationship store (per-pair affinity/fear/grievance). */
   relationships: import("./core/relationship-graph").RelationshipGraph;
