@@ -81,12 +81,10 @@ export class EntityManager {
 
   /** Remove every entity matching a predicate. */
   destroyWhere(predicate: (entity: Entity) => boolean): void {
-    for (let i = this._entities.length - 1; i >= 0; i--) {
-      const entity = this._entities[i];
+    for (const entity of [...this._entities]) {
+      if (!this.has(entity.id)) continue;
       if (predicate(entity)) {
-        this._entities.splice(i, 1);
-        this.unindex(entity);
-        this.markRemoved(entity.id);
+        this.destroy(entity);
       }
     }
   }

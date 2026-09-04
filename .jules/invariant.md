@@ -1,0 +1,7 @@
+## 2025-01-20 - Fix index desync on EntityManager.destroyWhere
+
+**What was found:** `EntityManager.destroyWhere` iterates backwards over `this._entities` and calls `this._entities.splice(i, 1)` directly when an entity matches the predicate. However, if the `predicate` function internally mutates the `_entities` array (e.g. by destroying another entity), the `_entities` array length shrinks and the elements shift. This causes `this._entities.splice(i, 1)` to remove the *wrong* entity and leaves the `EntityManager` out of sync, because `this.unindex(entity)` will unindex the correct entity while the array mutation removed an innocent entity.
+
+**Action:** Replaced the backward array iteration with a loop over a shallow copy (`[...this._entities]`). For every entity that matches the predicate, we explicitly call `this.destroy(entity)`, which internally looks up the entity's correct current index and correctly manages all indices. We also check `if (!this.has(entity.id)) continue;` to ensure we don't attempt to destroy entities that were already removed earlier in the same iteration loop.
+
+**Prevention:** Never iterate directly over a mutable array if the loop body executes user-provided or external functions (like `predicate`) that could mutate the array. When processing bulk operations (like `destroyWhere`), rely on the core lifecycle methods (`destroy`) to handle index lookup and cleanup correctly, rather than duplicating the array splicing logic.
