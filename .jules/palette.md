@@ -48,3 +48,11 @@ duplicate reads exactly like a regression.
 **Action:** Added `role="dialog"`, `aria-modal="true"`, and an accessible label to the character modal window. Automatically shifted focus into the modal tab list (`tabButtons.get(tab)?.focus()`) inside `open()`. Decorated the custom tab implementation with standard ARIA roles (`tablist`, `tab`, `tabpanel`) and dynamically toggled `aria-selected` during tab switches so users are aware of the active view.
 
 **Prevention:** Always mark modal containers with `role="dialog"` and `aria-modal="true"`, and explicitly shift focus into them upon presentation. When building custom tab views, implement the full set of tab roles and `aria-selected` to convey state to screen readers.
+
+## 2024-09-04 - Modal dialog semantic roles and attributes
+
+**What was found:** The `RetroModal` component (`src/client/systems/retro-modal.ts`) creates floating dialogs but failed to identify itself to assistive technologies. It lacked a `role="dialog"` attribute, `aria-modal="true"`, and a programmatically associated accessible name (via `aria-labelledby`).
+
+**Action:** Modified `RetroModal` to add `role="dialog"`, `aria-modal="true"`, and `aria-labelledby` to its main `imb-dialog` wrapper element. I generated an ID for the title text `<span>` based on the modal's ID to serve as the target for `aria-labelledby`.
+
+**Prevention:** When creating reusable UI container components that behave as dialogs or modal overlays, explicitly provide ARIA roles (`dialog` or `alertdialog`), define `aria-modal="true"` to trap virtual focus, and ensure the container's accessible name is linked to its visible title element using `aria-labelledby`.

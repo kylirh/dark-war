@@ -42,6 +42,12 @@ export class RetroModal {
     this.element.id = options.id;
     this.element.className =
       `imb-dialog hidden ${options.className ?? ""}`.trim();
+    this.element.setAttribute("role", "dialog");
+    this.element.setAttribute("aria-modal", "true");
+    this.element.setAttribute(
+      "aria-labelledby",
+      `${escapeHtml(options.id)}-title`,
+    );
     this.element.dataset.centerOnOpen = String(options.centerOnOpen ?? false);
     this.element.style.top = `${options.initialPosition.top}px`;
     this.element.style.left = `${options.initialPosition.left}px`;
@@ -57,7 +63,7 @@ export class RetroModal {
           <span aria-hidden="true">X</span>
         </button>
         <div class="imb-dialog-stripes"></div>
-        <span class="imb-dialog-title">${escapeHtml(options.title)}</span>
+        <span id="${escapeHtml(options.id)}-title" class="imb-dialog-title">${escapeHtml(options.title)}</span>
         <div class="imb-dialog-stripes"></div>
       </div>
       <div class="imb-dialog-body">${options.body}</div>
