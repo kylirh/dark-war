@@ -49,10 +49,12 @@ duplicate reads exactly like a regression.
 
 **Prevention:** Always mark modal containers with `role="dialog"` and `aria-modal="true"`, and explicitly shift focus into them upon presentation. When building custom tab views, implement the full set of tab roles and `aria-selected` to convey state to screen readers.
 
-## 2024-09-04 - Modal dialog semantic roles and attributes
+## 2026-09-04 - Modal dialog semantic roles and attributes
 
-**What was found:** The `RetroModal` component (`src/client/systems/retro-modal.ts`) creates floating dialogs but failed to identify itself to assistive technologies. It lacked a `role="dialog"` attribute, `aria-modal="true"`, and a programmatically associated accessible name (via `aria-labelledby`).
+**What was found:** The `RetroModal` component (`src/client/systems/retro-modal.ts`) creates floating dialogs but failed to identify itself to assistive technologies. It lacked a `role="dialog"` attribute and a programmatically associated accessible name (via `aria-labelledby`), so the About, pause, and save-slot windows were announced as anonymous groups.
 
-**Action:** Modified `RetroModal` to add `role="dialog"`, `aria-modal="true"`, and `aria-labelledby` to its main `imb-dialog` wrapper element. I generated an ID for the title text `<span>` based on the modal's ID to serve as the target for `aria-labelledby`.
+**Action:** Modified `RetroModal` to add `role="dialog"` and `aria-labelledby` to its main `imb-dialog` wrapper element, generating an ID for the title text `<span>` from the modal's ID to serve as the target.
 
-**Prevention:** When creating reusable UI container components that behave as dialogs or modal overlays, explicitly provide ARIA roles (`dialog` or `alertdialog`), define `aria-modal="true"` to trap virtual focus, and ensure the container's accessible name is linked to its visible title element using `aria-labelledby`.
+**Rejected in review:** the first version of this change also set `aria-modal="true"`. That is wrong for this component. `RetroModal` windows stack — `GameMenu.syncModalState` keeps one shared scrim for "any modal open" and Escape closes the topmost of a list, and the Electron application menu can open the About dialog while the pause dialog is already up. `aria-modal="true"` tells assistive technology to treat everything outside the dialog as inert, so two open windows would each hide the other. `RetroModal` also has no focus trap, which the original change acknowledged. The attribute was dropped.
+
+**Prevention:** `aria-modal="true"` is a claim about runtime behavior, not a decoration that belongs on anything dialog-shaped. Only assert it where exactly one dialog can be open and focus is actually confined to it — the character modal, which owns a click-to-close scrim, qualifies; a stacking window manager does not. `role="dialog"` plus an `aria-labelledby` accessible name is safe either way.
