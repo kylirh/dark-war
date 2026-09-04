@@ -199,4 +199,26 @@ describe("picking up new items lands them in the inventory", () => {
     expect(taken).toBeLessThan(5); // armor softened the blow
     expect(state.pendingAlerts).toEqual([]);
   });
+
+  it("explosion damage bypasses armor", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const { player, state } = pickUp(game, ItemType.MACROMETAL_JACKET);
+    expect(player.armor).toBeGreaterThan(0);
+
+    const hpBefore = player.hp;
+    pushEvent(state, {
+      type: EventType.DAMAGE,
+      data: {
+        type: "DAMAGE",
+        targetId: player.id,
+        amount: 5,
+        fromExplosion: true,
+      },
+    });
+    processEventQueue(state);
+
+    const taken = hpBefore - player.hp;
+    expect(taken).toBe(5); // armor bypassed
+  });
 });
