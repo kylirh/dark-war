@@ -780,6 +780,11 @@ export interface GameState {
   enhancedVision: boolean;
   visibilityByPlayer: Map<string, Set<number>>;
   exploredByPlayer: Map<string, Set<number>>;
+  /**
+   * The active simulation entity array.
+   * Do not mutate this directly; use {@link entityManager} instead. Direct additions
+   * or removals (e.g. `push`, `filter`) will desynchronize physics bodies and network state.
+   */
   entities: Entity[];
   // Owns entity add/remove and lifecycle tracking. Shares its array with
   // `entities` above (same reference, mutated in place). Runtime-only —
