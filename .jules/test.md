@@ -6,7 +6,7 @@
 
 **Prevention:** Future refactors of `events.ts` and death handling logic must preserve the `fromExplosion` check to maintain explosive cascade stability.
 
-## 2024-09-04 - Explosion damage bypasses armor
+## 2026-09-04 - Explosion damage bypasses armor
 
 **What was found:** The logic that prevents armor from reducing damage caused by an explosion (`!data.fromExplosion` in `processDamageEvent`) lacked direct test coverage.
 
