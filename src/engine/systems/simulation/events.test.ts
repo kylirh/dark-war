@@ -1,7 +1,38 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { PlayerEntity } from "../../entities/player-entity";
-import { ItemType } from "../../types";
-import { grantCoreDevice } from "./events";
+import { Game } from "../../core/game";
+import { EventType, ItemType } from "../../types";
+import { MAX_EVENTS_PER_TICK } from "./constants";
+import { grantCoreDevice, processEventQueue } from "./events";
+
+describe("processEventQueue", () => {
+  it("halts execution and splices the queue when MAX_EVENTS_PER_TICK is exceeded", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const originalLength = MAX_EVENTS_PER_TICK + 10;
+
+    // Fill the queue past the limit
+    for (let i = 0; i < originalLength; i++) {
+      state.eventQueue.push({
+        id: `evt-${i}`,
+        depth: state.depth,
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "test event" },
+      });
+    }
+
+    expect(state.eventQueue.length).toBe(originalLength);
+
+    processEventQueue(state);
+
+    // After processing, the processed events should be removed (spliced away).
+    // The unprocessed events should remain in the queue.
+    expect(state.eventQueue.length).toBe(
+      originalLength - (MAX_EVENTS_PER_TICK + 1),
+    );
+  });
+});
 
 describe("grantCoreDevice", () => {
   let player: PlayerEntity;

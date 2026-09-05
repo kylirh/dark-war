@@ -49,4 +49,13 @@ describe("escapeHtml", () => {
     el.innerHTML = `<span>${escapeHtml("Kylir's Camp & Co")}</span>`;
     expect(el.innerHTML).toBe("<span>Kylir&#39;s Camp &amp; Co</span>");
   });
+
+  it("coerces non-string input safely to prevent DoS via type confusion", () => {
+    // If a value from a JSON payload (e.g. from disk or network) sneaks past a
+    // TypeScript type annotation, it must be coerced to a string instead of crashing.
+    expect(escapeHtml(123 as any)).toBe("123");
+    expect(escapeHtml({ toString: () => "obj" } as any)).toBe("obj");
+    expect(escapeHtml(null as any)).toBe("null");
+    expect(escapeHtml(undefined as any)).toBe("undefined");
+  });
 });
