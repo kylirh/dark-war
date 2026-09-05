@@ -821,7 +821,13 @@ class DarkWar {
       return;
     }
 
-    if (hasOpenModal) {
+    // Save/load dialogs can sit on top of the Character modal's Game panel.
+    // When the secondary dialog closes, keep the parent menu modal and the
+    // pause state alive so the next Escape backs out of the parent menu rather
+    // than resuming gameplay immediately.
+    const parentMenuIsOpen = this.characterModal.isOpen();
+    if (hasOpenModal || parentMenuIsOpen) {
+      if (parentMenuIsOpen) document.body.classList.add("imb-modal-open");
       this.cancelAutoMove();
       this.inputHandler?.resetKeys();
       this.gameLoop.pause();

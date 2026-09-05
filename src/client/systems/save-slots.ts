@@ -397,6 +397,7 @@ export class SaveSlotDialog {
   private handleKeyDown(event: KeyboardEvent): void {
     if (event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       this.close();
       return;
     }
