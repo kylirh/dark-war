@@ -1686,8 +1686,9 @@ body {
   z-index: 65;
   width: min(27vw, 260px);
   min-width: 176px;
+  box-sizing: border-box;
   overflow: hidden;
-  opacity: 0.6;
+  border: 1px solid rgba(57, 255, 106, 0.3);
   border-radius: 13px;
   pointer-events: auto;
 }
@@ -1696,11 +1697,9 @@ body {
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 4 / 3;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
-  border: 1px solid rgba(57, 255, 106, 0.3);
-  border-radius: 13px;
+  opacity: 0.6;
   cursor: grab;
   touch-action: none;
 }

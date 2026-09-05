@@ -399,6 +399,17 @@ export class WorldMap {
     this.currentMapWidth = state.mapWidth;
     this.currentMapHeight = state.mapHeight;
 
+    // Match the drawing buffer to the displayed window's aspect ratio. Outside
+    // worlds are 16:9 while dungeons are 4:3; keeping one fixed canvas size
+    // would add letterboxing above and below the outside-world map.
+    const canvasHeight = Math.max(
+      1,
+      Math.round((MAP_CANVAS_WIDTH * mapWindow.height) / mapWindow.width),
+    );
+    if (this.canvas.height !== canvasHeight) {
+      this.canvas.height = canvasHeight;
+    }
+
     const context = this.context;
     const mapRect = fitWorldMapCanvas(
       this.canvas.width,
@@ -487,7 +498,7 @@ export class WorldMap {
       state.mapHeight,
     );
     context.fillStyle = "rgba(93, 226, 209, 0.12)";
-    context.strokeStyle = "#5de2d1";
+    context.strokeStyle = "#39ff6a";
     context.lineWidth = 1.5;
     for (const viewport of viewportRects) {
       const x = mapRect.x + viewport.x * mapRect.scale;

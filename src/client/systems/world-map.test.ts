@@ -1,12 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
   computeWorldMapWindow,
+  fitWorldMapCanvas,
   worldMapTileAtCanvasPoint,
   worldMapViewportRects,
   wrappedIntervals,
 } from "./world-map";
 
 describe("discovered-world map geometry", () => {
+  it("fits an outside-world overview without vertical letterboxing", () => {
+    expect(fitWorldMapCanvas(240, 135, 128, 72)).toEqual({
+      x: 0,
+      y: 0,
+      width: 240,
+      height: 135,
+      scale: 1.875,
+    });
+  });
+
   it("uses the full current world when it fits the overview", () => {
     expect(computeWorldMapWindow(128, 72, true, 4, 5)).toEqual({
       left: 0,

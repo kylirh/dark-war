@@ -122,6 +122,8 @@ export class Renderer {
   private camLeftWorld: number = 0; // Window top-left (world px), after clamping
   private camTopWorld: number = 0;
   private lastRenderedPlayerHp?: number;
+  private wasPlayerMoving = false;
+  private pendingCameraAttention = false;
   private playerFacing: FacingDirection = "down";
   private shakeIntensity: number = 0;
   private resizeObserver?: ResizeObserver;
@@ -1142,14 +1144,20 @@ export class Renderer {
         this.lastRenderedPlayerHp !== undefined &&
         player.hp < this.lastRenderedPlayerHp;
       const playerIsMoving = this.isEntityMoving(player);
+      const playerStartedMoving = playerIsMoving && !this.wasPlayerMoving;
+      this.wasPlayerMoving = playerIsMoving;
+      if (this.mapInteractionActive && playerWasHit) {
+        this.pendingCameraAttention = true;
+      }
       if (
         this.cameraMode === "map" &&
         !this.mapInteractionActive &&
-        (playerWasHit || playerIsMoving)
+        (playerWasHit || playerStartedMoving || this.pendingCameraAttention)
       ) {
         this.cameraMode = "player";
         this.cameraWorldX = targetX;
         this.cameraWorldY = targetY;
+        this.pendingCameraAttention = false;
       }
 
       if (this.cameraMode === "player" && state.sim.mode === "REALTIME") {
