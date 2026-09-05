@@ -32,7 +32,7 @@
  *   save-slots.ts) or set them through the DOM.
  */
 export function escapeHtml(value: string): string {
-  return value
+  return String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
