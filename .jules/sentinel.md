@@ -82,10 +82,41 @@ have drifted and check all of them before trusting any of them.
 
 **Prevention:** TypeScript interfaces provide no runtime guarantees at system boundaries (IPC, network sockets, or files from disk). All values from `JSON.parse` must be defensively validated (e.g., checking `typeof === "string"`) before assignment, rather than blindly asserted `as SomeType`.
 
-## 2026-09-02 - Local Denial of Service via Type Confusion in html-escape
+## 2026-09-02 - Unvalidated lobby roster reaches an innerHTML sink
 
-**What was found:** The `escapeHtml` function (`src/client/systems/html-escape.ts`) assumed its `value` argument was always a string, calling `.replace()` directly on it. Although TypeScript enforces this in well-typed parts of the codebase, data originating from external, untrusted sources (like LAN discovery packets or hand-edited JSON save files) could bypass these types at runtime. For example, a malicious save file containing `"characterName": 123` would cause `escapeHtml` to throw a `TypeError` (`value.replace is not a function`), crashing the UI renderer and causing a local denial of service.
+**What was found:** `escapeHtml` (`src/client/systems/html-escape.ts`) called
+`.replace()` straight on its argument, so a non-string reaching it throws
+`TypeError: value.replace is not a function` and blanks the panel being
+rendered.
 
-**Action:** Updated `escapeHtml` to explicitly cast the input to a string using `String(value)` before performing any replacements. Added a unit test in `src/client/systems/html-escape.test.ts` to verify that `escapeHtml` safely coerces non-string inputs (like numbers, null, undefined, or custom objects) to strings without throwing.
+The two sources originally blamed for this — LAN discovery packets and
+hand-edited save files — turned out to be **already hardened**, and checking
+them was the useful half of the work:
 
-**Prevention:** TypeScript type annotations do not provide runtime guarantees, especially at system boundaries where data enters from untrusted sources (network, disk). Always program defensively in low-level utility functions like `escapeHtml` that operate on potentially untrusted input, explicitly coercing or validating types before invoking methods specific to that type.
+- `electron/discovery-packet.js` runs every display field through
+  `toDisplayText`, and `discovery-packet.test.ts` asserts `typeof === "string"`
+  for `name`/`host` against `123`, `null`, `undefined`, `{}`, `[]`, `true`. The
+  two call sites additionally wrap with `String(...)`.
+- `parseSaveRecord` in `save-slots.ts` guards `characterName`, `savedAt`, and
+  `region` with `typeof === "string"` — closed by the entry directly above this
+  one.
+
+The path that was actually open was `lobby_update` in
+`src/net/multiplayer-client.ts`. It checked `Array.isArray(message.players)`
+and the `roomId` type but never the entries, while every sibling case in the
+same handler (`welcome`, `error`, `state_full`) drops a payload whose fields
+are the wrong type. `game-menu.ts:859` interpolates `escapeHtml(p.name)` into
+`innerHTML`, and the client can be pointed at an arbitrary address, so a server
+sending `{"name": 1337}` breaks the lobby render.
+
+**Action:** Added an `isLobbyPlayer` runtime shape check and rejected any
+`lobby_update` whose entries fail it, matching the sibling cases — this is the
+root cause. Kept `String(value)` in `escapeHtml` as defense in depth so the
+shared sink is total, with tests for both.
+
+**Prevention:** A DoS-through-a-sink finding is only real once you name the
+boundary the bad value crosses. Trace it to a specific unvalidated payload and
+fix it there; hardening the sink alone leaves the malformed data flowing and
+turns a crash into silently rendering `[object Object]`. Before writing up a
+boundary as unguarded, read it — and read this log, which had already recorded
+the save-file half as closed.
