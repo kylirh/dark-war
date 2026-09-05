@@ -53,15 +53,17 @@ export class WorldCalloutManager {
     for (const callout of callouts) {
       if (this.seenAtMs.has(callout.id)) continue;
       this.seenAtMs.set(callout.id, nowMs);
-      accepted.push(callout);
       const anchorKey = anchorKeyFor(callout);
       const active = this.activeByAnchor.get(anchorKey);
+      const queue = this.queuedByAnchor.get(anchorKey) ?? [];
+      if (isDuplicateText(callout, active, queue)) continue;
+
+      accepted.push(callout);
       if (!active && this.activeByAnchor.size < MAX_ACTIVE_CALLOUTS) {
         this.activeByAnchor.set(anchorKey, createActive(callout, nowMs));
         continue;
       }
 
-      const queue = this.queuedByAnchor.get(anchorKey) ?? [];
       queue.push(callout);
       queue.sort(
         (left, right) =>
@@ -130,6 +132,26 @@ export class WorldCalloutManager {
 
 function anchorKeyFor(callout: WorldCallout): string {
   return callout.speakerId ?? `point:${callout.id}`;
+}
+
+function isDuplicateText(
+  callout: WorldCallout,
+  active: ActiveCallout | undefined,
+  queue: readonly WorldCallout[],
+): boolean {
+  if (callout.kind === "reaction") return false;
+  if (
+    active &&
+    active.callout.kind !== "reaction" &&
+    active.callout.text === callout.text
+  ) {
+    return true;
+  }
+
+  const latestQueued = queue.at(-1);
+  return (
+    latestQueued?.kind !== "reaction" && latestQueued?.text === callout.text
+  );
 }
 
 function createActive(

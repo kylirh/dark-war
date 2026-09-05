@@ -42,6 +42,7 @@ import { ExplosiveEntity } from "../entities/explosive-entity";
 import { BulletEntity } from "../entities/bullet-entity";
 import { RNG, RandomNumberGenerator } from "../utils/rng";
 import { dist, setPositionFromGrid, setTileFor } from "../utils/helpers";
+import { addStoryMessage } from "../utils/story";
 import { computeFOV, computeFOVFrom } from "../systems/fov";
 import { GameEntity } from "../entities/game-entity";
 import { SoundEffect } from "../content/sound-effects";
@@ -541,10 +542,7 @@ export class Game {
   }
 
   public addStory(message: string): void {
-    this.state.story.unshift(message);
-    if (this.state.story.length > 200) {
-      this.state.story.pop();
-    }
+    addStoryMessage(this.state.story, message);
   }
 
   /**

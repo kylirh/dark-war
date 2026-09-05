@@ -32,6 +32,31 @@ describe("processEventQueue", () => {
       originalLength - (MAX_EVENTS_PER_TICK + 1),
     );
   });
+
+  it("does not repeat the newest story message", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    state.story.length = 0;
+    state.eventQueue.push(
+      {
+        id: "message-1",
+        depth: state.depth,
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "Repeated event" },
+      },
+      {
+        id: "message-2",
+        depth: state.depth,
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "Repeated event" },
+      },
+    );
+
+    processEventQueue(state);
+
+    expect(state.story).toEqual(["Repeated event"]);
+  });
 });
 
 describe("grantCoreDevice", () => {

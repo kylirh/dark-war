@@ -37,6 +37,19 @@ describe("AlertQueue", () => {
     ]);
   });
 
+  it("refreshes the newest alert instead of adding a duplicate", () => {
+    const queue = new AlertQueue();
+
+    const first = queue.enqueue("same message", 100, 500);
+    const repeated = queue.enqueue("same message", 200, 1_000);
+
+    expect(repeated?.repeated).toBe(true);
+    expect(repeated?.added.id).toBe(first?.added.id);
+    expect(repeated?.added.startedAtMs).toBe(200);
+    expect(repeated?.added.durationMs).toBe(1_000);
+    expect(queue.getMessages()).toHaveLength(1);
+  });
+
   it("expires alerts using wall-clock time", () => {
     const queue = new AlertQueue();
     queue.enqueue("short", 1_000, 500);

@@ -23,6 +23,7 @@ import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
 import { setStateTileAtIndex } from "../../utils/state-tiles";
 import { emitPlayerAlert } from "../../utils/player-alerts";
+import { addStoryMessage } from "../../utils/story";
 import {
   equippedMonsterWeaponItem,
   isAdaptiveWeaponMonster,
@@ -795,10 +796,7 @@ function teleportMonsterNearby(state: GameState, monster: Monster): void {
 
 function processMessageEvent(state: GameState, event: GameEvent): void {
   const data = event.data as { type: "MESSAGE"; message: string };
-  state.story.unshift(data.message);
-  if (state.story.length > 200) {
-    state.story.pop();
-  }
+  addStoryMessage(state.story, data.message);
 }
 
 function processDoorOpenEvent(state: GameState, event: GameEvent): void {

@@ -30,6 +30,18 @@ describe("WorldCalloutManager", () => {
     expect(manager.getActive(200)).toHaveLength(1);
   });
 
+  it("does not stack the same line for one speaker", () => {
+    const manager = new WorldCalloutManager();
+    const first = speech("one", "speaker", "Same line");
+    const repeated = speech("two", "speaker", "Same line");
+
+    expect(manager.ingest([first], 100)).toEqual([first]);
+    expect(manager.ingest([repeated], 150)).toEqual([]);
+    expect(manager.getActive(200).map((view) => view.callout.id)).toEqual([
+      "one",
+    ]);
+  });
+
   it("queues lines from the same speaker instead of replacing them", () => {
     const manager = new WorldCalloutManager();
     manager.ingest(

@@ -58,6 +58,7 @@ import {
   TileType,
   TIME_SCALE_TRANSITION_SPEED,
   WeaponType,
+  WorldCallout,
 } from "../engine/types";
 import { getWeaponForSlot } from "../engine/utils/inventory";
 import {
@@ -1134,10 +1135,16 @@ class DarkWar {
     state.pendingSounds.length = 0;
   }
 
-  private consumePendingCallouts(state: ReturnType<Game["getState"]>): void {
-    if (state.pendingCallouts.length === 0) return;
-    this.worldCalloutManager.ingest(state.pendingCallouts, performance.now());
+  private consumePendingCallouts(
+    state: ReturnType<Game["getState"]>,
+  ): WorldCallout[] {
+    if (state.pendingCallouts.length === 0) return [];
+    const accepted = this.worldCalloutManager.ingest(
+      state.pendingCallouts,
+      performance.now(),
+    );
     state.pendingCallouts.length = 0;
+    return accepted;
   }
 
   private consumePendingAlerts(state: ReturnType<Game["getState"]>): void {
@@ -1780,8 +1787,10 @@ class DarkWar {
       speakerId: state.player.id,
     });
     if (!accepted) return;
-    this.consumePendingCallouts(state);
-    this.calloutComposer.announce(kind, accepted.text);
+    const displayedCallouts = this.consumePendingCallouts(state);
+    if (displayedCallouts.some((callout) => callout.id === accepted.id)) {
+      this.calloutComposer.announce(kind, accepted.text);
+    }
   }
 
   private handleUpdateVelocity(vx: number, vy: number): void {

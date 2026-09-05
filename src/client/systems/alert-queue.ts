@@ -18,6 +18,7 @@ export interface AlertMessage {
 export interface AlertEnqueueResult {
   added: AlertMessage;
   evicted?: AlertMessage;
+  repeated?: boolean;
 }
 
 /** Stores active alerts from oldest to newest. */
@@ -33,6 +34,13 @@ export class AlertQueue {
   ): AlertEnqueueResult | null {
     const normalizedText = text.trim();
     if (!normalizedText) return null;
+
+    const latest = this.messages.at(-1);
+    if (latest?.text === normalizedText) {
+      latest.startedAtMs = startedAtMs;
+      latest.durationMs = normalizeDuration(durationMs);
+      return { added: latest, repeated: true };
+    }
 
     const added: AlertMessage = {
       id: this.nextId++,

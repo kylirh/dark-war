@@ -34,6 +34,18 @@ export class AlertManager {
       this.dismiss(result.evicted.id);
     }
 
+    if (result.repeated) {
+      const record = this.elements.get(result.added.id);
+      if (record) {
+        window.clearTimeout(record.dismissTimer);
+        record.dismissTimer = window.setTimeout(
+          () => this.dismiss(result.added.id),
+          result.added.durationMs,
+        );
+      }
+      return;
+    }
+
     const element = document.createElement("div");
     element.className = "alert-message";
     element.textContent = result.added.text;
