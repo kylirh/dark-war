@@ -81,3 +81,11 @@ have drifted and check all of them before trusting any of them.
 **Action:** Updated `parseSaveRecord` to coerce `characterName`, `region`, and `savedAt` with `typeof` checks before returning them, falling back to the existing defaults. Added a regression test that feeds a non-string value for each of the three fields and asserts the defaults come back.
 
 **Prevention:** TypeScript interfaces provide no runtime guarantees at system boundaries (IPC, network sockets, or files from disk). All values from `JSON.parse` must be defensively validated (e.g., checking `typeof === "string"`) before assignment, rather than blindly asserted `as SomeType`.
+
+## 2026-09-02 - Local Denial of Service via Type Confusion in html-escape
+
+**What was found:** The `escapeHtml` function (`src/client/systems/html-escape.ts`) assumed its `value` argument was always a string, calling `.replace()` directly on it. Although TypeScript enforces this in well-typed parts of the codebase, data originating from external, untrusted sources (like LAN discovery packets or hand-edited JSON save files) could bypass these types at runtime. For example, a malicious save file containing `"characterName": 123` would cause `escapeHtml` to throw a `TypeError` (`value.replace is not a function`), crashing the UI renderer and causing a local denial of service.
+
+**Action:** Updated `escapeHtml` to explicitly cast the input to a string using `String(value)` before performing any replacements. Added a unit test in `src/client/systems/html-escape.test.ts` to verify that `escapeHtml` safely coerces non-string inputs (like numbers, null, undefined, or custom objects) to strings without throwing.
+
+**Prevention:** TypeScript type annotations do not provide runtime guarantees, especially at system boundaries where data enters from untrusted sources (network, disk). Always program defensively in low-level utility functions like `escapeHtml` that operate on potentially untrusted input, explicitly coercing or validating types before invoking methods specific to that type.
