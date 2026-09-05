@@ -128,6 +128,34 @@ export class Renderer {
   private shakeIntensity: number = 0;
   private resizeObserver?: ResizeObserver;
   private resizeDebounceTimer?: ReturnType<typeof setTimeout>;
+  private spritePool: Sprite[] = [];
+  private graphicsPool: Graphics[] = [];
+
+  private getSprite(): Sprite {
+    const sprite = this.spritePool.pop() ?? new Sprite();
+    sprite.scale.set(1);
+    sprite.rotation = 0;
+    sprite.alpha = 1;
+    sprite.tint = 0xffffff;
+    sprite.anchor.set(0, 0);
+    sprite.zIndex = 0;
+    sprite.x = 0;
+    sprite.y = 0;
+    return sprite;
+  }
+
+  private getGraphics(): Graphics {
+    const graphics = this.graphicsPool.pop() ?? new Graphics();
+    graphics.clear();
+    graphics.scale.set(1);
+    graphics.rotation = 0;
+    graphics.alpha = 1;
+    graphics.tint = 0xffffff;
+    graphics.zIndex = 0;
+    graphics.x = 0;
+    graphics.y = 0;
+    return graphics;
+  }
 
   constructor(canvasId: string, initialScale: number = 1.0) {
     this.scale = initialScale;
@@ -899,7 +927,8 @@ export class Renderer {
     );
     if (!texture) return null;
 
-    const sprite = new Sprite(texture);
+    const sprite = this.getSprite();
+    sprite.texture = texture;
     sprite.x = screenX;
     sprite.y = screenY + frame.yOffset;
     sprite.width = frame.renderWidth;
@@ -955,7 +984,8 @@ export class Renderer {
       huge: [1.18, 0.72],
     };
     const [scaleX, scaleY] = scaleBySize[size];
-    const shadow = new Sprite(texture);
+    const shadow = this.getSprite();
+    shadow.texture = texture;
     shadow.anchor.set(0.5, 0.5);
     shadow.x = screenX;
     shadow.y = screenY - 3;
@@ -998,7 +1028,8 @@ export class Renderer {
     const texture = this.getGlowTexture(color);
     if (!texture) return;
 
-    const glow = new Sprite(texture);
+    const glow = this.getSprite();
+    glow.texture = texture;
     glow.anchor.set(0.5, 0.5);
     glow.x = screenX;
     glow.y = screenY;
@@ -1447,7 +1478,7 @@ export class Renderer {
             const isEdited =
               prototype.editFeedback.editedCellIndex === prototypeIndex;
             const fixtureColor = 0x5de2c2;
-            const highlight = new Graphics();
+            const highlight = this.getGraphics();
             highlight
               .rect(screenX, screenY, CELL_CONFIG.w, CELL_CONFIG.h)
               .fill({
@@ -1477,7 +1508,7 @@ export class Renderer {
             renderGround("prototype_bridge_horizontal");
           } else if (productionGround === GroundType.WATER_RIVER) {
             const riverMask = worldVisualLayers?.riverMask[tileIndex] ?? 0;
-            const flow = new Graphics();
+            const flow = this.getGraphics();
             if ((riverMask & 5) !== 0) {
               flow.rect(screenX + 14, screenY + 5, 3, 22);
             } else {
@@ -1653,7 +1684,7 @@ export class Renderer {
           productionStructure !== StructureType.BRIDGE_HORIZONTAL
         ) {
           const mask = worldVisualLayers?.shoreMask[tileIndex] ?? 0;
-          const shore = new Graphics();
+          const shore = this.getGraphics();
           if (!(mask & TRANSITION_NORTH)) shore.rect(screenX, screenY, 32, 4);
           if (!(mask & TRANSITION_EAST))
             shore.rect(screenX + 28, screenY, 4, 32);
@@ -1672,7 +1703,7 @@ export class Renderer {
         const lowerMask = worldVisualLayers?.lowerElevationMask[tileIndex] ?? 0;
         if (lowerMask !== 0) {
           const magnitude = worldVisualLayers?.cliffMagnitude[tileIndex] ?? 0;
-          const cliff = new Graphics();
+          const cliff = this.getGraphics();
           const faceDepth = magnitude === ResolvedCliffMagnitude.TALL ? 12 : 7;
           if (lowerMask & ELEVATION_NORTH) cliff.rect(screenX, screenY, 32, 3);
           if (lowerMask & ELEVATION_EAST)
@@ -1735,7 +1766,7 @@ export class Renderer {
             ) {
               continue;
             }
-            const transition = new Graphics();
+            const transition = this.getGraphics();
             const drawQuadrant = (bit: number, x: number, y: number): void => {
               if (!(mask & bit)) return;
               transition.rect(screenX - 16 + x, screenY - 16 + y, 16, 16);
@@ -1764,7 +1795,7 @@ export class Renderer {
           ) {
             continue;
           }
-          const shore = new Graphics();
+          const shore = this.getGraphics();
           if (!(mask & TRANSITION_NORTH)) {
             shore.rect(screenX, screenY, 32, 4);
           }
@@ -1869,7 +1900,7 @@ export class Renderer {
       }
 
       const alpha = !isVisible && usingShadowFov ? 0.45 : 1;
-      const graphic = new Graphics();
+      const graphic = this.getGraphics();
       graphic
         .rect(screenX - 11, screenY - 24, 22, 14)
         .fill({ color: 0xf3ca73, alpha })
@@ -1928,19 +1959,19 @@ export class Renderer {
         }
       };
 
-      const glow = new Graphics();
+      const glow = this.getGraphics();
       drawPath(glow);
       glow.stroke({ color: 0x22d3ff, width: 8, alpha: beamAlpha * 0.24 });
       glow.zIndex = zIndex;
       this.entityContainer.addChild(glow);
 
-      const beam = new Graphics();
+      const beam = this.getGraphics();
       drawPath(beam);
       beam.stroke({ color: 0x63f4ff, width: 3, alpha: beamAlpha });
       beam.zIndex = zIndex + 0.1;
       this.entityContainer.addChild(beam);
 
-      const core = new Graphics();
+      const core = this.getGraphics();
       drawPath(core);
       core.stroke({ color: 0xffffff, width: 1, alpha: beamAlpha });
       core.zIndex = zIndex + 0.2;
@@ -2131,7 +2162,7 @@ export class Renderer {
           this.mmOverlay.cursorTileY,
         );
         const pulse = 0.22 + 0.14 * Math.sin(nowMs / 150);
-        const hi = new Graphics();
+        const hi = this.getGraphics();
         hi.rect(sx, sy, CELL_CONFIG.w, CELL_CONFIG.h)
           .fill({ color: 0x00e7ee, alpha: pulse })
           .stroke({ color: 0x9ffcff, width: 2, alpha: 0.9 });
@@ -2225,7 +2256,7 @@ export class Renderer {
    * re-randomize each frame so the effect flickers like arcing electricity.
    */
   private buildLightning(sx: number, sy: number, nowMs: number): Graphics {
-    const g = new Graphics();
+    const g = this.getGraphics();
     const w = CELL_CONFIG.w;
     const h = CELL_CONFIG.h;
     const cx = sx + w / 2;
@@ -2302,7 +2333,13 @@ export class Renderer {
   private destroyFrameChildren(container: Container): void {
     const children = container.removeChildren();
     for (const child of children) {
-      child.destroy({ children: true, context: true });
+      if (child instanceof Sprite) {
+        this.spritePool.push(child);
+      } else if (child instanceof Graphics) {
+        this.graphicsPool.push(child);
+      } else {
+        child.destroy({ children: true, context: true });
+      }
     }
   }
 

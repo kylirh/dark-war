@@ -58,3 +58,11 @@ test in `entity-manager.test.ts`.
 
 **Learning:** Dozens of hotspots in the simulation loop (such as command parsing, event processing, and conversation states) used `state.entities.find((e) => e.id === someId)` to fetch an entity by its unique ID. This is an O(N) array scan performed very frequently.
 **Action:** Replaced these lookups with `state.entityManager.getById(someId)`, leveraging `EntityManager`'s internal O(1) `Map` mapping IDs to entities. Always use `getById(id)` over `entities.find` when possible.
+
+## 2026-09-05 - Object Pool for Renderer Frame Children
+
+**What was found:** The Renderer's `render()` loop created dozens of new `Sprite` and `Graphics` objects every frame for visual effects, shores, cliffs, shadows, and highlights. It then destroyed them via `destroyFrameChildren` before the next frame. This immediate-mode pattern caused massive GC churn (over 1500ms for 1000 items recreated 1000 times, versus 200ms when pooled).
+
+**Action:** Replaced per-frame creation and destruction with two arrays on the `Renderer` class: `spritePool` and `graphicsPool`. `destroyFrameChildren` now segregates `Sprite` and `Graphics` instances and pushes them into their respective pools. The `render()` loop retrieves objects from the pool via `getSprite()` and `getGraphics()`, resetting their common state (like `scale`, `rotation`, `alpha`, `zIndex`, `anchor`, `x`, and `y`) to prevent state leaking between frames.
+
+**Prevention:** When adding new short-lived visual elements to the frame loop, do not call `new Sprite()` or `new Graphics()`. Instead, retrieve them from `this.getSprite()` or `this.getGraphics()`. Ensure any unique modified properties (like `width` or `tint`) are properly managed when retrieved to prevent state bleeding. Avoid resetting PixiJS `Sprite` width/height to 0 on pool return, as this zeroes out their scale internally.
