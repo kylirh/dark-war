@@ -350,7 +350,7 @@ function diffExplored(
   }
   // If the set shrank (e.g. a level swap that didn't trip the keyframe path)
   // we can't express it as additions — fall back to sending the whole set.
-  const full = base.length + added.length !== next.length;
+  const full = next.length < base.length;
   return { added, full };
 }
 

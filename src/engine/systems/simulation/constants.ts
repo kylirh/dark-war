@@ -4,21 +4,6 @@ import { ItemType, CELL_CONFIG } from "../../types";
 // Constants
 // ========================================
 
-/**
- * Fixed length of a single simulation tick, in milliseconds — 20 ticks/second.
- *
- * This is the conversion factor between the two time units the simulation
- * mixes. Every other duration constant in this file is counted in **ticks**,
- * while speeds are in **pixels per second**, so crossing between them always
- * goes through this value:
- *
- * - real seconds to ticks — `Math.ceil(30_000 / SIM_DT_MS)` for a 30s cooldown
- * - velocity to per-tick displacement — `worldX += velocityX * (SIM_DT_MS / 1000)`
- *
- * It is also the fixed step both drivers accumulate against: the client's
- * `while (accumulatorMs >= SIM_DT_MS)` loop and the server's tick interval.
- * Changing it rescales every tick-denominated constant in the game.
- */
 export const SIM_DT_MS = 50; // 20 ticks/second
 export const MONSTER_ACTION_DELAY = 5; // Monsters act every N ticks (player acts every 1)
 export const MONSTER_AI_UPDATE_INTERVAL = 5; // Update monster velocities every 5 ticks (~4 Hz)
