@@ -79,6 +79,21 @@ describe("EntityManager", () => {
     expect(manager.entities.map((e) => e.id)).toEqual(["b"]);
   });
 
+  it("maintains consistency when an entity is destroyed during destroyWhere iteration", () => {
+    ["a", "b", "c"].forEach((id) => manager.spawn(ent(id)));
+
+    manager.destroyWhere((e) => {
+      if (e.id === "b") {
+        manager.destroy("a");
+        return true;
+      }
+      return false;
+    });
+
+    expect(manager.entities.map((e) => e.id)).toEqual(["c"]);
+    expect(manager.getById("c")?.id).toBe("c");
+  });
+
   it("replaceAll swaps contents in place and resets lifecycle tracking", () => {
     manager.spawn(ent("old"));
     const replacement = [ent("x"), ent("y")];
