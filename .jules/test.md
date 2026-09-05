@@ -14,7 +14,7 @@
 
 **Prevention:** Future refactors of `events.ts` and damage-handling logic must preserve the `!data.fromExplosion` check when mitigating damage via armor.
 
-## 2024-05-18 - processEventQueue infinite loop prevention
+## 2026-09-05 - processEventQueue infinite loop prevention
 
 **What was found:** The `processEventQueue` function limits event processing per tick by halting when it reaches `MAX_EVENTS_PER_TICK` (1000) to prevent a runaway cascade. A gap existed in the test suite where this specific limit and its mechanism for preserving unprocessed events for the next tick were not tested.
 
