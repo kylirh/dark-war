@@ -340,6 +340,32 @@ export class Renderer {
   }
 
   /**
+   * Return the gameplay camera to the player when movement begins outside an
+   * active map drag. Input and click-to-move call this at their movement
+   * boundary so camera focus does not depend on a transient render delta.
+   */
+  public requestPlayerCameraFollow(player: {
+    worldX?: number;
+    worldY?: number;
+    gridX: number;
+    gridY: number;
+  }): void {
+    if (this.cameraMode !== "map" || this.mapInteractionActive) return;
+
+    const playerWorldX =
+      typeof player.worldX === "number"
+        ? player.worldX
+        : player.gridX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const playerWorldY =
+      typeof player.worldY === "number"
+        ? player.worldY
+        : player.gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    this.cameraMode = "player";
+    this.cameraWorldX = playerWorldX;
+    this.cameraWorldY = playerWorldY;
+  }
+
+  /**
    * Capture a cropped bitmap around the local player for save slot previews.
    */
   public async capturePlayerSnapshot(

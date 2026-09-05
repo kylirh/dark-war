@@ -1434,6 +1434,7 @@ class DarkWar {
       this.autoMoveHoleTarget = isHole ? { gridX: tileX, gridY: tileY } : null;
       // Speed up to real-time during click-to-move
       state.sim.targetTimeScale = REAL_TIME_SCALE;
+      this.renderer.requestPlayerCameraFollow(state.player);
     } else {
       this.autoMoveStairsTarget = null;
     }
@@ -1798,6 +1799,9 @@ class DarkWar {
         return;
       }
       if (this.isLocalPlayerDead()) return;
+      if (vx !== 0 || vy !== 0) {
+        this.renderer.requestPlayerCameraFollow(player);
+      }
       player.velocityX = vx;
       player.velocityY = vy;
       this.localInputVx = vx;
@@ -1823,6 +1827,9 @@ class DarkWar {
     }
 
     // Set player velocity directly
+    if (vx !== 0 || vy !== 0) {
+      this.renderer.requestPlayerCameraFollow(player);
+    }
     player.velocityX = vx;
     player.velocityY = vy;
 
@@ -2002,8 +2009,10 @@ class DarkWar {
     player.facingAngle = Math.atan2(dy, dx);
 
     if (this.isOnlineMode()) {
+      this.renderer.requestPlayerCameraFollow(player);
       this.setOnlineMoveIntent(vx, vy);
     } else {
+      this.renderer.requestPlayerCameraFollow(player);
       player.velocityX = vx;
       player.velocityY = vy;
     }
