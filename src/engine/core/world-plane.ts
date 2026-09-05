@@ -159,10 +159,20 @@ export class WorldPlane implements TileSource {
     );
   }
 
-  canTraverse(fromX: number, fromY: number, toX: number, toY: number): boolean {
+  canTraverse(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    wraps = false,
+  ): boolean {
     if (!this.inBounds(fromX, fromY) || !this.inBounds(toX, toY)) return false;
-    const deltaX = toX - fromX;
-    const deltaY = toY - fromY;
+    let deltaX = toX - fromX;
+    let deltaY = toY - fromY;
+    if (wraps) {
+      if (Math.abs(deltaX) > 1) deltaX -= Math.sign(deltaX) * this.width;
+      if (Math.abs(deltaY) > 1) deltaY -= Math.sign(deltaY) * this.height;
+    }
     if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1) return false;
     const fromIndex = this.indexFor(fromX, fromY);
     const toIndex = this.indexFor(toX, toY);
