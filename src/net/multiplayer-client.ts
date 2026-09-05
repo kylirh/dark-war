@@ -14,6 +14,17 @@ export interface LobbyUpdate {
   phase: "lobby" | "playing";
 }
 
+/** Runtime shape check for one wire-supplied lobby entry. */
+function isLobbyPlayer(value: unknown): value is LobbyPlayer {
+  if (value === null || typeof value !== "object") return false;
+  const player = value as Partial<LobbyPlayer>;
+  return (
+    typeof player.id === "string" &&
+    typeof player.name === "string" &&
+    typeof player.isHost === "boolean"
+  );
+}
+
 export type NetworkAction =
   | {
       type: "FIRE";
@@ -324,6 +335,12 @@ export class MultiplayerClient {
     if (message.type === "lobby_update") {
       if (!Array.isArray(message.players) || typeof message.roomId !== "string")
         return;
+      // The entries themselves are untrusted: the client can be pointed at any
+      // address, so nothing guarantees the sender ran them through
+      // sanitizePlayerName. Every sibling case here drops a payload whose
+      // fields are the wrong type, and the lobby list is interpolated straight
+      // into the menu's innerHTML, so a malformed entry must not reach the UI.
+      if (!message.players.every(isLobbyPlayer)) return;
       this.onLobbyUpdateCallback?.({
         players: message.players,
         roomId: message.roomId,

@@ -264,6 +264,7 @@ export class SaveSlotDialog {
     this.options.onOpenChange?.(true);
     this.modal.show();
     await this.refreshSlots();
+    if (this.modal.isOpen()) this.modal.recenter();
     this.focusSelectedSlot();
   }
 
@@ -400,6 +401,7 @@ export class SaveSlotDialog {
   private handleKeyDown(event: KeyboardEvent): void {
     if (event.key === "Escape") {
       event.preventDefault();
+      event.stopPropagation();
       this.close();
       return;
     }

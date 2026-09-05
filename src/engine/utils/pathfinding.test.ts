@@ -28,6 +28,10 @@ function source(map: TileType[] = openMap()): FlatTileSource {
   return new FlatTileSource(map, W, H);
 }
 
+function openTorusSource(): FlatTileSource {
+  return new FlatTileSource(new Array(W * H).fill(TileType.FLOOR), W, H);
+}
+
 function fullyExplored(): Set<number> {
   const set = new Set<number>();
   for (let i = 0; i < W * H; i++) set.add(i);
@@ -73,6 +77,53 @@ describe("findPath", () => {
     const path = findPath(1, 3, 6, 3, plane, fullyExplored(), []);
     expect(path).not.toBeNull();
     expect(path).toContainEqual([3, 4]);
+  });
+
+  it("takes the shortest route across a toroidal seam", () => {
+    const path = findPath(
+      0,
+      3,
+      W - 1,
+      3,
+      openTorusSource(),
+      fullyExplored(),
+      [],
+      true,
+    );
+
+    expect(path).toEqual([
+      [0, 3],
+      [W - 1, 3],
+    ]);
+  });
+
+  it("applies wrapped traversal semantics to layered worlds", () => {
+    const plane = createWorldPlaneFromTiles(
+      new Array(W * H).fill(TileType.FLOOR),
+      W,
+      H,
+    );
+    const path = findPath(0, 3, W - 1, 3, plane, fullyExplored(), [], true);
+
+    expect(path).toEqual([
+      [0, 3],
+      [W - 1, 3],
+    ]);
+  });
+
+  it("keeps bounded pathfinding from crossing a seam", () => {
+    const path = findPath(
+      0,
+      3,
+      W - 1,
+      3,
+      openTorusSource(),
+      fullyExplored(),
+      [],
+    );
+
+    expect(path).not.toBeNull();
+    expect(path!.length).toBeGreaterThan(2);
   });
 });
 

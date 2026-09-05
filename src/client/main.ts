@@ -13,6 +13,7 @@ import {
   savePreferences,
 } from "./systems/preferences";
 import { Renderer } from "./systems/renderer";
+import { WorldMap } from "./systems/world-map";
 import { stepSimulationTick } from "../engine/systems/simulation/tick";
 import {
   enqueueCommand,
@@ -82,6 +83,7 @@ import {
   getMultiplayerConfigFromUrl,
 } from "../engine/utils/multiplayer";
 import { findPathToClosestReachable } from "../engine/utils/pathfinding";
+import { nearestWrappedImage, wrapValue } from "../engine/utils/wrap";
 import { MultiplayerClient, NetworkAction } from "../net/multiplayer-client";
 import {
   emitWorldTextCallout,
@@ -296,6 +298,7 @@ class DarkWar {
   private physics: Physics;
   private mouseTracker: MouseTracker;
   private renderer: Renderer;
+  private worldMap: WorldMap;
   private ui: UI;
   private dialoguePanel: DialoguePanel;
   private signReader: SignReader;
@@ -326,9 +329,6 @@ class DarkWar {
     direction: "up" | "down";
   } | null = null;
   private currentThreatLevel: number = 0; // Last computed CTDM threat (0–1), shared between update/render
-  private wasPlayerMoving: boolean = false;
-  private lastPlayerWorldX?: number;
-  private lastPlayerWorldY?: number;
   private lastWheelTime: number = 0; // Track last weapon cycle time
   private wheelDeltaAccumulator: number = 0; // Accumulate wheel delta
   private lastPlayerHp?: number;
@@ -535,6 +535,16 @@ class DarkWar {
     if (isDebug()) console.time("Create Renderer");
     this.renderer = new Renderer("game", this.preferences.zoom);
     if (isDebug()) console.timeEnd("Create Renderer");
+
+    this.worldMap = new WorldMap({
+      onPanToWorld: (worldX, worldY) => {
+        if (this.isLocalPlayerDead()) return;
+        this.renderer.panCameraToWorld(worldX, worldY);
+        this.render();
+      },
+      onInteractionStart: () => this.renderer.setMapInteractionActive(true),
+      onInteractionEnd: () => this.renderer.setMapInteractionActive(false),
+    });
 
     this.calloutComposer = new CalloutComposer({
       onSubmit: (kind, text) => this.handlePlayerCallout(kind, text),
@@ -811,7 +821,13 @@ class DarkWar {
       return;
     }
 
-    if (hasOpenModal) {
+    // Save/load dialogs can sit on top of the Character modal's Game panel.
+    // When the secondary dialog closes, keep the parent menu modal and the
+    // pause state alive so the next Escape backs out of the parent menu rather
+    // than resuming gameplay immediately.
+    const parentMenuIsOpen = this.characterModal.isOpen();
+    if (hasOpenModal || parentMenuIsOpen) {
+      if (parentMenuIsOpen) document.body.classList.add("imb-modal-open");
       this.cancelAutoMove();
       this.inputHandler?.resetKeys();
       this.gameLoop.pause();
@@ -1128,6 +1144,9 @@ class DarkWar {
   }
 
   private consumeSerializedAlerts(alerts: PlayerAlert[]): void {
+    if (alerts.length > 0) {
+      this.renderer.centerOnPlayer(this.game.getState().player, false);
+    }
     for (const alert of alerts) {
       this.ui.showAlert(alert.message, alert.durationMs);
     }
@@ -1400,6 +1419,7 @@ class DarkWar {
       state.tiles,
       state.explored,
       state.entities,
+      state.levelKind === "outside",
     );
 
     if (path && path.length > 1) {
@@ -1647,9 +1667,8 @@ class DarkWar {
   private render(): void {
     const state = this.game.getState();
     const isDead = this.isLocalPlayerDead();
-    const player = state.player;
 
-    if (player.resting && !isDead) {
+    if (state.player.resting && !isDead) {
       this.restRenderFrame = (this.restRenderFrame + 1) % 4;
       if (this.restRenderFrame !== 0) return;
     } else {
@@ -1665,6 +1684,11 @@ class DarkWar {
       isDead,
       this.worldCalloutManager.getActive(performance.now()),
     );
+    this.worldMap.render(
+      state,
+      this.renderer.getCameraTopLeft(),
+      this.renderer.getViewWorldSize(),
+    );
     this.ui.updateAll(
       state.player,
       state.depth,
@@ -1677,28 +1701,6 @@ class DarkWar {
     if (this.characterModal.isOpen()) {
       this.characterModal.renderInventory(state.player);
     }
-
-    const hasVelocity =
-      Math.abs(player.velocityX) > 0.05 || Math.abs(player.velocityY) > 0.05;
-    const playerWorldX = player.worldX;
-    const playerWorldY = player.worldY;
-    const movedSinceLastFrame =
-      typeof this.lastPlayerWorldX === "number" &&
-      typeof this.lastPlayerWorldY === "number" &&
-      (Math.abs(playerWorldX - this.lastPlayerWorldX) > 0.05 ||
-        Math.abs(playerWorldY - this.lastPlayerWorldY) > 0.05);
-    const playerMoving = hasVelocity || movedSinceLastFrame;
-
-    if (playerMoving) {
-      if (!this.wasPlayerMoving) {
-        this.renderer.centerOnPlayer(state.player, false);
-      }
-      this.renderer.centerOnPlayer(state.player, true);
-    }
-
-    this.wasPlayerMoving = playerMoving;
-    this.lastPlayerWorldX = playerWorldX;
-    this.lastPlayerWorldY = playerWorldY;
   }
 
   private isDialogueActive(): boolean {
@@ -1889,10 +1891,19 @@ class DarkWar {
     }
 
     const player = state.player;
+    const wraps = state.levelKind === "outside";
+    const worldWidth = state.mapWidth * CELL_CONFIG.w;
+    const worldHeight = state.mapHeight * CELL_CONFIG.h;
 
     const [targetX, targetY] = this.autoMovePath[this.autoMovePathIndex];
-    const targetWorldX = targetX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
-    const targetWorldY = targetY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    const rawTargetWorldX = targetX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const rawTargetWorldY = targetY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    const targetWorldX = wraps
+      ? nearestWrappedImage(rawTargetWorldX, player.worldX, worldWidth)
+      : rawTargetWorldX;
+    const targetWorldY = wraps
+      ? nearestWrappedImage(rawTargetWorldY, player.worldY, worldHeight)
+      : rawTargetWorldY;
 
     const dx = targetWorldX - player.worldX;
     const dy = targetWorldY - player.worldY;
@@ -1903,8 +1914,12 @@ class DarkWar {
       // Offline we own the position and can snap to the waypoint; online the
       // server is authoritative, so just advance and let prediction carry us.
       if (!this.isOnlineMode()) {
-        player.worldX = targetWorldX;
-        player.worldY = targetWorldY;
+        player.worldX = wraps
+          ? wrapValue(targetWorldX, worldWidth)
+          : targetWorldX;
+        player.worldY = wraps
+          ? wrapValue(targetWorldY, worldHeight)
+          : targetWorldY;
         player.velocityX = 0;
         player.velocityY = 0;
       }
@@ -2918,6 +2933,7 @@ class DarkWar {
     this.signReader.dispose();
     this.inputHandler.dispose();
     this.mouseTracker.destroy();
+    this.worldMap.dispose();
     this.multiplayerClient?.disconnect();
 
     if (this.gameCanvas) {
@@ -3376,6 +3392,7 @@ const createDarkWarApp = (): void => {
   const showMainMenu = (): void => {
     window.darkWarApp?.dispose();
     window.darkWarApp = new MainMenuApp(startGame, startOnlineGame);
+    document.body.classList.remove("startup-loading");
   };
 
   if (shouldSkipTitle) {
@@ -3386,6 +3403,7 @@ const createDarkWarApp = (): void => {
       showMainMenu();
     } else {
       startGame("new");
+      document.body.classList.remove("startup-loading");
     }
     return;
   }
