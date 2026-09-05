@@ -1,4 +1,11 @@
-const { app, BrowserWindow, ipcMain, Menu, nativeImage } = require("electron");
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  nativeImage,
+  screen,
+} = require("electron");
 const path = require("path");
 const fs = require("fs");
 const packageJson = require("../package.json");
@@ -7,6 +14,12 @@ const {
   DiscoveryManager,
   getLocalIps,
 } = require("./server-manager");
+const {
+  DEFAULT_WINDOW_HEIGHT,
+  DEFAULT_WINDOW_WIDTH,
+  isWindowBoundsVisible,
+  normalizeWindowBounds,
+} = require("./window-state");
 
 const APP_NAME = packageJson.productName || "Dark War";
 const APP_ICON = path.join(
@@ -72,6 +85,10 @@ function parseGameQueryFromArgs(argv) {
 const MIN_WINDOW_WIDTH = 960;
 const MIN_WINDOW_HEIGHT = 640;
 const GAME_WINDOW_BACKGROUND = "#0f1013";
+const WINDOW_STATE_FILE = path.join(
+  app.getPath("userData"),
+  "window-state.json",
+);
 
 let mainWindow = null;
 let initialGameQuery = {};
@@ -108,16 +125,107 @@ function toggleWindowMaximize(win) {
   win.maximize();
 }
 
+function readWindowState() {
+  try {
+    return JSON.parse(fs.readFileSync(WINDOW_STATE_FILE, "utf8"));
+  } catch (error) {
+    if (error.code !== "ENOENT") {
+      console.warn("Could not read window state:", error.message);
+    }
+    return null;
+  }
+}
+
+function writeWindowState(bounds) {
+  try {
+    fs.mkdirSync(path.dirname(WINDOW_STATE_FILE), { recursive: true });
+    fs.writeFileSync(WINDOW_STATE_FILE, JSON.stringify(bounds), "utf8");
+  } catch (error) {
+    console.warn("Could not save window state:", error.message);
+  }
+}
+
+function currentWindowBounds(win) {
+  if (win.isMaximized() && typeof win.getNormalBounds === "function") {
+    return win.getNormalBounds();
+  }
+  return win.getBounds();
+}
+
+function attachWindowStatePersistence(win) {
+  let saveTimer = null;
+
+  const save = () => {
+    saveTimer = null;
+    if (win.isDestroyed() || win.isFullScreen() || win.isMinimized()) return;
+    writeWindowState(currentWindowBounds(win));
+  };
+
+  const scheduleSave = () => {
+    if (saveTimer !== null) clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 150);
+  };
+
+  win.on("move", scheduleSave);
+  win.on("resize", scheduleSave);
+  win.on("close", () => {
+    if (saveTimer !== null) clearTimeout(saveTimer);
+    save();
+  });
+  win.on("closed", () => {
+    if (saveTimer !== null) clearTimeout(saveTimer);
+  });
+}
+
+function centerWindowOnPrimaryDisplay(win) {
+  const display = screen.getPrimaryDisplay();
+  const workArea = display.workArea ?? display.bounds;
+  const { width, height } = win.getBounds();
+  const x = Math.max(
+    workArea.x,
+    Math.round(workArea.x + (workArea.width - width) / 2),
+  );
+  const y = Math.max(
+    workArea.y,
+    Math.round(workArea.y + (workArea.height - height) / 2),
+  );
+  win.setPosition(x, y);
+}
+
+function launchBoundsFor(options) {
+  const explicitBounds = normalizeWindowBounds(
+    options,
+    MIN_WINDOW_WIDTH,
+    MIN_WINDOW_HEIGHT,
+  );
+  const storedBounds = explicitBounds
+    ? explicitBounds
+    : normalizeWindowBounds(
+        readWindowState(),
+        MIN_WINDOW_WIDTH,
+        MIN_WINDOW_HEIGHT,
+      );
+  const bounds = storedBounds ?? {
+    width: options.width ?? DEFAULT_WINDOW_WIDTH,
+    height: options.height ?? DEFAULT_WINDOW_HEIGHT,
+  };
+  const shouldCenter =
+    !storedBounds || !isWindowBoundsVisible(bounds, screen.getAllDisplays());
+
+  return { bounds, shouldCenter };
+}
+
 // ─── Window creation ─────────────────────────────────────────────────────────────
 
 function createWindow(options = {}) {
   const transparentIntro = options.transparentIntro ?? true;
   const query = options.query ?? initialGameQuery;
+  const { bounds, shouldCenter } = launchBoundsFor(options);
   const win = new BrowserWindow({
-    width: options.width ?? 1440,
-    height: options.height ?? 920,
-    x: options.x,
-    y: options.y,
+    width: bounds.width,
+    height: bounds.height,
+    x: bounds.x,
+    y: bounds.y,
     icon: APP_ICON,
     useContentSize: true,
     transparent: transparentIntro,
@@ -135,7 +243,10 @@ function createWindow(options = {}) {
     },
   });
 
+  if (shouldCenter) centerWindowOnPrimaryDisplay(win);
+
   mainWindow = win;
+  attachWindowStatePersistence(win);
   win.setFullScreenable?.(true);
 
   win.on("enter-full-screen", () => sendFullscreenState(win, true));
