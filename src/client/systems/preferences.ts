@@ -22,6 +22,20 @@ export type KeyBindingAction =
 
 export type ThemeMode = "dark" | "light";
 
+export const VOLUME_STEP_PERCENT = 5;
+
+/** Snap a volume percentage to the increments exposed by the settings sliders. */
+export function quantizeVolumePercent(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      Math.round(value / VOLUME_STEP_PERCENT) * VOLUME_STEP_PERCENT,
+    ),
+  );
+}
+
 export interface KeyBindingDefinition {
   action: KeyBindingAction;
   label: string;
@@ -125,11 +139,14 @@ export function loadPreferences(): UserPreferences {
     const parsed = raw ? (JSON.parse(raw) as Partial<UserPreferences>) : {};
     const legacyTheme = localStorage.getItem(LEGACY_THEME_KEY);
     return {
-      sfxVolume: clampUnit(parsed.sfxVolume, DEFAULT_PREFERENCES.sfxVolume),
-      musicVolume: clampUnit(
-        parsed.musicVolume,
-        DEFAULT_PREFERENCES.musicVolume,
-      ),
+      sfxVolume:
+        quantizeVolumePercent(
+          clampUnit(parsed.sfxVolume, DEFAULT_PREFERENCES.sfxVolume) * 100,
+        ) / 100,
+      musicVolume:
+        quantizeVolumePercent(
+          clampUnit(parsed.musicVolume, DEFAULT_PREFERENCES.musicVolume) * 100,
+        ) / 100,
       theme: normalizeTheme(parsed.theme ?? legacyTheme),
       zoom: normalizeZoom(parsed.zoom),
       devTools: parsed.devTools === true,

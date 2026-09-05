@@ -7,6 +7,7 @@ import {
   DEFAULT_KEY_BINDINGS,
   KEY_BINDING_DEFINITIONS,
   KeyBindingAction,
+  quantizeVolumePercent,
   UserPreferences,
   keyCodeToLabel,
 } from "./preferences";
@@ -227,12 +228,12 @@ export class GameMenu {
           <div class="imb-settings-stack">
             <div class="imb-slider-row">
               <label for="pause-sfx-volume">Sound Effects</label>
-              <input type="range" id="pause-sfx-volume" min="0" max="100" value="50" />
+              <input type="range" id="pause-sfx-volume" min="0" max="100" step="5" value="50" />
               <span class="imb-slider-val" id="pause-sfx-vol-label">50%</span>
             </div>
             <div class="imb-slider-row">
               <label for="pause-music-volume">Music</label>
-              <input type="range" id="pause-music-volume" min="0" max="100" value="30" />
+              <input type="range" id="pause-music-volume" min="0" max="100" step="5" value="30" />
               <span class="imb-slider-val" id="pause-music-vol-label">30%</span>
             </div>
             <div class="imb-theme-row">
@@ -414,14 +415,22 @@ export class GameMenu {
     ) as HTMLInputElement | null;
 
     sfxSlider?.addEventListener("input", () => {
-      const volume = Number.parseInt(sfxSlider.value, 10) / 100;
+      const percent = quantizeVolumePercent(
+        Number.parseInt(sfxSlider.value, 10),
+      );
+      sfxSlider.value = String(percent);
+      const volume = percent / 100;
       Sound.setVolume(volume);
       this.updatePreferences({ sfxVolume: volume });
       this.syncSoundControls();
     });
 
     musicSlider?.addEventListener("input", () => {
-      const volume = Number.parseInt(musicSlider.value, 10) / 100;
+      const percent = quantizeVolumePercent(
+        Number.parseInt(musicSlider.value, 10),
+      );
+      musicSlider.value = String(percent);
+      const volume = percent / 100;
       Music.setVolume(volume);
       this.updatePreferences({ musicVolume: volume });
       this.syncSoundControls();
@@ -1176,12 +1185,12 @@ export class GameMenu {
     const musicLabel = document.getElementById("pause-music-vol-label");
 
     if (sfxSlider) {
-      const volume = Math.round(this.preferences.sfxVolume * 100);
+      const volume = quantizeVolumePercent(this.preferences.sfxVolume * 100);
       sfxSlider.value = String(volume);
       if (sfxLabel) sfxLabel.textContent = `${volume}%`;
     }
     if (musicSlider) {
-      const volume = Math.round(this.preferences.musicVolume * 100);
+      const volume = quantizeVolumePercent(this.preferences.musicVolume * 100);
       musicSlider.value = String(volume);
       if (musicLabel) musicLabel.textContent = `${volume}%`;
     }

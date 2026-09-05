@@ -17,6 +17,7 @@ import {
   DEFAULT_KEY_BINDINGS,
   KEY_BINDING_DEFINITIONS,
   KeyBindingAction,
+  quantizeVolumePercent,
   UserPreferences,
   keyCodeToLabel,
 } from "./preferences";
@@ -336,8 +337,13 @@ export class CharacterModal {
     this._sfxSlider.id = "char-sfx-volume";
     this._sfxSlider.min = "0";
     this._sfxSlider.max = "100";
+    this._sfxSlider.step = "5";
     this._sfxSlider.addEventListener("input", () => {
-      const vol = Number.parseInt(this._sfxSlider!.value, 10) / 100;
+      const percent = quantizeVolumePercent(
+        Number.parseInt(this._sfxSlider!.value, 10),
+      );
+      this._sfxSlider!.value = String(percent);
+      const vol = percent / 100;
       Sound.setVolume(vol);
       this.updatePreferences({ sfxVolume: vol });
       this.syncSoundLabels();
@@ -358,8 +364,13 @@ export class CharacterModal {
     this._musicSlider.id = "char-music-volume";
     this._musicSlider.min = "0";
     this._musicSlider.max = "100";
+    this._musicSlider.step = "5";
     this._musicSlider.addEventListener("input", () => {
-      const vol = Number.parseInt(this._musicSlider!.value, 10) / 100;
+      const percent = quantizeVolumePercent(
+        Number.parseInt(this._musicSlider!.value, 10),
+      );
+      this._musicSlider!.value = String(percent);
+      const vol = percent / 100;
       Music.setVolume(vol);
       this.updatePreferences({ musicVolume: vol });
       this.syncSoundLabels();
@@ -1301,18 +1312,14 @@ export class CharacterModal {
   }
 
   private syncSoundLabels(): void {
-    if (this._sfxSlider)
-      this._sfxSlider.value = String(
-        Math.round(this.preferences.sfxVolume * 100),
-      );
-    if (this._sfxLabel)
-      this._sfxLabel.textContent = `${Math.round(this.preferences.sfxVolume * 100)}%`;
-    if (this._musicSlider)
-      this._musicSlider.value = String(
-        Math.round(this.preferences.musicVolume * 100),
-      );
-    if (this._musicLabel)
-      this._musicLabel.textContent = `${Math.round(this.preferences.musicVolume * 100)}%`;
+    const sfxVolume = quantizeVolumePercent(this.preferences.sfxVolume * 100);
+    const musicVolume = quantizeVolumePercent(
+      this.preferences.musicVolume * 100,
+    );
+    if (this._sfxSlider) this._sfxSlider.value = String(sfxVolume);
+    if (this._sfxLabel) this._sfxLabel.textContent = `${sfxVolume}%`;
+    if (this._musicSlider) this._musicSlider.value = String(musicVolume);
+    if (this._musicLabel) this._musicLabel.textContent = `${musicVolume}%`;
   }
 
   private syncAppearanceControls(): void {

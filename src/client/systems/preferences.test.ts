@@ -13,6 +13,7 @@ import {
   savePreferences,
   DEFAULT_PREFERENCES,
   DEFAULT_KEY_BINDINGS,
+  quantizeVolumePercent,
   UserPreferences,
 } from "./preferences";
 
@@ -129,6 +130,12 @@ describe("preferences", () => {
       expect(load({ musicVolume: "loud" }).musicVolume).toBe(
         DEFAULT_PREFERENCES.musicVolume,
       );
+    });
+
+    it("snaps volumes to five percent increments", () => {
+      expect(quantizeVolumePercent(32)).toBe(30);
+      expect(quantizeVolumePercent(33)).toBe(35);
+      expect(load({ sfxVolume: 0.33 }).sfxVolume).toBe(0.35);
     });
 
     it("accepts only the three supported zoom levels", () => {

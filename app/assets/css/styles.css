@@ -1150,9 +1150,7 @@ body.imb-modal-open #retro-window-chrome {
 .imb-keybinding-list {
   display: grid;
   gap: 7px;
-  max-height: min(44vh, 360px);
-  overflow: auto;
-  padding-right: 4px;
+  padding-right: 0;
 }
 
 .imb-keybinding-row {
@@ -1191,7 +1189,7 @@ body.imb-modal-open #retro-window-chrome {
 }
 
 .save-slot-dialog .imb-dialog-body {
-  max-height: min(76vh, 720px);
+  max-height: min(calc(100vh - 44px), 780px);
 }
 
 .save-slot-status {
@@ -1216,7 +1214,7 @@ body.imb-modal-open #retro-window-chrome {
 .save-slot-tile {
   position: relative;
   width: 100%;
-  min-height: 150px;
+  min-height: 140px;
   display: grid;
   align-content: end;
   gap: 5px;
@@ -1396,9 +1394,9 @@ body.imb-modal-open #retro-window-chrome {
   --modal-border: #050505;
   --modal-line: #3d3e40;
   --modal-scrim: rgba(0, 0, 0, 0.34);
-  --scroll-track: #111214;
-  --scroll-track-mark: #4f5052;
-  --scroll-thumb: #c8c8c8;
+  --scroll-track: #0b0d10;
+  --scroll-track-mark: #20252a;
+  --scroll-thumb: #3a424a;
   --scroll-border: #050505;
 }
 
@@ -1480,14 +1478,6 @@ body.imb-modal-open #retro-window-chrome {
 ::-webkit-scrollbar-button {
   background-color: var(--scroll-thumb);
   border: 1px solid var(--scroll-border);
-}
-
-*::-webkit-scrollbar-button {
-  filter: invert(1) brightness(0.84);
-}
-
-:root[data-theme="light"] *::-webkit-scrollbar-button {
-  filter: none;
 }
 
 .window-pane::-webkit-scrollbar {
@@ -2616,8 +2606,8 @@ body {
 /* Inherits .imb-dialog (position: fixed, z-index: 10001).
    We override width and add flex column layout. */
 .char-modal-window {
-  width: min(680px, calc(100vw - 32px));
-  max-height: calc(100vh - 64px);
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2689,14 +2679,16 @@ body {
 .char-modal-panels {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 16px;
 }
 
 /* All panels share the same fixed height — prevents modal resizing on tab switch */
 .char-modal-panel {
-  height: 400px;
+  height: 440px;
+  min-width: 0;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* ── Inventory grid: 12 columns ──────────────────────────── */
@@ -2844,10 +2836,18 @@ body {
   padding: 4px 14px;
 }
 
+.char-settings-panel {
+  padding-right: 20px;
+}
+
 /* Keybinding list */
 .char-keybinding-list {
-  max-height: 260px;
-  overflow-y: auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.char-keybinding-list .imb-keybinding-row {
+  min-width: 0;
 }
 
 .char-settings-view .imb-keybinding-button {
@@ -2911,6 +2911,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0;
+  align-items: center;
+  text-align: center;
 }
 
 .char-game-logo {
@@ -2926,6 +2928,8 @@ body {
   flex-direction: column;
   gap: 10px;
   max-width: 240px;
+  width: min(240px, 100%);
+  margin: 0 auto;
 }
 
 .char-modal-game-btn {
