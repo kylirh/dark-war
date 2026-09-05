@@ -154,6 +154,32 @@ describe("WorldPlane", () => {
     expect(plane.canTraverse(0, 0, 1, 0)).toBe(false);
   });
 
+  it("can traverse across the wrapped boundary when wraps is true", () => {
+    const layers = createWorldPlaneLayers(3, 3);
+    layers.ground.fill(GROUND_GRASS);
+    const plane = new WorldPlane(3, 3, layers, resolveTestCell);
+
+    // Normal in-bounds traversal
+    expect(plane.canTraverse(0, 0, 1, 0)).toBe(true);
+
+    // Wrapped out-of-bounds traversal left
+    expect(plane.canTraverse(0, 0, -1, 0, true)).toBe(true);
+    // Wrapped out-of-bounds traversal right
+    expect(plane.canTraverse(2, 0, 3, 0, true)).toBe(true);
+    // Wrapped out-of-bounds traversal up
+    expect(plane.canTraverse(0, 0, 0, -1, true)).toBe(true);
+    // Wrapped out-of-bounds traversal down
+    expect(plane.canTraverse(0, 2, 0, 3, true)).toBe(true);
+
+    // Rejects if the wrapped cell is impassable
+    layers.structure[plane.indexFor(2, 0)] = STRUCTURE_TREE;
+    plane.refreshResolvedTile(plane.indexFor(2, 0));
+    expect(plane.canTraverse(0, 0, -1, 0, true)).toBe(false);
+
+    // Rejects wrapping if wraps is false
+    expect(plane.canTraverse(0, 0, -1, 0, false)).toBe(false);
+  });
+
   it("applies edits across various layers and caps values", () => {
     const layers = createWorldPlaneLayers(2, 2);
     layers.ground.fill(GROUND_GRASS);

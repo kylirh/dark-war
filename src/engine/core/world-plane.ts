@@ -166,7 +166,23 @@ export class WorldPlane implements TileSource {
     toY: number,
     wraps = false,
   ): boolean {
-    if (!this.inBounds(fromX, fromY) || !this.inBounds(toX, toY)) return false;
+    let checkFromX = fromX;
+    let checkFromY = fromY;
+    let checkToX = toX;
+    let checkToY = toY;
+    if (wraps) {
+      checkFromX = ((fromX % this.width) + this.width) % this.width;
+      checkFromY = ((fromY % this.height) + this.height) % this.height;
+      checkToX = ((toX % this.width) + this.width) % this.width;
+      checkToY = ((toY % this.height) + this.height) % this.height;
+    }
+
+    if (
+      !this.inBounds(checkFromX, checkFromY) ||
+      !this.inBounds(checkToX, checkToY)
+    )
+      return false;
+
     let deltaX = toX - fromX;
     let deltaY = toY - fromY;
     if (wraps) {
@@ -174,8 +190,8 @@ export class WorldPlane implements TileSource {
       if (Math.abs(deltaY) > 1) deltaY -= Math.sign(deltaY) * this.height;
     }
     if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1) return false;
-    const fromIndex = this.indexFor(fromX, fromY);
-    const toIndex = this.indexFor(toX, toY);
+    const fromIndex = this.indexFor(checkFromX, checkFromY);
+    const toIndex = this.indexFor(checkToX, checkToY);
     if ((this.resolvedFlagCache[toIndex] & CELL_PASSABLE) === 0) return false;
     if (this.resolveTraversal) {
       return this.resolveTraversal(
