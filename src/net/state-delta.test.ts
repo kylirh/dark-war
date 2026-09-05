@@ -161,6 +161,13 @@ describe("computeStateDelta / applyStateDelta", () => {
     roundTrip(baseState(), next);
   });
 
+  it("round-trips explored set removals even with additions", () => {
+    const next = baseState();
+    // Simulate removing 1 (from base [0, 1]) and adding 2, 3, 4
+    next.explored = [0, 2, 3, 4];
+    roundTrip(baseState(), next);
+  });
+
   it("round-trips changes in every world-plane layer", () => {
     const next = baseState();
     next.plane.ground[0] = GroundType.WATER_SHALLOW;

@@ -28,7 +28,13 @@ export interface TileSource {
   /** Whether (x, y) blocks sight. */
   opaque(x: number, y: number): boolean;
   /** Whether an actor can cross directly between neighboring cells. */
-  canTraverse(fromX: number, fromY: number, toX: number, toY: number): boolean;
+  canTraverse(
+    fromX: number,
+    fromY: number,
+    toX: number,
+    toY: number,
+    wraps?: boolean,
+  ): boolean;
 }
 
 /** Shared passability rule so every TileSource agrees with the helpers. */
@@ -93,6 +99,7 @@ export class FlatTileSource implements TileSource {
     _fromY: number,
     toX: number,
     toY: number,
+    _wraps = false,
   ): boolean {
     return this.passable(toX, toY);
   }

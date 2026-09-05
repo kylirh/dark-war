@@ -83,6 +83,7 @@ import {
   getMultiplayerConfigFromUrl,
 } from "../engine/utils/multiplayer";
 import { findPathToClosestReachable } from "../engine/utils/pathfinding";
+import { nearestWrappedImage, wrapValue } from "../engine/utils/wrap";
 import { MultiplayerClient, NetworkAction } from "../net/multiplayer-client";
 import {
   emitWorldTextCallout,
@@ -820,7 +821,13 @@ class DarkWar {
       return;
     }
 
-    if (hasOpenModal) {
+    // Save/load dialogs can sit on top of the Character modal's Game panel.
+    // When the secondary dialog closes, keep the parent menu modal and the
+    // pause state alive so the next Escape backs out of the parent menu rather
+    // than resuming gameplay immediately.
+    const parentMenuIsOpen = this.characterModal.isOpen();
+    if (hasOpenModal || parentMenuIsOpen) {
+      if (parentMenuIsOpen) document.body.classList.add("imb-modal-open");
       this.cancelAutoMove();
       this.inputHandler?.resetKeys();
       this.gameLoop.pause();
@@ -1412,6 +1419,7 @@ class DarkWar {
       state.tiles,
       state.explored,
       state.entities,
+      state.levelKind === "outside",
     );
 
     if (path && path.length > 1) {
@@ -1883,10 +1891,19 @@ class DarkWar {
     }
 
     const player = state.player;
+    const wraps = state.levelKind === "outside";
+    const worldWidth = state.mapWidth * CELL_CONFIG.w;
+    const worldHeight = state.mapHeight * CELL_CONFIG.h;
 
     const [targetX, targetY] = this.autoMovePath[this.autoMovePathIndex];
-    const targetWorldX = targetX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
-    const targetWorldY = targetY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    const rawTargetWorldX = targetX * CELL_CONFIG.w + CELL_CONFIG.w / 2;
+    const rawTargetWorldY = targetY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
+    const targetWorldX = wraps
+      ? nearestWrappedImage(rawTargetWorldX, player.worldX, worldWidth)
+      : rawTargetWorldX;
+    const targetWorldY = wraps
+      ? nearestWrappedImage(rawTargetWorldY, player.worldY, worldHeight)
+      : rawTargetWorldY;
 
     const dx = targetWorldX - player.worldX;
     const dy = targetWorldY - player.worldY;
@@ -1897,8 +1914,12 @@ class DarkWar {
       // Offline we own the position and can snap to the waypoint; online the
       // server is authoritative, so just advance and let prediction carry us.
       if (!this.isOnlineMode()) {
-        player.worldX = targetWorldX;
-        player.worldY = targetWorldY;
+        player.worldX = wraps
+          ? wrapValue(targetWorldX, worldWidth)
+          : targetWorldX;
+        player.worldY = wraps
+          ? wrapValue(targetWorldY, worldHeight)
+          : targetWorldY;
         player.velocityX = 0;
         player.velocityY = 0;
       }
@@ -3371,6 +3392,7 @@ const createDarkWarApp = (): void => {
   const showMainMenu = (): void => {
     window.darkWarApp?.dispose();
     window.darkWarApp = new MainMenuApp(startGame, startOnlineGame);
+    document.body.classList.remove("startup-loading");
   };
 
   if (shouldSkipTitle) {
@@ -3381,6 +3403,7 @@ const createDarkWarApp = (): void => {
       showMainMenu();
     } else {
       startGame("new");
+      document.body.classList.remove("startup-loading");
     }
     return;
   }

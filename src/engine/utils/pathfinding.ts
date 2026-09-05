@@ -1,6 +1,7 @@
 import { Entity, EntityKind } from "../types";
 import { TileSource } from "../core/tile-source";
 import { idxFor } from "./helpers";
+import { wrapDelta, wrapValue } from "./wrap";
 
 /**
  * Find a path from start to end using A* pathfinding
@@ -14,6 +15,7 @@ export function findPath(
   tiles: TileSource,
   explored: Set<number>,
   entities: Entity[],
+  wraps = false,
 ): [number, number][] | null {
   const path = findPathToClosestReachable(
     startX,
@@ -23,6 +25,7 @@ export function findPath(
     tiles,
     explored,
     entities,
+    wraps,
   );
   const destination = path?.[path.length - 1];
   return destination?.[0] === endX && destination[1] === endY ? path : null;
@@ -39,6 +42,7 @@ export function findPathToClosestReachable(
   tiles: TileSource,
   explored: Set<number>,
   entities: Entity[],
+  wraps = false,
 ): [number, number][] | null {
   const { width, height } = tiles;
   if (!tiles.inBounds(endX, endY)) return null;
@@ -91,15 +95,17 @@ export function findPathToClosestReachable(
     const currentY = Math.floor(current / width);
 
     for (const [dx, dy] of directions) {
-      const nx = currentX + dx;
-      const ny = currentY + dy;
-      if (!tiles.inBounds(nx, ny)) continue;
+      const nx = wraps ? wrapValue(currentX + dx, width) : currentX + dx;
+      const ny = wraps ? wrapValue(currentY + dy, height) : currentY + dy;
+      if (!tiles.inBounds(nx, ny) || (nx === currentX && ny === currentY)) {
+        continue;
+      }
 
       const nIdx = idxFor(nx, ny, width);
       if (distance[nIdx] !== -1) continue;
 
       if (!isPassable(nx, ny)) continue;
-      if (!tiles.canTraverse(currentX, currentY, nx, ny)) continue;
+      if (!tiles.canTraverse(currentX, currentY, nx, ny, wraps)) continue;
 
       if (hasMonster(nx, ny) && !(nx === endX && ny === endY)) {
         continue;
@@ -122,8 +128,8 @@ export function findPathToClosestReachable(
     for (const tileIdx of visitedOrder) {
       const x = tileIdx % width;
       const y = Math.floor(tileIdx / width);
-      const dx = x - endX;
-      const dy = y - endY;
+      const dx = wraps ? wrapDelta(x, endX, width) : x - endX;
+      const dy = wraps ? wrapDelta(y, endY, height) : y - endY;
       const distSq = dx * dx + dy * dy;
       const steps = distance[tileIdx];
 
