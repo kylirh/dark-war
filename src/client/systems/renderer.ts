@@ -117,8 +117,11 @@ export class Renderer {
   private scale: number = 1.0; // Configurable scale factor
   private cameraWorldX: number = 0; // Camera center (world px), smooth-followed
   private cameraWorldY: number = 0;
+  private cameraMode: "player" | "map" = "player";
+  private mapInteractionActive = false;
   private camLeftWorld: number = 0; // Window top-left (world px), after clamping
   private camTopWorld: number = 0;
+  private lastRenderedPlayerHp?: number;
   private playerFacing: FacingDirection = "down";
   private shakeIntensity: number = 0;
   private resizeObserver?: ResizeObserver;
@@ -278,7 +281,14 @@ export class Renderer {
   }
 
   /** The visible window size in world pixels (canvas pixels / zoom). */
-  private getViewWorldSize(): { viewW: number; viewH: number } {
+  public getViewWorldSize(): { viewW: number; viewH: number } {
+    if (!this.ready) {
+      const { width, height } = this.computeViewportPixels();
+      return {
+        viewW: width / this.scale,
+        viewH: height / this.scale,
+      };
+    }
     return {
       viewW: this.pixi.width / this.scale,
       viewH: this.pixi.height / this.scale,
@@ -313,6 +323,18 @@ export class Renderer {
    */
   public getScale(): number {
     return this.scale;
+  }
+
+  /** Temporarily move the gameplay camera to a point selected on the map. */
+  public panCameraToWorld(worldX: number, worldY: number): void {
+    this.cameraMode = "map";
+    this.cameraWorldX = worldX;
+    this.cameraWorldY = worldY;
+  }
+
+  /** Keep deliberate map dragging from being overridden by player movement. */
+  public setMapInteractionActive(active: boolean): void {
+    this.mapInteractionActive = active;
   }
 
   /**
@@ -1116,7 +1138,21 @@ export class Renderer {
     if ("worldX" in player) {
       const targetX = (player as any).worldX;
       const targetY = (player as any).worldY;
-      if (state.sim.mode === "REALTIME") {
+      const playerWasHit =
+        this.lastRenderedPlayerHp !== undefined &&
+        player.hp < this.lastRenderedPlayerHp;
+      const playerIsMoving = this.isEntityMoving(player);
+      if (
+        this.cameraMode === "map" &&
+        !this.mapInteractionActive &&
+        (playerWasHit || playerIsMoving)
+      ) {
+        this.cameraMode = "player";
+        this.cameraWorldX = targetX;
+        this.cameraWorldY = targetY;
+      }
+
+      if (this.cameraMode === "player" && state.sim.mode === "REALTIME") {
         // Smooth follow (15%/frame). On a wrapping world, lerp toward the
         // nearest wrapped image of the player so the camera takes the short way
         // across the seam instead of sweeping the whole map, then re-wrap.
@@ -1135,7 +1171,7 @@ export class Renderer {
           this.cameraWorldX += (targetX - this.cameraWorldX) * 0.15;
           this.cameraWorldY += (targetY - this.cameraWorldY) * 0.15;
         }
-      } else {
+      } else if (this.cameraMode === "player") {
         // Planning mode: snap camera to the player.
         this.cameraWorldX = targetX;
         this.cameraWorldY = targetY;
@@ -2168,6 +2204,7 @@ export class Renderer {
       anchoredCallouts.push({ ...callout, anchorX, anchorY });
     }
     this.worldCalloutLayer.render(anchoredCallouts, viewW, viewH);
+    this.lastRenderedPlayerHp = player.hp;
 
     // The scene graph is now current for this frame — draw it. Application's
     // ticker used to do this on its own RAF; doing it here means exactly one
@@ -2245,6 +2282,7 @@ export class Renderer {
         ? player.worldY
         : player.gridY * CELL_CONFIG.h + CELL_CONFIG.h / 2;
 
+    this.cameraMode = "player";
     if (!smooth) {
       // Hard snap (level change / respawn) so the camera doesn't sweep.
       this.cameraWorldX = playerWorldX;

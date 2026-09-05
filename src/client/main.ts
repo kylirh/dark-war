@@ -13,6 +13,7 @@ import {
   savePreferences,
 } from "./systems/preferences";
 import { Renderer } from "./systems/renderer";
+import { WorldMap } from "./systems/world-map";
 import { stepSimulationTick } from "../engine/systems/simulation/tick";
 import {
   enqueueCommand,
@@ -296,6 +297,7 @@ class DarkWar {
   private physics: Physics;
   private mouseTracker: MouseTracker;
   private renderer: Renderer;
+  private worldMap: WorldMap;
   private ui: UI;
   private dialoguePanel: DialoguePanel;
   private signReader: SignReader;
@@ -326,9 +328,6 @@ class DarkWar {
     direction: "up" | "down";
   } | null = null;
   private currentThreatLevel: number = 0; // Last computed CTDM threat (0–1), shared between update/render
-  private wasPlayerMoving: boolean = false;
-  private lastPlayerWorldX?: number;
-  private lastPlayerWorldY?: number;
   private lastWheelTime: number = 0; // Track last weapon cycle time
   private wheelDeltaAccumulator: number = 0; // Accumulate wheel delta
   private lastPlayerHp?: number;
@@ -535,6 +534,16 @@ class DarkWar {
     if (isDebug()) console.time("Create Renderer");
     this.renderer = new Renderer("game", this.preferences.zoom);
     if (isDebug()) console.timeEnd("Create Renderer");
+
+    this.worldMap = new WorldMap({
+      onPanToWorld: (worldX, worldY) => {
+        if (this.isLocalPlayerDead()) return;
+        this.renderer.panCameraToWorld(worldX, worldY);
+        this.render();
+      },
+      onInteractionStart: () => this.renderer.setMapInteractionActive(true),
+      onInteractionEnd: () => this.renderer.setMapInteractionActive(false),
+    });
 
     this.calloutComposer = new CalloutComposer({
       onSubmit: (kind, text) => this.handlePlayerCallout(kind, text),
@@ -1128,6 +1137,9 @@ class DarkWar {
   }
 
   private consumeSerializedAlerts(alerts: PlayerAlert[]): void {
+    if (alerts.length > 0) {
+      this.renderer.centerOnPlayer(this.game.getState().player, false);
+    }
     for (const alert of alerts) {
       this.ui.showAlert(alert.message, alert.durationMs);
     }
@@ -1647,9 +1659,8 @@ class DarkWar {
   private render(): void {
     const state = this.game.getState();
     const isDead = this.isLocalPlayerDead();
-    const player = state.player;
 
-    if (player.resting && !isDead) {
+    if (state.player.resting && !isDead) {
       this.restRenderFrame = (this.restRenderFrame + 1) % 4;
       if (this.restRenderFrame !== 0) return;
     } else {
@@ -1665,6 +1676,11 @@ class DarkWar {
       isDead,
       this.worldCalloutManager.getActive(performance.now()),
     );
+    this.worldMap.render(
+      state,
+      this.renderer.getCameraTopLeft(),
+      this.renderer.getViewWorldSize(),
+    );
     this.ui.updateAll(
       state.player,
       state.depth,
@@ -1677,28 +1693,6 @@ class DarkWar {
     if (this.characterModal.isOpen()) {
       this.characterModal.renderInventory(state.player);
     }
-
-    const hasVelocity =
-      Math.abs(player.velocityX) > 0.05 || Math.abs(player.velocityY) > 0.05;
-    const playerWorldX = player.worldX;
-    const playerWorldY = player.worldY;
-    const movedSinceLastFrame =
-      typeof this.lastPlayerWorldX === "number" &&
-      typeof this.lastPlayerWorldY === "number" &&
-      (Math.abs(playerWorldX - this.lastPlayerWorldX) > 0.05 ||
-        Math.abs(playerWorldY - this.lastPlayerWorldY) > 0.05);
-    const playerMoving = hasVelocity || movedSinceLastFrame;
-
-    if (playerMoving) {
-      if (!this.wasPlayerMoving) {
-        this.renderer.centerOnPlayer(state.player, false);
-      }
-      this.renderer.centerOnPlayer(state.player, true);
-    }
-
-    this.wasPlayerMoving = playerMoving;
-    this.lastPlayerWorldX = playerWorldX;
-    this.lastPlayerWorldY = playerWorldY;
   }
 
   private isDialogueActive(): boolean {
@@ -2918,6 +2912,7 @@ class DarkWar {
     this.signReader.dispose();
     this.inputHandler.dispose();
     this.mouseTracker.destroy();
+    this.worldMap.dispose();
     this.multiplayerClient?.disconnect();
 
     if (this.gameCanvas) {

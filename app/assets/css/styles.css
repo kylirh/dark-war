@@ -1629,6 +1629,46 @@ body {
   image-rendering: crisp-edges;
 }
 
+/* ── Discovered-world map ────────────────────────────────── */
+.world-map {
+  position: absolute;
+  right: 12px;
+  bottom: 104px;
+  z-index: 65;
+  width: min(27vw, 260px);
+  min-width: 176px;
+  overflow: hidden;
+  opacity: 0.6;
+  border-radius: 13px;
+  pointer-events: auto;
+}
+
+.world-map-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  border: 1px solid rgba(57, 255, 106, 0.3);
+  border-radius: 13px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.world-map-canvas:active {
+  cursor: grabbing;
+}
+
+@media (max-width: 560px) {
+  .world-map {
+    right: 8px;
+    bottom: 108px;
+    width: min(47vw, 220px);
+    min-width: 150px;
+  }
+}
+
 .world-callout-composer {
   position: absolute;
   left: 50%;
