@@ -13,3 +13,11 @@
 **Action:** Added a TSDoc comment directly to `entities: Entity[];` in `GameState` explaining the contract and pointing developers to `{@link entityManager}`, naming the three things a direct `push`/`splice`/`filter`/reassignment desyncs: the id and item lookup indexes, the physics bodies `Physics.syncEntityBodies` reconciles from spawn/remove diffs, and the per-entity network deltas built from those same diffs. Promoted the neighbouring `//` note on `entityManager` to TSDoc so the pair reads consistently and both surface in IntelliSense.
 
 **Prevention:** Future developers checking IntelliSense on `state.entities` will now see the requirement to use `EntityManager` for mutations. Document a contract on the property where the mistake is made, not only on the class that enforces it — a `//` comment on the neighbouring property does not reach the hover.
+
+## $(date +%Y-%m-%d) - Document SIM_DT_MS simulation time unit
+
+**What was found:** The `SIM_DT_MS` constant in `src/engine/systems/simulation/constants.ts` was not documented with a TSDoc comment, making its significance as the fundamental simulation time unit unclear in IntelliSense. The prompt explicitly highlighted this as a prime example of an undocumented unit/frame of reference.
+
+**Action:** Added a TSDoc block to `SIM_DT_MS` explaining that it defines the length of a simulation tick in milliseconds, making the game simulate at 20Hz (1000/50). Detailed that it is the base unit for movement speed, weapon cooldowns, and buff durations.
+
+**Prevention:** Ensure all fundamental constants that define units of measurement or frames of reference (like time, coordinate systems) have TSDoc comments so their meaning is immediately visible to consumers.

@@ -4,6 +4,13 @@ import { ItemType, CELL_CONFIG } from "../../types";
 // Constants
 // ========================================
 
+/**
+ * Fixed length of a single simulation tick in milliseconds.
+ *
+ * The simulation runs at 20 ticks per second (1000 / 50 = 20Hz). This is the
+ * fundamental unit of time for all simulation logic (movement speed, weapon
+ * cooldowns, buff durations).
+ */
 export const SIM_DT_MS = 50; // 20 ticks/second
 export const MONSTER_ACTION_DELAY = 5; // Monsters act every N ticks (player acts every 1)
 export const MONSTER_AI_UPDATE_INTERVAL = 5; // Update monster velocities every 5 ticks (~4 Hz)
