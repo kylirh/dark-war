@@ -4,6 +4,17 @@ import { ItemType, CELL_CONFIG } from "../../types";
 // Constants
 // ========================================
 
+/**
+ * Fixed length of a single simulation tick in milliseconds.
+ *
+ * The simulation runs at 20 ticks per second (1000 / 50 = 20Hz). This acts as
+ * the conversion factor for the simulation's tick-based timers:
+ * - Time durations (cooldowns, fuses, action delays) are denominated in **ticks**.
+ * - Speeds and velocities are denominated in **pixels per second**.
+ *
+ * Used to convert physics deltas into step displacement (`v * SIM_DT_MS / 1000`)
+ * and real-world time into tick counts (`ms / SIM_DT_MS`).
+ */
 export const SIM_DT_MS = 50; // 20 ticks/second
 export const MONSTER_ACTION_DELAY = 5; // Monsters act every N ticks (player acts every 1)
 export const MONSTER_AI_UPDATE_INTERVAL = 5; // Update monster velocities every 5 ticks (~4 Hz)

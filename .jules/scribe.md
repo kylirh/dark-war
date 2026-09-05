@@ -13,3 +13,11 @@
 **Action:** Added a TSDoc comment directly to `entities: Entity[];` in `GameState` explaining the contract and pointing developers to `{@link entityManager}`, naming the three things a direct `push`/`splice`/`filter`/reassignment desyncs: the id and item lookup indexes, the physics bodies `Physics.syncEntityBodies` reconciles from spawn/remove diffs, and the per-entity network deltas built from those same diffs. Promoted the neighbouring `//` note on `entityManager` to TSDoc so the pair reads consistently and both surface in IntelliSense.
 
 **Prevention:** Future developers checking IntelliSense on `state.entities` will now see the requirement to use `EntityManager` for mutations. Document a contract on the property where the mistake is made, not only on the class that enforces it — a `//` comment on the neighbouring property does not reach the hover.
+
+## 2026-09-05 - Document SIM_DT_MS simulation time unit
+
+**What was found:** The `SIM_DT_MS` constant in `src/engine/systems/simulation/constants.ts` was not documented with a TSDoc comment. The previous doc wrongly cited "buff durations" which do not exist in the engine. It lacked clarity on how the constant bridges ticks (used for cooldowns, fuses, action delays) and real-time seconds (used for velocities).
+
+**Action:** Updated the TSDoc block to `SIM_DT_MS` replacing the invented examples with actual conversions performed in the codebase (converting real world time to ticks, converting physics deltas to step displacements).
+
+**Prevention:** Ensure all fundamental constants that define units of measurement or frames of reference (like time, coordinate systems) have accurate TSDoc comments that reference true uses in the codebase, not invented hypothetical mechanics.
