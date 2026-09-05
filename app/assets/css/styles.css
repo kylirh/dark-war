@@ -10,6 +10,14 @@ body.title-screen-active {
   background: transparent !important;
 }
 
+/* Keep the game shell out of the first paint and the title-to-menu handoff.
+   The menu/game code removes this class only after the destination UI exists. */
+body.startup-loading .app-container,
+body.startup-loading #retro-window-chrome,
+body.startup-loading .resize-handle {
+  visibility: hidden;
+}
+
 body.title-screen-active .app-container {
   display: none !important;
 }
@@ -916,6 +924,47 @@ body.imb-modal-open #retro-window-chrome {
 
 .imb-main-menu-dialog .imb-pause-option.selected::before {
   content: "";
+}
+
+/* Title-screen submenus use the same centered retro window treatment as the
+   load-game dialog instead of inheriting the full-screen main-menu layout. */
+.imb-main-menu-subdialog {
+  width: min(560px, calc(100vw - 32px));
+  height: auto;
+  min-width: 320px;
+  display: block;
+  border: 2px solid var(--modal-border);
+  background: var(--modal-bg);
+  box-shadow:
+    inset 2px 2px 0 var(--chrome-highlight),
+    inset -2px -2px 0 var(--chrome-lowlight),
+    4px 4px 0 var(--chrome-shadow);
+}
+
+.imb-main-menu-subdialog .imb-dialog-body {
+  width: auto;
+  max-height: min(76vh, 720px);
+  padding: 20px 24px 24px;
+  overflow: auto;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 38%),
+    var(--modal-bg);
+}
+
+.imb-main-menu-subdialog .imb-pause-view {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.imb-main-menu-subdialog .imb-settings-header h3 {
+  display: none;
+}
+
+.imb-main-menu-subdialog .imb-settings-header {
+  display: flex;
+  justify-content: flex-start;
 }
 
 .imb-pause-menu {

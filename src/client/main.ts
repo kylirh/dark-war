@@ -3386,6 +3386,7 @@ const createDarkWarApp = (): void => {
   const showMainMenu = (): void => {
     window.darkWarApp?.dispose();
     window.darkWarApp = new MainMenuApp(startGame, startOnlineGame);
+    document.body.classList.remove("startup-loading");
   };
 
   if (shouldSkipTitle) {
@@ -3396,6 +3397,7 @@ const createDarkWarApp = (): void => {
       showMainMenu();
     } else {
       startGame("new");
+      document.body.classList.remove("startup-loading");
     }
     return;
   }

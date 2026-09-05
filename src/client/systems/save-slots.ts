@@ -260,6 +260,7 @@ export class SaveSlotDialog {
     this.options.onOpenChange?.(true);
     this.modal.show();
     await this.refreshSlots();
+    if (this.modal.isOpen()) this.modal.recenter();
     this.focusSelectedSlot();
   }
 

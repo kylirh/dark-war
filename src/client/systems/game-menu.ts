@@ -143,7 +143,7 @@ export class GameMenu {
 
     return [
       { action: "new-game", label: "New Game" },
-      { action: "continue", label: "Continue Game" },
+      { action: "continue", label: "Load Game" },
       { action: "multiplayer", label: "Multiplayer" },
       { action: "settings", label: "Settings" },
       { action: "quit", label: "Quit" },
@@ -1069,6 +1069,8 @@ export class GameMenu {
   }
 
   private syncPauseMenu(): void {
+    this.syncPauseDialogPresentation();
+
     document
       .querySelectorAll<HTMLElement>("#pause-dialog [data-initial-focus]")
       .forEach((el) => el.removeAttribute("data-initial-focus"));
@@ -1282,6 +1284,43 @@ export class GameMenu {
 
   // ── View switching ─────────────────────────────────────────────────────────────
 
+  private syncPauseDialogPresentation(): void {
+    const pauseDialog = this.modals.get("pause-dialog");
+    if (!pauseDialog) return;
+
+    const isMainMenuSubdialog =
+      this.options.mainMenuPresentation && this.pauseMenuView !== "main";
+    const isMainMenuPresentation =
+      this.options.mainMenuPresentation && this.pauseMenuView === "main";
+    const wasMainMenuSubdialog = pauseDialog.element.classList.contains(
+      "imb-main-menu-subdialog",
+    );
+    pauseDialog.element.classList.toggle(
+      "imb-main-menu-dialog",
+      isMainMenuPresentation,
+    );
+    pauseDialog.element.classList.toggle(
+      "imb-main-menu-subdialog",
+      isMainMenuSubdialog,
+    );
+
+    const dialogTitle =
+      this.pauseMenuView === "main"
+        ? "Dark War"
+        : this.pauseMenuView === "settings" ||
+            this.pauseMenuView === "keybindings"
+          ? "Settings"
+          : "Multiplayer";
+    const title = pauseDialog.element.querySelector(".imb-dialog-title");
+    if (title) title.textContent = dialogTitle;
+    const closeButton = pauseDialog.element.querySelector(".imb-dialog-close");
+    closeButton?.setAttribute("aria-label", `Close ${dialogTitle}`);
+
+    if (wasMainMenuSubdialog !== isMainMenuSubdialog && pauseDialog.isOpen()) {
+      pauseDialog.recenter();
+    }
+  }
+
   private setPauseMenuView(view: PauseMenuView): void {
     if (this.pauseMenuView === "browse-games" && view !== "browse-games") {
       if (this.mpRefreshTimer !== null) {
@@ -1398,6 +1437,7 @@ export class GameMenu {
     this.pauseMenuMessage = null;
     this.listeningForKey = null;
     this.shouldFocusPauseMenu = true;
+    this.syncPauseDialogPresentation();
     this.showModal("pause-dialog");
     this.syncPauseMenu();
   }

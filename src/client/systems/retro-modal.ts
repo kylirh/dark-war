@@ -106,6 +106,12 @@ export class RetroModal {
     this.element.style.zIndex = String(RetroModalZIndex.current);
   }
 
+  /** Re-center an open modal after its content changes size. */
+  public recenter(): void {
+    this.centerInViewport();
+    this.clampToViewport();
+  }
+
   private startDrag(event: MouseEvent): void {
     if ((event.target as HTMLElement).closest("button")) return;
     const rect = this.element.getBoundingClientRect();
