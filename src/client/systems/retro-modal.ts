@@ -42,6 +42,16 @@ export class RetroModal {
     this.element.id = options.id;
     this.element.className =
       `imb-dialog hidden ${options.className ?? ""}`.trim();
+    this.element.setAttribute("role", "dialog");
+    // Deliberately no `aria-modal`. These windows stack — the Electron
+    // application menu can open the About dialog on top of the pause dialog,
+    // and `GameMenu` treats that as normal (`syncModalState` keeps one shared
+    // scrim for "any modal open", and Escape closes the topmost of a list).
+    // `aria-modal="true"` asks assistive technology to treat everything else as
+    // inert, so two of them open at once would each hide the other. There is no
+    // focus trap here either. `role="dialog"` plus an accessible name is the
+    // part this component can honestly claim.
+    this.element.setAttribute("aria-labelledby", `${options.id}-title`);
     this.element.dataset.centerOnOpen = String(options.centerOnOpen ?? false);
     this.element.style.top = `${options.initialPosition.top}px`;
     this.element.style.left = `${options.initialPosition.left}px`;
@@ -57,7 +67,7 @@ export class RetroModal {
           <span aria-hidden="true">X</span>
         </button>
         <div class="imb-dialog-stripes"></div>
-        <span class="imb-dialog-title">${escapeHtml(options.title)}</span>
+        <span id="${escapeHtml(options.id)}-title" class="imb-dialog-title">${escapeHtml(options.title)}</span>
         <div class="imb-dialog-stripes"></div>
       </div>
       <div class="imb-dialog-body">${options.body}</div>

@@ -239,7 +239,11 @@ export class SaveSlotDialog {
         <div class="save-slot-grid" id="save-slot-grid"></div>
       `,
     });
-    this.modal.element.setAttribute("role", "dialog");
+    // `RetroModal` already sets `role="dialog"` and the `aria-labelledby` name.
+    // `aria-modal` is asserted here rather than in the component because it is
+    // true of this dialog specifically: it owns a dedicated scrim and is the
+    // only window open while it is up. The stacking About/pause windows are not
+    // modal in that sense, so the shared component must not claim it for them.
     this.modal.element.setAttribute("aria-modal", "true");
     document.body.appendChild(this.scrim);
     document.body.appendChild(this.modal.element);
