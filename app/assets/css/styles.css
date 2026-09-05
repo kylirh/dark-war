@@ -1693,6 +1693,11 @@ body {
   pointer-events: auto;
 }
 
+.world-map.world-map-top {
+  top: 12px;
+  bottom: auto;
+}
+
 .world-map-canvas {
   display: block;
   width: 100%;
@@ -1816,6 +1821,11 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.hp-overlay.hud-bottom {
+  top: auto;
+  bottom: var(--hud-bottom-offset, 104px);
 }
 
 .hp-bar-outer {
@@ -1975,6 +1985,10 @@ body {
   bottom: 8px;
   z-index: 50;
   pointer-events: none;
+}
+
+.story-overlay.player-obscured {
+  visibility: hidden;
 }
 
 /* ── Glass panel — same width in both modes ─────────────────
@@ -2432,6 +2446,11 @@ body {
 
   pointer-events: auto;
   white-space: nowrap;
+}
+
+.inventory-bar.hud-bottom {
+  top: auto;
+  bottom: var(--hud-bottom-offset, 104px);
 }
 
 .inv-slot {

@@ -40,6 +40,7 @@ import {
 } from "./systems/save-slots";
 import { UI } from "./systems/ui";
 import { InventoryBar } from "./systems/inventory-bar";
+import { HudLayout } from "./systems/hud-layout";
 import { CharacterModal, ModalTab } from "./systems/character-modal";
 import {
   CELL_CONFIG,
@@ -310,6 +311,7 @@ class DarkWar {
     onLeave: (expectedRevision) => this.sendDialogueLeave(expectedRevision),
   };
   private inventoryBar: InventoryBar;
+  private hudLayout: HudLayout;
   private characterModal: CharacterModal;
   private gameMenu: GameMenu;
   private saveSlotDialog: SaveSlotDialog;
@@ -558,6 +560,7 @@ class DarkWar {
     if (isDebug()) console.timeEnd("Create UI");
 
     this.inventoryBar = new InventoryBar();
+    this.hudLayout = new HudLayout();
     this.inventoryBar.onSlotClick = (idx) => {
       if (!this.isDialogueActive()) this.handleSelectInventorySlot(idx);
     };
@@ -1699,6 +1702,7 @@ class DarkWar {
       state.options.godMode,
     );
     this.inventoryBar.update(state.player);
+    this.hudLayout.update(this.renderer.getPlayerScreenRect(state));
     if (this.characterModal.isOpen()) {
       this.characterModal.renderInventory(state.player);
     }

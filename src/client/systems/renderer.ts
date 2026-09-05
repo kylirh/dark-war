@@ -63,6 +63,7 @@ import {
 } from "../../engine/systems/terrain/elevation-resolver";
 import { WorldCalloutView } from "./world-callout-manager";
 import { AnchoredWorldCallout, WorldCalloutLayer } from "./world-callout-layer";
+import type { ScreenRect } from "./hud-layout";
 import {
   DUAL_GRID_NORTH_EAST,
   DUAL_GRID_NORTH_WEST,
@@ -2338,5 +2339,42 @@ export class Renderer {
    */
   public getCameraTopLeft(): { x: number; y: number } {
     return { x: this.camLeftWorld, y: this.camTopWorld };
+  }
+
+  /**
+   * Return the local player's current screen-space bounds for HUD layout.
+   * Uses the same nearest wrapped image as entity rendering at a toroidal seam.
+   */
+  public getPlayerScreenRect(state: GameState): ScreenRect | null {
+    if (!this.ready) return null;
+
+    const canvasRect = this.canvas.getBoundingClientRect();
+    if (canvasRect.width <= 0 || canvasRect.height <= 0) return null;
+
+    const { viewW, viewH } = this.getViewWorldSize();
+    const wraps = state.levelKind === "outside";
+    const worldW = state.mapWidth * CELL_CONFIG.w;
+    const worldH = state.mapHeight * CELL_CONFIG.h;
+    const playerX = wraps
+      ? nearestWrappedImage(state.player.worldX, this.cameraWorldX, worldW)
+      : state.player.worldX;
+    const playerY = wraps
+      ? nearestWrappedImage(state.player.worldY, this.cameraWorldY, worldH)
+      : state.player.worldY;
+    const centerX =
+      canvasRect.left +
+      ((playerX - this.camLeftWorld) / viewW) * canvasRect.width;
+    const centerY =
+      canvasRect.top +
+      ((playerY - this.camTopWorld) / viewH) * canvasRect.height;
+    const width = (CELL_CONFIG.w / viewW) * canvasRect.width;
+    const height = (CELL_CONFIG.h / viewH) * canvasRect.height;
+
+    return {
+      left: centerX - width / 2,
+      top: centerY - height / 2,
+      right: centerX + width / 2,
+      bottom: centerY + height / 2,
+    };
   }
 }
