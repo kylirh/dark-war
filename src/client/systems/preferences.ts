@@ -20,9 +20,9 @@ export type KeyBindingAction =
   | "toggleGodMode"
   | "toggleFOV";
 
-export type ThemeMode = "dark" | "light";
+type ThemeMode = "dark" | "light";
 
-export const VOLUME_STEP_PERCENT = 5;
+const VOLUME_STEP_PERCENT = 5;
 
 /** Snap a volume percentage to the increments exposed by the settings sliders. */
 export function quantizeVolumePercent(value: number): number {

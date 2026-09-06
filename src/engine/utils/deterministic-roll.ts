@@ -61,7 +61,7 @@ function finalize32(h: number): number {
 }
 
 /** Hash a roll key to an unsigned 32-bit integer. */
-export function deterministicHash(key: RollKey): number {
+function deterministicHash(key: RollKey): number {
   let h = 0x9e3779b1 | 0;
   h = fold32(h, key.simulationSeed | 0);
   h = foldString(h, key.actorStableId);

@@ -132,7 +132,7 @@ export enum WeaponType {
 export type MultiplayerMode = "offline" | "online";
 export type LevelKind = "outside" | "dungeon";
 
-export interface MultiplayerState {
+interface MultiplayerState {
   mode: MultiplayerMode;
   localPlayerId: string;
 }
@@ -336,7 +336,7 @@ export interface InventorySlot {
 }
 
 export const INVENTORY_BAR_SIZE = 12;
-export const INVENTORY_EXTENDED_ROWS = 2;
+const INVENTORY_EXTENDED_ROWS = 2;
 export const INVENTORY_TOTAL_SLOTS =
   INVENTORY_BAR_SIZE * (1 + INVENTORY_EXTENDED_ROWS); // 36
 
@@ -683,7 +683,6 @@ export enum EventType {
   DAMAGE = "DAMAGE",
   DEATH = "DEATH",
   EXPLOSION = "EXPLOSION",
-  DROP_LOOT = "DROP_LOOT",
   MESSAGE = "MESSAGE",
   DOOR_OPEN = "DOOR_OPEN",
   PICKUP_ITEM = "PICKUP_ITEM",
@@ -719,7 +718,6 @@ export type EventData =
       sourceId?: string;
     }
   | { type: "EXPLOSION"; x: number; y: number; radius: number; damage: number }
-  | { type: "DROP_LOOT"; x: number; y: number; itemType: ItemType }
   | { type: "MESSAGE"; message: string }
   | { type: "DOOR_OPEN"; x: number; y: number }
   | { type: "PICKUP_ITEM"; actorId: string; itemId: string }

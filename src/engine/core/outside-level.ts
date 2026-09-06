@@ -37,9 +37,9 @@ export interface OutsideLevelData extends Omit<DungeonData, "map"> {
 const WIDTH = OUTSIDE_MAP_WIDTH;
 const HEIGHT = OUTSIDE_MAP_HEIGHT;
 export const OUTSIDE_CAVE_MOUTH: readonly [number, number] = [62, 40];
-export const PARK_WORKSHOP_ORIGIN: readonly [number, number] = [57, 56];
+const PARK_WORKSHOP_ORIGIN: readonly [number, number] = [57, 56];
 /** Where the workshop builder greets the player, just east of the start. */
-export const BUILDER_START: readonly [number, number] = [15, 58];
+const BUILDER_START: readonly [number, number] = [15, 58];
 
 /** Resolve the workshop entrance from its Tiled-authored portal marker. */
 export function parkWorkshopDoor(): [number, number] {

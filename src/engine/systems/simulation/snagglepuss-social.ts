@@ -9,7 +9,7 @@ import {
   Player,
 } from "../../types";
 
-export function snagglepussRelationship(
+function snagglepussRelationship(
   state: GameState,
   playerId: string,
   snagglepussId: string,

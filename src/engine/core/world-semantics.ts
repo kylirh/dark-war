@@ -305,7 +305,7 @@ function attachProductionVisuals(
 }
 
 /** Directional traversal across static terrain and discrete elevation. */
-export function resolveSemanticTraversal(
+function resolveSemanticTraversal(
   layers: WorldPlaneLayers,
   fromIndex: number,
   toIndex: number,

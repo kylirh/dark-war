@@ -6,7 +6,7 @@ import { SerializedState } from "../../engine/types";
 import { escapeHtml } from "./html-escape";
 
 export const SAVE_SLOT_COUNT = 8;
-export const SAVE_CHARACTER_NAME = "Captain Hazard";
+const SAVE_CHARACTER_NAME = "Captain Hazard";
 
 const SAVE_SLOT_STORAGE_PREFIX = "darkwar-save-slot-";
 
@@ -83,7 +83,7 @@ function parseSaveRecord(
   }
 }
 
-export function getSaveRegionName(state: SerializedState): string {
+function getSaveRegionName(state: SerializedState): string {
   if (state.levelKind === "outside" || state.depth <= 0) {
     return "Megacorp Exterior";
   }

@@ -137,7 +137,7 @@ export function stepSimulationTick(state: GameState): void {
 }
 
 /** Heal resting players and wake them as soon as they reach full health. */
-export function processRestingPlayers(state: GameState, tick: number): void {
+function processRestingPlayers(state: GameState, tick: number): void {
   for (const player of state.players) {
     if (!player.resting) continue;
 
