@@ -58,3 +58,11 @@ duplicate reads exactly like a regression.
 **Rejected in review:** the first version of this change also set `aria-modal="true"`. That is wrong for this component. `RetroModal` windows stack — `GameMenu.syncModalState` keeps one shared scrim for "any modal open" and Escape closes the topmost of a list, and the Electron application menu can open the About dialog while the pause dialog is already up. `aria-modal="true"` tells assistive technology to treat everything outside the dialog as inert, so two open windows would each hide the other. `RetroModal` also has no focus trap, which the original change acknowledged. The attribute was dropped.
 
 **Prevention:** `aria-modal="true"` is a claim about runtime behavior, not a decoration that belongs on anything dialog-shaped. Only assert it where exactly one dialog can be open and focus is actually confined to it — the character modal, which owns a click-to-close scrim, qualifies; a stacking window manager does not. `role="dialog"` plus an `aria-labelledby` accessible name is safe either way.
+
+## 2024-11-21 - Intro Story Keyboard Navigation
+
+**What was found:** The `IntroStory` view captured 'Enter' and 'Space' unconditionally at the `window` level in its `onKeyDown` handler. If a keyboard user focused the 'Skip' or 'Back' buttons and pressed Enter or Space to activate them, the global handler intercepted the event, prevented default behavior (suppressing the button click), and executed the `this.next()` logic to advance the slide instead. This completely broke keyboard access to the secondary buttons.
+
+**Action:** Adjusted the `onKeyDown` handler in `src/client/systems/intro-story.ts`. If the key is 'Enter' or 'Space' and the `document.activeElement` is an `HTMLButtonElement` within the modal, the handler manually fires `active.click()` and exits without triggering the default slide advance behavior.
+
+**Prevention:** When capturing global keystrokes like 'Enter' or 'Space' for convenience (like closing a modal or advancing content), explicitly check if `document.activeElement` is an interactive control first. Do not override focus-driven actions.

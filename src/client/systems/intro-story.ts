@@ -107,6 +107,19 @@ export class IntroStory {
       return;
     }
 
+    if (event.key === "Enter" || event.key === " ") {
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLButtonElement &&
+        this.overlay.contains(active)
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        active.click();
+        return;
+      }
+    }
+
     if (
       event.key === "ArrowRight" ||
       event.key === "Enter" ||
