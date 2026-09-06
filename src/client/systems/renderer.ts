@@ -108,6 +108,7 @@ export class Renderer {
   private textureCache: Map<string, Texture> = new Map();
   private shadowTextureCache: Map<SpriteShadowSize, Texture> = new Map();
   private glowTextureCache: Map<string, Texture> = new Map();
+  private spritePool: Sprite[] = [];
   private ready: boolean = false;
   private pendingRender?: {
     state: GameState;
@@ -926,12 +927,24 @@ export class Renderer {
     );
     if (!texture) return null;
 
-    const sprite = new Sprite(texture);
+    let sprite = this.spritePool.pop();
+    if (!sprite) {
+      sprite = new Sprite(texture);
+    } else {
+      sprite.texture = texture;
+    }
+
     sprite.x = screenX;
     sprite.y = screenY + frame.yOffset;
+    sprite.scale.set(1);
     sprite.width = frame.renderWidth;
     sprite.height = frame.renderHeight;
     sprite.anchor.set(frame.anchorX, frame.anchorY);
+    sprite.rotation = 0;
+    sprite.alpha = 1;
+    sprite.tint = 0xffffff;
+    sprite.zIndex = 0;
+
     return sprite;
   }
 
@@ -982,12 +995,23 @@ export class Renderer {
       huge: [1.18, 0.72],
     };
     const [scaleX, scaleY] = scaleBySize[size];
-    const shadow = new Sprite(texture);
+
+    let shadow = this.spritePool.pop();
+    if (!shadow) {
+      shadow = new Sprite(texture);
+    } else {
+      shadow.texture = texture;
+    }
+
     shadow.anchor.set(0.5, 0.5);
     shadow.x = screenX;
     shadow.y = screenY - 3;
     shadow.scale.set(scaleX, scaleY);
+    shadow.rotation = 0;
+    shadow.alpha = 1;
+    shadow.tint = 0xffffff;
     shadow.zIndex = zIndex - 0.5;
+
     container.addChild(shadow);
   }
 
@@ -1025,12 +1049,22 @@ export class Renderer {
     const texture = this.getGlowTexture(color);
     if (!texture) return;
 
-    const glow = new Sprite(texture);
+    let glow = this.spritePool.pop();
+    if (!glow) {
+      glow = new Sprite(texture);
+    } else {
+      glow.texture = texture;
+    }
+
     glow.anchor.set(0.5, 0.5);
     glow.x = screenX;
     glow.y = screenY;
     glow.scale.set(scale);
+    glow.rotation = 0;
+    glow.alpha = 1;
+    glow.tint = 0xffffff;
     glow.zIndex = zIndex - 0.25;
+
     container.addChild(glow);
   }
 
@@ -2329,7 +2363,11 @@ export class Renderer {
   private destroyFrameChildren(container: Container): void {
     const children = container.removeChildren();
     for (const child of children) {
-      child.destroy({ children: true, context: true });
+      if (child instanceof Sprite) {
+        this.spritePool.push(child);
+      } else {
+        child.destroy({ children: true, context: true });
+      }
     }
   }
 

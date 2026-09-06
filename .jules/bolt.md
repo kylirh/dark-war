@@ -58,3 +58,11 @@ test in `entity-manager.test.ts`.
 
 **Learning:** Dozens of hotspots in the simulation loop (such as command parsing, event processing, and conversation states) used `state.entities.find((e) => e.id === someId)` to fetch an entity by its unique ID. This is an O(N) array scan performed very frequently.
 **Action:** Replaced these lookups with `state.entityManager.getById(someId)`, leveraging `EntityManager`'s internal O(1) `Map` mapping IDs to entities. Always use `getById(id)` over `entities.find` when possible.
+
+## 2026-09-06 - Sprite Object Pooling in Renderer
+
+**What was found:** The `Renderer`'s main rendering loop called `container.removeChildren()` followed by `child.destroy()` for every `Sprite` across the visible map and entity containers every frame. This meant thousands of allocations and destructions on a populated screen, which is heavily taxing on the garbage collector and CPU (a 500-iteration benchmark over 2500 sprites showed ~683ms for destruction/re-creation vs ~109ms for reuse).
+
+**Action:** Added a `spritePool: Sprite[] = []` to the `Renderer`. Changed `destroyFrameChildren` to push removed `Sprite` instances into the pool instead of destroying them (while continuing to destroy other display objects like `Graphics`). `createSpriteFromFrame`, `addShadow`, and `addGlow` were modified to pop from the pool before creating a new `Sprite`, explicitly resetting critical properties (such as `texture`, `scale`, `width`, `height`, `anchor`, `rotation`, `alpha`, `tint`, and `zIndex`) to prevent state leak.
+
+**Prevention:** Watch for display objects that act as short-lived leaf nodes in the scene graph (like individual tiles or entities). Reusing them via object pooling is a major performance win in Pixi.js compared to a tear-down-and-rebuild strategy. Never reset a Pixi `Sprite` by setting `width = 0` and `height = 0` (which breaks internal scale); instead, explicitly reset `scale.set(1)` along with explicit bounds and properties.
