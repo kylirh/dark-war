@@ -7,7 +7,7 @@
 
 import { EntityKind, GameState, MonsterType } from "../../engine/types";
 
-export type MusicScene =
+type MusicScene =
   | "title"
   | "main-menu"
   | "intro-story"

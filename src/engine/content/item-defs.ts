@@ -45,7 +45,7 @@ export interface ItemDef {
 /** Emergency recovery amount; resting remains the primary healing route. */
 export const MEDKIT_HEAL_AMOUNT = 10;
 /** Keep medkits meaningful without letting them become a second health bar. */
-export const MEDKIT_MAX_CARRY = 2;
+const MEDKIT_MAX_CARRY = 2;
 
 export const ITEM_DEFS: Record<ItemType, ItemDef> = {
   [ItemType.PISTOL]: {

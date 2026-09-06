@@ -117,7 +117,7 @@ export function getClosestPlayer(
   return closest;
 }
 
-export function isMonsterMoveCandidateClear(
+function isMonsterMoveCandidateClear(
   state: GameState,
   monster: Monster,
   dx: number,
@@ -198,7 +198,7 @@ export function pushEvent(
   state.eventQueue.push({ ...event, id: crypto.randomUUID(), depth });
 }
 
-export function getEventDepth(state: GameState, causeId: string): number {
+function getEventDepth(state: GameState, causeId: string): number {
   const causeEvent = state.eventQueue.find((e) => e.id === causeId);
   return causeEvent ? causeEvent.depth : 0;
 }

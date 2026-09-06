@@ -8,11 +8,11 @@
 export const ELEVATION_NORTH = 1 << 0;
 export const ELEVATION_NORTH_EAST = 1 << 1;
 export const ELEVATION_EAST = 1 << 2;
-export const ELEVATION_SOUTH_EAST = 1 << 3;
+const ELEVATION_SOUTH_EAST = 1 << 3;
 export const ELEVATION_SOUTH = 1 << 4;
 export const ELEVATION_SOUTH_WEST = 1 << 5;
 export const ELEVATION_WEST = 1 << 6;
-export const ELEVATION_NORTH_WEST = 1 << 7;
+const ELEVATION_NORTH_WEST = 1 << 7;
 
 export type ElevationNeighborMask = number;
 export type CliffMagnitude = "none" | "step" | "tall";

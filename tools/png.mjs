@@ -129,7 +129,7 @@ export function decodePNG(buffer) {
 /**
  * Encode RGBA bytes to a PNG buffer (filter 0 / None on every scanline).
  */
-export function encodePNG(width, height, data) {
+function encodePNG(width, height, data) {
   const bpp = 4;
   const stride = width * bpp;
   const raw = Buffer.alloc((stride + 1) * height);

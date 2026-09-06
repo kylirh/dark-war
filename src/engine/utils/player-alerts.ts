@@ -2,7 +2,7 @@
 
 import { GameState, PlayerAlert } from "../types";
 
-export const MAX_PENDING_PLAYER_ALERTS = 32;
+const MAX_PENDING_PLAYER_ALERTS = 32;
 const MAX_PLAYER_ALERT_CODEPOINTS = 160;
 
 export interface EmitPlayerAlertOptions {

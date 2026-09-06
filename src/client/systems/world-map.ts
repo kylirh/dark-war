@@ -22,7 +22,7 @@ const MAP_MAX_WINDOW_WIDTH = 160;
 const MAP_MAX_WINDOW_HEIGHT = 120;
 
 /** Semantic colors used by the overview map. Kept separate from atlas art. */
-export const WORLD_MAP_TILE_COLORS: Partial<Record<TileType, string>> = {
+const WORLD_MAP_TILE_COLORS: Partial<Record<TileType, string>> = {
   [TileType.WALL]: "#566b7b",
   [TileType.FLOOR]: "#a98663",
   [TileType.DOOR_CLOSED]: "#d3a34d",
@@ -57,12 +57,12 @@ export type WorldMapLandmarkKind =
   | "tombstone"
   | "sign";
 
-export interface WorldMapLandmarkStyle {
+interface WorldMapLandmarkStyle {
   color: string;
   shape: "circle" | "diamond" | "square" | "triangle";
 }
 
-export const WORLD_MAP_LANDMARK_STYLES: Record<
+const WORLD_MAP_LANDMARK_STYLES: Record<
   WorldMapLandmarkKind,
   WorldMapLandmarkStyle
 > = {

@@ -86,7 +86,6 @@ function isWindowBoundsVisible(
 module.exports = {
   DEFAULT_WINDOW_HEIGHT,
   DEFAULT_WINDOW_WIDTH,
-  MIN_VISIBLE_FRACTION,
   isWindowBoundsVisible,
   normalizeWindowBounds,
 };
