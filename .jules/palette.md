@@ -59,10 +59,12 @@ duplicate reads exactly like a regression.
 
 **Prevention:** `aria-modal="true"` is a claim about runtime behavior, not a decoration that belongs on anything dialog-shaped. Only assert it where exactly one dialog can be open and focus is actually confined to it — the character modal, which owns a click-to-close scrim, qualifies; a stacking window manager does not. `role="dialog"` plus an `aria-labelledby` accessible name is safe either way.
 
-## 2024-11-21 - Intro Story Keyboard Navigation
+## 2026-09-06 - Intro Story Keyboard Navigation
 
 **What was found:** The `IntroStory` view captured 'Enter' and 'Space' unconditionally at the `window` level in its `onKeyDown` handler. If a keyboard user focused the 'Skip' or 'Back' buttons and pressed Enter or Space to activate them, the global handler intercepted the event, prevented default behavior (suppressing the button click), and executed the `this.next()` logic to advance the slide instead. This completely broke keyboard access to the secondary buttons.
 
-**Action:** Adjusted the `onKeyDown` handler in `src/client/systems/intro-story.ts`. If the key is 'Enter' or 'Space' and the `document.activeElement` is an `HTMLButtonElement` within the modal, the handler manually fires `active.click()` and exits without triggering the default slide advance behavior.
+**Action:** Adjusted the `onKeyDown` handler in `src/client/systems/intro-story.ts`. If the key is 'Enter' or 'Space' and the `document.activeElement` is an `HTMLButtonElement` within the overlay, the handler returns immediately — without calling `preventDefault()` — so the browser performs its own button activation.
 
-**Prevention:** When capturing global keystrokes like 'Enter' or 'Space' for convenience (like closing a modal or advancing content), explicitly check if `document.activeElement` is an interactive control first. Do not override focus-driven actions.
+**Rejected in review:** the first version instead called `event.preventDefault()` and then re-dispatched `active.click()` by hand. That works, but it cancels the native activation only to rebuild it: `Space` held down then repeat-fires a click on every keydown repeat, where a real button activates once on keyup. The accompanying `event.stopPropagation()` was also dead code — the listener is bound to `window`, the last node in the bubble path, and `stopPropagation` does not affect other listeners on the same target. Not preventing the default at all is the smaller and more faithful fix.
+
+**Prevention:** When capturing global keystrokes like 'Enter' or 'Space' for convenience (like closing a modal or advancing content), explicitly check if `document.activeElement` is an interactive control first, and yield to it by returning _before_ `preventDefault()`. Suppressing a control's native activation and re-synthesizing it is not the same behavior.
