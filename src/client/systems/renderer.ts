@@ -927,24 +927,33 @@ export class Renderer {
     );
     if (!texture) return null;
 
-    let sprite = this.spritePool.pop();
-    if (!sprite) {
-      sprite = new Sprite(texture);
-    } else {
-      sprite.texture = texture;
-    }
-
+    const sprite = this.acquireSprite(texture);
     sprite.x = screenX;
     sprite.y = screenY + frame.yOffset;
-    sprite.scale.set(1);
     sprite.width = frame.renderWidth;
     sprite.height = frame.renderHeight;
     sprite.anchor.set(frame.anchorX, frame.anchorY);
+
+    return sprite;
+  }
+
+  /**
+   * Take a sprite from the per-frame pool, or make one, reset to Pixi's
+   * defaults for every property this renderer ever mutates. Recycled sprites
+   * carry the previous frame's state, so resetting in one place keeps the
+   * three acquisition sites from drifting apart.
+   */
+  private acquireSprite(texture: Texture): Sprite {
+    const sprite = this.spritePool.pop();
+    if (!sprite) return new Sprite(texture);
+
+    sprite.texture = texture;
+    sprite.scale.set(1);
+    sprite.anchor.set(0, 0);
     sprite.rotation = 0;
     sprite.alpha = 1;
     sprite.tint = 0xffffff;
     sprite.zIndex = 0;
-
     return sprite;
   }
 
@@ -996,20 +1005,11 @@ export class Renderer {
     };
     const [scaleX, scaleY] = scaleBySize[size];
 
-    let shadow = this.spritePool.pop();
-    if (!shadow) {
-      shadow = new Sprite(texture);
-    } else {
-      shadow.texture = texture;
-    }
-
+    const shadow = this.acquireSprite(texture);
     shadow.anchor.set(0.5, 0.5);
     shadow.x = screenX;
     shadow.y = screenY - 3;
     shadow.scale.set(scaleX, scaleY);
-    shadow.rotation = 0;
-    shadow.alpha = 1;
-    shadow.tint = 0xffffff;
     shadow.zIndex = zIndex - 0.5;
 
     container.addChild(shadow);
@@ -1049,20 +1049,11 @@ export class Renderer {
     const texture = this.getGlowTexture(color);
     if (!texture) return;
 
-    let glow = this.spritePool.pop();
-    if (!glow) {
-      glow = new Sprite(texture);
-    } else {
-      glow.texture = texture;
-    }
-
+    const glow = this.acquireSprite(texture);
     glow.anchor.set(0.5, 0.5);
     glow.x = screenX;
     glow.y = screenY;
     glow.scale.set(scale);
-    glow.rotation = 0;
-    glow.alpha = 1;
-    glow.tint = 0xffffff;
     glow.zIndex = zIndex - 0.25;
 
     container.addChild(glow);
