@@ -108,6 +108,7 @@ export class Renderer {
   private textureCache: Map<string, Texture> = new Map();
   private shadowTextureCache: Map<SpriteShadowSize, Texture> = new Map();
   private glowTextureCache: Map<string, Texture> = new Map();
+  private spritePool: Sprite[] = [];
   private ready: boolean = false;
   private pendingRender?: {
     state: GameState;
@@ -926,12 +927,33 @@ export class Renderer {
     );
     if (!texture) return null;
 
-    const sprite = new Sprite(texture);
+    const sprite = this.acquireSprite(texture);
     sprite.x = screenX;
     sprite.y = screenY + frame.yOffset;
     sprite.width = frame.renderWidth;
     sprite.height = frame.renderHeight;
     sprite.anchor.set(frame.anchorX, frame.anchorY);
+
+    return sprite;
+  }
+
+  /**
+   * Take a sprite from the per-frame pool, or make one, reset to Pixi's
+   * defaults for every property this renderer ever mutates. Recycled sprites
+   * carry the previous frame's state, so resetting in one place keeps the
+   * three acquisition sites from drifting apart.
+   */
+  private acquireSprite(texture: Texture): Sprite {
+    const sprite = this.spritePool.pop();
+    if (!sprite) return new Sprite(texture);
+
+    sprite.texture = texture;
+    sprite.scale.set(1);
+    sprite.anchor.set(0, 0);
+    sprite.rotation = 0;
+    sprite.alpha = 1;
+    sprite.tint = 0xffffff;
+    sprite.zIndex = 0;
     return sprite;
   }
 
@@ -982,12 +1004,14 @@ export class Renderer {
       huge: [1.18, 0.72],
     };
     const [scaleX, scaleY] = scaleBySize[size];
-    const shadow = new Sprite(texture);
+
+    const shadow = this.acquireSprite(texture);
     shadow.anchor.set(0.5, 0.5);
     shadow.x = screenX;
     shadow.y = screenY - 3;
     shadow.scale.set(scaleX, scaleY);
     shadow.zIndex = zIndex - 0.5;
+
     container.addChild(shadow);
   }
 
@@ -1025,12 +1049,13 @@ export class Renderer {
     const texture = this.getGlowTexture(color);
     if (!texture) return;
 
-    const glow = new Sprite(texture);
+    const glow = this.acquireSprite(texture);
     glow.anchor.set(0.5, 0.5);
     glow.x = screenX;
     glow.y = screenY;
     glow.scale.set(scale);
     glow.zIndex = zIndex - 0.25;
+
     container.addChild(glow);
   }
 
@@ -2329,7 +2354,11 @@ export class Renderer {
   private destroyFrameChildren(container: Container): void {
     const children = container.removeChildren();
     for (const child of children) {
-      child.destroy({ children: true, context: true });
+      if (child instanceof Sprite) {
+        this.spritePool.push(child);
+      } else {
+        child.destroy({ children: true, context: true });
+      }
     }
   }
 
