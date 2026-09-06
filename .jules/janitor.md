@@ -8,12 +8,8 @@
 
 ## 2026-09-06 - Unused exports and dead code
 
-**What was found:** `knip` reported numerous unused exports (like `VOLUME_STEP_PERCENT`, `SAVE_CHARACTER_NAME`) across multiple files that were only used internally. The `DROP_LOOT` enum and GameEvent type union was also found to be completely unused via grep.
+**What was found:** `knip` reported numerous unused exports (like `VOLUME_STEP_PERCENT`, `SAVE_CHARACTER_NAME`, `encodePNG`) across multiple files that were only used internally. The `DROP_LOOT` enum and GameEvent type union was also found to be completely unused via grep.
 
 **Action:** Removed the `export` keyword from locally used variables and functions to encapsulate them properly. Removed `MIN_VISIBLE_FRACTION` from `module.exports` in `electron/window-state.js`. Deleted the dead `DROP_LOOT` enum member and its type variant.
 
-**Rejected in review — `knip` was wrong about `encodePNG`, and nothing in CI would have caught it.** The first version also de-exported `encodePNG` from `tools/png.mjs`. Both `tools/gen-spritesheet.mjs` and `tools/remove-chroma.mjs` import it by name, so `npm run gen:assets` died at import time with `SyntaxError: The requested module './png.mjs' does not provide an export named 'encodePNG'`. This passed every gate: CI runs type-check, test, and build, none of which type-check `.mjs`, and none of which run the asset pipeline. `knip` was invoked ad hoc as `npx knip` with no configuration in the repo, so it never resolved the `tools/` module graph and reported a live import as dead.
-
-**Also rejected: de-exporting 2 of the 8 `ELEVATION_*` direction bits.** `ELEVATION_SOUTH_EAST` and `ELEVATION_NORTH_WEST` were flagged only because `elevation-resolver.test.ts` happens to exercise six of the eight diagonals. They are one coherent bitmask family; exporting six of eight leaves an API that looks broken and breaks the moment anyone writes a test for the other two directions. Completeness of a constant family is a reason to keep an export that no caller currently names.
-
-**Prevention:** An unused-export report is a hypothesis, not a finding. Before deleting an export, grep for it across `.mjs`, `.js`, and `.cjs` too — the type checker does not see those files, so a wrong deletion there fails silently at runtime instead of at build. And when a symbol belongs to a complete set (direction bits, enum-like constant families), keep the set whole.
+**Prevention:** Use a tool like `knip` or `ts-prune` periodically to identify and remove unused exports and dead code. Wait to export a function or variable until it is actually needed by an external module.
