@@ -107,6 +107,14 @@ export class IntroStory {
       return;
     }
 
+    // Enter/Space belong to a focused button: let the browser activate it
+    // natively rather than preventing the default and advancing the slide.
+    if (event.key === "Enter" || event.key === " ") {
+      const active = document.activeElement;
+      if (active instanceof HTMLButtonElement && this.overlay.contains(active))
+        return;
+    }
+
     if (
       event.key === "ArrowRight" ||
       event.key === "Enter" ||
