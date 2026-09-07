@@ -186,7 +186,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       }
     }
 
-    // Queue random player hit sound (using Math.random to avoid desyncing RNG)
+    // Queue random player hit sound
     const hitSounds: SoundEffect[] = [
       SoundEffect.PLAYER_HIT_1,
       SoundEffect.PLAYER_HIT_2,
@@ -195,7 +195,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       SoundEffect.PLAYER_HIT_5,
     ];
     state.pendingSounds.push({
-      effect: hitSounds[Math.floor(Math.random() * hitSounds.length)],
+      effect: RNG.choose(hitSounds),
     });
 
     if (player.hp <= 0) {
@@ -266,7 +266,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
             SoundEffect.HIT_METAL_4,
           ];
           state.pendingSounds.push({
-            effect: metalSounds[Math.floor(Math.random() * metalSounds.length)],
+            effect: RNG.choose(metalSounds),
             worldX: mwx,
             worldY: mwy,
           });
@@ -280,8 +280,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
             SoundEffect.HIT_FLESH_5,
           ];
           state.pendingSounds.push({
-            effect:
-              fleshHitSounds[Math.floor(Math.random() * fleshHitSounds.length)],
+            effect: RNG.choose(fleshHitSounds),
             worldX: mwx,
             worldY: mwy,
           });
@@ -569,7 +568,7 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
       const mwx = monster.worldX ?? monster.gridX * CELL_CONFIG.w;
       const mwy = monster.worldY ?? monster.gridY * CELL_CONFIG.h;
       state.pendingSounds.push({
-        effect: deathSounds[Math.floor(Math.random() * deathSounds.length)],
+        effect: RNG.choose(deathSounds),
         worldX: mwx,
         worldY: mwy,
       });
