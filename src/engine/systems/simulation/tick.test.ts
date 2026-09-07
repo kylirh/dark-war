@@ -20,8 +20,9 @@ describe("stepSimulationTick", () => {
     const tick = 10;
     state.sim.nowTick = tick;
 
+    const overflow = 5;
     const mockCommands: any[] = [];
-    for (let i = 0; i < MAX_COMMANDS_PER_TICK + 5; i++) {
+    for (let i = 0; i < MAX_COMMANDS_PER_TICK + overflow; i++) {
       mockCommands.push({
         id: `cmd-${i}`,
         type: "WAIT",
@@ -31,10 +32,48 @@ describe("stepSimulationTick", () => {
     }
 
     (ai.generateAICommands as any).mockReturnValue(mockCommands);
+    // The guard logs the pre-truncation count. Spying both asserts that it
+    // fired and keeps the expected error off the suite's stderr.
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    stepSimulationTick(state);
+    try {
+      stepSimulationTick(state);
 
-    // stepSimulationTick alters the array returned by generateAICommands
-    expect(mockCommands.length).toBe(MAX_COMMANDS_PER_TICK);
+      // The guard is observable in two ways, and both matter. The log is what
+      // an operator sees when AI generation runs away.
+      expect(errorSpy).toHaveBeenCalledWith(
+        `Too many AI commands for tick ${tick}: ${MAX_COMMANDS_PER_TICK + overflow}`,
+      );
+      // The cap itself. Note this asserts on the caller's array because the
+      // guard truncates in place (`aiCommands.length = MAX_COMMANDS_PER_TICK`);
+      // a future non-mutating rewrite would need this assertion updated.
+      expect(mockCommands.length).toBe(MAX_COMMANDS_PER_TICK);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it("leaves aiCommands alone when they are within the limit", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const tick = 11;
+    state.sim.nowTick = tick;
+
+    const mockCommands: any[] = [
+      { id: "cmd-0", type: "WAIT", actorId: "m0", tick },
+    ];
+    (ai.generateAICommands as any).mockReturnValue(mockCommands);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      stepSimulationTick(state);
+
+      // Without this, a guard that truncated unconditionally would still pass.
+      expect(errorSpy).not.toHaveBeenCalled();
+      expect(mockCommands.length).toBe(1);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
