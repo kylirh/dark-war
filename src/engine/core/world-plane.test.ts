@@ -176,4 +176,24 @@ describe("WorldPlane", () => {
     expect(layers.elevation[index]).toBe(32767);
     expect(layers.damage[index]).toBe(255);
   });
+
+  it("wraps around edges correctly when wraps is true", () => {
+    const layers = createWorldPlaneLayers(5, 5);
+    const plane = new WorldPlane(5, 5, layers, resolveTestCell);
+
+    // going left across seam
+    expect(plane.canTraverse(0, 0, -1, 0, true)).toBe(true);
+    // going right across seam
+    expect(plane.canTraverse(4, 0, 5, 0, true)).toBe(true);
+    // going up across seam
+    expect(plane.canTraverse(0, 0, 0, -1, true)).toBe(true);
+    // going down across seam
+    expect(plane.canTraverse(0, 4, 0, 5, true)).toBe(true);
+
+    // not wrapping should fail
+    expect(plane.canTraverse(0, 0, -1, 0, false)).toBe(false);
+    expect(plane.canTraverse(4, 0, 5, 0, false)).toBe(false);
+  });
 });
+
+// This shouldn't be executed directly, just appended for a quick manual fix using patch
