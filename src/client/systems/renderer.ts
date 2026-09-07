@@ -958,6 +958,13 @@ export class Renderer {
     return sprite;
   }
 
+  /**
+   * Take a graphics object from the per-frame pool, or make one, reset to
+   * Pixi's defaults for every property this renderer ever mutates. `clear()`
+   * drops the previous frame's path instructions; `alpha` and `zIndex` are the
+   * only other properties written at the acquisition sites. Anything new that
+   * mutates a pooled graphics belongs here too, or it leaks across frames.
+   */
   private acquireGraphics(): Graphics {
     const g = this.graphicsPool.pop();
     if (!g) return new Graphics();
