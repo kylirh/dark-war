@@ -109,6 +109,7 @@ export class Renderer {
   private shadowTextureCache: Map<SpriteShadowSize, Texture> = new Map();
   private glowTextureCache: Map<string, Texture> = new Map();
   private spritePool: Sprite[] = [];
+  private graphicsPool: Graphics[] = [];
   private ready: boolean = false;
   private pendingRender?: {
     state: GameState;
@@ -957,6 +958,23 @@ export class Renderer {
     return sprite;
   }
 
+  /**
+   * Take a graphics object from the per-frame pool, or make one, reset to
+   * Pixi's defaults for every property this renderer ever mutates. `clear()`
+   * drops the previous frame's path instructions; `alpha` and `zIndex` are the
+   * only other properties written at the acquisition sites. Anything new that
+   * mutates a pooled graphics belongs here too, or it leaks across frames.
+   */
+  private acquireGraphics(): Graphics {
+    const g = this.graphicsPool.pop();
+    if (!g) return new Graphics();
+
+    g.clear();
+    g.alpha = 1;
+    g.zIndex = 0;
+    return g;
+  }
+
   private getShadowTexture(size: SpriteShadowSize): Texture | null {
     if (size === "none") return null;
     if (this.shadowTextureCache.has(size)) {
@@ -1499,7 +1517,7 @@ export class Renderer {
             const isEdited =
               prototype.editFeedback.editedCellIndex === prototypeIndex;
             const fixtureColor = 0x5de2c2;
-            const highlight = new Graphics();
+            const highlight = this.acquireGraphics();
             highlight
               .rect(screenX, screenY, CELL_CONFIG.w, CELL_CONFIG.h)
               .fill({
@@ -1529,7 +1547,7 @@ export class Renderer {
             renderGround("prototype_bridge_horizontal");
           } else if (productionGround === GroundType.WATER_RIVER) {
             const riverMask = worldVisualLayers?.riverMask[tileIndex] ?? 0;
-            const flow = new Graphics();
+            const flow = this.acquireGraphics();
             if ((riverMask & 5) !== 0) {
               flow.rect(screenX + 14, screenY + 5, 3, 22);
             } else {
@@ -1705,7 +1723,7 @@ export class Renderer {
           productionStructure !== StructureType.BRIDGE_HORIZONTAL
         ) {
           const mask = worldVisualLayers?.shoreMask[tileIndex] ?? 0;
-          const shore = new Graphics();
+          const shore = this.acquireGraphics();
           if (!(mask & TRANSITION_NORTH)) shore.rect(screenX, screenY, 32, 4);
           if (!(mask & TRANSITION_EAST))
             shore.rect(screenX + 28, screenY, 4, 32);
@@ -1724,7 +1742,7 @@ export class Renderer {
         const lowerMask = worldVisualLayers?.lowerElevationMask[tileIndex] ?? 0;
         if (lowerMask !== 0) {
           const magnitude = worldVisualLayers?.cliffMagnitude[tileIndex] ?? 0;
-          const cliff = new Graphics();
+          const cliff = this.acquireGraphics();
           const faceDepth = magnitude === ResolvedCliffMagnitude.TALL ? 12 : 7;
           if (lowerMask & ELEVATION_NORTH) cliff.rect(screenX, screenY, 32, 3);
           if (lowerMask & ELEVATION_EAST)
@@ -1787,7 +1805,7 @@ export class Renderer {
             ) {
               continue;
             }
-            const transition = new Graphics();
+            const transition = this.acquireGraphics();
             const drawQuadrant = (bit: number, x: number, y: number): void => {
               if (!(mask & bit)) return;
               transition.rect(screenX - 16 + x, screenY - 16 + y, 16, 16);
@@ -1816,7 +1834,7 @@ export class Renderer {
           ) {
             continue;
           }
-          const shore = new Graphics();
+          const shore = this.acquireGraphics();
           if (!(mask & TRANSITION_NORTH)) {
             shore.rect(screenX, screenY, 32, 4);
           }
@@ -1921,7 +1939,7 @@ export class Renderer {
       }
 
       const alpha = !isVisible && usingShadowFov ? 0.45 : 1;
-      const graphic = new Graphics();
+      const graphic = this.acquireGraphics();
       graphic
         .rect(screenX - 11, screenY - 24, 22, 14)
         .fill({ color: 0xf3ca73, alpha })
@@ -1980,19 +1998,19 @@ export class Renderer {
         }
       };
 
-      const glow = new Graphics();
+      const glow = this.acquireGraphics();
       drawPath(glow);
       glow.stroke({ color: 0x22d3ff, width: 8, alpha: beamAlpha * 0.24 });
       glow.zIndex = zIndex;
       this.entityContainer.addChild(glow);
 
-      const beam = new Graphics();
+      const beam = this.acquireGraphics();
       drawPath(beam);
       beam.stroke({ color: 0x63f4ff, width: 3, alpha: beamAlpha });
       beam.zIndex = zIndex + 0.1;
       this.entityContainer.addChild(beam);
 
-      const core = new Graphics();
+      const core = this.acquireGraphics();
       drawPath(core);
       core.stroke({ color: 0xffffff, width: 1, alpha: beamAlpha });
       core.zIndex = zIndex + 0.2;
@@ -2183,7 +2201,7 @@ export class Renderer {
           this.mmOverlay.cursorTileY,
         );
         const pulse = 0.22 + 0.14 * Math.sin(nowMs / 150);
-        const hi = new Graphics();
+        const hi = this.acquireGraphics();
         hi.rect(sx, sy, CELL_CONFIG.w, CELL_CONFIG.h)
           .fill({ color: 0x00e7ee, alpha: pulse })
           .stroke({ color: 0x9ffcff, width: 2, alpha: 0.9 });
@@ -2277,7 +2295,7 @@ export class Renderer {
    * re-randomize each frame so the effect flickers like arcing electricity.
    */
   private buildLightning(sx: number, sy: number, nowMs: number): Graphics {
-    const g = new Graphics();
+    const g = this.acquireGraphics();
     const w = CELL_CONFIG.w;
     const h = CELL_CONFIG.h;
     const cx = sx + w / 2;
@@ -2356,6 +2374,8 @@ export class Renderer {
     for (const child of children) {
       if (child instanceof Sprite) {
         this.spritePool.push(child);
+      } else if (child instanceof Graphics) {
+        this.graphicsPool.push(child);
       } else {
         child.destroy({ children: true, context: true });
       }
