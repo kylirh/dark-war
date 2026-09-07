@@ -13,3 +13,11 @@
 **Action:** Replaced the length comparison with `base.length + added.length !== next.length`. This explicitly tests whether any elements were dropped from the original set, regardless of how many new ones were added, ensuring the keyframe fallback triggers correctly on removals.
 
 **Prevention:** When computing deltas for arrays or sets that do not support explicit removal payloads, do not rely on simple length changes. Always check for structural integrity (e.g., if all old elements are still present) or test additions and removals symmetrically.
+
+## 2026-09-07 - Use deterministic RNG for event sounds
+
+**What was found:** The `processDamageEvent` and `processDeathEvent` handlers used `Math.random()` to pick randomized sound effects (flesh hits, metal hits, player hits, and monster death screams). The original code comment indicated this was done to "avoid desyncing RNG" because cosmetic sound variations shouldn't affect gameplay. However, because `state.pendingSounds` is part of the `SerializedState` pushed in the event queue and transmitted in network deltas, using `Math.random()` caused the simulated state to differ on every run, breaking delta compression and determinism invariants.
+
+**Action:** Replaced `Math.random()` with `RNG.choose(sounds)` in `src/engine/systems/simulation/events.ts`.
+
+**Prevention:** Never use `Math.random()` on the simulation path, even for seemingly cosmetic attributes like sounds or effects that get serialized into `GameState`. The engine's deterministic simulation relies on the fact that any execution on the client or server will invoke the `RNG` exactly the same number of times in the same order, so using `RNG.choose` does not cause desyncs—it maintains them.
