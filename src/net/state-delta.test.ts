@@ -10,6 +10,7 @@ import {
   applyStateDelta,
   requiresKeyframe,
 } from "./state-delta";
+import { Game } from "../engine/core/game";
 
 type AnyEntity = SerializedState["entities"][number];
 
@@ -300,6 +301,49 @@ describe("computeStateDelta / applyStateDelta", () => {
     expect(delta.entitiesUpserted).toHaveLength(1);
     expect(delta.baseSeq).toBe(1);
     expect(delta.seq).toBe(2);
+  });
+});
+
+describe("delta transport against a real Game", () => {
+  /**
+   * `explored` is delta-compressed incrementally (`exploredAdded`) but
+   * `exploredByPlayer` is not sent at all, so on a delta-applied snapshot the
+   * latter still holds the last keyframe's entries. `Game.deserialize` must not
+   * let that stale entry win: `updateFOVForPlayer` reads the local player's set
+   * out of `exploredByPlayer` and assigns it back to `state.explored`, so
+   * preferring the stale entry rolls the client's fog back by up to a keyframe
+   * interval (~5s) on every snapshot in between.
+   */
+  it("does not roll the local player's fog back to the last keyframe", () => {
+    const server = new Game({ mode: "offline" });
+    server.reset(1);
+    const state = server.getState();
+    const localId = state.multiplayer.localPlayerId;
+
+    // The baseline the client holds: everything known as of the last keyframe.
+    const keyframe = server.serializeForPlayer(localId);
+
+    // The player keeps exploring before the next keyframe falls due.
+    const explored = state.exploredByPlayer.get(localId);
+    expect(explored).toBeDefined();
+    const newlyExplored: number[] = [];
+    for (let index = 0; newlyExplored.length < 8; index++) {
+      if (!explored!.has(index)) {
+        explored!.add(index);
+        newlyExplored.push(index);
+      }
+    }
+
+    const next = server.serializeForPlayer(localId);
+    const delta = computeStateDelta(keyframe, next, 2, 1);
+    expect(delta.exploredAdded).toEqual(expect.arrayContaining(newlyExplored));
+
+    const client = new Game({ mode: "offline" });
+    client.deserialize(applyStateDelta(keyframe, delta));
+
+    for (const index of newlyExplored) {
+      expect(client.getState().explored.has(index)).toBe(true);
+    }
   });
 });
 
