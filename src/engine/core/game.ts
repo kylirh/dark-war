@@ -1657,9 +1657,15 @@ export class Game {
     const exploredByPlayer = this.deserializeExploredByPlayer(
       data.exploredByPlayer,
     );
-    if (!exploredByPlayer.has(localPlayerId)) {
-      exploredByPlayer.set(localPlayerId, new Set(exploredTiles));
-    }
+    // `data.explored` is the authoritative view for whoever this snapshot was
+    // serialized for — `serializeForPlayer` fills it from that player's entry,
+    // and the delta layer keeps it current with incremental `exploredAdded`.
+    // `data.exploredByPlayer` carries no such sub-diff, so on a delta-applied
+    // snapshot its entries are whatever the last keyframe held. Overwrite the
+    // local entry unconditionally: `updateFOVForPlayer` reads through this map
+    // and assigns the result back to `state.explored`, so a stale entry here
+    // silently rolls the local player's fog back to the last keyframe.
+    exploredByPlayer.set(localPlayerId, new Set(exploredTiles));
     const visibilityByPlayer = new Map<string, Set<number>>();
 
     this.state = {

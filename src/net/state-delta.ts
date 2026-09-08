@@ -83,7 +83,6 @@ export interface StateDelta {
   exploredAdded?: number[];
   exploredFull?: number[]; // sent instead of `added` when the set shrank
   planeChanges?: WorldPlaneDelta;
-  exploredByPlayer?: Record<string, number[]>;
 }
 
 /** True when the structural shape changed enough to require a keyframe. */
@@ -160,9 +159,6 @@ export function computeStateDelta(
   if (!shallowJsonEqual(base.multiplayer, next.multiplayer)) {
     delta.multiplayer = next.multiplayer;
   }
-  if (!shallowJsonEqual(base.exploredByPlayer, next.exploredByPlayer)) {
-    delta.exploredByPlayer = next.exploredByPlayer;
-  }
 
   const entityDiff = diffById(base.entities ?? [], next.entities ?? []);
   if (entityDiff.upserted.length > 0)
@@ -229,8 +225,6 @@ export function applyStateDelta(
   }
   if (delta.story !== undefined) next.story = delta.story;
   if (delta.multiplayer !== undefined) next.multiplayer = delta.multiplayer;
-  if (delta.exploredByPlayer !== undefined)
-    next.exploredByPlayer = delta.exploredByPlayer;
 
   if (delta.entitiesUpserted || delta.entitiesRemoved) {
     next.entities = applyById(
