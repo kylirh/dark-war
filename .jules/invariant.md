@@ -23,3 +23,11 @@
 **Rejected in review:** the first version of this entry claimed the `Math.random()` picks were "breaking delta compression." That is wrong, and it should not be repeated. `sounds` is one of the fields `src/net/state-delta.ts` deliberately does _not_ diff — it is documented there as "tiny / ephemeral" and resent whole on every delta (`sounds: next.sounds ?? []`). A random sound choice therefore costs no bandwidth and cannot trigger a baseline mismatch. The real cost is narrower: replay and save/load reproducibility, since the value lands in `SerializedState`.
 
 **Prevention:** Keep `Math.random()` off the simulation path even for cosmetic values, whenever the result reaches `SerializedState`. Note the direction of the argument: routing a cosmetic pick through the shared `RNG` singleton _does_ shift the draw sequence for every later gameplay roll, so this is only safe because every execution of a given tick makes the same draws in the same order. Where that does not hold — a choice made per-observer, or only on some clients — use the keyed `deterministic-roll.ts` helpers instead of the shared stream.
+
+## 2023-10-27 - Fix exploredByPlayer delta compression drift
+
+**What was found:** The `exploredByPlayer` state property (added when multi-player views were introduced) was missing from the state delta transport layer. This meant that while multiplayer snapshots could represent per-player exploration, changes inside an already connected session were silently dropped by `applyStateDelta`, leaving clients de-synchronized.
+
+**Action:** Added `exploredByPlayer` to the `StateDelta` interface, populated it in `computeStateDelta`, applied it in `applyStateDelta`, and verified exact round-trip behavior in `state-delta.test.ts`.
+
+**Prevention:** When adding map or complex fields to `SerializedState`, remember to add corresponding diff/patch logic in `src/net/state-delta.ts` so that running sessions remain in sync with periodic snapshots.

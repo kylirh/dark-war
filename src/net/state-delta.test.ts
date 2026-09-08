@@ -301,6 +301,12 @@ describe("computeStateDelta / applyStateDelta", () => {
     expect(delta.baseSeq).toBe(1);
     expect(delta.seq).toBe(2);
   });
+
+  it("round-trips exploredByPlayer changes", () => {
+    const next = baseState();
+    next.exploredByPlayer = { p1: [0, 1, 2], p2: [3, 4] };
+    roundTrip(baseState(), next);
+  });
 });
 
 describe("requiresKeyframe", () => {
