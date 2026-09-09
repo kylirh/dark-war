@@ -29,3 +29,11 @@
 **Action:** Added a focused unit test in `src/engine/systems/simulation/tick.test.ts` to mock the AI generation, generate too many commands, and verify that `stepSimulationTick` truncates the command array to the correct limit.
 
 **Prevention:** Always add tests to ensure safety boundaries (e.g. `MAX_COMMANDS_PER_TICK` or `MAX_EVENTS_PER_TICK`) are respected and not unintentionally removed.
+
+## 2026-09-07 - Ensure dead players cannot revive themselves
+
+**What was found:** The `resolveCommand` function explicitly short-circuits commands from dead players, protecting against scenarios where a dead actor could use an item (like a medkit) to revive themselves or interact with the world. However, this critical death check was uncovered by tests. `canActorAct` also holds an uncovered death check.
+
+**Action:** Added a regression test to `src/engine/systems/simulation/use-item.test.ts` asserting that a dead player attempting to use a medkit does not heal and does not consume the item. Included a direct resolution test that bypasses `canActorAct` (via `useImmediately`) to directly prove `resolveCommand` catches the behavior if `canActorAct` is altered or bypassed elsewhere.
+
+**Prevention:** Ensure global pre-conditions in central dispatcher methods (like `resolveCommand` or `tick`) have regression coverage, as they protect downstream handlers that deliberately rely on them to skip redundant state checks. Future runs should address `canActorAct`'s uncovered death check.

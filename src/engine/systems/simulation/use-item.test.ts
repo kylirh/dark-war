@@ -80,6 +80,34 @@ function reload(game: Game) {
 describe("using the active item", () => {
   beforeEach(() => RNG.reseed(3));
 
+  it("does not revive a dead player with a medkit when ticked", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.hp = 0;
+    player.itemCounts[ItemType.MEDKIT] = 1;
+    setActive(game, ItemType.MEDKIT);
+
+    use(game);
+
+    expect(player.hp).toBe(0);
+    expect(player.itemCounts[ItemType.MEDKIT]).toBe(1);
+  });
+
+  it("does not revive a dead player with a medkit when dispatched directly", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.hp = 0;
+    player.itemCounts[ItemType.MEDKIT] = 1;
+    setActive(game, ItemType.MEDKIT);
+
+    useImmediately(game, "use-medkit-test");
+
+    expect(player.hp).toBe(0);
+    expect(player.itemCounts[ItemType.MEDKIT]).toBe(1);
+  });
+
   it("eats a cookie to heal and consumes one", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
