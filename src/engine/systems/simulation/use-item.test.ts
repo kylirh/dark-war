@@ -80,6 +80,11 @@ function reload(game: Game) {
 describe("using the active item", () => {
   beforeEach(() => RNG.reseed(3));
 
+  // A dead player must not be able to medkit themselves back to life. Two
+  // independent guards enforce that, and each needs its own test: the tick
+  // loop skips dead actors via `canActorAct`, and `resolveCommand` drops dead
+  // players' commands on its own. Covering only the tick path leaves the
+  // second guard free to be deleted with every test still green.
   it("does not revive a dead player with a medkit", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
@@ -89,6 +94,22 @@ describe("using the active item", () => {
     setActive(game, ItemType.MEDKIT);
 
     use(game);
+
+    expect(player.hp).toBe(0);
+    expect(player.itemCounts[ItemType.MEDKIT]).toBe(1);
+  });
+
+  it("drops a dead player's use-item command inside resolveCommand", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.hp = 0;
+    player.itemCounts[ItemType.MEDKIT] = 1;
+    setActive(game, ItemType.MEDKIT);
+
+    // Resolve directly, bypassing the tick loop's `canActorAct` gate, so the
+    // dead check in `resolveCommand` is the only thing left to stop the heal.
+    useImmediately(game, "dead-player-use-item");
 
     expect(player.hp).toBe(0);
     expect(player.itemCounts[ItemType.MEDKIT]).toBe(1);
