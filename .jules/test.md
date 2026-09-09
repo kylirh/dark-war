@@ -29,3 +29,13 @@
 **Action:** Added a focused unit test in `src/engine/systems/simulation/tick.test.ts` to mock the AI generation, generate too many commands, and verify that `stepSimulationTick` truncates the command array to the correct limit.
 
 **Prevention:** Always add tests to ensure safety boundaries (e.g. `MAX_COMMANDS_PER_TICK` or `MAX_EVENTS_PER_TICK`) are respected and not unintentionally removed.
+
+## 2026-09-09 - Ensure dead players cannot revive themselves
+
+**What was found:** A dead player must not be able to medkit themselves back to life, and _two_ independent guards enforce that: the tick loop skips dead actors via `canActorAct` (`sim-helpers.ts`), and `resolveCommand` (`commands.ts`) drops dead players' commands on its own. Neither was covered.
+
+**Action:** Added two tests to `src/engine/systems/simulation/use-item.test.ts`. One drives the normal `enqueueCommand` + `stepSimulationTick` path; the other calls `resolveCommand` directly through the existing `useImmediately` helper, bypassing `canActorAct` so the dispatcher's own guard is the only thing left to stop the heal.
+
+**Rejected in review:** the first version of this entry claimed the tick-path test covered `resolveCommand`'s death check, and the pull request said the check had been deleted locally and the test seen to fail. That is wrong and should not be repeated. Deleting `if (player && player.hp <= 0) return;` leaves the tick-path test green, because `canActorAct` rejects the dead actor before `resolveCommand` is ever reached. Only the direct-resolve test actually fails, which is why both exist.
+
+**Prevention:** When two redundant guards enforce the same rule, one test through the outer path proves nothing about the inner one — it stays green while the inner guard is deleted. Reach the inner guard directly, and confirm the claim by actually removing the line and watching the specific test fail. Note that `canActorAct`'s own player-death check remains uncovered: the full suite passes with it removed.
