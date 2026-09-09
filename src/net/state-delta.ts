@@ -78,8 +78,10 @@ export interface StateDelta {
   // Array sub-diffs.
   entitiesUpserted?: Entity[];
   entitiesRemoved?: string[];
+  entityOrder?: string[];
   playersUpserted?: Player[];
   playersRemoved?: string[];
+  playerOrder?: string[];
   exploredAdded?: number[];
   exploredFull?: number[]; // sent instead of `added` when the set shrank
   planeChanges?: WorldPlaneDelta;
@@ -164,11 +166,15 @@ export function computeStateDelta(
   if (entityDiff.upserted.length > 0)
     delta.entitiesUpserted = entityDiff.upserted;
   if (entityDiff.removed.length > 0) delta.entitiesRemoved = entityDiff.removed;
+  if (entityDiff.orderChanged)
+    delta.entityOrder = next.entities?.map((e) => e.id) ?? [];
 
   const playerDiff = diffById(base.players ?? [], next.players ?? []);
   if (playerDiff.upserted.length > 0)
     delta.playersUpserted = playerDiff.upserted as Player[];
   if (playerDiff.removed.length > 0) delta.playersRemoved = playerDiff.removed;
+  if (playerDiff.orderChanged)
+    delta.playerOrder = next.players?.map((e) => e.id) ?? [];
 
   const exploredDiff = diffExplored(base.explored ?? [], next.explored ?? []);
   if (exploredDiff.full) delta.exploredFull = next.explored ?? [];
@@ -226,18 +232,20 @@ export function applyStateDelta(
   if (delta.story !== undefined) next.story = delta.story;
   if (delta.multiplayer !== undefined) next.multiplayer = delta.multiplayer;
 
-  if (delta.entitiesUpserted || delta.entitiesRemoved) {
+  if (delta.entitiesUpserted || delta.entitiesRemoved || delta.entityOrder) {
     next.entities = applyById(
       base.entities ?? [],
       delta.entitiesUpserted,
       delta.entitiesRemoved,
+      delta.entityOrder,
     );
   }
-  if (delta.playersUpserted || delta.playersRemoved) {
+  if (delta.playersUpserted || delta.playersRemoved || delta.playerOrder) {
     next.players = applyById(
       base.players ?? [],
       delta.playersUpserted,
       delta.playersRemoved,
+      delta.playerOrder,
     ) as Player[];
   }
 
@@ -307,7 +315,7 @@ function applyWorldPlaneDelta(
 function diffById(
   base: Entity[],
   next: Entity[],
-): { upserted: Entity[]; removed: string[] } {
+): { upserted: Entity[]; removed: string[]; orderChanged: boolean } {
   const baseById = new Map<string, Entity>();
   for (const entity of base) baseById.set(entity.id, entity);
   const nextIds = new Set<string>();
@@ -324,18 +332,32 @@ function diffById(
     if (!nextIds.has(entity.id)) removed.push(entity.id);
   }
 
-  return { upserted, removed };
+  const orderChanged =
+    base.length !== next.length ||
+    base.some((entity, index) => entity.id !== next[index].id);
+
+  return { upserted, removed, orderChanged };
 }
 
 function applyById(
   base: Entity[],
   upserted: Entity[] | undefined,
   removed: string[] | undefined,
+  order: string[] | undefined,
 ): Entity[] {
   const byId = new Map<string, Entity>();
   for (const entity of base) byId.set(entity.id, entity);
   if (removed) for (const id of removed) byId.delete(id);
   if (upserted) for (const entity of upserted) byId.set(entity.id, entity);
+
+  if (order) {
+    const result: Entity[] = [];
+    for (const id of order) {
+      const e = byId.get(id);
+      if (e) result.push(e);
+    }
+    return result;
+  }
   return Array.from(byId.values());
 }
 

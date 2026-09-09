@@ -133,6 +133,22 @@ describe("computeStateDelta / applyStateDelta", () => {
     roundTrip(baseState(), next);
   });
 
+  it("round-trips and preserves exactly the entity array ordering", () => {
+    const base = baseState();
+    base.entities = [entity("e1", 1), entity("e2", 2), entity("e3", 3)];
+
+    const next = baseState();
+    // Swap order, remove e2, insert e4
+    next.entities = [entity("e3", 3), entity("e4", 4), entity("e1", 1)];
+
+    // The previous implementation would reconstruct e1, e3, e4 (map order).
+    // The fixed implementation sends entityOrder so we reconstruct exactly e3, e4, e1.
+    const delta = computeStateDelta(base, next, 2, 1);
+    const applied = applyStateDelta(base, delta);
+
+    expect(applied.entities.map((e) => e.id)).toEqual(["e3", "e4", "e1"]);
+  });
+
   it("round-trips medkit pickup data over the entity delta", () => {
     const next = baseState();
     next.entities.push({
