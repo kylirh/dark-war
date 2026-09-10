@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SerializedState, EntityKind, ItemType } from "../engine/types";
+import { SerializedState, EntityKind, ItemType, Entity } from "../engine/types";
 import {
   FixtureType,
   GroundType,
@@ -339,5 +339,25 @@ describe("requiresKeyframe", () => {
     const next = baseState();
     next.entities[1] = entity("e1", 6);
     expect(requiresKeyframe(baseState(), next)).toBe(false);
+  });
+});
+
+describe("state-delta array ordering", () => {
+  it("preserves entity array order when only reordered", () => {
+    const e1 = entity("e1", 1) as unknown as Entity;
+    const e2 = entity("e2", 2) as unknown as Entity;
+    const e3 = entity("e3", 3) as unknown as Entity;
+
+    const base = baseState();
+    base.entities = [e1, e2, e3];
+
+    const next = baseState();
+    next.entities = [e1, e3, e2];
+
+    const delta = computeStateDelta(base, next, 2, 1);
+    const applied = applyStateDelta(base, delta);
+
+    expect(applied.entities.map((e) => e.id)).toEqual(["e1", "e3", "e2"]);
+    expect(delta.entityOrder).toEqual(["e1", "e3", "e2"]);
   });
 });
