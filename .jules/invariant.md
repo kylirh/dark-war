@@ -23,3 +23,19 @@
 **Rejected in review:** the first version of this entry claimed the `Math.random()` picks were "breaking delta compression." That is wrong, and it should not be repeated. `sounds` is one of the fields `src/net/state-delta.ts` deliberately does _not_ diff — it is documented there as "tiny / ephemeral" and resent whole on every delta (`sounds: next.sounds ?? []`). A random sound choice therefore costs no bandwidth and cannot trigger a baseline mismatch. The real cost is narrower: replay and save/load reproducibility, since the value lands in `SerializedState`.
 
 **Prevention:** Keep `Math.random()` off the simulation path even for cosmetic values, whenever the result reaches `SerializedState`. Note the direction of the argument: routing a cosmetic pick through the shared `RNG` singleton _does_ shift the draw sequence for every later gameplay roll, so this is only safe because every execution of a given tick makes the same draws in the same order. Where that does not hold — a choice made per-observer, or only on some clients — use the keyed `deterministic-roll.ts` helpers instead of the shared stream.
+
+## 2026-09-08 - Fix array ordering loss in delta compression
+
+**What was found:** The `computeStateDelta` and `applyStateDelta` logic successfully reconstructed `entities` and `players` arrays containing the correct instances, but failed to preserve the exact array order across a state synchronization if no entities were added or removed. Since components like `EntityManager` rely on the stable order of item scans (which draw from a shared RNG), this silent reordering across network boundaries broke simulation determinism.
+
+**Action:** Extended the `StateDelta` interface with `entityOrder` and `playerOrder` fields. Updated `diffById` to detect whenever the order of elements changed between the baseline and the next state, even when the elements themselves remained the same. Modified `applyById` to accept this explicit ordering array and correctly rebuild the resulting entity and player collections to match the sequence produced by the authoritative simulation.
+
+**Prevention:** When working with delta compression or modifying `src/net/state-delta.ts`, ensure that explicit array ordering (e.g., `entityOrder` or `playerOrder`) is tracked and reconstructed in `applyById`. JavaScript Maps preserve insertion order, which can silently discard server-side array reordering without explicit array sequence tracking.
+
+## 2026-09-08 - Fix redundant array ordering payloads
+
+**What was found:** The delta compression logic correctly added `entityOrder` and `playerOrder` to preserve order. However, the condition for emitting this list was simply `base.length !== next.length`. Because `EntityManager` appends on `spawn()` and splices on `destroy()`, the surviving order plus any appended IDs is exactly what `applyById`'s default Map reconstruction rebuilds naturally. This caused the ordering list (which contains every entity ID) to be sent on every tick where a spawn or despawn occurred (e.g., a bullet firing), adding ~290% byte overhead to those deltas.
+
+**Action:** Claude Code pushed a correction to the PR: compare the `next` order against the order that `applyById` _would_ naturally reconstruct, and only send the explicit list when they actually differ. Also added tests to cover player reordering and ensure the list is omitted when redundant.
+
+**Prevention:** When sending explicit full-state lists in a delta to preserve structure (like array ordering or explored sets), do not use naive conditions like `length !== length` to trigger the fallback. Compute what the receiver would reconstruct without the list, and only send the full list if that reconstructed state differs from the true `next` state. Always measure byte overhead for hot-path networking changes.
