@@ -78,8 +78,10 @@ export interface StateDelta {
   // Array sub-diffs.
   entitiesUpserted?: Entity[];
   entitiesRemoved?: string[];
+  entityOrder?: string[];
   playersUpserted?: Player[];
   playersRemoved?: string[];
+  playerOrder?: string[];
   exploredAdded?: number[];
   exploredFull?: number[]; // sent instead of `added` when the set shrank
   planeChanges?: WorldPlaneDelta;
@@ -164,11 +166,13 @@ export function computeStateDelta(
   if (entityDiff.upserted.length > 0)
     delta.entitiesUpserted = entityDiff.upserted;
   if (entityDiff.removed.length > 0) delta.entitiesRemoved = entityDiff.removed;
+  if (entityDiff.order) delta.entityOrder = entityDiff.order;
 
   const playerDiff = diffById(base.players ?? [], next.players ?? []);
   if (playerDiff.upserted.length > 0)
     delta.playersUpserted = playerDiff.upserted as Player[];
   if (playerDiff.removed.length > 0) delta.playersRemoved = playerDiff.removed;
+  if (playerDiff.order) delta.playerOrder = playerDiff.order;
 
   const exploredDiff = diffExplored(base.explored ?? [], next.explored ?? []);
   if (exploredDiff.full) delta.exploredFull = next.explored ?? [];
@@ -226,18 +230,20 @@ export function applyStateDelta(
   if (delta.story !== undefined) next.story = delta.story;
   if (delta.multiplayer !== undefined) next.multiplayer = delta.multiplayer;
 
-  if (delta.entitiesUpserted || delta.entitiesRemoved) {
+  if (delta.entitiesUpserted || delta.entitiesRemoved || delta.entityOrder) {
     next.entities = applyById(
       base.entities ?? [],
       delta.entitiesUpserted,
       delta.entitiesRemoved,
+      delta.entityOrder,
     );
   }
-  if (delta.playersUpserted || delta.playersRemoved) {
+  if (delta.playersUpserted || delta.playersRemoved || delta.playerOrder) {
     next.players = applyById(
       base.players ?? [],
       delta.playersUpserted,
       delta.playersRemoved,
+      delta.playerOrder,
     ) as Player[];
   }
 
@@ -307,14 +313,22 @@ function applyWorldPlaneDelta(
 function diffById(
   base: Entity[],
   next: Entity[],
-): { upserted: Entity[]; removed: string[] } {
+): { upserted: Entity[]; removed: string[]; order?: string[] } {
   const baseById = new Map<string, Entity>();
   for (const entity of base) baseById.set(entity.id, entity);
   const nextIds = new Set<string>();
 
   const upserted: Entity[] = [];
-  for (const entity of next) {
+  const order: string[] = [];
+  let orderChanged = base.length !== next.length;
+
+  for (let i = 0; i < next.length; i++) {
+    const entity = next[i];
     nextIds.add(entity.id);
+    order.push(entity.id);
+    if (!orderChanged && base[i]?.id !== entity.id) {
+      orderChanged = true;
+    }
     const prior = baseById.get(entity.id);
     if (!prior || !shallowJsonEqual(prior, entity)) upserted.push(entity);
   }
@@ -324,18 +338,27 @@ function diffById(
     if (!nextIds.has(entity.id)) removed.push(entity.id);
   }
 
-  return { upserted, removed };
+  return { upserted, removed, order: orderChanged ? order : undefined };
 }
 
 function applyById(
   base: Entity[],
   upserted: Entity[] | undefined,
   removed: string[] | undefined,
+  order: string[] | undefined,
 ): Entity[] {
   const byId = new Map<string, Entity>();
   for (const entity of base) byId.set(entity.id, entity);
   if (removed) for (const id of removed) byId.delete(id);
   if (upserted) for (const entity of upserted) byId.set(entity.id, entity);
+  if (order) {
+    const result: Entity[] = [];
+    for (const id of order) {
+      const entity = byId.get(id);
+      if (entity) result.push(entity);
+    }
+    return result;
+  }
   return Array.from(byId.values());
 }
 
