@@ -58,3 +58,11 @@ duplicate reads exactly like a regression.
 **Rejected in review:** the first version of this change also set `aria-modal="true"`. That is wrong for this component. `RetroModal` windows stack — `GameMenu.syncModalState` keeps one shared scrim for "any modal open" and Escape closes the topmost of a list, and the Electron application menu can open the About dialog while the pause dialog is already up. `aria-modal="true"` tells assistive technology to treat everything outside the dialog as inert, so two open windows would each hide the other. `RetroModal` also has no focus trap, which the original change acknowledged. The attribute was dropped.
 
 **Prevention:** `aria-modal="true"` is a claim about runtime behavior, not a decoration that belongs on anything dialog-shaped. Only assert it where exactly one dialog can be open and focus is actually confined to it — the character modal, which owns a click-to-close scrim, qualifies; a stacking window manager does not. `role="dialog"` plus an `aria-labelledby` accessible name is safe either way.
+
+## 2024-11-20 - Game Over Overlay Keyboard Focus and ARIA Roles
+
+**What was found:** The game over overlay lacked semantic ARIA standard attributes (`role="dialog"`, `aria-modal="true"`, and `aria-labelledby`), which prevented assistive technologies from recognizing it. Additionally, when the player died and the overlay appeared, the keyboard focus was left on the canvas instead of being actively shifted into the modal. Because of this, players using a keyboard could not reliably reach the respawn or new game buttons.
+
+**Action:** Added `role="dialog"`, `aria-modal="true"`, and an accessible label referencing the "GAME OVER" title to the `game-over-overlay` HTML container. In `src/client/main.ts`, updated `syncGameOverOverlay` to actively shift focus to the "Respawn" button upon opening, and safely return focus to the main game canvas if the modal owned focus when closed.
+
+**Prevention:** Always mark modal containers with `role="dialog"` and `aria-modal="true"`, along with an `aria-labelledby` reference to their primary title. Always actively shift focus to an actionable control within the dialog upon opening, and responsibly return it to the triggering element (or logical main area) upon close.

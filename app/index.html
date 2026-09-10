@@ -60,9 +60,9 @@
         <canvas id="world-map-canvas" class="world-map-canvas" aria-label="Discovered terrain map"></canvas>
       </section>
 
-      <div id="game-over-overlay" class="game-over-overlay">
+      <div id="game-over-overlay" class="game-over-overlay" role="dialog" aria-modal="true" aria-labelledby="game-over-text">
         <div class="game-over-content">
-          <h1 class="game-over-text">GAME OVER</h1>
+          <h1 class="game-over-text" id="game-over-text">GAME OVER</h1>
           <h2 class="game-over-score" id="game-over-score">Score: 0</h2>
           <button class="new-game-button" id="respawn-button" type="button">
             Respawn
