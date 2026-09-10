@@ -53,7 +53,6 @@ export class WorldCalloutLayer {
       if (!display) {
         display = this.createDisplay(callout);
         this.calloutDisplays.set(callout.callout.id, display);
-        this.container.addChild(display);
       }
 
       const bounds = display.getLocalBounds();
@@ -87,6 +86,11 @@ export class WorldCalloutLayer {
       display.alpha = callout.opacity;
       display.scale.set(callout.scale);
       display.pivot.set(bounds.width / 2, bounds.height / 2);
+      // Re-append every frame in priority order. For a display already parented
+      // here this is a splice-and-push, not a rebuild, so pooling is preserved
+      // while paint order stays keyed to priority rather than to the order
+      // callouts happened to first appear.
+      this.container.addChild(display);
       occupied.push(rect);
     }
   }
