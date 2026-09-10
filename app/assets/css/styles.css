@@ -1563,7 +1563,8 @@ body {
   inset: 0;
   z-index: 90;
   opacity: 0;
-  transition: opacity 1s ease-in;
+  visibility: hidden;
+  transition: opacity 1s ease-in, visibility 0s linear 1s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1578,6 +1579,8 @@ body {
 
 .game-over-overlay.visible {
   opacity: 1;
+  visibility: visible;
+  transition: opacity 1s ease-in, visibility 0s linear 0s;
   pointer-events: auto;
 }
 

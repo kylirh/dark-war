@@ -53,14 +53,14 @@
       </div>
       <!-- Inventory bar is injected by InventoryBar component before .viewport -->
       <div class="viewport">
-        <canvas id="game" width="2080" height="1184" aria-label="Game Canvas" role="img"></canvas>
+        <canvas id="game" width="2080" height="1184" aria-label="Game Canvas" role="img" tabindex="-1"></canvas>
       </div>
 
       <section id="world-map" class="world-map" aria-label="Discovered world map">
         <canvas id="world-map-canvas" class="world-map-canvas" aria-label="Discovered terrain map"></canvas>
       </section>
 
-      <div id="game-over-overlay" class="game-over-overlay" role="dialog" aria-modal="true" aria-labelledby="game-over-text">
+      <div id="game-over-overlay" class="game-over-overlay" role="dialog" aria-labelledby="game-over-text">
         <div class="game-over-content">
           <h1 class="game-over-text" id="game-over-text">GAME OVER</h1>
           <h2 class="game-over-score" id="game-over-score">Score: 0</h2>

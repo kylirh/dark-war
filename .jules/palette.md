@@ -59,10 +59,17 @@ duplicate reads exactly like a regression.
 
 **Prevention:** `aria-modal="true"` is a claim about runtime behavior, not a decoration that belongs on anything dialog-shaped. Only assert it where exactly one dialog can be open and focus is actually confined to it — the character modal, which owns a click-to-close scrim, qualifies; a stacking window manager does not. `role="dialog"` plus an `aria-labelledby` accessible name is safe either way.
 
-## 2024-11-20 - Game Over Overlay Keyboard Focus and ARIA Roles
+## 2026-09-10 - Game Over Overlay Keyboard Focus and ARIA Roles
 
-**What was found:** The game over overlay lacked semantic ARIA standard attributes (`role="dialog"`, `aria-modal="true"`, and `aria-labelledby`), which prevented assistive technologies from recognizing it. Additionally, when the player died and the overlay appeared, the keyboard focus was left on the canvas instead of being actively shifted into the modal. Because of this, players using a keyboard could not reliably reach the respawn or new game buttons.
+**What was found:** The game over overlay was previously styled with only `opacity: 0` when hidden, leaving its contents in the accessibility tree and allowing the invisible "Respawn" button to catch keyboard focus during normal gameplay. Furthermore, when the overlay did become visible, it did not take focus, stranding keyboard users on the game canvas.
 
-**Action:** Added `role="dialog"`, `aria-modal="true"`, and an accessible label referencing the "GAME OVER" title to the `game-over-overlay` HTML container. In `src/client/main.ts`, updated `syncGameOverOverlay` to actively shift focus to the "Respawn" button upon opening, and safely return focus to the main game canvas if the modal owned focus when closed.
+**Action:**
+1. Updated CSS to manage the overlay's state using `visibility: hidden` and `visibility: visible` along with `opacity` to correctly gate it out of the accessibility tree when not active while preserving the fade-in animation.
+2. Added `role="dialog"` and an accessible label to the overlay container (without `aria-modal="true"`, as this overlay lacks a strict focus trap and remains in the DOM alongside other potentially active UI elements).
+3. Added `tabindex="-1"` to the game canvas to make it programmatically focusable.
+4. Updated `syncGameOverOverlay` to shift focus to the "Respawn" button when the overlay opens, and safely return focus to the canvas when closing.
 
-**Prevention:** Always mark modal containers with `role="dialog"` and `aria-modal="true"`, along with an `aria-labelledby` reference to their primary title. Always actively shift focus to an actionable control within the dialog upon opening, and responsibly return it to the triggering element (or logical main area) upon close.
+**Prevention:**
+- When hiding UI components that should not be interactable or screen-reader accessible, use `visibility: hidden`, `display: none`, or the `hidden` attribute rather than just `opacity: 0` or `pointer-events: none`.
+- Do not use `aria-modal="true"` unless the component implements a real focus trap and is the sole active context.
+- Always actively shift focus to an actionable control within a new dialog upon opening, and ensure the element receiving focus upon close is focusable (e.g., via `tabindex="-1"`).
