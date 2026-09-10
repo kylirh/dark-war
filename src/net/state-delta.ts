@@ -320,10 +320,15 @@ function diffById(
 
   const upserted: Entity[] = [];
   const order: string[] = [];
+  let orderChanged = base.length !== next.length;
 
-  for (const entity of next) {
+  for (let i = 0; i < next.length; i++) {
+    const entity = next[i];
     nextIds.add(entity.id);
     order.push(entity.id);
+    if (!orderChanged && base[i]?.id !== entity.id) {
+      orderChanged = true;
+    }
     const prior = baseById.get(entity.id);
     if (!prior || !shallowJsonEqual(prior, entity)) upserted.push(entity);
   }
@@ -331,24 +336,6 @@ function diffById(
   const removed: string[] = [];
   for (const entity of base) {
     if (!nextIds.has(entity.id)) removed.push(entity.id);
-  }
-
-  // `applyById` rebuilds the array from a Map seeded with `base`, so survivors
-  // keep their base order and ids new to this delta land at the end. That is
-  // already what `EntityManager` produces (spawn pushes, destroy splices), so
-  // only pay for an explicit id list when the reconstruction would differ —
-  // sending it on every spawn/despawn tick would dwarf the delta it rides on.
-  const rebuilt: string[] = [];
-  for (const entity of base) {
-    if (nextIds.has(entity.id)) rebuilt.push(entity.id);
-  }
-  for (const entity of upserted) {
-    if (!baseById.has(entity.id)) rebuilt.push(entity.id);
-  }
-
-  let orderChanged = rebuilt.length !== order.length;
-  for (let i = 0; !orderChanged && i < order.length; i++) {
-    if (rebuilt[i] !== order[i]) orderChanged = true;
   }
 
   return { upserted, removed, order: orderChanged ? order : undefined };
