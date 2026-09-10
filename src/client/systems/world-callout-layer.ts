@@ -25,6 +25,8 @@ interface LayoutRect {
 
 /** Draws active world callouts with compact, collision-aware placement. */
 export class WorldCalloutLayer {
+  private readonly calloutDisplays = new Map<string, Container>();
+
   public constructor(private readonly container: Container) {}
 
   public render(
@@ -32,15 +34,28 @@ export class WorldCalloutLayer {
     viewWidth: number,
     viewHeight: number,
   ): void {
-    const children = this.container.removeChildren();
-    for (const child of children) child.destroy({ children: true });
+    const currentIds = new Set(callouts.map((c) => c.callout.id));
+
+    for (const [id, display] of this.calloutDisplays.entries()) {
+      if (!currentIds.has(id)) {
+        this.container.removeChild(display);
+        display.destroy({ children: true });
+        this.calloutDisplays.delete(id);
+      }
+    }
 
     const occupied: LayoutRect[] = [];
     const ordered = [...callouts].sort(
       (left, right) => priorityRank(right.callout) - priorityRank(left.callout),
     );
     for (const callout of ordered) {
-      const display = this.createDisplay(callout);
+      let display = this.calloutDisplays.get(callout.callout.id);
+      if (!display) {
+        display = this.createDisplay(callout);
+        this.calloutDisplays.set(callout.callout.id, display);
+        this.container.addChild(display);
+      }
+
       const bounds = display.getLocalBounds();
       let left = clamp(
         Math.round(callout.anchorX - bounds.width / 2),
@@ -72,7 +87,6 @@ export class WorldCalloutLayer {
       display.alpha = callout.opacity;
       display.scale.set(callout.scale);
       display.pivot.set(bounds.width / 2, bounds.height / 2);
-      this.container.addChild(display);
       occupied.push(rect);
     }
   }
