@@ -272,12 +272,10 @@ export function applyStateDelta(
     for (const [playerId, added] of Object.entries(
       delta.exploredByPlayerAdded,
     )) {
-      if (added.length > 0) {
-        next.exploredByPlayer[playerId] = [
-          ...(next.exploredByPlayer[playerId] ?? []),
-          ...added,
-        ];
-      }
+      next.exploredByPlayer[playerId] = [
+        ...(next.exploredByPlayer[playerId] ?? []),
+        ...added,
+      ];
     }
   }
 
@@ -413,13 +411,16 @@ function diffExploredByPlayer(
   let full = false;
 
   for (const [playerId, nextExplored] of Object.entries(next)) {
-    const baseExplored = base[playerId] ?? [];
-    const diff = diffExplored(baseExplored, nextExplored);
+    const baseExplored = base[playerId];
+    const diff = diffExplored(baseExplored ?? [], nextExplored);
     if (diff.full) {
       full = true;
       break;
     }
-    if (diff.added.length > 0) {
+    // A player missing from the baseline needs an entry even when it has
+    // nothing explored yet, or the receiver never creates the key. Joining
+    // players start with an empty set until their first FOV pass.
+    if (diff.added.length > 0 || baseExplored === undefined) {
       added[playerId] = diff.added;
     }
   }
