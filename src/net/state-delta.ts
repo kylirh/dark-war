@@ -84,6 +84,8 @@ export interface StateDelta {
   playerOrder?: string[];
   exploredAdded?: number[];
   exploredFull?: number[]; // sent instead of `added` when the set shrank
+  exploredByPlayerAdded?: Record<string, number[]>;
+  exploredByPlayerFull?: Record<string, number[]>;
   planeChanges?: WorldPlaneDelta;
 }
 
@@ -179,6 +181,16 @@ export function computeStateDelta(
   else if (exploredDiff.added.length > 0)
     delta.exploredAdded = exploredDiff.added;
 
+  const exploredByPlayerDiff = diffExploredByPlayer(
+    base.exploredByPlayer ?? {},
+    next.exploredByPlayer ?? {},
+  );
+  if (exploredByPlayerDiff.full) {
+    delta.exploredByPlayerFull = next.exploredByPlayer ?? {};
+  } else if (Object.keys(exploredByPlayerDiff.added).length > 0) {
+    delta.exploredByPlayerAdded = exploredByPlayerDiff.added;
+  }
+
   const planeChanges = diffWorldPlane(base.plane, next.plane);
   if (planeChanges) delta.planeChanges = planeChanges;
 
@@ -251,6 +263,20 @@ export function applyStateDelta(
     next.explored = delta.exploredFull;
   } else if (delta.exploredAdded && delta.exploredAdded.length > 0) {
     next.explored = [...(base.explored ?? []), ...delta.exploredAdded];
+  }
+
+  if (delta.exploredByPlayerFull !== undefined) {
+    next.exploredByPlayer = delta.exploredByPlayerFull;
+  } else if (delta.exploredByPlayerAdded) {
+    next.exploredByPlayer = { ...(base.exploredByPlayer ?? {}) };
+    for (const [playerId, added] of Object.entries(
+      delta.exploredByPlayerAdded,
+    )) {
+      next.exploredByPlayer[playerId] = [
+        ...(next.exploredByPlayer[playerId] ?? []),
+        ...added,
+      ];
+    }
   }
 
   if (delta.planeChanges) {
@@ -374,6 +400,41 @@ function diffExplored(
   // If the set shrank (e.g. a level swap that didn't trip the keyframe path)
   // we can't express it as additions — fall back to sending the whole set.
   const full = base.length + added.length !== next.length;
+  return { added, full };
+}
+
+function diffExploredByPlayer(
+  base: Record<string, number[]>,
+  next: Record<string, number[]>,
+): { added: Record<string, number[]>; full: boolean } {
+  const added: Record<string, number[]> = {};
+  let full = false;
+
+  for (const [playerId, nextExplored] of Object.entries(next)) {
+    const baseExplored = base[playerId];
+    const diff = diffExplored(baseExplored ?? [], nextExplored);
+    if (diff.full) {
+      full = true;
+      break;
+    }
+    // A player missing from the baseline needs an entry even when it has
+    // nothing explored yet, or the receiver never creates the key. Joining
+    // players start with an empty set until their first FOV pass.
+    if (diff.added.length > 0 || baseExplored === undefined) {
+      added[playerId] = diff.added;
+    }
+  }
+
+  // If a player was removed entirely, fall back to a full update
+  if (!full) {
+    for (const playerId of Object.keys(base)) {
+      if (!(playerId in next)) {
+        full = true;
+        break;
+      }
+    }
+  }
+
   return { added, full };
 }
 

@@ -168,6 +168,38 @@ describe("computeStateDelta / applyStateDelta", () => {
     roundTrip(baseState(), next);
   });
 
+  it("round-trips exploredByPlayer growth", () => {
+    const next = baseState();
+    next.exploredByPlayer = { p1: [0, 1, 2] };
+    roundTrip(baseState(), next);
+  });
+
+  it("round-trips exploredByPlayer removals", () => {
+    const next = baseState();
+    next.exploredByPlayer = { p1: [0] };
+    roundTrip(baseState(), next);
+  });
+
+  it("round-trips exploredByPlayer new player", () => {
+    const next = baseState();
+    next.exploredByPlayer = { p1: [0, 1], p2: [3, 4] };
+    roundTrip(baseState(), next);
+  });
+
+  it("round-trips exploredByPlayer deleted player", () => {
+    const next = baseState();
+    next.exploredByPlayer = {};
+    roundTrip(baseState(), next);
+  });
+
+  // A player that joins is given an empty explored set before its first FOV
+  // pass, so the delta has to create the entry even with nothing to add.
+  it("round-trips a joining player whose explored set is still empty", () => {
+    const next = baseState();
+    next.exploredByPlayer = { p1: [0, 1], p2: [] };
+    roundTrip(baseState(), next);
+  });
+
   it("round-trips changes in every world-plane layer", () => {
     const next = baseState();
     next.plane.ground[0] = GroundType.WATER_SHALLOW;
