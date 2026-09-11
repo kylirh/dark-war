@@ -39,3 +39,11 @@
 **Action:** Claude Code pushed a correction to the PR: compare the `next` order against the order that `applyById` _would_ naturally reconstruct, and only send the explicit list when they actually differ. Also added tests to cover player reordering and ensure the list is omitted when redundant.
 
 **Prevention:** When sending explicit full-state lists in a delta to preserve structure (like array ordering or explored sets), do not use naive conditions like `length !== length` to trigger the fallback. Compute what the receiver would reconstruct without the list, and only send the full list if that reconstructed state differs from the true `next` state. Always measure byte overhead for hot-path networking changes.
+
+## 2026-09-08 - Fix exploredByPlayer omission in state delta compression
+
+**What was found:** The `exploredByPlayer` field on `SerializedState`, tracking each player's local discovery of the map, was omitted entirely from `src/net/state-delta.ts`. As a result, when standard state synchronization ran, any additions to this field were silently dropped rather than synced to clients via state diffs. Over time, the clients' tracking of `exploredByPlayer` drifted until a keyframe randomly reset it.
+
+**Action:** Added `exploredByPlayerFull` and `exploredByPlayerAdded` payload fields to `StateDelta`. Implemented a `diffExploredByPlayer` diff helper function to correctly compute added tiles per player, mirroring `diffExplored`. Added testing in `src/net/state-delta.test.ts` to assert that `exploredByPlayer` correctly syncs growths, removals, and added or deleted players across network deltas.
+
+**Prevention:** When adding map or complex fields to `SerializedState`, remember to add corresponding diff/patch logic in `src/net/state-delta.ts` to prevent silent delta compression drift and keep running sessions in sync with snapshots.
