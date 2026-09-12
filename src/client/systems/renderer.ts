@@ -951,6 +951,8 @@ export class Renderer {
     sprite.texture = texture;
     sprite.scale.set(1);
     sprite.anchor.set(0, 0);
+    sprite.x = 0;
+    sprite.y = 0;
     sprite.rotation = 0;
     sprite.alpha = 1;
     sprite.tint = 0xffffff;

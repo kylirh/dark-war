@@ -93,3 +93,11 @@ _Measurement verified:_ In a benchmark instantiating/destroying vs pooling/clear
 **Prevention:** Never unconditionally destroy and recreate PixiJS scene nodes inside a high-frequency `render()` loop when the underlying source data is stateful or slowly changing. If an object is alive across multiple frames (like a speech bubble fading out over 2-5 seconds), cache its display object by ID and only update its mutable layout properties (`position`, `alpha`, `scale`).
 
 **Prevention (paint order):** Pooling silently changed z-order and review caught it. The pre-pooling loop called `container.addChild(display)` for every callout every frame in priority-sorted order, so the children array was rebuilt in priority order each frame. Adding the display only once at creation left paint order keyed to the order callouts first appeared instead. The fix keeps `addChild` in the per-frame loop: for a child already parented to that container, Pixi v8 `addChild` splices it out and pushes it to the end (`Container.js:339-346`), so re-appending is a cheap reorder, not a rebuild, and pooling is preserved. When pooling display objects, check whether the code you removed was also establishing ordering.
+
+## 2026-09-15 - Reset explicit coordinates in Sprite pooling
+
+**What was found:** A previous run introduced object pooling for PixiJS `Sprite` instances inside `src/client/systems/renderer.ts`. The pool implementation stored returned sprites and reissued them via `acquireSprite`. However, the resetting logic in `acquireSprite` did not zero out the `x` and `y` coordinates. Since sprites are usually repositioned after acquisition, this didn't cause an immediate failure, but if a caller acquires a sprite and omits setting its position, it would retain the stale coordinates of the last rendered object.
+
+**Action:** Added `sprite.x = 0;` and `sprite.y = 0;` inside `acquireSprite` to explicitly reset the coordinates along with the existing `scale`, `anchor`, `rotation`, `alpha`, `tint`, and `zIndex` resets.
+
+**Prevention:** When implementing object pooling in PixiJS, it is critical that *all* mutated properties are explicitly reset to their defaults upon acquisition, including position (`x`, `y`), to prevent cross-frame state leaks.
