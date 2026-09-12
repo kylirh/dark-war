@@ -97,10 +97,8 @@ export class RetroModal {
 
   public hide(): void {
     if (this.element.classList.contains("hidden")) return;
-    const ownedFocus = this.element.contains(document.activeElement);
     this.element.classList.add("hidden");
     this.stopDrag();
-    if (ownedFocus) document.getElementById("game")?.focus();
     this.onClose();
   }
 

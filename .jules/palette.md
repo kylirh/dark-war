@@ -59,10 +59,10 @@ duplicate reads exactly like a regression.
 
 **Prevention:** `aria-modal="true"` is a claim about runtime behavior, not a decoration that belongs on anything dialog-shaped. Only assert it where exactly one dialog can be open and focus is actually confined to it — the character modal, which owns a click-to-close scrim, qualifies; a stacking window manager does not. `role="dialog"` plus an `aria-labelledby` accessible name is safe either way.
 
-## 2024-05-24 - Restore keyboard focus on modal close
+## 2026-09-06 - Unfocusable elements drop focus back to body
 
-**What was found:** Closing modals powered by `RetroModal` (such as the Game Menu or Save Dialog) abandoned keyboard focus onto `document.body`. This broke keyboard accessibility, as the user was left without a valid navigation path and could no longer interact with the game or other menus using the keyboard until they clicked somewhere.
+**What was found:** Modals calling `document.getElementById("game")?.focus()` after close when the element lacked `tabindex="-1"`.
 
-**Action:** Updated `RetroModal.hide()` in `src/client/systems/retro-modal.ts` to check if the modal currently contains the document's active focus (`this.element.contains(document.activeElement)`). If it does, focus is programmatically restored to the main game canvas (`document.getElementById("game")?.focus()`) when the modal closes.
+**Action:** None. The reviewer pointed out that `canvas#game` doesn't have `tabindex="-1"` and so `.focus()` on it was completely inert. Furthermore, gameplay keyboard events are attached to `window` and `document`, so focus dropping back to `<body>` doesn't actually prevent keyboard interaction with the game.
 
-**Prevention:** When building or interacting with transient UI overlays, always ensure focus is returned to the underlying application or triggering element when the overlay closes.
+**Prevention:** Make sure elements actually have `tabindex="-1"` before trying to programmatically pull focus to them, and verify if the reported "lost keyboard interaction" actually happens in the given environment before applying the change.
