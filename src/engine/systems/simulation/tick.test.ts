@@ -122,10 +122,12 @@ describe("stepSimulationTick", () => {
     });
 
     it("destroys items falling through holes but does not populate itemsFellThrough online", () => {
+      // The constructor mode is what `state.multiplayer.mode` is built from, so
+      // driving the branch through it also pins that wiring. Overwriting
+      // `state.multiplayer` here instead would pass even if the two diverged.
       const game = new Game({ mode: "online" });
       game.reset(1);
       const state = game.getState();
-      state.multiplayer = { mode: "online" } as any; // enforce online
 
       const holeX = 5;
       const holeY = 5;
