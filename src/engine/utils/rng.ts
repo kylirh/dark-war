@@ -2,13 +2,10 @@
  * Deterministic random number generator using SFC32 algorithm.
  * Allows for reproducible dungeon generation with seed control.
  *
- * **Determinism Requirement:** Game logic must never introduce unseeded
- * randomness (e.g. `Math.random()`). All random behavior must go through
- * a deterministic generator (like this one or keyed rolls).
- *
- * *Why:* Unseeded randomness desynchronizes multiplayer sessions (since peers
- * simulate the same ticks independently and expect identical outcomes) and
- * breaks reproducible procedural generation from seeds.
+ * **Hazard:** The seedless constructor path uses `Date.now()`, which is
+ * nondeterministic. Instantiating this without a seed breaks the very
+ * reproducibility this class provides. Always pass a deterministic seed
+ * (e.g., from a parent generator or world state) for game logic.
  */
 export class RandomNumberGenerator {
   private seed: number;

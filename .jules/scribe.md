@@ -22,10 +22,10 @@
 
 **Prevention:** Document the constant's _relationship to the units around it_, not just its own unit — the name already said milliseconds and the line comment already said 20Hz, so restating those adds nothing on hover. The first draft of this entry also listed "buff durations" as an example; there is no buff system in the tree. Only cite usages you have grepped for, or the doc becomes a new thing to disbelieve.
 
-## 2026-09-06 - Document determinism requirement for RandomNumberGenerator
+## 2026-09-12 - Document unseeded constructor hazard on RandomNumberGenerator
 
-**What was found:** The `RandomNumberGenerator` class had basic documentation about its SFC32 algorithm and seed control, but it lacked explicit documentation regarding the determinism requirement that all game logic must not introduce unseeded randomness (like `Math.random()`). As `docs/ACTORS-AND-SOCIAL-SYSTEMS.md` states, this is a critical constraint to maintain multiplayer synchronization and procedural generation reproducibility.
+**What was found:** The `RandomNumberGenerator` class had basic documentation about its SFC32 algorithm and seed control, but it did not document that its seedless constructor path uses `Date.now()`, which is nondeterministic. Calling `new RandomNumberGenerator()` without an argument breaks the exact reproducibility the class exists to provide.
 
-**Action:** Added a prominent `**Determinism Requirement:**` section to the TSDoc of the `RandomNumberGenerator` class in `src/engine/utils/rng.ts`. It explicitly warns against unseeded randomness and explains *why* it's problematic (desyncs multiplayer sessions and breaks procedural generation).
+**Action:** Replaced the inaccurate determinism manifesto with a narrow `**Hazard:**` warning on the TSDoc of the `RandomNumberGenerator` class in `src/engine/utils/rng.ts`. It explicitly warns that the default constructor is nondeterministic and a seed must be provided.
 
-**Prevention:** Developers writing new game logic who inspect the `RNG` import will now see the determinism requirement in their IntelliSense popup, preventing accidental introductions of `Math.random()` that would silently break multiplayer or world generation.
+**Prevention:** Ensure documentation doesn't invent architecture (like peer lockstep simulation) when explaining rules. Rely on the design documents, and don't document broad mandates on utility classes that only cover part of the rule. Check the actual date when creating learning log entries instead of copying older dates.
