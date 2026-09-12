@@ -39,3 +39,11 @@
 **Rejected in review:** the first version of this entry claimed the tick-path test covered `resolveCommand`'s death check, and the pull request said the check had been deleted locally and the test seen to fail. That is wrong and should not be repeated. Deleting `if (player && player.hp <= 0) return;` leaves the tick-path test green, because `canActorAct` rejects the dead actor before `resolveCommand` is ever reached. Only the direct-resolve test actually fails, which is why both exist.
 
 **Prevention:** When two redundant guards enforce the same rule, one test through the outer path proves nothing about the inner one — it stays green while the inner guard is deleted. Reach the inner guard directly, and confirm the claim by actually removing the line and watching the specific test fail. Note that `canActorAct`'s own player-death check remains uncovered: the full suite passes with it removed.
+
+## 2026-09-12 - Offline/Online offline hole fall drops
+
+**What was found:** In `tick.ts`, loose items resting on a hole fall through to the level below. This behaves differently offline versus online (where the items are just destroyed), but the `processHoleFalls` logic lacked behavioral test coverage to ensure this divergent behavior stays intact.
+
+**Action:** Added targeted test cases to `src/engine/systems/simulation/tick.test.ts` verifying that items falling through holes in `offline` mode are correctly pushed into `state.itemsFellThrough`, while items in `online` mode are just destroyed without populating `state.itemsFellThrough`.
+
+**Prevention:** Always cover logic that has deliberate offline/online divergence (like state updates only applying locally on offline mode) to ensure regressions do not bleed changes into online simulations.

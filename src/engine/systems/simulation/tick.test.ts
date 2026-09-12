@@ -3,6 +3,8 @@ import { stepSimulationTick } from "./tick";
 import { Game } from "../../core/game";
 import { MAX_COMMANDS_PER_TICK } from "./constants";
 import * as ai from "./ai";
+import { ItemType, TileType } from "../../types";
+import { ItemEntity } from "../../entities/item-entity";
 
 vi.mock("./ai", async (importOriginal) => {
   const actual = await importOriginal();
@@ -75,5 +77,77 @@ describe("stepSimulationTick", () => {
     } finally {
       errorSpy.mockRestore();
     }
+  });
+
+  describe("processHoleFalls", () => {
+    it("pushes items falling through holes into itemsFellThrough and destroys them offline", () => {
+      const game = new Game({ mode: "offline" });
+      game.reset(1);
+      const state = game.getState();
+
+      const holeX = 5;
+      const holeY = 5;
+
+      // Clear existing items that might have spawned in reset()
+      const existingItems = [...state.entityManager.items];
+      for (const item of existingItems) {
+        state.entityManager.destroy(item.id);
+      }
+
+      const item1 = new ItemEntity(holeX, holeY, ItemType.MEDKIT);
+      const item2 = new ItemEntity(holeX, holeY, ItemType.AMMO);
+      item2.amount = 10;
+
+      state.entityManager.spawn(item1);
+      state.entityManager.spawn(item2);
+
+      state.tiles.setTile(holeX, holeY, TileType.HOLE);
+
+      (ai.generateAICommands as any).mockReturnValue([]);
+
+      expect(state.entityManager.items.length).toBe(2);
+      expect(state.itemsFellThrough).toBeUndefined();
+
+      stepSimulationTick(state);
+
+      expect(state.entityManager.items.length).toBe(0);
+      expect(state.itemsFellThrough).toBeDefined();
+      expect(state.itemsFellThrough!.length).toBe(2);
+      expect(state.itemsFellThrough).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: ItemType.MEDKIT }),
+          expect.objectContaining({ type: ItemType.AMMO, amount: 10 }),
+        ]),
+      );
+    });
+
+    it("destroys items falling through holes but does not populate itemsFellThrough online", () => {
+      const game = new Game({ mode: "online" });
+      game.reset(1);
+      const state = game.getState();
+      state.multiplayer = { mode: "online" } as any; // enforce online
+
+      const holeX = 5;
+      const holeY = 5;
+
+      const existingItems = [...state.entityManager.items];
+      for (const item of existingItems) {
+        state.entityManager.destroy(item.id);
+      }
+
+      const item = new ItemEntity(holeX, holeY, ItemType.MEDKIT);
+      state.entityManager.spawn(item);
+      state.tiles.setTile(holeX, holeY, TileType.HOLE);
+
+      (ai.generateAICommands as any).mockReturnValue([]);
+
+      expect(state.entityManager.items.length).toBe(1);
+      expect(state.itemsFellThrough).toBeUndefined();
+
+      stepSimulationTick(state);
+
+      expect(state.entityManager.items.length).toBe(0);
+      expect(state.itemsFellThrough).toBeUndefined();
+    });
   });
 });
