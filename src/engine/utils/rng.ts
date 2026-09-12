@@ -1,6 +1,14 @@
 /**
- * Deterministic random number generator using SFC32 algorithm
- * Allows for reproducible dungeon generation with seed control
+ * Deterministic random number generator using SFC32 algorithm.
+ * Allows for reproducible dungeon generation with seed control.
+ *
+ * **Determinism Requirement:** Game logic must never introduce unseeded
+ * randomness (e.g. `Math.random()`). All random behavior must go through
+ * a deterministic generator (like this one or keyed rolls).
+ *
+ * *Why:* Unseeded randomness desynchronizes multiplayer sessions (since peers
+ * simulate the same ticks independently and expect identical outcomes) and
+ * breaks reproducible procedural generation from seeds.
  */
 export class RandomNumberGenerator {
   private seed: number;

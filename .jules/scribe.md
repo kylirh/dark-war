@@ -21,3 +21,11 @@
 **Action:** Added a TSDoc block to `SIM_DT_MS` describing it as the conversion factor between the two time units the simulation mixes — every other duration constant in the file is in ticks, speeds are in pixels per second — with the two real conversions from the tree (`Math.ceil(30_000 / SIM_DT_MS)` in `commands.ts:102`, `velocityX * (SIM_DT_MS / 1000)` in `commands.ts:840`) and a note that it is the fixed step the client accumulator and the server interval both run on.
 
 **Prevention:** Document the constant's _relationship to the units around it_, not just its own unit — the name already said milliseconds and the line comment already said 20Hz, so restating those adds nothing on hover. The first draft of this entry also listed "buff durations" as an example; there is no buff system in the tree. Only cite usages you have grepped for, or the doc becomes a new thing to disbelieve.
+
+## 2026-09-06 - Document determinism requirement for RandomNumberGenerator
+
+**What was found:** The `RandomNumberGenerator` class had basic documentation about its SFC32 algorithm and seed control, but it lacked explicit documentation regarding the determinism requirement that all game logic must not introduce unseeded randomness (like `Math.random()`). As `docs/ACTORS-AND-SOCIAL-SYSTEMS.md` states, this is a critical constraint to maintain multiplayer synchronization and procedural generation reproducibility.
+
+**Action:** Added a prominent `**Determinism Requirement:**` section to the TSDoc of the `RandomNumberGenerator` class in `src/engine/utils/rng.ts`. It explicitly warns against unseeded randomness and explains *why* it's problematic (desyncs multiplayer sessions and breaks procedural generation).
+
+**Prevention:** Developers writing new game logic who inspect the `RNG` import will now see the determinism requirement in their IntelliSense popup, preventing accidental introductions of `Math.random()` that would silently break multiplayer or world generation.
