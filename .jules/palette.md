@@ -58,3 +58,11 @@ duplicate reads exactly like a regression.
 **Rejected in review:** the first version of this change also set `aria-modal="true"`. That is wrong for this component. `RetroModal` windows stack — `GameMenu.syncModalState` keeps one shared scrim for "any modal open" and Escape closes the topmost of a list, and the Electron application menu can open the About dialog while the pause dialog is already up. `aria-modal="true"` tells assistive technology to treat everything outside the dialog as inert, so two open windows would each hide the other. `RetroModal` also has no focus trap, which the original change acknowledged. The attribute was dropped.
 
 **Prevention:** `aria-modal="true"` is a claim about runtime behavior, not a decoration that belongs on anything dialog-shaped. Only assert it where exactly one dialog can be open and focus is actually confined to it — the character modal, which owns a click-to-close scrim, qualifies; a stacking window manager does not. `role="dialog"` plus an `aria-labelledby` accessible name is safe either way.
+
+## 2024-05-24 - Restore keyboard focus on modal close
+
+**What was found:** Closing modals powered by `RetroModal` (such as the Game Menu or Save Dialog) abandoned keyboard focus onto `document.body`. This broke keyboard accessibility, as the user was left without a valid navigation path and could no longer interact with the game or other menus using the keyboard until they clicked somewhere.
+
+**Action:** Updated `RetroModal.hide()` in `src/client/systems/retro-modal.ts` to check if the modal currently contains the document's active focus (`this.element.contains(document.activeElement)`). If it does, focus is programmatically restored to the main game canvas (`document.getElementById("game")?.focus()`) when the modal closes.
+
+**Prevention:** When building or interacting with transient UI overlays, always ensure focus is returned to the underlying application or triggering element when the overlay closes.
