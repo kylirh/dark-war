@@ -1109,10 +1109,18 @@ class DarkWar {
       return;
     }
 
+    const wasVisible = gameOverOverlay.classList.contains("visible");
+
     if (isDead) {
       gameOverOverlay.classList.add("visible");
+      if (!wasVisible) {
+        document.getElementById("respawn-button")?.focus();
+      }
     } else {
       gameOverOverlay.classList.remove("visible");
+      if (wasVisible) {
+        document.getElementById("game")?.focus();
+      }
     }
   }
 
