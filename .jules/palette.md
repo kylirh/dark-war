@@ -58,3 +58,15 @@ duplicate reads exactly like a regression.
 **Rejected in review:** the first version of this change also set `aria-modal="true"`. That is wrong for this component. `RetroModal` windows stack — `GameMenu.syncModalState` keeps one shared scrim for "any modal open" and Escape closes the topmost of a list, and the Electron application menu can open the About dialog while the pause dialog is already up. `aria-modal="true"` tells assistive technology to treat everything outside the dialog as inert, so two open windows would each hide the other. `RetroModal` also has no focus trap, which the original change acknowledged. The attribute was dropped.
 
 **Prevention:** `aria-modal="true"` is a claim about runtime behavior, not a decoration that belongs on anything dialog-shaped. Only assert it where exactly one dialog can be open and focus is actually confined to it — the character modal, which owns a click-to-close scrim, qualifies; a stacking window manager does not. `role="dialog"` plus an `aria-labelledby` accessible name is safe either way.
+
+## 2024-09-13 - Focus and tab order in Game Over screen
+
+**What was found:** The Game Over screen (`.game-over-overlay`) was managing visibility solely through CSS `opacity`, leaving its interactive elements (the Respawn and New Game buttons) present in the DOM tab order even when invisible. Additionally, when a player died, focus remained on whatever was previously active (typically the canvas) rather than moving to the actionable buttons on the newly revealed overlay. Conversely, if a player clicked "Respawn" and the overlay faded out, the now-invisible button retained focus.
+
+**Action:**
+1. Added `visibility: hidden` to `.game-over-overlay` and `visibility: visible` to `.game-over-overlay.visible` in `styles.css`.
+2. Added CSS transitions to coordinate the fade: `transition: opacity 1s ease-in, visibility 0s linear 1s` when hiding (delays hiding visibility until fade completes) and `transition: opacity 1s ease-in, visibility 0s linear` when showing.
+3. Added `tabindex="-1"` to the game `<canvas>` element to allow programmatic focus without inserting it into the natural tab cycle.
+4. Modified `syncGameOverOverlay()` in `src/client/main.ts` to actively manage focus: it shifts focus to `#respawn-button` when the overlay appears, and restores focus to `#game` when it hides.
+
+**Prevention:** Never rely on `opacity` alone or `pointer-events: none` to hide interactive UI; always use `visibility: hidden` or `display: none` so that the elements are properly removed from the keyboard tab sequence and accessibility tree. When showing a blocking overlay or modal state, proactively move `document.activeElement` into it, and return focus to the main application context when it is dismissed.
