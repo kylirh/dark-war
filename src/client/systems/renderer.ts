@@ -932,20 +932,23 @@ export class Renderer {
     sprite.x = screenX;
     sprite.y = screenY + frame.yOffset;
 
+    // Pixi's width/height setters exist to derive `scale` from the texture's
+    // original size, so setting scale directly skips that bookkeeping. Divide
+    // by `orig`, which is what those setters use: it currently aliases `frame`
+    // (Texture defaults `orig` to `frame`), but the two diverge as soon as a
+    // trimmed atlas frame appears, and only `orig` stays correct then.
+    const originalWidth = texture.orig.width;
+    const originalHeight = texture.orig.height;
     if (
-      texture.frame &&
-      frame.renderWidth === texture.frame.width &&
-      frame.renderHeight === texture.frame.height
+      frame.renderWidth === originalWidth &&
+      frame.renderHeight === originalHeight
     ) {
       sprite.scale.set(1);
-    } else if (texture.frame) {
-      sprite.scale.set(
-        frame.renderWidth / texture.frame.width,
-        frame.renderHeight / texture.frame.height,
-      );
     } else {
-      sprite.width = frame.renderWidth;
-      sprite.height = frame.renderHeight;
+      sprite.scale.set(
+        frame.renderWidth / originalWidth,
+        frame.renderHeight / originalHeight,
+      );
     }
 
     sprite.anchor.set(frame.anchorX, frame.anchorY);
