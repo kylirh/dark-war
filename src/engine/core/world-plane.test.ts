@@ -154,6 +154,26 @@ describe("WorldPlane", () => {
     expect(plane.canTraverse(0, 0, 1, 0)).toBe(false);
   });
 
+  it("resolves wrapped traversal across the world seam", () => {
+    const layers = createWorldPlaneLayers(10, 10);
+    layers.ground.fill(GROUND_GRASS);
+    const plane = new WorldPlane(10, 10, layers, resolveTestCell);
+
+    expect(plane.canTraverse(9, 0, 0, 0, true)).toBe(true);
+    expect(plane.canTraverse(0, 0, 9, 0, true)).toBe(true);
+
+    // Y wrap
+    expect(plane.canTraverse(0, 9, 0, 0, true)).toBe(true);
+    expect(plane.canTraverse(0, 0, 0, 9, true)).toBe(true);
+
+    // Not valid traversals even wrapped
+    expect(plane.canTraverse(8, 0, 0, 0, true)).toBe(false);
+    expect(plane.canTraverse(0, 8, 0, 0, true)).toBe(false);
+
+    // Diagonal not allowed
+    expect(plane.canTraverse(9, 9, 0, 0, true)).toBe(false);
+  });
+
   it("applies edits across various layers and caps values", () => {
     const layers = createWorldPlaneLayers(2, 2);
     layers.ground.fill(GROUND_GRASS);

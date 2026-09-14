@@ -4,6 +4,7 @@
  */
 
 import { TileType } from "../types";
+import { wrapDelta } from "../utils/wrap";
 import { TileSource } from "./tile-source";
 import type { WorldVisualState } from "../systems/terrain/world-visual-resolver";
 
@@ -170,10 +171,10 @@ export class WorldPlane implements TileSource {
     let deltaX = toX - fromX;
     let deltaY = toY - fromY;
     if (wraps) {
-      if (Math.abs(deltaX) > 1) deltaX -= Math.sign(deltaX) * this.width;
-      if (Math.abs(deltaY) > 1) deltaY -= Math.sign(deltaY) * this.height;
+      deltaX = wrapDelta(fromX, toX, this.width);
+      deltaY = wrapDelta(fromY, toY, this.height);
     }
-    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1) return false;
+    if (Math.abs(deltaX) + Math.abs(deltaY) !== 1) return false;
     const fromIndex = this.indexFor(fromX, fromY);
     const toIndex = this.indexFor(toX, toY);
     if ((this.resolvedFlagCache[toIndex] & CELL_PASSABLE) === 0) return false;
