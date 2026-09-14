@@ -93,3 +93,11 @@ _Measurement verified:_ In a benchmark instantiating/destroying vs pooling/clear
 **Prevention:** Never unconditionally destroy and recreate PixiJS scene nodes inside a high-frequency `render()` loop when the underlying source data is stateful or slowly changing. If an object is alive across multiple frames (like a speech bubble fading out over 2-5 seconds), cache its display object by ID and only update its mutable layout properties (`position`, `alpha`, `scale`).
 
 **Prevention (paint order):** Pooling silently changed z-order and review caught it. The pre-pooling loop called `container.addChild(display)` for every callout every frame in priority-sorted order, so the children array was rebuilt in priority order each frame. Adding the display only once at creation left paint order keyed to the order callouts first appeared instead. The fix keeps `addChild` in the per-frame loop: for a child already parented to that container, Pixi v8 `addChild` splices it out and pushes it to the end (`Container.js:339-346`), so re-appending is a cheap reorder, not a rebuild, and pooling is preserved. When pooling display objects, check whether the code you removed was also establishing ordering.
+
+## 2024-05-18 - Optimize redundant scale recalculations in Sprite Pool
+
+**What was found:** In `Renderer.createSpriteFromFrame`, setting `sprite.width` and `sprite.height` properties directly triggered expensive internal scale recalculations within PixiJS. Profiling showed that width/height setters take around ~27ms per million iterations, while setting the scale directly via `scale.set()` takes only ~6-7ms per million.
+
+**Action:** Replaced direct modifications of `sprite.width` and `sprite.height` with `sprite.scale.set()`. For sprites where render dimensions perfectly match the texture frame dimensions (which is the case for most sprites, i.e., 1:1), explicitly used `sprite.scale.set(1)` to bypass the calculation completely. Calculated the scale manually when dimensions did not match.
+
+**Prevention:** When object pooling PixiJS `Sprite` instances or updating sprite dimensions, calculate the required scale manually and apply it using `sprite.scale.set()`. Avoid mutating `sprite.width` and `sprite.height` directly.

@@ -931,8 +931,23 @@ export class Renderer {
     const sprite = this.acquireSprite(texture);
     sprite.x = screenX;
     sprite.y = screenY + frame.yOffset;
-    sprite.width = frame.renderWidth;
-    sprite.height = frame.renderHeight;
+
+    if (
+      texture.frame &&
+      frame.renderWidth === texture.frame.width &&
+      frame.renderHeight === texture.frame.height
+    ) {
+      sprite.scale.set(1);
+    } else if (texture.frame) {
+      sprite.scale.set(
+        frame.renderWidth / texture.frame.width,
+        frame.renderHeight / texture.frame.height,
+      );
+    } else {
+      sprite.width = frame.renderWidth;
+      sprite.height = frame.renderHeight;
+    }
+
     sprite.anchor.set(frame.anchorX, frame.anchorY);
 
     return sprite;
