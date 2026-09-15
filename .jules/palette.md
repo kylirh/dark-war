@@ -71,3 +71,11 @@ duplicate reads exactly like a regression.
 4. Modified `syncGameOverOverlay()` in `src/client/main.ts` to actively manage focus: it shifts focus to `#respawn-button` when the overlay appears, and restores focus to `#game` when it hides.
 
 **Prevention:** Never rely on `opacity` alone or `pointer-events: none` to hide interactive UI; always use `visibility: hidden` or `display: none` so that the elements are properly removed from the keyboard tab sequence and accessibility tree. When showing a blocking overlay or modal state, proactively move `document.activeElement` into it, and return focus to the main application context when it is dismissed.
+
+## 2024-11-20 - GameMenu About Dialog Keyboard Focus
+
+**What was found:** The "About Dark War" dialog was opened via `GameMenu.openAboutDialog()` but did not move keyboard focus into the dialog's contents upon appearing, stranding screen readers and keyboard users on the underlying UI. Additionally, when the dialog was closed, focus was not returned to the element that triggered it.
+
+**Action:** Updated `GameMenu` to cache `document.activeElement` before calling `showModal("about-dialog")`. Modified the `aboutDialog` instantiation to include an `onOpen` hook that explicitly calls `.focus()` on the dialog's close button, and an `onClose` hook that restores focus to the previously active element.
+
+**Prevention:** Generic modal components in Dark War (e.g., `RetroModal`) do not automatically manage focus shifting natively. The instantiating component is strictly responsible for capturing `document.activeElement`, explicitly shifting focus to the modal's contents during the `onOpen` hook, and restoring it in `onClose`.
