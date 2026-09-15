@@ -47,6 +47,7 @@ export interface StateDelta {
   worldSpaceId?: string;
   worldPlaneId?: string;
   levelKind?: LevelKind;
+  simulationSeed?: number;
   floorVariant?: number;
   wallSet?: WallSet;
   portals?: SerializedState["portals"];
@@ -126,6 +127,8 @@ export function computeStateDelta(
   if (base.worldPlaneId !== next.worldPlaneId)
     delta.worldPlaneId = next.worldPlaneId;
   if (base.levelKind !== next.levelKind) delta.levelKind = next.levelKind;
+  if (base.simulationSeed !== next.simulationSeed)
+    delta.simulationSeed = next.simulationSeed;
   if (base.floorVariant !== next.floorVariant)
     delta.floorVariant = next.floorVariant;
   if (base.wallSet !== next.wallSet) delta.wallSet = next.wallSet;
@@ -214,6 +217,8 @@ export function applyStateDelta(
   if (delta.worldSpaceId !== undefined) next.worldSpaceId = delta.worldSpaceId;
   if (delta.worldPlaneId !== undefined) next.worldPlaneId = delta.worldPlaneId;
   if (delta.levelKind !== undefined) next.levelKind = delta.levelKind;
+  if (delta.simulationSeed !== undefined)
+    next.simulationSeed = delta.simulationSeed;
   if (delta.floorVariant !== undefined) next.floorVariant = delta.floorVariant;
   if (delta.wallSet !== undefined) next.wallSet = delta.wallSet;
   if (delta.portals !== undefined) next.portals = delta.portals;

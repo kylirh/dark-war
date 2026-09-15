@@ -333,6 +333,12 @@ describe("computeStateDelta / applyStateDelta", () => {
     expect(delta.baseSeq).toBe(1);
     expect(delta.seq).toBe(2);
   });
+
+  it("round-trips simulationSeed", () => {
+    const next = baseState();
+    next.simulationSeed = 999;
+    roundTrip(baseState(), next);
+  });
 });
 
 describe("requiresKeyframe", () => {

@@ -47,3 +47,11 @@
 **Action:** Added `exploredByPlayerFull` and `exploredByPlayerAdded` payload fields to `StateDelta`. Implemented a `diffExploredByPlayer` diff helper function to correctly compute added tiles per player, mirroring `diffExplored`. Added testing in `src/net/state-delta.test.ts` to assert that `exploredByPlayer` correctly syncs growths, removals, and added or deleted players across network deltas.
 
 **Prevention:** When adding map or complex fields to `SerializedState`, remember to add corresponding diff/patch logic in `src/net/state-delta.ts` to prevent silent delta compression drift and keep running sessions in sync with snapshots.
+
+## 2024-11-20 - Ensure simulationSeed is synced through state deltas
+
+**What was found:** The `simulationSeed` scalar property in `SerializedState` was missing from `StateDelta`, meaning it was never synced via delta compression (in `computeStateDelta` and `applyStateDelta`). This violates the invariant that `applyStateDelta(base, computeStateDelta(base, next))` yields exactly what a full state snapshot of `next` would contain, leading to silent state drift.
+
+**Action:** Added `simulationSeed` as an optional property to `StateDelta`. Implemented the logic in `computeStateDelta` to calculate changes to `simulationSeed`, and in `applyStateDelta` to patch it over the baseline. Added a failing test (now passing) in `src/net/state-delta.test.ts` to enforce that this scalar survives the round-trip.
+
+**Prevention:** When adding fields to `SerializedState`, developers must ensure they add corresponding diff/patch logic to `src/net/state-delta.ts` to prevent silent delta compression drift.
