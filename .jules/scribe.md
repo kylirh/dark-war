@@ -21,3 +21,11 @@
 **Action:** Added a TSDoc block to `SIM_DT_MS` describing it as the conversion factor between the two time units the simulation mixes — every other duration constant in the file is in ticks, speeds are in pixels per second — with the two real conversions from the tree (`Math.ceil(30_000 / SIM_DT_MS)` in `commands.ts:102`, `velocityX * (SIM_DT_MS / 1000)` in `commands.ts:840`) and a note that it is the fixed step the client accumulator and the server interval both run on.
 
 **Prevention:** Document the constant's _relationship to the units around it_, not just its own unit — the name already said milliseconds and the line comment already said 20Hz, so restating those adds nothing on hover. The first draft of this entry also listed "buff durations" as an example; there is no buff system in the tree. Only cite usages you have grepped for, or the doc becomes a new thing to disbelieve.
+
+## 2026-09-06 - Document the engine's unseeded randomness prohibition
+
+**What was found:** The `CLAUDE.md` implicitly documents a constraint that `Math.random()` should never be used within game logic (to prevent desynchronizing multiplayer and procedural generation), but this was not explicitly documented in the core `RandomNumberGenerator` source code.
+
+**Action:** Added a TSDoc block to `RandomNumberGenerator` in `src/engine/utils/rng.ts` explaining the constraint against unseeded randomness (like `Math.random()`), and why the deterministic generator (or keyed rolls) must be used instead.
+
+**Prevention:** Future developers looking for the random number generator will now see the requirement and understand the "why" behind it natively in IntelliSense.
