@@ -22,10 +22,10 @@
 
 **Prevention:** Document the constant's _relationship to the units around it_, not just its own unit — the name already said milliseconds and the line comment already said 20Hz, so restating those adds nothing on hover. The first draft of this entry also listed "buff durations" as an example; there is no buff system in the tree. Only cite usages you have grepped for, or the doc becomes a new thing to disbelieve.
 
-## 2026-09-06 - Document the engine's unseeded randomness prohibition
+## 2026-09-15 - Document the engine's unseeded randomness prohibition
 
-**What was found:** The `CLAUDE.md` implicitly documents a constraint that `Math.random()` should never be used within game logic (to prevent desynchronizing multiplayer and procedural generation), but this was not explicitly documented in the core `RandomNumberGenerator` source code.
+**What was found:** `AGENTS.md` and `CLAUDE.md` require gameplay randomness to go through the deterministic RNG, but the constraint was absent from the `RandomNumberGenerator` source itself, where it is actually consulted.
 
-**Action:** Added a TSDoc block to `RandomNumberGenerator` in `src/engine/utils/rng.ts` explaining the constraint against unseeded randomness (like `Math.random()`), and why the deterministic generator (or keyed rolls) must be used instead.
+**Action:** Added a TSDoc block to `RandomNumberGenerator` in `src/engine/utils/rng.ts` naming the three seeded sources (this class, the shared `RNG` instance, the keyed rolls in `deterministic-roll.ts`) and why simulation randomness must not come from `Math.random()`.
 
-**Prevention:** Future developers looking for the random number generator will now see the requirement and understand the "why" behind it natively in IntelliSense.
+**Prevention:** State the exception, or the rule gets disbelieved. The first draft said "all random behavior must go through a deterministic generator", which is false in this tree: `src/client/systems/sound.ts:141`, `renderer.ts:1216`, and `title-screen.ts:26` use `Math.random()` on purpose, and sound.ts carries a comment saying it does so precisely to avoid consuming the deterministic stream. A prohibition that contradicts commented, deliberate code teaches readers to ignore the docstring. Scope the rule to gameplay/simulation randomness and name the presentation exception.

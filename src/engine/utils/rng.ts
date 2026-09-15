@@ -1,10 +1,14 @@
 /**
  * Deterministic random number generator using SFC32 algorithm.
  *
- * Game logic must never introduce unseeded randomness (e.g. `Math.random()`);
- * all random behavior must go through a deterministic generator (like this one
- * or keyed rolls) to prevent desynchronizing multiplayer sessions and breaking
- * reproducible procedural generation.
+ * All gameplay randomness must come from a seeded generator — this class, the
+ * shared `RNG` instance below, or the keyed rolls in `deterministic-roll.ts`.
+ * Drawing simulation randomness from `Math.random()` desynchronizes multiplayer
+ * sessions and breaks reproducible procedural generation.
+ *
+ * Presentation-only randomness is the deliberate exception: sound variant
+ * choice, screen shake, and title-screen art use `Math.random()` under
+ * `src/client/` precisely so they never consume this deterministic stream.
  */
 export class RandomNumberGenerator {
   private seed: number;
