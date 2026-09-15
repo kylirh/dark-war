@@ -7,7 +7,7 @@
 
 Dark War is architected to support four distinct build variants (Electron desktop, Headless server, Static web client, and Arcade cabinet) from a single shared engine. `docs/ARCHITECTURE.md` explicitly forbids `src/engine/` from importing DOM, Pixi, Electron, `ws`, Node modules, or platform globals.
 
-Currently, this constraint is enforced entirely by convention and a custom AST-parsing test (`src/engine-purity.test.ts`), rather than by structural boundaries. The entire project uses a single, monolithic `package.json` and a single `node_modules` directory.
+Currently, this constraint is enforced entirely by convention and a custom test (`src/engine-purity.test.ts`), rather than by structural boundaries. That test walks the `src/engine` tree and matches import specifiers with a regular expression — it does not parse an AST, so it sees only static `import`/`from` string literals, and a dynamic `import()` or a re-export through an intermediate module can pass it. The entire project uses a single, monolithic `package.json` and a single `node_modules` directory.
 
 The cost of this design is that the boundary is inherently porous during development. Developers routinely get auto-import suggestions for Node builtins (like `fs` or `path`) and DOM globals inside engine files because `tsconfig.json` includes `DOM` and `@types/node` globally. This leads to accidental violations that are only caught when `engine-purity.test.ts` runs. Furthermore, configuring Vite and esbuild to bundle different variants requires complex, manual path resolutions and externalizations (e.g., in `scripts/build-web.mjs` and the `esbuild` server step) instead of relying on standard Node package resolution.
 
