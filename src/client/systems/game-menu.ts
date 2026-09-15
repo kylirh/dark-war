@@ -95,6 +95,7 @@ export class GameMenu {
   private listeningForKey: KeyBindingAction | null = null;
   private canContinue: boolean;
   private shouldFocusPauseMenu = false;
+  private aboutDialogOpener: HTMLElement | null = null;
 
   // Multiplayer state
   private mpPlayerName = "Player";
@@ -158,7 +159,17 @@ export class GameMenu {
       id: "about-dialog",
       title: "About Dark War",
       initialPosition: { top: 132, left: 156 },
-      onClose: () => this.handleModalClosed(),
+      onOpen: () => {
+        this.modals
+          .get("about-dialog")
+          ?.element.querySelector<HTMLElement>("[data-close='about-dialog']")
+          ?.focus();
+      },
+      onClose: () => {
+        this.handleModalClosed();
+        this.aboutDialogOpener?.focus();
+        this.aboutDialogOpener = null;
+      },
       body: `
         <div class="imb-about-layout">
           <img src="assets/img/app-icon.png" class="imb-about-icon" alt="Dark War thunderbolt shield" />
@@ -1437,6 +1448,7 @@ export class GameMenu {
   }
 
   public openAboutDialog(): void {
+    this.aboutDialogOpener = document.activeElement as HTMLElement | null;
     this.showModal("about-dialog");
   }
 
