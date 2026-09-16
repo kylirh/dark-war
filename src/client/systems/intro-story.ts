@@ -109,8 +109,8 @@ export class IntroStory {
 
     if (
       event.key === "ArrowRight" ||
-      event.key === "Enter" ||
-      event.key === " "
+      ((event.key === "Enter" || event.key === " ") &&
+        !(document.activeElement instanceof HTMLButtonElement))
     ) {
       event.preventDefault();
       event.stopPropagation();
