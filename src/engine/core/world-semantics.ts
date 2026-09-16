@@ -314,8 +314,8 @@ function resolveSemanticTraversal(
 ): boolean {
   const elevationDifference =
     layers.elevation[toIndex] - layers.elevation[fromIndex];
-  if (elevationDifference === 0) return true;
   if (deltaX !== 0 && deltaY !== 0) return false;
+  if (elevationDifference === 0) return true;
   if (Math.abs(elevationDifference) > 1) return false;
   return (
     isElevationConnector(layers.fixture[fromIndex] as FixtureType) ||
