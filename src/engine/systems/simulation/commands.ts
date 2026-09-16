@@ -209,9 +209,9 @@ export function cleanupOldCommands(
 export function resolveCommand(state: GameState, cmd: Command): void {
   // Ignore player commands if dead
   if (cmd.source === "PLAYER") {
-    const player = state.entities.find(
-      (e) => e.id === cmd.actorId && e.kind === EntityKind.PLAYER,
-    ) as Player | undefined;
+    const actor = state.entityManager.getById(cmd.actorId);
+    const player =
+      actor?.kind === EntityKind.PLAYER ? (actor as Player) : undefined;
     if (player && player.hp <= 0) return;
     if (
       player &&
