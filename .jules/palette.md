@@ -79,3 +79,11 @@ duplicate reads exactly like a regression.
 **Action:** Updated `GameMenu` to cache `document.activeElement` before calling `showModal("about-dialog")`. Modified the `aboutDialog` instantiation to include an `onOpen` hook that explicitly calls `.focus()` on the dialog's close button, and an `onClose` hook that restores focus to the previously active element.
 
 **Prevention:** Generic modal components in Dark War (e.g., `RetroModal`) do not automatically manage focus shifting natively. The instantiating component is strictly responsible for capturing `document.activeElement`, explicitly shifting focus to the modal's contents during the `onOpen` hook, and restoring it in `onClose`.
+
+## 2024-11-20 - Intro Story Keyboard Navigation
+
+**What was found:** The `IntroStory` window (`src/client/systems/intro-story.ts`) intercepts "Enter" and Space keys unconditionally in its global `keydown` event listener to advance the story text. If a keyboard user navigated via Tab to the "Back" or "Skip" buttons and pressed Enter or Space to activate them, the event was captured, default prevented, and the story would advance instead of executing the button's action.
+
+**Action:** Modified the `keydown` event listener in `IntroStory` to ignore "Enter" and Space key presses if the `document.activeElement` is an `HTMLButtonElement`.
+
+**Prevention:** When capturing general navigation keys (like Enter or Space) in global or modal event listeners, ensure they do not steal focus or intercept events from natively interactive elements (like buttons) to preserve keyboard accessibility pathways.
