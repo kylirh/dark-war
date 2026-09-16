@@ -176,4 +176,18 @@ describe("WorldPlane", () => {
     expect(layers.elevation[index]).toBe(32767);
     expect(layers.damage[index]).toBe(255);
   });
+
+  it("rejects diagonal traversals", () => {
+    const layers = createWorldPlaneLayers(3, 3);
+    layers.ground.fill(GROUND_GRASS);
+    const plane = new WorldPlane(3, 3, layers, resolveTestCell);
+
+    // Diagonal traverse
+    expect(plane.canTraverse(0, 0, 1, 1)).toBe(false);
+    expect(plane.canTraverse(1, 1, 0, 0)).toBe(false);
+
+    // Valid orthogonal traverse
+    expect(plane.canTraverse(0, 0, 0, 1)).toBe(true);
+    expect(plane.canTraverse(0, 0, 1, 0)).toBe(true);
+  });
 });
