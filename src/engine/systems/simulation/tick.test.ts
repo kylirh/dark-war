@@ -79,6 +79,43 @@ describe("stepSimulationTick", () => {
     }
   });
 
+  describe("processMagneticPickup", () => {
+    it("pushes a PICKUP_ITEM event (processed in the same tick) when within collect radius", () => {
+      const game = new Game({ mode: "offline" });
+      game.reset(1);
+      const state = game.getState();
+
+      const player = state.players[0];
+      player.worldX = 50;
+      player.worldY = 50;
+      player.itemCounts = {}; // Reset inventory
+
+      // Clear existing items that might have spawned in reset()
+      const existingItems = [...state.entityManager.items];
+      for (const item of existingItems) {
+        state.entityManager.destroy(item.id);
+      }
+
+      // Position item exactly at MAGNET_COLLECT_RADIUS distance
+      const item = new ItemEntity(0, 0, ItemType.MEDKIT);
+      item.worldX = 70; // 50 + 20
+      item.worldY = 50;
+      state.entityManager.spawn(item);
+
+      (ai.generateAICommands as any).mockReturnValue([]);
+
+      expect(player.itemCounts[ItemType.MEDKIT] || 0).toBe(0);
+      expect(state.entityManager.items.length).toBe(1);
+
+      stepSimulationTick(state);
+
+      // The pickup event should be emitted and processed during this tick's processEventQueue.
+      expect(player.itemCounts[ItemType.MEDKIT]).toBe(1);
+      // The item is destroyed after collection.
+      expect(state.entityManager.items.length).toBe(0);
+    });
+  });
+
   describe("processHoleFalls", () => {
     it("pushes items falling through holes into itemsFellThrough and destroys them offline", () => {
       const game = new Game({ mode: "offline" });
