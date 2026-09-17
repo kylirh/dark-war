@@ -58,3 +58,19 @@
 **Action:** Added a dedicated behavioral test for `processMagneticPickup` in `src/engine/systems/simulation/tick.test.ts`. The test verifies that when a player moves close to an item within `MAGNET_COLLECT_RADIUS`, the item is processed and collected correctly without being permanently destroyed, pushing the right `PICKUP_ITEM` event to the `eventQueue` which resolves during the tick processing.
 
 **Prevention:** Ensure that engine events, especially logic that couples entity interactions (like item collection based on bounding radii) are thoroughly tested so future behavioral changes do not inadvertently stop events from firing.
+
+## 2024-05-18 - Add coverage for powercell pickup bypass
+
+**What was found:** `resolvePickupCommand` contains an explicit bypass for powercells, allowing them to be picked up even when normal inventory checks would reject them (e.g., when the inventory is full). This decision wasn't covered by tests.
+
+**Action:** Added `it("bypasses a full inventory when picking up a powercell", ...)` to `src/engine/systems/simulation/pickup.test.ts`.
+
+**Prevention:** Future changes to inventory logic or item types should ensure that utility/stackable bypasses are tested explicitly to avoid regressions where items silently fail to pick up.
+
+## 2026-09-17 - Update powercell pickup bypass context
+
+**What was found:** Testing `resolvePickupCommand` directly requires careful spatial positioning because `processMagneticPickup` collects anything within `MAGNET_COLLECT_RADIUS` (20px) before the command can even evaluate `canAddToInventory`.
+
+**Action:** Confirmed that the `PICKUP_RADIUS` for the command is 24px, leaving a small 20–24px ring where the command handles the pickup. Spawning items at a 22px offset ensures only `resolvePickupCommand` evaluates the item.
+
+**Prevention:** Always use mutation testing (temporarily breaking the condition you're protecting) to prove your test exercises the intended code path. Avoid overlapping interaction radii masking test behavior.

@@ -97,6 +97,19 @@ describe("picking up new items lands them in the inventory", () => {
     expect(state.pendingAlerts).toEqual([]);
   });
 
+  it("bypasses a full inventory when picking up a powercell", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const player = game.getState().player;
+    player.inventorySlots.forEach((slot) => (slot.type = ItemType.PISTOL));
+
+    const { state, itemId } = pickUp(game, ItemType.POWERCELL);
+
+    expect(state.entities.some((entity) => entity.id === itemId)).toBe(false);
+    expect(player.itemCounts[ItemType.POWERCELL]).toBe(1);
+    expect(state.pendingAlerts).toEqual([]);
+  });
+
   it("stacks coins by count", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
