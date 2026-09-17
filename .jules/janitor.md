@@ -13,3 +13,11 @@
 **Action:** Removed the `export` keyword from locally used variables and functions to encapsulate them properly. Removed `MIN_VISIBLE_FRACTION` from `module.exports` in `electron/window-state.js`. Deleted the dead `DROP_LOOT` enum member and its type variant.
 
 **Prevention:** Use a tool like `knip` or `ts-prune` periodically to identify and remove unused exports and dead code. Wait to export a function or variable until it is actually needed by an external module.
+
+## 2026-09-17 - Consolidate duplicate render logic and tests
+
+**What was found:** `renderDecoration` in `src/client/systems/renderer.ts` was almost entirely identical to `renderDepthTile`, duplicating identical logic for shadows, glow, FOV alpha, and sprite construction. Also, `use-item.test.ts` contained 2 large test setups which were duplicated across tests.
+
+**Action:** Replaced the body of `renderDecoration` with a simple call to `renderDepthTile(key, undefined, depthOffset, glow)`. Created a common test setup helper function `setupTestGame()` for `use-item.test.ts` and called it for the duplicates.
+
+**Prevention:** Use `jscpd` regularly to surface block duplication and collapse identical inline functions. When multiple UI elements or items have similar rendering needs, look for opportunities to compose existing render primitives instead of repeating the implementation.
