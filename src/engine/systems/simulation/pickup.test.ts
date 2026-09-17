@@ -10,25 +10,11 @@ import { stepSimulationTick } from "./tick";
 import { CommandType } from "../../types";
 import { SoundEffect } from "../../content/sound-effects";
 
-/**
- * Spawn `type` near the player and resolve one PICKUP command.
- *
- * `offsetX` places the item that many pixels to the player's right. At the
- * default 0 the magnetic auto-pickup in `stepSimulationTick` collects the item
- * on its own (it collects within 20px), so a test that needs the *command*
- * path — `resolvePickupCommand` and its inventory checks — must pass an offset
- * between that radius and the command's own 24px PICKUP_RADIUS.
- */
-function pickUp(
-  game: Game,
-  type: ItemType,
-  amount?: number,
-  offsetX: number = 0,
-) {
+function pickUp(game: Game, type: ItemType, amount?: number) {
   const state = game.getState();
   const player = state.player;
   const item = new ItemEntity(player.gridX, player.gridY, type, amount);
-  item.worldX = player.worldX + offsetX;
+  item.worldX = player.worldX;
   item.worldY = player.worldY;
   state.entityManager.spawn(item);
   enqueueCommand(state, {
@@ -111,23 +97,13 @@ describe("picking up new items lands them in the inventory", () => {
     expect(state.pendingAlerts).toEqual([]);
   });
 
-  // Outside the 20px magnetic collect radius, inside the command's 24px
-  // PICKUP_RADIUS: the only thing that can collect the item here is
-  // `resolvePickupCommand`, so these tests pin its inventory checks.
-  const COMMAND_ONLY_OFFSET = 22;
-
   it("bypasses a full inventory when picking up a powercell", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const player = game.getState().player;
     player.inventorySlots.forEach((slot) => (slot.type = ItemType.PISTOL));
 
-    const { state, itemId } = pickUp(
-      game,
-      ItemType.POWERCELL,
-      undefined,
-      COMMAND_ONLY_OFFSET,
-    );
+    const { state, itemId } = pickUp(game, ItemType.POWERCELL);
 
     expect(state.entities.some((entity) => entity.id === itemId)).toBe(false);
     expect(player.itemCounts[ItemType.POWERCELL]).toBe(1);
