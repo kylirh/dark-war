@@ -51,6 +51,7 @@
 **Rejected in review:** the online test originally overwrote `state.multiplayer = { mode: "online" } as any` after constructing `new Game({ mode: "online" })`. That was redundant — the constructor already builds `state.multiplayer.mode` from its option — and it made the test pass even if the constructor stopped honouring the mode. Removed; the test now drives the branch through the constructor alone.
 
 **Prevention:** Always cover logic that has deliberate offline/online divergence (like state updates only applying locally on offline mode) to ensure regressions do not bleed changes into online simulations. Set up mode through the public constructor rather than assigning over the state it produces.
+
 ## 2026-09-16 - Add test for magnetic pickup item event emission
 
 **What was found:** The `processMagneticPickup` logic in `src/engine/systems/simulation/tick.ts` lacked a behavioral test ensuring that a `PICKUP_ITEM` event is emitted correctly when an item moves within the collection radius.
@@ -59,10 +60,17 @@
 
 **Prevention:** Ensure that engine events, especially logic that couples entity interactions (like item collection based on bounding radii) are thoroughly tested so future behavioral changes do not inadvertently stop events from firing.
 
-## 2024-05-18 - Add coverage for powercell pickup bypass
+## 2026-09-17 - Add coverage for powercell pickup bypass
 
 **What was found:** `resolvePickupCommand` contains an explicit bypass for powercells, allowing them to be picked up even when normal inventory checks would reject them (e.g., when the inventory is full). This decision wasn't covered by tests.
 
 **Action:** Added `it("bypasses a full inventory when picking up a powercell", ...)` to `src/engine/systems/simulation/pickup.test.ts`.
 
-**Prevention:** Future changes to inventory logic or item types should ensure that utility/stackable bypasses are tested explicitly to avoid regressions where items silently fail to pick up.
+**Prevention:** A test that spawns an item on top of the player does **not**
+exercise `resolvePickupCommand` at all. `processMagneticPickup` runs in the same
+`stepSimulationTick` and collects anything within `MAGNET_COLLECT_RADIUS` (20px)
+without consulting `canAddToInventory`, so the command path never decides
+anything. Only the 20–24px band — outside the magnet, inside the command's
+`PICKUP_RADIUS` — actually reaches the command's inventory checks. The first
+version of this test spawned at distance 0 and passed with the bypass deleted.
+Confirm a new pickup test fails when the branch it names is removed.
