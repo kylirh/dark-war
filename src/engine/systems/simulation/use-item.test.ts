@@ -545,7 +545,7 @@ describe("melee weapon damage tiers", () => {
     ).toBe(true);
   });
 
-  it("plays the miss cue when a melee swing hits empty air", () => {
+  const setupTestGame = () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
@@ -555,6 +555,11 @@ describe("melee weapon damage tiers", () => {
     );
     player.weapon = WeaponType.MELEE;
     player.facingAngle = 0;
+    return { game, state, player };
+  };
+
+  it("plays the miss cue when a melee swing hits empty air", () => {
+    const { game, state, player } = setupTestGame();
     state.tiles.setTile(player.gridX + 1, player.gridY, TileType.FLOOR);
     setActive(game, ItemType.BUTCHER_KNIFE);
 
@@ -564,15 +569,7 @@ describe("melee weapon damage tiers", () => {
   });
 
   it("ordinary melee cannot damage walls or floors", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
-    state.entityManager.destroyWhere(
-      (entity) => entity.kind === EntityKind.MONSTER,
-    );
-    player.weapon = WeaponType.MELEE;
-    player.facingAngle = 0;
+    const { game, state, player } = setupTestGame();
     state.tiles.setTile(player.gridX + 1, player.gridY, TileType.WALL);
     setActive(game, ItemType.BUTCHER_KNIFE);
 

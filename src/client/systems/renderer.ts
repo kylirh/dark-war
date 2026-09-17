@@ -1402,36 +1402,12 @@ export class Renderer {
         const renderDepthTile = (
           key: string | number,
           coordOverride?: { x: number; y: number },
+          depthOffset: number = 0,
+          glow?: { color: string; scale: number },
         ): void => {
           const coord = coordOverride ?? SPRITE_COORDS[key];
           if (!coord) return;
           const frame = this.resolveFrame(coord, key);
-          const sortY = tileSortY + frame.depthOffset;
-          this.addShadow(
-            this.entityContainer,
-            frame.shadow,
-            tileBaselineX,
-            tileBaselineY,
-            sortY,
-          );
-          const sprite = this.createSpriteFromFrame(
-            frame,
-            tileBaselineX,
-            tileBaselineY,
-          );
-          if (!sprite) return;
-          applyFovAlpha(sprite);
-          sprite.zIndex = sortY;
-          this.entityContainer.addChild(sprite);
-        };
-
-        const renderDecoration = (
-          key: string,
-          depthOffset: number = 0,
-          glow?: { color: string; scale: number },
-        ): void => {
-          const frame = this.resolveFrameForKey(key);
-          if (!frame) return;
           const sortY = tileSortY + frame.depthOffset + depthOffset;
           if (glow) {
             this.addGlow(
@@ -1459,6 +1435,14 @@ export class Renderer {
           applyFovAlpha(sprite);
           sprite.zIndex = sortY;
           this.entityContainer.addChild(sprite);
+        };
+
+        const renderDecoration = (
+          key: string,
+          depthOffset: number = 0,
+          glow?: { color: string; scale: number },
+        ): void => {
+          renderDepthTile(key, undefined, depthOffset, glow);
         };
 
         const prototype = state.terrainPrototype;
