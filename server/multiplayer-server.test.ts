@@ -531,4 +531,23 @@ describe("multiplayer server (multi-world)", () => {
     host.close();
     guest.close();
   }, 15_000);
+
+  it("survives a set_name message with a numeric name", async () => {
+    server = await startMultiplayerServer(0);
+    const client = connect(server.port, "Host");
+    await waitFor(client, "welcome");
+
+    // This must not crash the server by bypassing isIncomingMessage
+    // and causing sanitizePlayerName to call .trim() on a number.
+    send(client, { type: "set_name", name: 123 });
+
+    // Give the server a moment to process the message. If it crashed,
+    // the socket will close.
+    await delay(100);
+
+    // The connection should still be open.
+    expect(client.readyState).toBe(WebSocket.OPEN);
+
+    client.close();
+  });
 });
