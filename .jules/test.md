@@ -74,3 +74,11 @@
 **Action:** Confirmed that the `PICKUP_RADIUS` for the command is 24px, leaving a small 20–24px ring where the command handles the pickup. Spawning items at a 22px offset ensures only `resolvePickupCommand` evaluates the item.
 
 **Prevention:** Always use mutation testing (temporarily breaking the condition you're protecting) to prove your test exercises the intended code path. Avoid overlapping interaction radii masking test behavior.
+
+## 2026-10-24 - Vending machine exact coin deduction
+
+**What was found:** The logic that handles buying an item from a vending machine contains a branch `if (left <= 0)` where `left` is `coins - VENDING_COST`. This branch is responsible for deleting the coin entry from the player's item counts and inventory if exactly `VENDING_COST` coins are spent. This edge case of having exactly enough coins was not covered by any existing test, making it vulnerable to regressions where exact spends might leave a 0-count item in the inventory, causing UI or logic issues.
+
+**Action:** Added a unit test to `src/engine/systems/simulation/panic-vending.test.ts` that provides the player with exactly 5 coins, initiates a vending machine interaction, and verifies that the `ItemType.COIN` entry is completely removed (`undefined` in `itemCounts` and missing in `inventorySlots`).
+
+**Prevention:** Always verify boundary edge cases for numeric resource deductions (e.g., spending the exact amount of money you have) to ensure resource pools correctly empty or clear instead of dangling at 0 or negative values.
