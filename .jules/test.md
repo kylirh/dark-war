@@ -51,6 +51,7 @@
 **Rejected in review:** the online test originally overwrote `state.multiplayer = { mode: "online" } as any` after constructing `new Game({ mode: "online" })`. That was redundant — the constructor already builds `state.multiplayer.mode` from its option — and it made the test pass even if the constructor stopped honouring the mode. Removed; the test now drives the branch through the constructor alone.
 
 **Prevention:** Always cover logic that has deliberate offline/online divergence (like state updates only applying locally on offline mode) to ensure regressions do not bleed changes into online simulations. Set up mode through the public constructor rather than assigning over the state it produces.
+
 ## 2026-09-16 - Add test for magnetic pickup item event emission
 
 **What was found:** The `processMagneticPickup` logic in `src/engine/systems/simulation/tick.ts` lacked a behavioral test ensuring that a `PICKUP_ITEM` event is emitted correctly when an item moves within the collection radius.
@@ -59,7 +60,7 @@
 
 **Prevention:** Ensure that engine events, especially logic that couples entity interactions (like item collection based on bounding radii) are thoroughly tested so future behavioral changes do not inadvertently stop events from firing.
 
-## 2024-05-18 - Add coverage for powercell pickup bypass
+## 2026-09-17 - Add coverage for powercell pickup bypass
 
 **What was found:** `resolvePickupCommand` contains an explicit bypass for powercells, allowing them to be picked up even when normal inventory checks would reject them (e.g., when the inventory is full). This decision wasn't covered by tests.
 
@@ -74,3 +75,11 @@
 **Action:** Confirmed that the `PICKUP_RADIUS` for the command is 24px, leaving a small 20–24px ring where the command handles the pickup. Spawning items at a 22px offset ensures only `resolvePickupCommand` evaluates the item.
 
 **Prevention:** Always use mutation testing (temporarily breaking the condition you're protecting) to prove your test exercises the intended code path. Avoid overlapping interaction radii masking test behavior.
+
+## 2026-09-18 - Vending machine exact coin deduction
+
+**What was found:** The logic that handles buying an item from a vending machine contains a branch `if (left <= 0)` where `left` is `coins - VENDING_COST`. This branch is responsible for deleting the coin entry from the player's item counts and inventory if exactly `VENDING_COST` coins are spent. This edge case of having exactly enough coins was not covered by any existing test, making it vulnerable to regressions where exact spends might leave a 0-count item in the inventory, causing UI or logic issues.
+
+**Action:** Added a unit test to `src/engine/systems/simulation/panic-vending.test.ts` that provides the player with exactly 5 coins, initiates a vending machine interaction, and verifies that the `ItemType.COIN` entry is completely removed (`undefined` in `itemCounts` and missing in `inventorySlots`).
+
+**Prevention:** Always verify boundary edge cases for numeric resource deductions (e.g., spending the exact amount of money you have) to ensure resource pools correctly empty or clear instead of dangling at 0 or negative values.
