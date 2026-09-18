@@ -121,7 +121,7 @@ turns a crash into silently rendering `[object Object]`. Before writing up a
 boundary as unguarded, read it — and read this log, which had already recorded
 the save-file half as closed.
 
-## 2024-05-30 - Prevent server DoS from untrusted set_name payloads
+## 2026-09-18 - Prevent server DoS from untrusted set_name payloads
 
 **What was found:** The server's `handleMessage` allowed any connected client to crash the Node process by sending a `{"type": "set_name", "name": 123}` message. The boundary validation `isIncomingMessage` did not verify that the `name` field was a string, leading `sanitizePlayerName` to call `.trim()` on a number and throw an uncaught exception, taking down the server.
 
