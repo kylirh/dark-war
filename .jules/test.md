@@ -51,6 +51,7 @@
 **Rejected in review:** the online test originally overwrote `state.multiplayer = { mode: "online" } as any` after constructing `new Game({ mode: "online" })`. That was redundant — the constructor already builds `state.multiplayer.mode` from its option — and it made the test pass even if the constructor stopped honouring the mode. Removed; the test now drives the branch through the constructor alone.
 
 **Prevention:** Always cover logic that has deliberate offline/online divergence (like state updates only applying locally on offline mode) to ensure regressions do not bleed changes into online simulations. Set up mode through the public constructor rather than assigning over the state it produces.
+
 ## 2026-09-16 - Add test for magnetic pickup item event emission
 
 **What was found:** The `processMagneticPickup` logic in `src/engine/systems/simulation/tick.ts` lacked a behavioral test ensuring that a `PICKUP_ITEM` event is emitted correctly when an item moves within the collection radius.
