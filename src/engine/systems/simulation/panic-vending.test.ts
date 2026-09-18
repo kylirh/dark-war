@@ -168,6 +168,33 @@ describe("vending machine", () => {
     expect(player.itemCounts[ItemType.COIN]).toBe(5); // -5 per purchase
   });
 
+  it("deducts coins and leaves exactly 0 coins when holding exactly VENDING_COST", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.itemCounts[ItemType.COIN] = 5;
+
+    const mx = player.gridX + 1;
+    const my = player.gridY;
+    state.entityManager.spawn(new ItemEntity(mx, my, ItemType.VENDING_MACHINE));
+
+    enqueueCommand(state, {
+      tick: state.sim.nowTick,
+      actorId: player.id,
+      type: CommandType.INTERACT,
+      data: { type: "INTERACT", x: mx, y: my },
+      priority: 0,
+      source: "PLAYER",
+    });
+    stepSimulationTick(state);
+
+    expect(player.itemCounts[ItemType.COIN]).toBeUndefined();
+    expect(player.inventorySlots.some((s) => s?.type === ItemType.COIN)).toBe(
+      false,
+    );
+  });
+
   it("refuses to sell without enough coins", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
