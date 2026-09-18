@@ -128,20 +128,20 @@ describe("snagglepuss", () => {
       2,
     );
     state.entityManager.spawn(snagg);
-    let foundMutter = false;
-    for (let attempt = 0; attempt < 500; attempt++) {
+    for (
+      let attempt = 0;
+      attempt < 500 && state.pendingSounds.length === 0;
+      attempt++
+    ) {
       stepSimulationTick(state);
-      if (
-        state.pendingSounds.some(
-          (s) => s.effect === SoundEffect.SNAGGLEPUSS_MUTTER,
-        )
-      ) {
-        foundMutter = true;
-        break;
-      }
     }
 
-    expect(foundMutter).toBe(true);
+    expect(state.pendingSounds).toContainEqual({
+      effect: SoundEffect.SNAGGLEPUSS_MUTTER,
+      worldX: snagg.worldX,
+      worldY: snagg.worldY,
+      maxDistancePx: 32 * 12,
+    });
 
     state.pendingSounds.length = 0;
     stepSimulationTick(state);

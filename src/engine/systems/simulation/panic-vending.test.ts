@@ -6,6 +6,7 @@ import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
 import { SoundEffect } from "../../content/sound-effects";
+import { addToInventory } from "../../utils/inventory";
 
 function interact(
   game: Game,
@@ -173,7 +174,14 @@ describe("vending machine", () => {
     game.reset(1);
     const state = game.getState();
     const player = state.player;
+    // Seed the coins into a real inventory slot, not just the flat count:
+    // the branch clears both, and asserting on a slot the player never had
+    // would pass no matter what the branch does.
+    addToInventory(player, ItemType.COIN);
     player.itemCounts[ItemType.COIN] = 5;
+    expect(player.inventorySlots.some((s) => s.type === ItemType.COIN)).toBe(
+      true,
+    );
 
     const mx = player.gridX + 1;
     const my = player.gridY;
@@ -190,7 +198,7 @@ describe("vending machine", () => {
     stepSimulationTick(state);
 
     expect(player.itemCounts[ItemType.COIN]).toBeUndefined();
-    expect(player.inventorySlots.some((s) => s?.type === ItemType.COIN)).toBe(
+    expect(player.inventorySlots.some((s) => s.type === ItemType.COIN)).toBe(
       false,
     );
   });
