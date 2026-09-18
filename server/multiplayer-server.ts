@@ -164,6 +164,7 @@ function isIncomingAction(value: unknown): value is IncomingAction {
 
 function isIncomingMessage(value: unknown): value is IncomingMessage2 {
   if (!isRecord(value) || typeof value.type !== "string") return false;
+  if (value.type === "set_name") return typeof value.name === "string";
   return (
     value.type === "velocity" ||
     value.type === "action" ||
@@ -171,7 +172,6 @@ function isIncomingMessage(value: unknown): value is IncomingMessage2 {
     value.type === "inventory_swap" ||
     value.type === "new_game" ||
     value.type === "start_game" ||
-    value.type === "set_name" ||
     value.type === "request_respawn" ||
     value.type === "request_keyframe"
   );

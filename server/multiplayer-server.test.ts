@@ -531,4 +531,22 @@ describe("multiplayer server (multi-world)", () => {
     host.close();
     guest.close();
   }, 15_000);
+
+  it("rejects a set_name message whose name is not a string", async () => {
+    server = await startMultiplayerServer(0);
+    const client = connect(server.port, "Host");
+    await waitFor(client, "welcome");
+
+    // `sanitizePlayerName` calls `.trim()` on whatever it is handed. While the
+    // boundary guard accepted any `set_name` payload, a numeric name reached it
+    // and the resulting TypeError escaped the socket's message listener,
+    // killing the server process for every player in the room.
+    const rejection = waitFor(client, "error");
+    send(client, { type: "set_name", name: 123 });
+
+    expect((await rejection).message).toBe("Invalid payload.");
+    expect(client.readyState).toBe(WebSocket.OPEN);
+
+    client.close();
+  });
 });
