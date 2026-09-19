@@ -1,6 +1,7 @@
 /**
  * Slot-based saved game storage and picker UI.
  */
+import { captureFocusOpener, restoreFocus } from "./focus-restore";
 import { RetroModal } from "./retro-modal";
 import { SerializedState } from "../../engine/types";
 import { escapeHtml } from "./html-escape";
@@ -258,7 +259,7 @@ export class SaveSlotDialog {
 
   public async open(mode: SaveSlotMode): Promise<void> {
     if (!this.modal.isOpen()) {
-      this.openerFocus = document.activeElement as HTMLElement | null;
+      this.openerFocus = captureFocusOpener();
     }
     this.mode = mode;
     this.selectedSlot = 0;
@@ -288,11 +289,7 @@ export class SaveSlotDialog {
     document.body.classList.remove("imb-modal-open");
     this.options.onOpenChange?.(false);
 
-    if (this.openerFocus && document.body.contains(this.openerFocus)) {
-      this.openerFocus.focus();
-    } else {
-      document.getElementById("game")?.focus();
-    }
+    restoreFocus(this.openerFocus);
     this.openerFocus = null;
   }
 
