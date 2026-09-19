@@ -96,6 +96,7 @@ export class GameMenu {
   private canContinue: boolean;
   private shouldFocusPauseMenu = false;
   private aboutDialogOpener: HTMLElement | null = null;
+  private pauseMenuOpener: HTMLElement | null = null;
 
   // Multiplayer state
   private mpPlayerName = "Player";
@@ -200,7 +201,18 @@ export class GameMenu {
       centerOnOpen: true,
       initialPosition: { top: 96, left: 96 },
       onOpen: () => this.syncPauseMenu(),
-      onClose: () => this.handleModalClosed(),
+      onClose: () => {
+        this.handleModalClosed();
+        if (
+          this.pauseMenuOpener &&
+          document.body.contains(this.pauseMenuOpener)
+        ) {
+          this.pauseMenuOpener.focus();
+        } else {
+          document.getElementById("game")?.focus();
+        }
+        this.pauseMenuOpener = null;
+      },
       body: this.buildPauseDialogBody(),
     });
     this.registerModal(pauseDialog);
@@ -1453,6 +1465,9 @@ export class GameMenu {
   }
 
   public openPauseMenu(view: PauseMenuView = "main"): void {
+    if (!this.modals.get("pause-dialog")?.isOpen()) {
+      this.pauseMenuOpener = document.activeElement as HTMLElement | null;
+    }
     this.pauseMenuView = view;
     this.pauseMenuSelection = this.getInitialPauseSelection();
     this.pauseMenuMessage = null;

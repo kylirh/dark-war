@@ -221,6 +221,7 @@ export class SaveSlotDialog {
   private slots: SaveSlotSummary[] = [];
   private selectedSlot = 0;
   private isBusy = false;
+  private openerFocus: HTMLElement | null = null;
 
   constructor(options: SaveSlotDialogOptions) {
     this.options = options;
@@ -256,6 +257,9 @@ export class SaveSlotDialog {
   }
 
   public async open(mode: SaveSlotMode): Promise<void> {
+    if (!this.modal.isOpen()) {
+      this.openerFocus = document.activeElement as HTMLElement | null;
+    }
     this.mode = mode;
     this.selectedSlot = 0;
     this.isBusy = false;
@@ -283,6 +287,13 @@ export class SaveSlotDialog {
     this.scrim.classList.add("hidden");
     document.body.classList.remove("imb-modal-open");
     this.options.onOpenChange?.(false);
+
+    if (this.openerFocus && document.body.contains(this.openerFocus)) {
+      this.openerFocus.focus();
+    } else {
+      document.getElementById("game")?.focus();
+    }
+    this.openerFocus = null;
   }
 
   private async refreshSlots(): Promise<void> {
