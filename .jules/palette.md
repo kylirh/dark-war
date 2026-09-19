@@ -88,10 +88,10 @@ duplicate reads exactly like a regression.
 
 **Prevention:** When capturing general navigation keys (like Enter or Space) in global or modal event listeners, ensure they do not steal focus or intercept events from natively interactive elements (like buttons) to preserve keyboard accessibility pathways.
 
-## 2026-10-24 - Restore focus on dialog close
+## 2026-09-19 - Restore focus on dialog close
 
 **What was found:** Closing the main pause menu or the save slot dialog would strand keyboard focus, breaking keyboard navigation flow. While `RetroModal` handles UI rendering for modals, focus restoration was missing from the implementing components (`GameMenu` and `SaveSlotDialog`).
 
-**Action:** Updated `GameMenu` and `SaveSlotDialog` to capture `document.activeElement` right before calling `RetroModal.show()` (checking that the dialog wasn't already open, to prevent capturing an element *inside* the modal). Added an `onClose` hook to restore focus to that captured element, falling back to focusing the `#game` canvas if the element was no longer in the document.
+**Action:** Updated `GameMenu` and `SaveSlotDialog` to capture `document.activeElement` right before calling `RetroModal.show()` (checking that the dialog wasn't already open, to prevent capturing an element _inside_ the modal). Added an `onClose` hook to restore focus to that captured element, falling back to focusing the `#game` canvas if the element was no longer in the document.
 
 **Prevention:** When implementing new dialogs using `RetroModal`, explicitly manage focus shifting: capture the active element before opening, and restore focus to it on close, checking `document.body.contains(element)` to handle elements that were removed while the dialog was open.

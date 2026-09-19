@@ -21,3 +21,11 @@
 **Action:** Replaced the body of `renderDecoration` with a simple call to `renderDepthTile(key, undefined, depthOffset, glow)`. Created a common test setup helper function `setupTestGame()` for `use-item.test.ts` and called it for the duplicates.
 
 **Prevention:** Use `jscpd` regularly to surface block duplication and collapse identical inline functions. When multiple UI elements or items have similar rendering needs, look for opportunities to compose existing render primitives instead of repeating the implementation.
+
+## 2026-09-19 - Consolidate deterministic command sorting
+
+**What was found:** `src/engine/systems/simulation/tick.ts` contained a proven duplicate block of logic (identified by `jscpd`) used to deterministically sort both `playerCommands` and `aiCommands` based on `priority`, `actorId`, and `id`.
+
+**Action:** Extracted the duplicate sorting logic into a new, reusable `sortCommandsDeterministically(commands: Command[])` helper function at the bottom of the file, and updated both call sites to use it.
+
+**Prevention:** Use `jscpd` regularly to surface block duplication and collapse identical inline functions or test setups. Ignore duplicates inside `src/generated/`.
