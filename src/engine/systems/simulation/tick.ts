@@ -9,6 +9,7 @@ import {
   CELL_CONFIG,
   HOLE_FALL_DAMAGE,
   EventType,
+  Command,
 } from "../../types";
 import { idxFor } from "../../utils/helpers";
 import { RNG } from "../../utils/rng";
@@ -72,12 +73,7 @@ export function stepSimulationTick(state: GameState): void {
   // 1. Gather and resolve player commands first
   let playerCommands = getCommandsForTick(state, tick);
 
-  // Sort player commands deterministically
-  playerCommands.sort((a, b) => {
-    if (a.priority !== b.priority) return b.priority - a.priority;
-    if (a.actorId !== b.actorId) return a.actorId.localeCompare(b.actorId);
-    return a.id.localeCompare(b.id);
-  });
+  sortCommandsDeterministically(playerCommands);
 
   // Resolve player commands
   for (const cmd of playerCommands) {
@@ -98,12 +94,7 @@ export function stepSimulationTick(state: GameState): void {
     aiCommands.length = MAX_COMMANDS_PER_TICK;
   }
 
-  // Sort AI commands deterministically
-  aiCommands.sort((a, b) => {
-    if (a.priority !== b.priority) return b.priority - a.priority;
-    if (a.actorId !== b.actorId) return a.actorId.localeCompare(b.actorId);
-    return a.id.localeCompare(b.id);
-  });
+  sortCommandsDeterministically(aiCommands);
 
   // 3. Resolve AI commands
   for (const cmd of aiCommands) {
@@ -587,4 +578,12 @@ function triggerMonsterFall(state: GameState, monster: Monster): void {
   });
 
   state.entityManager.destroy(monster.id);
+}
+
+function sortCommandsDeterministically(commands: Command[]): void {
+  commands.sort((a, b) => {
+    if (a.priority !== b.priority) return b.priority - a.priority;
+    if (a.actorId !== b.actorId) return a.actorId.localeCompare(b.actorId);
+    return a.id.localeCompare(b.id);
+  });
 }
