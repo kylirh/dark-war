@@ -2,6 +2,7 @@
  * Reusable retro system modal components for game menu dialogs.
  */
 import { Music } from "./music";
+import { captureFocusOpener, restoreFocus } from "./focus-restore";
 import { RetroModal } from "./retro-modal";
 import {
   DEFAULT_KEY_BINDINGS,
@@ -96,6 +97,7 @@ export class GameMenu {
   private canContinue: boolean;
   private shouldFocusPauseMenu = false;
   private aboutDialogOpener: HTMLElement | null = null;
+  private pauseMenuOpener: HTMLElement | null = null;
 
   // Multiplayer state
   private mpPlayerName = "Player";
@@ -167,7 +169,7 @@ export class GameMenu {
       },
       onClose: () => {
         this.handleModalClosed();
-        this.aboutDialogOpener?.focus();
+        restoreFocus(this.aboutDialogOpener);
         this.aboutDialogOpener = null;
       },
       body: `
@@ -200,7 +202,11 @@ export class GameMenu {
       centerOnOpen: true,
       initialPosition: { top: 96, left: 96 },
       onOpen: () => this.syncPauseMenu(),
-      onClose: () => this.handleModalClosed(),
+      onClose: () => {
+        this.handleModalClosed();
+        restoreFocus(this.pauseMenuOpener);
+        this.pauseMenuOpener = null;
+      },
       body: this.buildPauseDialogBody(),
     });
     this.registerModal(pauseDialog);
@@ -1448,11 +1454,14 @@ export class GameMenu {
   }
 
   public openAboutDialog(): void {
-    this.aboutDialogOpener = document.activeElement as HTMLElement | null;
+    this.aboutDialogOpener = captureFocusOpener();
     this.showModal("about-dialog");
   }
 
   public openPauseMenu(view: PauseMenuView = "main"): void {
+    if (!this.modals.get("pause-dialog")?.isOpen()) {
+      this.pauseMenuOpener = captureFocusOpener();
+    }
     this.pauseMenuView = view;
     this.pauseMenuSelection = this.getInitialPauseSelection();
     this.pauseMenuMessage = null;
