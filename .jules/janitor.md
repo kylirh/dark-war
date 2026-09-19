@@ -22,7 +22,7 @@
 
 **Prevention:** Use `jscpd` regularly to surface block duplication and collapse identical inline functions. When multiple UI elements or items have similar rendering needs, look for opportunities to compose existing render primitives instead of repeating the implementation.
 
-## 2024-05-18 - Consolidate deterministic command sorting
+## 2026-09-19 - Consolidate deterministic command sorting
 
 **What was found:** `src/engine/systems/simulation/tick.ts` contained a proven duplicate block of logic (identified by `jscpd`) used to deterministically sort both `playerCommands` and `aiCommands` based on `priority`, `actorId`, and `id`.
 
