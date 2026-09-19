@@ -101,6 +101,36 @@ describe("icky lumps breed", () => {
   });
 });
 
+describe("selfHeals monsters regenerate HP", () => {
+  it("heals 1 HP every 20 ticks and caps at hpMax", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+
+    const moppet = new MonsterEntity(
+      state.player.gridX + 5,
+      state.player.gridY,
+      MonsterType.MOPPET,
+      1,
+    );
+    moppet.hp = moppet.hpMax - 1; // Needs healing
+    state.entityManager.spawn(moppet);
+
+    state.sim.nowTick = 19;
+    processMonsterAbilities(state);
+    expect(moppet.hp).toBe(moppet.hpMax - 1); // Not healed yet
+
+    state.sim.nowTick = 20;
+    processMonsterAbilities(state);
+    expect(moppet.hp).toBe(moppet.hpMax); // Healed 1 HP
+
+    state.sim.nowTick = 40;
+    processMonsterAbilities(state);
+    expect(moppet.hp).toBe(moppet.hpMax); // Does not exceed hpMax
+  });
+});
+
 describe("flutterbang explodes on death", () => {
   beforeEach(() => RNG.reseed(5));
 
