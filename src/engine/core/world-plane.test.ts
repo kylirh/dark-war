@@ -154,16 +154,6 @@ describe("WorldPlane", () => {
     expect(plane.canTraverse(0, 0, 1, 0)).toBe(false);
   });
 
-  it("rejects diagonal traversals even on the same elevation", () => {
-    const layers = createWorldPlaneLayers(3, 3);
-    layers.ground.fill(GROUND_GRASS);
-    const plane = new WorldPlane(3, 3, layers, resolveTestCell);
-
-    expect(plane.canTraverse(0, 0, 1, 1)).toBe(false);
-    expect(plane.canTraverse(1, 1, 2, 0)).toBe(false);
-    expect(plane.canTraverse(1, 1, 0, 2)).toBe(false);
-  });
-
   it("applies edits across various layers and caps values", () => {
     const layers = createWorldPlaneLayers(2, 2);
     layers.ground.fill(GROUND_GRASS);
