@@ -83,11 +83,3 @@
 **Action:** Added a unit test to `src/engine/systems/simulation/panic-vending.test.ts` that provides the player with exactly 5 coins, initiates a vending machine interaction, and verifies that the `ItemType.COIN` entry is completely removed (`undefined` in `itemCounts` and missing in `inventorySlots`).
 
 **Prevention:** Always verify boundary edge cases for numeric resource deductions (e.g., spending the exact amount of money you have) to ensure resource pools correctly empty or clear instead of dangling at 0 or negative values.
-
-## 2026-09-19 - Add test for monster `selfHeals` ability
-
-**What was found:** The `selfHeals` monster ability logic in `processMonsterAbilities` (which regenerates 1 HP every 20 ticks and caps at `hpMax`) was not covered by any behavioral test. This left it vulnerable to regressions where the healing interval could be accidentally changed or the `hpMax` cap omitted, causing monsters to not heal or heal infinitely.
-
-**Action:** Added a focused test in `src/engine/systems/simulation/monster-abilities.test.ts` to verify that a monster with the `selfHeals` flag correctly heals 1 HP every 20 ticks and respects its `hpMax` limit.
-
-**Prevention:** Ensure that passive creature abilities tied to specific ticks or bounds are covered by focused tests to prevent regressions.

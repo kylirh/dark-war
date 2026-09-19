@@ -2,7 +2,6 @@
  * Reusable retro system modal components for game menu dialogs.
  */
 import { Music } from "./music";
-import { captureFocusOpener, restoreFocus } from "./focus-restore";
 import { RetroModal } from "./retro-modal";
 import {
   DEFAULT_KEY_BINDINGS,
@@ -169,7 +168,7 @@ export class GameMenu {
       },
       onClose: () => {
         this.handleModalClosed();
-        restoreFocus(this.aboutDialogOpener);
+        this.aboutDialogOpener?.focus();
         this.aboutDialogOpener = null;
       },
       body: `
@@ -204,7 +203,14 @@ export class GameMenu {
       onOpen: () => this.syncPauseMenu(),
       onClose: () => {
         this.handleModalClosed();
-        restoreFocus(this.pauseMenuOpener);
+        if (
+          this.pauseMenuOpener &&
+          document.body.contains(this.pauseMenuOpener)
+        ) {
+          this.pauseMenuOpener.focus();
+        } else {
+          document.getElementById("game")?.focus();
+        }
         this.pauseMenuOpener = null;
       },
       body: this.buildPauseDialogBody(),
@@ -1454,13 +1460,13 @@ export class GameMenu {
   }
 
   public openAboutDialog(): void {
-    this.aboutDialogOpener = captureFocusOpener();
+    this.aboutDialogOpener = document.activeElement as HTMLElement | null;
     this.showModal("about-dialog");
   }
 
   public openPauseMenu(view: PauseMenuView = "main"): void {
     if (!this.modals.get("pause-dialog")?.isOpen()) {
-      this.pauseMenuOpener = captureFocusOpener();
+      this.pauseMenuOpener = document.activeElement as HTMLElement | null;
     }
     this.pauseMenuView = view;
     this.pauseMenuSelection = this.getInitialPauseSelection();
