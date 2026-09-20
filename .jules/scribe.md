@@ -29,3 +29,11 @@
 **Action:** Added a TSDoc block to `RandomNumberGenerator` in `src/engine/utils/rng.ts` naming the three seeded sources (this class, the shared `RNG` instance, the keyed rolls in `deterministic-roll.ts`) and why simulation randomness must not come from `Math.random()`.
 
 **Prevention:** State the exception, or the rule gets disbelieved. The first draft said "all random behavior must go through a deterministic generator", which is false in this tree: `src/client/systems/sound.ts:141`, `renderer.ts:1216`, and `title-screen.ts:26` use `Math.random()` on purpose, and sound.ts carries a comment saying it does so precisely to avoid consuming the deterministic stream. A prohibition that contradicts commented, deliberate code teaches readers to ignore the docstring. Scope the rule to gameplay/simulation randomness and name the presentation exception.
+
+## 2026-09-20 - Document delta compression null assignment rule
+
+**What was found:** The memory explicitly states: "In Dark War state synchronization (`src/net/state-delta.ts`), when an optional field is cleared, `computeStateDelta` must assign `null` to the delta (e.g., `delta.field = next.field ?? null;`) rather than `undefined`." However, this constraint was missing from the documentation.
+
+**Action:** Added a TSDoc comment to `computeStateDelta` in `src/net/state-delta.ts` explaining that clearing an optional field requires assigning `null` rather than `undefined`, and explaining why (because `JSON.stringify` drops `undefined` keys entirely, causing the client to inherit stale values).
+
+**Prevention:** Future developers modifying `computeStateDelta` will see the constraint in IntelliSense and avoid the trap of assigning `undefined` when an optional field is removed.
