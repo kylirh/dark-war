@@ -401,4 +401,37 @@ describe("thieves steal and flee", () => {
       true,
     );
   });
+
+  it("removes the coin count and inventory slot when stealing exactly the player's remaining coins", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.hpMax = 999;
+    player.hp = 999;
+
+    // Provide exactly 1 coin, which guarantees the moppet's random theft (1-5) will take all of it.
+    player.itemCounts[ItemType.COIN] = 1;
+    player.inventorySlots[0] = { type: ItemType.COIN };
+
+    const moppet = new MonsterEntity(
+      player.gridX + 1,
+      player.gridY,
+      MonsterType.MOPPET,
+      3,
+    );
+    state.entityManager.spawn(moppet);
+
+    for (let i = 0; i < 120; i++) {
+      stepSimulationTick(state);
+      if (moppet.fleeing) break;
+    }
+
+    expect(moppet.fleeing).toBe(true);
+    expect(player.itemCounts[ItemType.COIN]).toBeUndefined();
+    expect(player.inventorySlots[0].type).toBeNull();
+    expect(moppet.carriedItems.some((c) => c.type === ItemType.COIN)).toBe(
+      true,
+    );
+  });
 });
