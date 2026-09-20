@@ -141,6 +141,14 @@ describe("WorldPlane", () => {
     plane.setTile(-1, 0, TileType.FLOOR);
   });
 
+  it("rejects diagonal traversals", () => {
+    const layers = createWorldPlaneLayers(3, 3);
+    layers.ground.fill(GROUND_GRASS);
+    const plane = new WorldPlane(3, 3, layers, resolveTestCell);
+
+    expect(plane.canTraverse(0, 0, 1, 1)).toBe(false);
+  });
+
   it("uses default elevation traversal check when resolveTraversal is omitted", () => {
     const layers = createWorldPlaneLayers(3, 1);
     layers.ground.fill(GROUND_GRASS);
