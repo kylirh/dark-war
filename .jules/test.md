@@ -91,11 +91,3 @@
 **Action:** Added a focused test in `src/engine/systems/simulation/monster-abilities.test.ts` to verify that a monster with the `selfHeals` flag correctly heals 1 HP every 20 ticks and respects its `hpMax` limit.
 
 **Prevention:** Ensure that passive creature abilities tied to specific ticks or bounds are covered by focused tests to prevent regressions.
-
-## 2026-09-20 - Exact coin deduction during Moppet theft
-
-**What was found:** The branch `if (left <= 0)` in `events.ts:stealFromPlayer()` for money theft clears the player's inventory slot when a moppet steals all their coins. This branch lacked test coverage. The existing test for moppets stealing coins seeded the player with 10 coins, which means the moppet's theft (1-5 coins) always leaves some behind, failing to reach the exact deduction path.
-
-**Action:** Added a test in `src/engine/systems/simulation/combat-abilities.test.ts` where the player has exactly 1 coin (guaranteed to be fully stolen by the moppet) and verified that both `player.itemCounts[ItemType.COIN]` is undefined and the inventory slot `player.inventorySlots[0].type` is cleared to `null`.
-
-**Prevention:** When testing resource subtraction or theft logic, always verify boundary edge cases for numeric resource deductions (e.g., stealing the exact amount of resources the player has) to ensure resource pools correctly empty or clear instead of dangling at 0 or negative values. Ensure tests verify both the flat count removal and the inventory slot clearance.
