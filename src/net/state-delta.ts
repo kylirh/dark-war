@@ -105,6 +105,15 @@ export function requiresKeyframe(
   );
 }
 
+/**
+ * Computes a delta from a baseline state.
+ *
+ * **Constraint:** When an optional field is cleared, `computeStateDelta` must
+ * assign `null` to the delta (e.g., `delta.field = next.field ?? null;`) rather
+ * than `undefined`. `JSON.stringify` drops `undefined` keys entirely, so
+ * `applyStateDelta` would never receive the update and the client would silently
+ * inherit the stale value from its baseline.
+ */
 export function computeStateDelta(
   base: SerializedState,
   next: SerializedState,
