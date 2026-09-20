@@ -29,3 +29,11 @@
 **Action:** Extracted the duplicate sorting logic into a new, reusable `sortCommandsDeterministically(commands: Command[])` helper function at the bottom of the file, and updated both call sites to use it.
 
 **Prevention:** Use `jscpd` regularly to surface block duplication and collapse identical inline functions or test setups. Ignore duplicates inside `src/generated/`.
+
+## 2026-09-20 - Consolidate duplicate dog test setups
+
+**What was found:** \`src/engine/systems/simulation/pets.test.ts\` contained a significant amount of duplicated test setup code for initializing the game, clearing monsters, and spawning a \`WILD_DOG\` entity across multiple test cases.
+
+**Action:** Created a reusable \`setupDogTest(isFriendly = true)\` helper function to encapsulate the repeated game setup logic, and replaced the duplicated blocks in the test cases with calls to this helper.
+
+**Prevention:** Use \`jscpd\` regularly to surface block duplication and collapse identical inline functions or test setups. Ignore duplicates inside \`src/generated/\`. When identifying duplicated lines using \`jscpd\`, always inspect the exact line ranges using \`sed\` before applying changes, to ensure precise understanding of the code being replaced.
