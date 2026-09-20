@@ -42,27 +42,6 @@ function clearMonsters(game: Game) {
     .entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
 }
 
-function setupDogTest(isFriendly = true) {
-  const game = new Game({ mode: "offline" });
-  game.reset(1);
-  clearMonsters(game);
-  const state = game.getState();
-
-  const dog = new MonsterEntity(
-    state.player.gridX + 2,
-    state.player.gridY,
-    MonsterType.WILD_DOG,
-    1,
-  );
-
-  if (isFriendly) {
-    dog.friendly = true;
-    dog.ownerId = state.player.id;
-  }
-
-  return { game, state, dog };
-}
-
 describe("befriending a wild dog with a thrown bone", () => {
   it("can turn a wild dog friendly and request a name", () => {
     // Find a seed where the 0.6 befriend roll succeeds, then assert the effects.
@@ -125,7 +104,19 @@ describe("a friendly pet fights for its owner", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("bites a nearby hostile monster", () => {
-    const { game, state, dog } = setupDogTest(true);
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+
+    const dog = new MonsterEntity(
+      state.player.gridX + 2,
+      state.player.gridY,
+      MonsterType.WILD_DOG,
+      1,
+    );
+    dog.friendly = true;
+    dog.ownerId = state.player.id;
     dog.name = "Rex";
     state.entityManager.spawn(dog);
 
@@ -148,7 +139,18 @@ describe("a friendly pet fights for its owner", () => {
   });
 
   it("vocalizes when identifying and switching nearby hostile targets", () => {
-    const { game, state, dog } = setupDogTest(true);
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+    const dog = new MonsterEntity(
+      state.player.gridX + 2,
+      state.player.gridY,
+      MonsterType.WILD_DOG,
+      1,
+    );
+    dog.friendly = true;
+    dog.ownerId = state.player.id;
     state.entityManager.spawn(dog);
     const firstTarget = new MonsterEntity(
       state.player.gridX + 3,
@@ -182,7 +184,18 @@ describe("a friendly pet fights for its owner", () => {
   });
 
   it("occasionally vocalizes again during a continuing pursuit", () => {
-    const { game, state, dog } = setupDogTest(true);
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+    const dog = new MonsterEntity(
+      state.player.gridX + 2,
+      state.player.gridY,
+      MonsterType.WILD_DOG,
+      1,
+    );
+    dog.friendly = true;
+    dog.ownerId = state.player.id;
     state.entityManager.spawn(dog);
     const target = new MonsterEntity(
       state.player.gridX + 3,
@@ -202,7 +215,18 @@ describe("a friendly pet fights for its owner", () => {
   });
 
   it("occasionally whimpers near its owner when it has no enemy target", () => {
-    const { game, state, dog } = setupDogTest(true);
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+    const dog = new MonsterEntity(
+      state.player.gridX + 2,
+      state.player.gridY,
+      MonsterType.WILD_DOG,
+      1,
+    );
+    dog.friendly = true;
+    dog.ownerId = state.player.id;
     state.entityManager.spawn(dog);
     state.sim.nowTick = 180;
     vi.spyOn(RNG, "chance").mockReturnValue(true);
@@ -215,7 +239,18 @@ describe("a friendly pet fights for its owner", () => {
   });
 
   it("does not whimper while tracking a nearby enemy", () => {
-    const { game, state, dog } = setupDogTest(true);
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+    const dog = new MonsterEntity(
+      state.player.gridX + 2,
+      state.player.gridY,
+      MonsterType.WILD_DOG,
+      1,
+    );
+    dog.friendly = true;
+    dog.ownerId = state.player.id;
     state.entityManager.spawn(dog);
     state.entityManager.spawn(
       new MonsterEntity(
@@ -240,7 +275,16 @@ describe("a hostile Wild Dog pursues the player", () => {
   beforeEach(() => RNG.reseed(9));
 
   it("vocalizes when the nearby player is visible", () => {
-    const { game, state, dog } = setupDogTest(false);
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    clearMonsters(game);
+    const state = game.getState();
+    const dog = new MonsterEntity(
+      state.player.gridX + 2,
+      state.player.gridY,
+      MonsterType.WILD_DOG,
+      1,
+    );
     state.tiles.setTile(
       state.player.gridX + 1,
       state.player.gridY,
