@@ -399,3 +399,125 @@ describe("state-delta array ordering", () => {
     expect(delta.entityOrder).toEqual(["e1", "e3", "e2"]);
   });
 });
+
+/**
+ * Entity change detection is structural, not reference- or key-order-based.
+ *
+ * `computeStateDelta` compares each entity against the per-client baseline to
+ * decide whether to resend it. The server stores the previous serialized
+ * snapshot as that baseline, so the two sides are always structurally equal
+ * but never identical objects, and every nested field must be inspected. A
+ * change that the comparison misses is never sent, and the client silently
+ * keeps a stale value until the next keyframe.
+ */
+describe("state-delta entity change detection", () => {
+  /** A monster carrying the nested array/object fields real entities have. */
+  function richEntity(
+    id: string,
+    overrides: Record<string, unknown> = {},
+  ): Entity {
+    return {
+      id,
+      kind: EntityKind.MONSTER,
+      type: "RAT",
+      worldX: 5,
+      worldY: 7,
+      hp: 10,
+      flags: ["FAST"],
+      path: [1, 2, 3],
+      carriedItems: [{ type: ItemType.MEDKIT, count: 1 }],
+      ...overrides,
+    } as unknown as Entity;
+  }
+
+  function upsertedIds(base: Entity[], next: Entity[]): string[] {
+    const baseSt = baseState();
+    baseSt.entities = base;
+    const nextSt = baseState();
+    nextSt.entities = next;
+    const delta = computeStateDelta(baseSt, nextSt, 2, 1);
+    return (delta.entitiesUpserted ?? []).map((e) => e.id);
+  }
+
+  it("resends nothing when a structurally equal copy replaces the baseline", () => {
+    // The production shape: distinct objects, identical contents.
+    expect(upsertedIds([richEntity("e1")], [richEntity("e1")])).toEqual([]);
+  });
+
+  it("detects a changed scalar field", () => {
+    expect(
+      upsertedIds([richEntity("e1")], [richEntity("e1", { hp: 4 })]),
+    ).toEqual(["e1"]);
+  });
+
+  it("detects a changed element inside a nested array", () => {
+    expect(
+      upsertedIds([richEntity("e1")], [richEntity("e1", { path: [1, 9, 3] })]),
+    ).toEqual(["e1"]);
+  });
+
+  it("detects a nested array that changed length", () => {
+    expect(
+      upsertedIds([richEntity("e1")], [richEntity("e1", { path: [1, 2] })]),
+    ).toEqual(["e1"]);
+  });
+
+  it("detects a reordered nested array", () => {
+    expect(
+      upsertedIds([richEntity("e1")], [richEntity("e1", { path: [3, 2, 1] })]),
+    ).toEqual(["e1"]);
+  });
+
+  it("detects a changed field inside a nested object", () => {
+    expect(
+      upsertedIds(
+        [richEntity("e1")],
+        [
+          richEntity("e1", {
+            carriedItems: [{ type: ItemType.MEDKIT, count: 2 }],
+          }),
+        ],
+      ),
+    ).toEqual(["e1"]);
+  });
+
+  it("detects a removed property", () => {
+    const stripped = richEntity("e1");
+    delete (stripped as unknown as Record<string, unknown>).flags;
+    expect(upsertedIds([richEntity("e1")], [stripped])).toEqual(["e1"]);
+  });
+
+  it("detects an added property", () => {
+    const stripped = richEntity("e1");
+    delete (stripped as unknown as Record<string, unknown>).flags;
+    expect(upsertedIds([stripped], [richEntity("e1")])).toEqual(["e1"]);
+  });
+
+  it("detects a property whose value changed to null", () => {
+    expect(
+      upsertedIds([richEntity("e1")], [richEntity("e1", { path: null })]),
+    ).toEqual(["e1"]);
+  });
+
+  it("detects differing keys that both hold undefined", () => {
+    // Key counts match here, so only a per-key presence check separates them.
+    const base = richEntity("e1", { aimX: undefined });
+    const next = richEntity("e1", { aimY: undefined });
+    expect(upsertedIds([base], [next])).toEqual(["e1"]);
+  });
+
+  it("ignores key order, which carries no meaning on the wire", () => {
+    const reordered = {
+      carriedItems: [{ type: ItemType.MEDKIT, count: 1 }],
+      path: [1, 2, 3],
+      flags: ["FAST"],
+      hp: 10,
+      worldY: 7,
+      worldX: 5,
+      type: "RAT",
+      kind: EntityKind.MONSTER,
+      id: "e1",
+    } as unknown as Entity;
+    expect(upsertedIds([richEntity("e1")], [reordered])).toEqual([]);
+  });
+});

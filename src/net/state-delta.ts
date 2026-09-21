@@ -478,5 +478,45 @@ function arraysEqual<T>(a: T[] | undefined, b: T[] | undefined): boolean {
 }
 
 function shallowJsonEqual(a: unknown, b: unknown): boolean {
-  return JSON.stringify(a) === JSON.stringify(b);
+  if (a === b) return true;
+  if (
+    typeof a !== "object" ||
+    typeof b !== "object" ||
+    a === null ||
+    b === null
+  ) {
+    return false;
+  }
+
+  const isArrayA = Array.isArray(a);
+  const isArrayB = Array.isArray(b);
+  if (isArrayA !== isArrayB) return false;
+
+  if (isArrayA) {
+    const arrA = a as unknown[];
+    const arrB = b as unknown[];
+    if (arrA.length !== arrB.length) return false;
+    for (let i = 0; i < arrA.length; i++) {
+      if (!shallowJsonEqual(arrA[i], arrB[i])) return false;
+    }
+    return true;
+  }
+
+  const objA = a as Record<string, unknown>;
+  const objB = b as Record<string, unknown>;
+  const keysA = Object.keys(objA);
+  const keysB = Object.keys(objB);
+  if (keysA.length !== keysB.length) return false;
+
+  for (let i = 0; i < keysA.length; i++) {
+    const key = keysA[i];
+    if (
+      !Object.prototype.hasOwnProperty.call(objB, key) ||
+      !shallowJsonEqual(objA[key], objB[key])
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }

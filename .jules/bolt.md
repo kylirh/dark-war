@@ -105,3 +105,41 @@ _Measurement verified:_ In a benchmark instantiating/destroying vs pooling/clear
 The headline claim did not hold. The original entry reported a full-render benchmark falling 3785ms to 3667ms over 1000 frames with 100 entities, a 3-4% win. The mechanism cannot produce that: 1000 frames x 100 entities is 100k sprite builds, so ~15ns each is ~1.5ms, roughly eighty times smaller than the 118ms claimed. Even counting every windowed tile sprite it stays in the low tens of milliseconds. The change is strictly less work per sprite and worth keeping, but the end-to-end figure was benchmark noise, not signal. This is the second Bolt entry in a row whose headline multiplier failed review — see the callout-pooling entry above, where a claimed 135x could not be reproduced either. Report the measurement the mechanism can actually explain.
 
 **Prevention:** When updating Pixi sprite dimensions in a hot path, set `scale` directly rather than mutating `width`/`height`. Divide by `texture.orig`, not `texture.frame` — `Texture` defaults `orig` to `frame`, so they alias for the untrimmed textures `getTexture` builds today and the distinction is invisible, but Pixi's own setters use `orig` and only `orig` stays correct if a trimmed atlas frame is ever introduced. The original patch also guarded on `texture.frame` being falsy and fell back to `width`/`height`; `frame` is always a `Rectangle` in Pixi v8, so that branch was unreachable.
+
+## 2026-09-21 - Replace JSON.stringify with recursive structural equality in state delta
+
+**What was found:** `computeStateDelta` in `src/net/state-delta.ts` decides whether to
+resend each entity by comparing it against the per-client baseline through a local
+`shallowJsonEqual` helper, which was `JSON.stringify(a) === JSON.stringify(b)`. Every
+comparison serialized both sides to throwaway strings. The server stores the previous
+snapshot as the baseline (`client.baseline = next`), so the two sides are always
+structurally equal but never identical objects, and the full string build ran for every
+unchanged entity on every broadcast.
+
+**Action:** Replaced the `JSON.stringify` pair with a recursive structural comparison:
+identity short-circuit, type and array-ness checks, index-wise array comparison, then
+key-count plus per-key recursion guarded by `hasOwnProperty`.
+
+_Measurement verified:_ Reviewed and reproduced independently at review time. Benchmarking
+`computeStateDelta` over 200 iterations on 2000 entities (1 changed, 1999 unchanged), with
+`next` a structural clone of the baseline so the objects are distinct — the production
+shape — gives ~637ms before and ~303-368ms after, a **~2x** improvement. That matches the
+~2.1x the original entry claimed.
+
+**Scope the number honestly.** 2000 entities is far above a real level: monsters spawn at
+roughly one per 70 floor tiles (`game.ts:1145`), so a 128x96 dungeon carries order-100
+entities, not thousands. The measured saving is ~0.8us per entity comparison, so at ~150
+entities it is ~120us per tick against a 50ms tick budget — around 0.2%. The change is
+strictly less work and allocates nothing, so it is worth keeping and it scales with entity
+count, but it does not fix an observed tick delay, and none was demonstrated. The earlier
+claim that this caused "server tick delays" was not measured.
+
+**Prevention:** Do not use `JSON.stringify` for object equality in a hot path; it allocates
+two strings per comparison to answer a question that needs none. But note that a
+hand-rolled equality is real logic where the one-liner delegated to a well-tested platform
+primitive, and it silently changes semantics at the edges: `JSON.stringify` is key-order
+**sensitive**, drops `undefined`-valued keys, folds `NaN`/`Infinity` to `null`, and renders
+`Map`/`Set` as `{}`. A replacement must be tested. When this landed the entire suite passed
+with the key-count check deleted and with array elements ignored outright — both of which
+would silently strand stale values on clients. Coverage was added in
+`state-delta.test.ts` ("state-delta entity change detection") and mutation-checked.
