@@ -95,3 +95,11 @@ duplicate reads exactly like a regression.
 **Action:** Updated `GameMenu` and `SaveSlotDialog` to capture `document.activeElement` right before calling `RetroModal.show()` (checking that the dialog wasn't already open, to prevent capturing an element _inside_ the modal). Added an `onClose` hook to restore focus to that captured element, falling back to focusing the `#game` canvas if the element was no longer in the document.
 
 **Prevention:** When implementing new dialogs using `RetroModal`, explicitly manage focus shifting: capture the active element before opening, and restore focus to it on close, checking `document.body.contains(element)` to handle elements that were removed while the dialog was open.
+
+## 2026-09-21 - Character modal missing ARIA toggle states
+
+**What was found:** The Character modal's Settings tab contains Appearance controls (Theme and Zoom) that are visually styled as toggle buttons and structurally grouped with `role="group"`. However, when a button was clicked to change the selection, its state was only reflected visually via a `selected` CSS class, without updating `aria-pressed` for assistive technologies. (This inconsistently omitted the ARIA state that `GameMenu` properly implements for its own identical toggles).
+
+**Action:** Updated `syncAppearanceControls` in `src/client/systems/character-modal.ts` to explicitly set `btn.setAttribute("aria-pressed", String(isSelected))` on both the theme and zoom toggle buttons whenever their state is synchronized.
+
+**Prevention:** Whenever implementing UI controls that function as toggles within a `role="group"` container, always ensure that both visual cues (`selected` classes) and semantic state attributes (`aria-pressed`) are kept in sync so that the state change is announced by screen readers.
