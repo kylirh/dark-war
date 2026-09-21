@@ -10,7 +10,8 @@ Dark War accepts JSON payloads from multiple untrusted boundaries: the network (
 Currently, parsing these payloads relies on `JSON.parse()` coupled with TypeScript type assertions (`as SomeInterface`), followed by manual, ad-hoc `typeof` checks to validate the shape of the data. Because TypeScript interfaces provide no runtime guarantees, failing to correctly implement and maintain these ad-hoc checks allows malformed payloads to enter the application logic, causing crashes or vulnerabilities.
 
 This design is under real pressure and has repeatedly failed. Our learning logs (`.jules/sentinel.md`) record four distinct instances of vulnerabilities stemming directly from this architectural seam:
-- **2026-08-30:** An XSS vulnerability in `DiscoveryManager` because LAN UDP packets were read from the wire and trusted verbatim. Additionally, a numeric `name` field bypassed escaping entirely and crashed the server list.
+
+- **2026-08-30:** An XSS vulnerability in `DiscoveryManager` because LAN UDP packets were read from the wire and stored verbatim, then interpolated into `innerHTML` by the server browser. `name` and `host` were escaped; `phase`, `players`, and `maxPlayers` were not, so anyone on the LAN could execute script in the renderer. The gap was in which fields a hand-written guard remembered to cover.
 - **2026-09-02:** A local Denial of Service (DoS) in `parseSaveRecord` because untrusted string fields were asserted rather than validated, allowing a numeric `"characterName"` to throw an uncaught `TypeError` in the UI rendering.
 - **2026-09-02:** The `lobby_update` payload in the multiplayer client checked the array structure but trusted the entries, crashing the renderer when a string was expected but a number was received.
 - **2026-09-18:** A server DoS caused by an unvalidated `set_name` payload where the boundary type guard `isIncomingMessage` failed to assert the payload's `name` property was strictly a string.
@@ -25,7 +26,27 @@ Continue relying on code review and ad-hoc `typeof` checks to sanitize boundarie
 
 **The case for this:** We have already paid the cost of fixing the existing vulnerabilities. We add no new runtime dependencies, and developers do not need to learn a new schema declaration syntax.
 
-### 2. Introduce a Runtime Schema Validation Library
+### 2. Shared hand-written boundary parsers
+
+Keep validation in-tree, but stop writing it ad hoc. Give each boundary a single
+parser built from shared coercion primitives that take `unknown` and return a
+value of the declared type or a fallback.
+
+**The case for this:** This is not hypothetical — `electron/discovery-packet.js`
+already does it. `toDisplayText` (`:25`) and `toBoundedInt` (`:35`) coerce every
+display field, `phase` is checked against an allow-list, and
+`discovery-packet.test.ts` asserts the behaviour against `123`, `null`,
+`undefined`, `{}`, `[]`, and `true`. When the 2026-09-02 entry went looking for
+type-confusion crashes, LAN discovery was found **already hardened** by exactly
+this pattern, and the path that was actually open (`lobby_update`) was one that
+had not adopted it. No new dependency, no second parse pass, and it composes with
+the existing `isIncomingMessage` guards rather than replacing them.
+
+**The case against:** the primitives are still code someone must remember to
+call. It removes the per-field improvisation but not the discipline, so a new
+message type can still be added without a parser.
+
+### 3. Introduce a Runtime Schema Validation Library
 
 Adopt a schema-driven validation library (such as `zod` or `TypeBox`). All inbound payloads (IPC, WebSocket messages, File I/O) are routed through these parsers, which simultaneously infer the TypeScript types and guarantee the runtime structure before the data reaches application logic.
 
@@ -33,9 +54,17 @@ Adopt a schema-driven validation library (such as `zod` or `TypeBox`). All inbou
 
 ## Decision
 
-We recommend **Option 2: Introduce a Runtime Schema Validation Library**.
+We recommend **Option 3: Introduce a Runtime Schema Validation Library**.
 
 The repeated local and remote DoS issues recorded in the learning logs demonstrate that manual validation is a porous defense. A schema library directly addresses the root cause of these bugs by enforcing the invariants at the boundary, replacing error-prone manual type guards with declarative rules.
+
+This recommendation is genuinely contestable, and Option 2 is the reason why. The
+one boundary that adopted shared parsers has not produced a vulnerability since,
+which is real evidence that the cheaper path works. The case for Option 3 is that
+it makes validation unskippable rather than merely easy: with schemas, a new
+message type cannot reach handler logic without one. Whether that guarantee is
+worth a dependency and a second parse pass is a judgement call for a human, not
+something this document settles.
 
 ## Consequences
 
