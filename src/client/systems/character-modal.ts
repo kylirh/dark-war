@@ -1326,19 +1326,18 @@ export class CharacterModal {
     this.window
       .querySelectorAll<HTMLElement>("[data-theme-value]")
       .forEach((btn) => {
-        btn.classList.toggle(
-          "selected",
-          btn.dataset.themeValue === this.preferences.theme,
-        );
+        const isSelected = btn.dataset.themeValue === this.preferences.theme;
+        btn.classList.toggle("selected", isSelected);
+        btn.setAttribute("aria-pressed", String(isSelected));
       });
     this.window
       .querySelectorAll<HTMLElement>("[data-zoom-value]")
       .forEach((btn) => {
-        btn.classList.toggle(
-          "selected",
+        const isSelected =
           Number.parseInt(btn.dataset.zoomValue ?? "1") ===
-            this.preferences.zoom,
-        );
+          this.preferences.zoom;
+        btn.classList.toggle("selected", isSelected);
+        btn.setAttribute("aria-pressed", String(isSelected));
       });
   }
 
