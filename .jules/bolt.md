@@ -108,9 +108,38 @@ The headline claim did not hold. The original entry reported a full-render bench
 
 ## 2026-09-21 - Replace JSON.stringify with recursive structural equality in state delta
 
-**What was found:** The `computeStateDelta` function in `src/net/state-delta.ts` checks for object changes (such as entity or player additions and property updates) using a local `shallowJsonEqual` helper. This helper implemented equality testing by converting both objects to JSON strings via `JSON.stringify(a) === JSON.stringify(b)`. When the server processed state deltas for hundreds or thousands of entities every tick, this approach forced massive redundant string allocations and GC churn, causing server tick delays.
+**What was found:** `computeStateDelta` in `src/net/state-delta.ts` decides whether to
+resend each entity by comparing it against the per-client baseline through a local
+`shallowJsonEqual` helper, which was `JSON.stringify(a) === JSON.stringify(b)`. Every
+comparison serialized both sides to throwaway strings. The server stores the previous
+snapshot as the baseline (`client.baseline = next`), so the two sides are always
+structurally equal but never identical objects, and the full string build ran for every
+unchanged entity on every broadcast.
 
-**Action:** Replaced `JSON.stringify` inside `shallowJsonEqual` with a recursive deep-equality implementation. The new version quickly returns true on identity match, bails on type mismatches, loops through arrays comparing elements by index, and recursively matches all object properties.
-_Measurement verified:_ In a benchmark profiling `computeStateDelta` on 2000 entities (comparing 1 changed entity and 1999 unmodified) over 200 iterations, the recursive structural equality check reduced execution time from ~521ms to ~250ms (a ~2.1x speedup).
+**Action:** Replaced the `JSON.stringify` pair with a recursive structural comparison:
+identity short-circuit, type and array-ness checks, index-wise array comparison, then
+key-count plus per-key recursion guarded by `hasOwnProperty`.
 
-**Prevention:** Never use `JSON.stringify` to test for object equality inside a high-frequency loop or hot path like networking delta computation, game ticking, or rendering. Use a recursive structural equality check to avoid allocating intermediate strings and causing severe Garbage Collection pressure.
+_Measurement verified:_ Reviewed and reproduced independently at review time. Benchmarking
+`computeStateDelta` over 200 iterations on 2000 entities (1 changed, 1999 unchanged), with
+`next` a structural clone of the baseline so the objects are distinct — the production
+shape — gives ~637ms before and ~303-368ms after, a **~2x** improvement. That matches the
+~2.1x the original entry claimed.
+
+**Scope the number honestly.** 2000 entities is far above a real level: monsters spawn at
+roughly one per 70 floor tiles (`game.ts:1145`), so a 128x96 dungeon carries order-100
+entities, not thousands. The measured saving is ~0.8us per entity comparison, so at ~150
+entities it is ~120us per tick against a 50ms tick budget — around 0.2%. The change is
+strictly less work and allocates nothing, so it is worth keeping and it scales with entity
+count, but it does not fix an observed tick delay, and none was demonstrated. The earlier
+claim that this caused "server tick delays" was not measured.
+
+**Prevention:** Do not use `JSON.stringify` for object equality in a hot path; it allocates
+two strings per comparison to answer a question that needs none. But note that a
+hand-rolled equality is real logic where the one-liner delegated to a well-tested platform
+primitive, and it silently changes semantics at the edges: `JSON.stringify` is key-order
+**sensitive**, drops `undefined`-valued keys, folds `NaN`/`Infinity` to `null`, and renders
+`Map`/`Set` as `{}`. A replacement must be tested. When this landed the entire suite passed
+with the key-count check deleted and with array elements ignored outright — both of which
+would silently strand stale values on clients. Coverage was added in
+`state-delta.test.ts` ("state-delta entity change detection") and mutation-checked.
