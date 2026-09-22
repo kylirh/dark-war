@@ -341,6 +341,51 @@ describe("computeStateDelta / applyStateDelta", () => {
   });
 });
 
+it("round-trips levels", () => {
+  const next = baseState();
+  next.levels = [
+    {
+      depth: 2,
+      worldSpaceId: "megacorp",
+      worldPlaneId: "floor-2",
+      levelKind: "dungeon",
+      plane: {
+        width: 1,
+        height: 1,
+        ground: [1],
+        structure: [0],
+        fixture: [0],
+        elevation: [0],
+        damage: [0],
+      },
+      portals: [],
+      signs: [],
+      floorVariant: 0,
+      wallSet: "industrial",
+      stairsDown: [0, 0],
+      stairsUp: [0, 0],
+      entities: [],
+      explored: [],
+      consumedSpawnMarkers: [],
+    } as any,
+  ];
+  roundTrip(baseState(), next);
+});
+
+it("round-trips levels when lengths differ", () => {
+  const next = baseState();
+  next.levels = [{ depth: 2 } as any];
+  roundTrip(baseState(), next);
+});
+
+it("round-trips levels when lengths are same but content changes", () => {
+  const base = baseState();
+  base.levels = [{ depth: 2 } as any];
+  const next = baseState();
+  next.levels = [{ depth: 3 } as any];
+  roundTrip(base, next);
+});
+
 describe("requiresKeyframe", () => {
   it("requires a keyframe when depth changes", () => {
     const next = baseState();
