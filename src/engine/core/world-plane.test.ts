@@ -149,6 +149,11 @@ describe("WorldPlane", () => {
     // Both at 0 elevation
     expect(plane.canTraverse(0, 0, 1, 0)).toBe(true);
 
+    // Diagonal traversal should be rejected
+    expect(plane.canTraverse(0, 0, 1, 1)).toBe(false);
+    expect(plane.canTraverse(1, 1, 2, 2)).toBe(false);
+    expect(plane.canTraverse(1, 0, 0, 1)).toBe(false);
+
     // Change elevation
     layers.elevation[1] = 5;
     expect(plane.canTraverse(0, 0, 1, 0)).toBe(false);
