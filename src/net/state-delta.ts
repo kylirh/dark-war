@@ -57,7 +57,6 @@ export interface StateDelta {
   godMode?: boolean;
   player?: Player;
   story?: string[];
-  levels?: import("../engine/types").SerializedLevelState[];
   /** Per-player conversation view; `null` means "conversation ended". */
   conversation?: SerializedState["conversation"] | null;
   /** Shared sparse sign placements for the current world plane. */
@@ -204,12 +203,6 @@ export function computeStateDelta(
     delta.exploredByPlayerAdded = exploredByPlayerDiff.added;
   }
 
-  // Levels can change when transitioning layers, just send them whole if they differ
-  // It's a keyframe transition usually, but in case they change length or content
-  if (!shallowJsonEqual(base.levels, next.levels)) {
-    delta.levels = next.levels;
-  }
-
   const planeChanges = diffWorldPlane(base.plane, next.plane);
   if (planeChanges) delta.planeChanges = planeChanges;
 
@@ -260,7 +253,6 @@ export function applyStateDelta(
   if (delta.consumedSpawnMarkers !== undefined) {
     next.consumedSpawnMarkers = delta.consumedSpawnMarkers;
   }
-  if (delta.levels !== undefined) next.levels = delta.levels;
   if (delta.story !== undefined) next.story = delta.story;
   if (delta.multiplayer !== undefined) next.multiplayer = delta.multiplayer;
 
