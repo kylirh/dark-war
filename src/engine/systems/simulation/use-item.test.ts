@@ -4,7 +4,9 @@ import {
   CommandType,
   EntityKind,
   FLOOR_MAX_DAMAGE,
+  GameState,
   ItemType,
+  Player,
   TileType,
   WeaponType,
   WALL_MAX_DAMAGE,
@@ -85,13 +87,18 @@ describe("using the active item", () => {
   // loop skips dead actors via `canActorAct`, and `resolveCommand` drops dead
   // players' commands on its own. Covering only the tick path leaves the
   // second guard free to be deleted with every test still green.
-  it("does not revive a dead player with a medkit", () => {
+  const setupDeadPlayer = () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const player = game.getState().player;
     player.hp = 0;
     player.itemCounts[ItemType.MEDKIT] = 1;
     setActive(game, ItemType.MEDKIT);
+    return { game, player };
+  };
+
+  it("does not revive a dead player with a medkit", () => {
+    const { game, player } = setupDeadPlayer();
 
     use(game);
 
@@ -100,12 +107,7 @@ describe("using the active item", () => {
   });
 
   it("drops a dead player's use-item command inside resolveCommand", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const player = game.getState().player;
-    player.hp = 0;
-    player.itemCounts[ItemType.MEDKIT] = 1;
-    setActive(game, ItemType.MEDKIT);
+    const { game, player } = setupDeadPlayer();
 
     // Resolve directly, bypassing the tick loop's `canActorAct` gate, so the
     // dead check in `resolveCommand` is the only thing left to stop the heal.
@@ -203,11 +205,16 @@ describe("using the active item", () => {
 describe("reloading the active weapon", () => {
   beforeEach(() => RNG.reseed(3));
 
-  it("refills a pistol magazine from reserve ammo", () => {
+  const setupReloadTest = () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
     const player = state.player;
+    return { game, state, player };
+  };
+
+  it("refills a pistol magazine from reserve ammo", () => {
+    const { game, state, player } = setupReloadTest();
     player.weapon = WeaponType.PISTOL;
     player.ammo = 0;
     player.ammoReserve = 24;
@@ -221,10 +228,7 @@ describe("reloading the active weapon", () => {
   });
 
   it("charges the laser from a power cell", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
+    const { game, state, player } = setupReloadTest();
     player.weapon = WeaponType.LASER;
     player.laserCharge = 0;
     player.itemCounts[ItemType.POWERCELL] = 1;
@@ -238,10 +242,7 @@ describe("reloading the active weapon", () => {
   });
 
   it("does nothing audible or cosmetic when a ballistic magazine is full", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
+    const { game, state, player } = setupReloadTest();
     player.weapon = WeaponType.PISTOL;
     player.ammo = 12;
     player.ammoReserve = 24;
@@ -256,10 +257,7 @@ describe("reloading the active weapon", () => {
   });
 
   it("does not spend a cell, make a sound, or quip when the laser is full", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
+    const { game, state, player } = setupReloadTest();
     player.weapon = WeaponType.LASER;
     player.laserCharge = player.laserChargeMax;
     player.itemCounts[ItemType.POWERCELL] = 1;
@@ -272,18 +270,13 @@ describe("reloading the active weapon", () => {
     expect(state.pendingCallouts).toEqual([]);
   });
 
-  it("occasionally emits a weapon-aware callout after reloading", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
-    player.weapon = WeaponType.PISTOL;
-    player.ammo = 0;
-    player.ammoReserve = 12;
-    setActive(game, ItemType.PISTOL);
-
+  const fireReloadCommand = (
+    state: GameState,
+    player: Player,
+    id: string,
+  ): void => {
     resolveCommand(state, {
-      id: emittingReloadCommandId(WeaponType.PISTOL),
+      id,
       tick: state.sim.nowTick,
       actorId: player.id,
       type: CommandType.RELOAD,
@@ -291,6 +284,20 @@ describe("reloading the active weapon", () => {
       priority: 0,
       source: "PLAYER",
     });
+  };
+
+  it("occasionally emits a weapon-aware callout after reloading", () => {
+    const { game, state, player } = setupReloadTest();
+    player.weapon = WeaponType.PISTOL;
+    player.ammo = 0;
+    player.ammoReserve = 12;
+    setActive(game, ItemType.PISTOL);
+
+    fireReloadCommand(
+      state,
+      player,
+      emittingReloadCommandId(WeaponType.PISTOL),
+    );
 
     expect(state.pendingCallouts).toHaveLength(1);
     expect(state.pendingCallouts[0]).toMatchObject({
@@ -300,10 +307,7 @@ describe("reloading the active weapon", () => {
   });
 
   it("enforces a 30-second cooldown after an emitted reload callout", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
+    const { game, state, player } = setupReloadTest();
     player.weapon = WeaponType.PISTOL;
     player.ammo = 0;
     player.ammoReserve = 36;
@@ -311,15 +315,7 @@ describe("reloading the active weapon", () => {
 
     const resolveReload = (id: string): void => {
       player.ammo = 0;
-      resolveCommand(state, {
-        id,
-        tick: state.sim.nowTick,
-        actorId: player.id,
-        type: CommandType.RELOAD,
-        data: { type: "RELOAD" },
-        priority: 0,
-        source: "PLAYER",
-      });
+      fireReloadCommand(state, player, id);
     };
 
     resolveReload(
@@ -341,24 +337,17 @@ describe("reloading the active weapon", () => {
   });
 
   it("occasionally emits a depleted callout when reserve ammo is empty", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
+    const { game, state, player } = setupReloadTest();
     player.weapon = WeaponType.SMG;
     player.ammo = 0;
     player.ammoReserve = 0;
     setActive(game, ItemType.GYROJET_SMG);
 
-    resolveCommand(state, {
-      id: emittingReloadCommandId(WeaponType.SMG, "depleted"),
-      tick: state.sim.nowTick,
-      actorId: player.id,
-      type: CommandType.RELOAD,
-      data: { type: "RELOAD" },
-      priority: 0,
-      source: "PLAYER",
-    });
+    fireReloadCommand(
+      state,
+      player,
+      emittingReloadCommandId(WeaponType.SMG, "depleted"),
+    );
 
     expect(state.pendingCallouts).toHaveLength(1);
     expect(state.pendingCallouts[0].speakerId).toBe(player.id);
@@ -436,11 +425,7 @@ describe("panic button", () => {
 describe("melee weapon damage tiers", () => {
   beforeEach(() => RNG.reseed(3));
 
-  it.each([
-    MonsterType.CYBERCOP,
-    MonsterType.UTILITY_BOT,
-    MonsterType.DREADNAUGHT,
-  ])("plays a metal impact when melee hits a %s", (monsterType) => {
+  const setupTestGame = () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
@@ -450,6 +435,15 @@ describe("melee weapon damage tiers", () => {
     );
     player.weapon = WeaponType.MELEE;
     player.facingAngle = 0;
+    return { game, state, player };
+  };
+
+  it.each([
+    MonsterType.CYBERCOP,
+    MonsterType.UTILITY_BOT,
+    MonsterType.DREADNAUGHT,
+  ])("plays a metal impact when melee hits a %s", (monsterType) => {
+    const { game, state, player } = setupTestGame();
     setActive(game, ItemType.BUTCHER_KNIFE);
 
     const robot = new MonsterEntity(
@@ -477,15 +471,8 @@ describe("melee weapon damage tiers", () => {
     ).toBe(true);
   });
 
-  it("a vibra sword hits harder than fists and plays its swing cue", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
-    player.weapon = WeaponType.MELEE;
-    player.facingAngle = 0;
-    setActive(game, ItemType.VIBRA_SWORD);
-
+  const setupMeleeTarget = () => {
+    const { game, state, player } = setupTestGame();
     const foe = new MonsterEntity(
       player.gridX + 1,
       player.gridY,
@@ -495,6 +482,12 @@ describe("melee weapon damage tiers", () => {
     foe.hpMax = 100;
     foe.hp = 100;
     state.entityManager.spawn(foe);
+    return { game, state, player, foe };
+  };
+
+  it("a vibra sword hits harder than fists and plays its swing cue", () => {
+    const { game, state, foe } = setupMeleeTarget();
+    setActive(game, ItemType.VIBRA_SWORD);
 
     use(game);
     expect(foe.hp).toBe(93); // 100 - 7 (vibra sword)
@@ -515,23 +508,8 @@ describe("melee weapon damage tiers", () => {
   });
 
   it("a macro metal sword plays one of its swing cues", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
-    player.weapon = WeaponType.MELEE;
-    player.facingAngle = 0;
+    const { game, state, foe } = setupMeleeTarget();
     setActive(game, ItemType.MACRO_METAL_SWORD);
-
-    const foe = new MonsterEntity(
-      player.gridX + 1,
-      player.gridY,
-      MonsterType.MUTANT,
-      1,
-    );
-    foe.hpMax = 100;
-    foe.hp = 100;
-    state.entityManager.spawn(foe);
 
     use(game);
 
@@ -544,19 +522,6 @@ describe("melee weapon damage tiers", () => {
       ),
     ).toBe(true);
   });
-
-  const setupTestGame = () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
-    state.entityManager.destroyWhere(
-      (entity) => entity.kind === EntityKind.MONSTER,
-    );
-    player.weapon = WeaponType.MELEE;
-    player.facingAngle = 0;
-    return { game, state, player };
-  };
 
   it("plays the miss cue when a melee swing hits empty air", () => {
     const { game, state, player } = setupTestGame();
@@ -589,15 +554,7 @@ describe("melee weapon damage tiers", () => {
   });
 
   it("a pickaxe removes walls and floors after repeated hits", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
-    state.entityManager.destroyWhere(
-      (entity) => entity.kind === EntityKind.MONSTER,
-    );
-    player.weapon = WeaponType.MELEE;
-    player.facingAngle = 0;
+    const { game, state, player } = setupTestGame();
     setActive(game, ItemType.PICKAXE);
     const targetX = player.gridX + 1;
     const targetY = player.gridY;
@@ -615,25 +572,9 @@ describe("melee weapon damage tiers", () => {
   });
 
   it("a pickaxe does little creature damage and cannot affect holowalls", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
-    state.entityManager.destroyWhere(
-      (entity) => entity.kind === EntityKind.MONSTER,
-    );
-    player.weapon = WeaponType.MELEE;
-    player.facingAngle = 0;
+    const { game, state, player, foe } = setupMeleeTarget();
     setActive(game, ItemType.PICKAXE);
-    const foe = new MonsterEntity(
-      player.gridX + 1,
-      player.gridY,
-      MonsterType.MUTANT,
-      1,
-    );
     foe.hp = 20;
-    foe.hpMax = 20;
-    state.entityManager.spawn(foe);
 
     use(game);
     expect(foe.hp).toBe(19);
@@ -649,24 +590,8 @@ describe("melee weapon damage tiers", () => {
   });
 
   it("only empty hands or a melee weapon can perform a melee hit", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    const player = state.player;
-    state.entityManager.destroyWhere(
-      (entity) => entity.kind === EntityKind.MONSTER,
-    );
-    player.weapon = WeaponType.MELEE;
-    player.facingAngle = 0;
-    const foe = new MonsterEntity(
-      player.gridX + 1,
-      player.gridY,
-      MonsterType.MUTANT,
-      1,
-    );
+    const { game, state, player, foe } = setupMeleeTarget();
     foe.hp = 20;
-    foe.hpMax = 20;
-    state.entityManager.spawn(foe);
 
     setActive(game, ItemType.CTDM);
     use(game);
