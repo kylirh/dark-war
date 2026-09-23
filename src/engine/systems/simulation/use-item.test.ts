@@ -4,7 +4,9 @@ import {
   CommandType,
   EntityKind,
   FLOOR_MAX_DAMAGE,
+  GameState,
   ItemType,
+  Player,
   TileType,
   WeaponType,
   WALL_MAX_DAMAGE,
@@ -268,7 +270,11 @@ describe("reloading the active weapon", () => {
     expect(state.pendingCallouts).toEqual([]);
   });
 
-  const fireReloadCommand = (state: any, player: any, id: string) => {
+  const fireReloadCommand = (
+    state: GameState,
+    player: Player,
+    id: string,
+  ): void => {
     resolveCommand(state, {
       id,
       tick: state.sim.nowTick,

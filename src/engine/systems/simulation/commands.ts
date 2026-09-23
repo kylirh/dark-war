@@ -50,7 +50,7 @@ import { emitPlayerAlert } from "../../utils/player-alerts";
 import { findReadableSign } from "./signs";
 import { BulletEntity } from "../../entities/bullet-entity";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
-import { portalAt } from "../../core/world-space";
+import { portalAt, WorldPortal } from "../../core/world-space";
 import {
   FixtureType,
   GroundType,
@@ -1867,12 +1867,17 @@ function resolveRepairCommand(state: GameState, cmd: Command): void {
 // Descend Command
 // ========================================
 
+/**
+ * Resolves the portal the commanding player is standing on, alerting them when
+ * there is none. Shared by the descend and ascend commands, which differ only
+ * in the state flags they set afterwards.
+ */
 function getTransitionPortal(
   state: GameState,
   cmd: Command,
-): string | undefined {
+): WorldPortal | null {
   const actor = state.entityManager.getById(cmd.actorId);
-  if (!actor || actor.kind !== EntityKind.PLAYER) return undefined;
+  if (!actor || actor.kind !== EntityKind.PLAYER) return null;
 
   const player = actor as Player;
   const portal = portalAt(
@@ -1884,19 +1889,19 @@ function getTransitionPortal(
   );
   if (!portal) {
     alertMsg(state, "No stairs here.", player.id);
-    return undefined;
+    return null;
   }
-  return portal.id;
+  return portal;
 }
 
 function resolveDescendCommand(state: GameState, cmd: Command): void {
-  const portalId = getTransitionPortal(state, cmd);
-  if (!portalId) return;
+  const portal = getTransitionPortal(state, cmd);
+  if (!portal) return;
 
   // Trigger level change (handled by Game.ts after tick completes)
   // Set flag for Game.ts to handle
   state.descendTarget = undefined;
-  state.pendingPortalId = portalId;
+  state.pendingPortalId = portal.id;
   state.shouldDescend = true;
 }
 
@@ -1905,9 +1910,9 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
 // ========================================
 
 function resolveAscendCommand(state: GameState, cmd: Command): void {
-  const portalId = getTransitionPortal(state, cmd);
-  if (!portalId) return;
+  const portal = getTransitionPortal(state, cmd);
+  if (!portal) return;
 
-  state.pendingPortalId = portalId;
+  state.pendingPortalId = portal.id;
   state.shouldAscend = true;
 }
