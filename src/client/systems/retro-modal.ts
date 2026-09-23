@@ -25,6 +25,27 @@ export interface RetroModalOptions {
   onClose?: () => void;
 }
 
+/**
+ * Reusable retro system modal window.
+ *
+ * **Focus Management Contract:**
+ * Because these dialogs can stack (e.g. the About dialog opening on top of the
+ * pause menu), this component deliberately does not manage keyboard focus.
+ * The instantiating component must:
+ * 1. Capture `document.activeElement` (via `captureFocusOpener`) *before*
+ *    calling `show()`, and only when this dialog is not already open.
+ *    Capturing on a re-open would record an element inside the dialog itself,
+ *    so closing it would "restore" focus to a control that is about to be
+ *    hidden. `GameMenu.openPauseMenu` shows the guard.
+ * 2. Explicitly shift focus into the dialog's interactive contents during the
+ *    `onOpen` hook.
+ * 3. Restore focus to the captured element (via `restoreFocus`) during the
+ *    `onClose` hook.
+ *
+ * Stacking is also why the restore target cannot simply be "whatever was
+ * focused last": closing a lower dialog while a higher one is open must not
+ * pull focus out of the dialog the user is actually in.
+ */
 export class RetroModal {
   public readonly element: HTMLElement;
   private readonly titlebar: HTMLElement;
@@ -87,6 +108,13 @@ export class RetroModal {
     }
   }
 
+  /**
+   * Opens the dialog.
+   *
+   * **Constraint:** The caller must capture the currently active element before
+   * invoking this, so it can be restored on close. See the class documentation
+   * for the full focus management contract.
+   */
   public show(): void {
     this.element.classList.remove("hidden");
     if (this.element.dataset.centerOnOpen === "true") this.centerInViewport();
