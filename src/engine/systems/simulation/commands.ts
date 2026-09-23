@@ -1867,9 +1867,12 @@ function resolveRepairCommand(state: GameState, cmd: Command): void {
 // Descend Command
 // ========================================
 
-function resolveDescendCommand(state: GameState, cmd: Command): void {
+function getTransitionPortal(
+  state: GameState,
+  cmd: Command,
+): string | undefined {
   const actor = state.entityManager.getById(cmd.actorId);
-  if (!actor || actor.kind !== EntityKind.PLAYER) return;
+  if (!actor || actor.kind !== EntityKind.PLAYER) return undefined;
 
   const player = actor as Player;
   const portal = portalAt(
@@ -1881,13 +1884,19 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
   );
   if (!portal) {
     alertMsg(state, "No stairs here.", player.id);
-    return;
+    return undefined;
   }
+  return portal.id;
+}
+
+function resolveDescendCommand(state: GameState, cmd: Command): void {
+  const portalId = getTransitionPortal(state, cmd);
+  if (!portalId) return;
 
   // Trigger level change (handled by Game.ts after tick completes)
   // Set flag for Game.ts to handle
   state.descendTarget = undefined;
-  state.pendingPortalId = portal.id;
+  state.pendingPortalId = portalId;
   state.shouldDescend = true;
 }
 
@@ -1896,22 +1905,9 @@ function resolveDescendCommand(state: GameState, cmd: Command): void {
 // ========================================
 
 function resolveAscendCommand(state: GameState, cmd: Command): void {
-  const actor = state.entityManager.getById(cmd.actorId);
-  if (!actor || actor.kind !== EntityKind.PLAYER) return;
+  const portalId = getTransitionPortal(state, cmd);
+  if (!portalId) return;
 
-  const player = actor as Player;
-  const portal = portalAt(
-    state.portals,
-    { spaceId: state.worldSpaceId, planeId: state.worldPlaneId },
-    player.gridX,
-    player.gridY,
-    ["stairs", "ladder", "cave-mouth", "door"],
-  );
-  if (!portal) {
-    alertMsg(state, "No stairs here.", player.id);
-    return;
-  }
-
-  state.pendingPortalId = portal.id;
+  state.pendingPortalId = portalId;
   state.shouldAscend = true;
 }
