@@ -37,3 +37,11 @@
 **Action:** Added a TSDoc comment to `computeStateDelta` in `src/net/state-delta.ts` explaining that clearing an optional field requires assigning `null` rather than `undefined`, and explaining why (because `JSON.stringify` drops `undefined` keys entirely, causing the client to inherit stale values).
 
 **Prevention:** Future developers modifying `computeStateDelta` will see the constraint in IntelliSense and avoid the trap of assigning `undefined` when an optional field is removed.
+
+## 2026-09-22 - Document RetroModal focus management contract
+
+**What was found:** The `.jules/palette.md` log and ADR 0008 recorded a repeated failure mode: `RetroModal` does not automatically manage focus because its windows stack, but that contract was completely undocumented on the `RetroModal` class itself. As a result, developers continuously instantiated the dialog without writing the necessary capture-shift-restore boilerplate, causing accessibility regressions.
+
+**Action:** Added a TSDoc block to the `RetroModal` class and its `show()` method in `src/client/systems/retro-modal.ts`. The documentation explicitly states that the component does not manage focus, explains why (dialog stacking), and lists the three requirements for callers: capture `document.activeElement` before `show()`, shift focus inside on `onOpen`, and restore focus on `onClose`.
+
+**Prevention:** Document implicit architectural contracts (like "the caller is responsible for focus capture and restoration") on the specific component API where they are invoked. Future developers checking IntelliSense for `RetroModal` or its `show` method will now see the focus management requirement immediately, reducing the reliance on external memory documents.
