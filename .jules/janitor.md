@@ -37,3 +37,11 @@
 **Action:** Created a reusable \`setupDogTest(isFriendly = true)\` helper function to encapsulate the repeated game setup logic, and replaced the duplicated blocks in the test cases with calls to this helper.
 
 **Prevention:** Use \`jscpd\` regularly to surface block duplication and collapse identical inline functions or test setups. Ignore duplicates inside \`src/generated/\`. When identifying duplicated lines using \`jscpd\`, always inspect the exact line ranges using \`sed\` before applying changes, to ensure precise understanding of the code being replaced.
+
+## 2025-02-23 - Consolidate commands and test duplication
+
+**What was found:** Two independent sets of duplication were identified using `npx jscpd`. First, `resolveAscendCommand` and `resolveDescendCommand` in `src/engine/systems/simulation/commands.ts` had identical player-checking and portal lookup logic. Second, `src/engine/systems/simulation/use-item.test.ts` had numerous large duplicated blocks around game state setup for melee attacks and reloading edge cases.
+
+**Action:** Extracted the portal lookup block into a new helper function `getTransitionPortal` in `commands.ts` which reduced size and improved single-responsibility. In `use-item.test.ts`, extracted `setupDeadPlayer`, `setupReloadTest`, and `setupMeleeTarget` helpers, drastically reducing test setup boilerplate and cutting the duplication report down to zero inside that file.
+
+**Prevention:** Run `npx jscpd` proactively on modified files before submitting to catch duplicated logic blocks.
