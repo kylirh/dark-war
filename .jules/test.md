@@ -100,7 +100,7 @@
 
 **Prevention:** When testing resource subtraction or theft logic, always verify boundary edge cases for numeric resource deductions (e.g., stealing the exact amount of resources the player has) to ensure resource pools correctly empty or clear instead of dangling at 0 or negative values. Ensure tests verify both the flat count removal and the inventory slot clearance.
 
-## 2026-09-21 - Transition command missing portal behavior
+## 2026-09-24 - Transition command missing portal behavior
 
 **What was found:** The `getTransitionPortal` helper shared by `resolveDescendCommand` and `resolveAscendCommand` lacked a behavioral test for what happens when a player attempts to transition without standing on a valid portal (stairs, ladder, etc). This left the alert message ("No stairs here.") and early return preventing transition unprotected.
 
