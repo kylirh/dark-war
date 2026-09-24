@@ -99,3 +99,11 @@
 **Action:** Added a test in `src/engine/systems/simulation/combat-abilities.test.ts` where the player has exactly 1 coin (guaranteed to be fully stolen by the moppet) and verified that both `player.itemCounts[ItemType.COIN]` is undefined and the inventory slot `player.inventorySlots[0].type` is cleared to `null`.
 
 **Prevention:** When testing resource subtraction or theft logic, always verify boundary edge cases for numeric resource deductions (e.g., stealing the exact amount of resources the player has) to ensure resource pools correctly empty or clear instead of dangling at 0 or negative values. Ensure tests verify both the flat count removal and the inventory slot clearance.
+
+## 2026-09-21 - Transition command missing portal behavior
+
+**What was found:** The `getTransitionPortal` helper shared by `resolveDescendCommand` and `resolveAscendCommand` lacked a behavioral test for what happens when a player attempts to transition without standing on a valid portal (stairs, ladder, etc). This left the alert message ("No stairs here.") and early return preventing transition unprotected.
+
+**Action:** Added `src/engine/systems/simulation/commands-transition.test.ts` to cover `CommandType.DESCEND` and `CommandType.ASCEND`. The tests assert that when `state.portals` is empty, trying to descend or ascend correctly adds the "No stairs here." alert to `state.pendingAlerts` and does not set `state.shouldDescend` or `state.shouldAscend`.
+
+**Prevention:** Ensure that boundary conditions and failure paths in player commands (such as missing prerequisites like items or portals) are tested directly to protect edge-case UI feedback and state flags from regressions.
