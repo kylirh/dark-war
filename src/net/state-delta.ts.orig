@@ -68,7 +68,6 @@ export interface StateDelta {
   relationships?: SerializedState["relationships"];
   consumedSpawnMarkers?: string[];
   multiplayer?: SerializedState["multiplayer"];
-  levels?: SerializedState["levels"];
   // `sim`, `effects`, `sounds`, `alerts`, and `callouts` are tiny / ephemeral
   // and always sent.
   sim: SerializedState["sim"];
@@ -176,9 +175,6 @@ export function computeStateDelta(
   if (!shallowJsonEqual(base.multiplayer, next.multiplayer)) {
     delta.multiplayer = next.multiplayer;
   }
-  if (!shallowJsonEqual(base.levels, next.levels)) {
-    delta.levels = next.levels;
-  }
 
   const entityDiff = diffById(base.entities ?? [], next.entities ?? []);
   if (entityDiff.upserted.length > 0)
@@ -259,7 +255,6 @@ export function applyStateDelta(
   }
   if (delta.story !== undefined) next.story = delta.story;
   if (delta.multiplayer !== undefined) next.multiplayer = delta.multiplayer;
-  if (delta.levels !== undefined) next.levels = delta.levels;
 
   if (delta.entitiesUpserted || delta.entitiesRemoved || delta.entityOrder) {
     next.entities = applyById(

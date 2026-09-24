@@ -316,6 +316,39 @@ describe("computeStateDelta / applyStateDelta", () => {
     roundTrip(baseState(), next);
   });
 
+  it("round-trips cached levels", () => {
+    const next = baseState();
+    next.levels = [
+      {
+        depth: 2,
+        worldSpaceId: "megacorp",
+        worldPlaneId: "floor-2",
+        levelKind: "dungeon",
+        plane: {
+          width: 10,
+          height: 10,
+          ground: [1],
+          structure: [1],
+          fixture: [1],
+          elevation: [1],
+          damage: [1],
+        },
+        portals: [],
+        signs: [],
+        floorVariant: 1,
+        wallSet: "concrete",
+        stairsDown: [10, 10],
+        stairsUp: null,
+        explored: [0, 1],
+        exploredByPlayer: { p1: [0, 1] },
+        entities: [],
+        consumedSpawnMarkers: [],
+        enhancedVision: false,
+      },
+    ];
+    roundTrip(baseState(), next);
+  });
+
   it("round-trips a joining player", () => {
     const next = baseState();
     next.players = [player("p1", 10), player("p2", 20)];
