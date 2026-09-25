@@ -50,7 +50,11 @@ import { emitPlayerAlert } from "../../utils/player-alerts";
 import { findReadableSign } from "./signs";
 import { BulletEntity } from "../../entities/bullet-entity";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
-import { portalAt, WorldPortal } from "../../core/world-space";
+import {
+  depthForWorldAddress,
+  portalAt,
+  WorldPortal,
+} from "../../core/world-space";
 import {
   FixtureType,
   GroundType,
@@ -1891,6 +1895,22 @@ function getTransitionPortal(
     alertMsg(state, "No stairs here.", player.id);
     return null;
   }
+
+  // A portal that changes depth may only be used in its own direction, so
+  // pressing ascend on a downward staircase does not carry the player deeper.
+  // Portals into spaces that have no depth of their own (caves, interiors) and
+  // portals that stay on the current depth are lateral, and stay usable from
+  // either command.
+  const destinationDepth = depthForWorldAddress(portal.destination);
+  if (destinationDepth !== null && destinationDepth !== state.depth) {
+    const portalGoesDeeper = destinationDepth > state.depth;
+    const commandGoesDeeper = cmd.type === CommandType.DESCEND;
+    if (portalGoesDeeper !== commandGoesDeeper) {
+      alertMsg(state, "No stairs here.", player.id);
+      return null;
+    }
+  }
+
   return portal;
 }
 
