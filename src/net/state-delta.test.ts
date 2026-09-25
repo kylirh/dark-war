@@ -347,9 +347,20 @@ describe("computeStateDelta / applyStateDelta", () => {
         depth: 1,
         worldPlaneId: "entry",
         worldSpaceId: "caves",
-      } as any,
+      } as unknown as SerializedState["levels"][number],
     ];
     roundTrip(baseState(), next);
+  });
+
+  // The module contract (state-delta.ts header) is that big static fields like
+  // `levels` are only re-sent when they actually change. Round-tripping alone
+  // is also satisfied by assigning `levels` unconditionally, which would put a
+  // full snapshot of every visited level on the wire every tick.
+  it("omits unchanged levels from the delta", () => {
+    const next = baseState();
+    next.entities[1] = entity("e1", 6);
+    const delta = computeStateDelta(baseState(), next, 2, 1);
+    expect(delta.levels).toBeUndefined();
   });
 });
 
