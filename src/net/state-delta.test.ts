@@ -339,6 +339,18 @@ describe("computeStateDelta / applyStateDelta", () => {
     next.simulationSeed = 999;
     roundTrip(baseState(), next);
   });
+
+  it("round-trips levels", () => {
+    const next = baseState();
+    next.levels = [
+      {
+        depth: 1,
+        worldPlaneId: "entry",
+        worldSpaceId: "caves",
+      } as any,
+    ];
+    roundTrip(baseState(), next);
+  });
 });
 
 describe("requiresKeyframe", () => {
