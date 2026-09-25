@@ -57,7 +57,6 @@ export interface StateDelta {
   godMode?: boolean;
   player?: Player;
   story?: string[];
-  levels?: SerializedState["levels"];
   /** Per-player conversation view; `null` means "conversation ended". */
   conversation?: SerializedState["conversation"] | null;
   /** Shared sparse sign placements for the current world plane. */
@@ -172,7 +171,6 @@ export function computeStateDelta(
   if (!arraysEqual(base.consumedSpawnMarkers, next.consumedSpawnMarkers)) {
     delta.consumedSpawnMarkers = next.consumedSpawnMarkers;
   }
-  if (!shallowJsonEqual(base.levels, next.levels)) delta.levels = next.levels;
   if (!arraysEqual(base.story, next.story)) delta.story = next.story;
   if (!shallowJsonEqual(base.multiplayer, next.multiplayer)) {
     delta.multiplayer = next.multiplayer;
@@ -255,7 +253,6 @@ export function applyStateDelta(
   if (delta.consumedSpawnMarkers !== undefined) {
     next.consumedSpawnMarkers = delta.consumedSpawnMarkers;
   }
-  if (delta.levels !== undefined) next.levels = delta.levels;
   if (delta.story !== undefined) next.story = delta.story;
   if (delta.multiplayer !== undefined) next.multiplayer = delta.multiplayer;
 
