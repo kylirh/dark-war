@@ -303,6 +303,48 @@ describe("computeStateDelta / applyStateDelta", () => {
     roundTrip(baseState(), next);
   });
 
+  it("round-trips cleared optional fields", () => {
+    const base = baseState();
+    base.stairsUp = [10, 10];
+    base.conversation = {
+      speakerId: "npc",
+      speakerName: "Marda",
+      portraitKey: "workshop-builder",
+      text: "Hello.",
+      choices: [],
+      canContinue: true,
+      allowFreeText: false,
+      revision: 1,
+    };
+    base.activeSign = {
+      id: "outside/surface:sign:park-welcome",
+      title: "Civic Park",
+      text: "Welcome back, builder.",
+      artKey: "park-wayfinding",
+    };
+    base.socialFacts = { npc: { flags: { met: true } } };
+
+    const next = baseState();
+    next.stairsUp = null;
+    next.conversation = undefined;
+    next.activeSign = undefined;
+    next.socialFacts = undefined;
+
+    const delta = computeStateDelta(base, next, 2, 1);
+    expect(delta.stairsUp).toBeNull();
+    expect(delta.conversation).toBeNull();
+    expect(delta.activeSign).toBeNull();
+    expect(delta.socialFacts).toBeNull();
+
+    const applied = applyStateDelta(base, delta);
+    expect(applied.stairsUp).toBeNull();
+    expect(applied.conversation).toBeUndefined();
+    expect(applied.activeSign).toBeUndefined();
+    expect(applied.socialFacts).toBeUndefined();
+
+    roundTrip(base, next);
+  });
+
   it("round-trips ephemeral player alerts on every delta", () => {
     const next = baseState();
     next.alerts = [

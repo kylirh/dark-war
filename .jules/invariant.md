@@ -55,3 +55,11 @@
 **Action:** Added `simulationSeed` as an optional property to `StateDelta`. Implemented the logic in `computeStateDelta` to calculate changes to `simulationSeed`, and in `applyStateDelta` to patch it over the baseline. Added a failing test (now passing) in `src/net/state-delta.test.ts` to enforce that this scalar survives the round-trip.
 
 **Prevention:** When adding fields to `SerializedState`, developers must ensure they add corresponding diff/patch logic to `src/net/state-delta.ts` to prevent silent delta compression drift.
+
+## $(date +%Y-%m-%d) - Fix state-delta dropping null clearing assignments
+
+**What was found:** `computeStateDelta` correctly mapped `undefined` field clearing into explicit `null` assignments for network transport. However, when these optional scalar and complex fields were cleared in `applyStateDelta`, it did not map these `null` assignments back to `undefined` (or pass the `null` if the target field accepted it), dropping them due to `if (delta.field !== undefined) next.field = delta.field`. This meant `null` payloads were silently dropped or improperly assigned instead of clearing the state for clients, desyncing them on fields like `stairsUp`.
+
+**Action:** Adjusted `applyStateDelta` to map `null` back to `null` (or `undefined` for fields that expect it, though type-checking required `null` for `stairsUp`) using `?? null`. Added a test in `src/net/state-delta.test.ts` to assert that clearing these optional fields `stairsUp`, `conversation`, `activeSign`, and `socialFacts` successfully round-trips.
+
+**Prevention:** Ensure that anytime a new optional field is added to `SerializedState` and `StateDelta`, the decoding logic explicitly handles `null` values by properly coalescing them back to `undefined` (or `null` depending on the target type) so that client states properly clear data when the server sends a clearing delta.

@@ -232,7 +232,7 @@ export function applyStateDelta(
   if (delta.wallSet !== undefined) next.wallSet = delta.wallSet;
   if (delta.portals !== undefined) next.portals = delta.portals;
   if (delta.stairsDown !== undefined) next.stairsDown = delta.stairsDown;
-  if (delta.stairsUp !== undefined) next.stairsUp = delta.stairsUp;
+  if (delta.stairsUp !== undefined) next.stairsUp = delta.stairsUp ?? null;
   if (delta.enhancedVision !== undefined)
     next.enhancedVision = delta.enhancedVision;
   if (delta.godMode !== undefined) next.godMode = delta.godMode;
