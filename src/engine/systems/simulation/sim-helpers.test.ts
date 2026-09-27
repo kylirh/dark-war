@@ -1,9 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { TileType } from "../../types";
+import { EntityKind, Monster, TileType } from "../../types";
 import { FlatTileSource } from "../../core/tile-source";
 import { Game } from "../../core/game";
-import { EntityKind } from "../../types";
-import type { Monster } from "../../types";
 import {
   directionFromAngle,
   normalizeAngle,
