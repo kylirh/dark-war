@@ -107,3 +107,11 @@
 **Action:** Added `src/engine/systems/simulation/commands-transition.test.ts` to cover `CommandType.DESCEND` and `CommandType.ASCEND`. The tests assert that when `state.portals` is empty, trying to descend or ascend correctly adds the "No stairs here." alert to `state.pendingAlerts` and does not set `state.shouldDescend` or `state.shouldAscend`.
 
 **Prevention:** Ensure that boundary conditions and failure paths in player commands (such as missing prerequisites like items or portals) are tested directly to protect edge-case UI feedback and state flags from regressions.
+
+## 2026-09-27 - Add tests for `canActorAct` death guards
+
+**What was found:** The `canActorAct` function in `src/engine/systems/simulation/sim-helpers.ts` acts as a guard to prevent dead players and monsters from acting in the tick loop. This function lacked explicit tests verifying that it correctly returns `false` when a player or monster's `hp` is <= 0. The need for this coverage was specifically noted in a prior learning log entry about redundant guards.
+
+**Action:** Added two unit tests to `src/engine/systems/simulation/sim-helpers.test.ts` to assert that `canActorAct` returns false for players and monsters with `hp <= 0`. Verified the test correctness by manually mutating the production code to skip the guard, which successfully caused the tests to fail.
+
+**Prevention:** Always ensure that outer tick-loop guards like `canActorAct` have their own targeted tests independent of inner guards, so their specific gating logic is not silently lost during refactors.

@@ -1,12 +1,39 @@
 import { describe, it, expect } from "vitest";
 import { TileType } from "../../types";
 import { FlatTileSource } from "../../core/tile-source";
+import { Game } from "../../core/game";
+import { EntityKind } from "../../types";
+import type { Monster } from "../../types";
 import {
   directionFromAngle,
   normalizeAngle,
   hasClearLineOfSight,
   positiveAmount,
+  canActorAct,
 } from "./sim-helpers";
+
+describe("canActorAct", () => {
+  it("returns false for dead players", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(0);
+
+    const player = game.getState().players[0];
+    player.hp = 0;
+    expect(canActorAct(game.getState(), player.id, 0)).toBe(false);
+  });
+
+  it("returns false for dead monsters", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(0);
+
+    const monster = game
+      .getState()
+      .entities.find((e) => e.kind === EntityKind.MONSTER) as Monster;
+    expect(monster).toBeDefined();
+    monster.hp = 0;
+    expect(canActorAct(game.getState(), monster.id, 0)).toBe(false);
+  });
+});
 
 describe("positiveAmount", () => {
   it("floors a positive value to a positive integer", () => {
