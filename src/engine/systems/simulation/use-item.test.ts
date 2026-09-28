@@ -133,6 +133,25 @@ describe("using the active item", () => {
     );
   });
 
+  it("does not consume a cookie when the player has none", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.hp = 10;
+    player.itemCounts[ItemType.COOKIE] = 0;
+    setActive(game, ItemType.COOKIE);
+    state.pendingAlerts = [];
+
+    use(game);
+
+    expect(player.hp).toBe(10);
+    expect(player.itemCounts[ItemType.COOKIE]).toBe(0);
+    expect(
+      state.pendingAlerts.some((a) => a.message.includes("No cookies left.")),
+    ).toBe(true);
+  });
+
   it("uses a medkit to heal and consumes it", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
