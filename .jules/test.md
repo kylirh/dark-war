@@ -116,7 +116,7 @@
 
 **Prevention:** Always ensure that outer tick-loop guards like `canActorAct` have their own targeted tests independent of inner guards, so their specific gating logic is not silently lost during refactors.
 
-## $(date +%Y-%m-%d) - Add test for empty cookie branch in item use
+## 2026-09-28 - Add test for empty cookie branch in item use
 
 **What was found:** The logic that handles eating a cookie in `resolveUseItemCommand` contained a branch (`if ((player.itemCounts[ItemType.COOKIE] ?? 0) <= 0)`) that prevents consuming the item and emits a "No cookies left." alert when the player has no cookies. This branch lacked behavioral test coverage, meaning it could have been removed without failing any tests.
 
