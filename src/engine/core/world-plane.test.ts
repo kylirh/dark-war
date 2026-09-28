@@ -154,6 +154,17 @@ describe("WorldPlane", () => {
     expect(plane.canTraverse(0, 0, 1, 0)).toBe(false);
   });
 
+  it("rejects diagonal traversals", () => {
+    const layers = createWorldPlaneLayers(2, 2);
+    layers.ground.fill(GROUND_GRASS);
+    const plane = new WorldPlane(2, 2, layers, resolveTestCell);
+
+    // Orthogonal is permitted
+    expect(plane.canTraverse(0, 0, 1, 0)).toBe(true);
+    // Diagonal is rejected
+    expect(plane.canTraverse(0, 0, 1, 1)).toBe(false);
+  });
+
   it("applies edits across various layers and caps values", () => {
     const layers = createWorldPlaneLayers(2, 2);
     layers.ground.fill(GROUND_GRASS);

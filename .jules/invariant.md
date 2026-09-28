@@ -55,3 +55,11 @@
 **Action:** Added `simulationSeed` as an optional property to `StateDelta`. Implemented the logic in `computeStateDelta` to calculate changes to `simulationSeed`, and in `applyStateDelta` to patch it over the baseline. Added a failing test (now passing) in `src/net/state-delta.test.ts` to enforce that this scalar survives the round-trip.
 
 **Prevention:** When adding fields to `SerializedState`, developers must ensure they add corresponding diff/patch logic to `src/net/state-delta.ts` to prevent silent delta compression drift.
+
+## 2026-09-28 - Fix diagonal traversal check in world-plane
+
+**What was found:** The `WorldPlane.canTraverse` method used `Math.max(Math.abs(deltaX), Math.abs(deltaY)) === 1` to validate single-step cell traversals. This condition incorrectly permitted diagonal traversals (where `Math.abs(deltaX)` and `Math.abs(deltaY)` both equal 1), violating the invariant that single-step traversals in the engine must be strictly orthogonal (Manhattan distance of 1).
+
+**Action:** Replaced the condition with `Math.abs(deltaX) + Math.abs(deltaY) === 1`. This correctly enforces that only one dimension changes by exactly 1, preventing diagonal movement. Also added a test in `src/engine/core/world-plane.test.ts` to explicitly verify that diagonal traversals are rejected.
+
+**Prevention:** When validating grid adjacency or traversal distance in a Manhattan-distance grid, use the sum of absolute differences (`Math.abs(dx) + Math.abs(dy)`) rather than the maximum.
