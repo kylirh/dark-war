@@ -1,0 +1,13 @@
+--- src/engine/systems/simulation/commands.ts
++++ src/engine/systems/simulation/commands.ts
+@@ -1341,10 +1341,6 @@
+         alertMsg(state, "No cookies left.", player.id);
+         return;
+       }
+-      if (player.hp >= player.hpMax) {
+-        alertMsg(state, "You're already at full health.", player.id);
+-        return;
+-      }
+       const heal = 6;
+       player.hp = Math.min(player.hpMax, player.hp + heal);
+       consumeOne(player, ItemType.COOKIE);

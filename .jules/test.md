@@ -115,3 +115,11 @@
 **Action:** Added two unit tests to `src/engine/systems/simulation/sim-helpers.test.ts` to assert that `canActorAct` returns false for players and monsters with `hp <= 0`. Verified the test correctness by manually mutating the production code to skip the guard, which successfully caused the tests to fail.
 
 **Prevention:** Always ensure that outer tick-loop guards like `canActorAct` have their own targeted tests independent of inner guards, so their specific gating logic is not silently lost during refactors.
+
+## $(date +%Y-%m-%d) - Add test for empty cookie branch in item use
+
+**What was found:** The logic that handles eating a cookie in `resolveUseItemCommand` contained a branch (`if ((player.itemCounts[ItemType.COOKIE] ?? 0) <= 0)`) that prevents consuming the item and emits a "No cookies left." alert when the player has no cookies. This branch lacked behavioral test coverage, meaning it could have been removed without failing any tests.
+
+**Action:** Added a focused unit test to `src/engine/systems/simulation/use-item.test.ts` to verify that attempting to eat a cookie with 0 `itemCounts[ItemType.COOKIE]` does not consume a cookie, does not heal the player, and correctly emits the "No cookies left." alert to `state.pendingAlerts`.
+
+**Prevention:** Ensure that boundary conditions for consumable items (such as attempting to use an item you have 0 of) are explicitly covered by tests to protect the UI feedback and prevent silent regressions where items might incorrectly be consumed or effects incorrectly applied.
