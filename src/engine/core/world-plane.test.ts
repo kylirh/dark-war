@@ -104,6 +104,7 @@ describe("WorldPlane", () => {
     expect(plane.opaque(1, 0)).toBe(false);
     expect(plane.destructible(1, 0)).toBe(false);
     expect(plane.canTraverse(0, 0, 1, 0)).toBe(true);
+    expect(plane.canTraverse(0, 0, 1, 1)).toBe(false);
     expect(resolverCalls).toBe(3);
 
     layers.structure[1] = STRUCTURE_TREE;
