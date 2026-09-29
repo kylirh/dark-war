@@ -10,6 +10,7 @@ import {
   applyStateDelta,
   requiresKeyframe,
 } from "./state-delta";
+import { Game } from "../engine/core/game";
 
 type AnyEntity = SerializedState["entities"][number];
 
@@ -555,5 +556,180 @@ describe("state-delta entity change detection", () => {
       id: "e1",
     } as unknown as Entity;
     expect(upsertedIds([richEntity("e1")], [reordered])).toEqual([]);
+  });
+});
+
+/**
+ * `baseState()` with **every** top-level field given a different value,
+ * including the three optional per-player views a full serialize leaves
+ * undefined.
+ *
+ * Every other round-trip test in this file varies exactly one field. That
+ * makes a field `StateDelta` forgets invisible: `computeStateDelta` omits it,
+ * `applyStateDelta` leaves the baseline's copy in place, and because the
+ * baseline and the target agree on it anyway, the assertion still passes. It
+ * is how `simulationSeed` and `levels` each reached `main` unsynced, and why
+ * `.jules/invariant.md` carries the same "add corresponding diff/patch logic"
+ * prevention note twice.
+ */
+function fullyChangedState(): SerializedState {
+  return {
+    depth: 2,
+    worldSpaceId: "caves",
+    worldPlaneId: "cavern-1",
+    levelKind: "outside",
+    simulationSeed: 67890,
+    relationships: [
+      { source: "p1", target: "npc-1", affinity: 1, fear: 2, grievance: 3 },
+    ],
+    consumedSpawnMarkers: ["spawn-marker-1"],
+    portals: [
+      {
+        id: "portal-1",
+        kind: "cave-mouth",
+        source: { spaceId: "caves", planeId: "cavern-1", x: 1, y: 1 },
+        destination: {
+          spaceId: "megacorp",
+          planeId: "floor-1",
+          entry: "stairs-up",
+        },
+      },
+    ],
+    signs: [{ id: "sign-1", definitionId: "trailhead", x: 0, y: 1 }],
+    plane: {
+      width: 2,
+      height: 2,
+      ground: [
+        GroundType.GRASS,
+        GroundType.FLOOR,
+        GroundType.GRASS,
+        GroundType.FLOOR,
+      ],
+      structure: [
+        StructureType.NONE,
+        StructureType.WALL,
+        StructureType.WALL,
+        StructureType.NONE,
+      ],
+      fixture: [
+        FixtureType.FLOWERS,
+        FixtureType.NONE,
+        FixtureType.NONE,
+        FixtureType.NONE,
+      ],
+      elevation: [1, 0, 0, -1],
+      damage: [2, 0, 0, 1],
+    },
+    floorVariant: 3,
+    wallSet: "wood",
+    stairsDown: [0, 1],
+    stairsUp: [1, 0],
+    player: player("p1", 42, 55),
+    players: [player("p1", 42, 55), player("p2", 8, 90)],
+    entities: [player("p1", 42, 55), entity("e2", 9), entity("e3", 4)],
+    explored: [2, 3],
+    exploredByPlayer: { p1: [2, 3], p2: [0] },
+    enhancedVision: true,
+    godMode: true,
+    story: ["the workshop lights came back on"],
+    conversation: {
+      speakerId: "npc-1",
+      speakerName: "Mabel",
+      portraitKey: "mabel",
+      text: "the greenhouse needs a new pane",
+      choices: [{ id: "yes", label: "I can fetch one" }],
+      canContinue: false,
+      allowFreeText: false,
+      revision: 1,
+    },
+    activeSign: {
+      id: "sign-1",
+      title: "trailhead",
+      text: "the orchard is two miles east",
+      artKey: "wooden-post",
+    },
+    socialFacts: { "npc-1": { flags: { met: true } } },
+    levels: [
+      {
+        depth: 1,
+        worldSpaceId: "megacorp",
+        worldPlaneId: "floor-1",
+        levelKind: "dungeon",
+        plane: baseState().plane,
+        portals: [],
+        signs: [],
+        floorVariant: 0,
+        wallSet: "concrete",
+        stairsDown: [1, 1],
+        stairsUp: null,
+        explored: [0],
+        exploredByPlayer: { p1: [0] },
+        entities: [],
+        consumedSpawnMarkers: [],
+        enhancedVision: false,
+      },
+    ],
+    sim: {
+      nowTick: 200,
+      mode: "PLANNING",
+      timeScale: 0.5,
+      targetTimeScale: 0.25,
+    },
+    multiplayer: { mode: "offline", localPlayerId: "p2" },
+    sounds: [{ effect: "SHOOT", worldX: 1, worldY: 2 }],
+    alerts: [{ message: "the kettle is boiling" }],
+    callouts: [
+      {
+        id: "callout-1",
+        kind: "speech",
+        text: "over here",
+        worldX: 1,
+        worldY: 2,
+        priority: "normal",
+      },
+    ],
+    effects: [
+      {
+        id: "effect-1",
+        type: "explosion",
+        worldX: 3,
+        worldY: 4,
+        ageTicks: 1,
+        durationTicks: 5,
+      },
+    ],
+  };
+}
+
+describe("StateDelta field coverage", () => {
+  it("carries every top-level field through a single delta", () => {
+    const base = baseState();
+    const next = fullyChangedState();
+
+    // Guard: the fixture is only an oracle while it really does change every
+    // field. A field added to `SerializedState` and copied into
+    // `fullyChangedState()` verbatim would round-trip for the wrong reason.
+    const unchanged = (Object.keys(next) as Array<keyof SerializedState>)
+      .filter((key) => JSON.stringify(base[key]) === JSON.stringify(next[key]))
+      .sort();
+    expect(unchanged).toEqual([]);
+
+    roundTrip(base, next);
+  });
+
+  it("varies every field a real serialized state carries", () => {
+    const game = new Game({ mode: "online" });
+    game.reset(1);
+    const shipped = game.serializeForPlayer(game.getState().player.id);
+
+    const covered = new Set(Object.keys(fullyChangedState()));
+    const missing = Object.keys(shipped)
+      .filter((key) => !covered.has(key))
+      .sort();
+
+    // Adding a field to `SerializedState` lands it here first. Vary it in
+    // `fullyChangedState()`, and the round-trip above will then hold you to
+    // giving `state-delta.ts` the diff and patch logic to carry it.
+    expect(missing).toEqual([]);
   });
 });
