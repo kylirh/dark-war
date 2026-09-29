@@ -29,7 +29,13 @@ export function captureFocusOpener(
 
 /**
  * Return focus to `opener`, or to the game canvas when the opener is absent or
- * was removed from the document while the dialog was open.
+ * cannot take focus.
+ *
+ * Being in the document is not the same as being focusable: a control inside a
+ * dialog that was hidden while this one was open is still `contains()`-reachable,
+ * but `display: none` and `disabled` both make `focus()` a silent no-op that
+ * leaves focus on `<body>`. So the result is checked rather than assumed, and
+ * the canvas takes over whenever the opener declined it.
  */
 export function restoreFocus(
   opener: HTMLElement | null,
@@ -37,7 +43,7 @@ export function restoreFocus(
 ): void {
   if (opener && doc.body.contains(opener)) {
     opener.focus();
-    return;
+    if (doc.activeElement === opener) return;
   }
   doc.getElementById(GAME_CANVAS_ID)?.focus();
 }

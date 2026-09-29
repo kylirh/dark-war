@@ -580,7 +580,15 @@ function triggerMonsterFall(state: GameState, monster: Monster): void {
   state.entityManager.destroy(monster.id);
 }
 
-function sortCommandsDeterministically(commands: Command[]): void {
+/**
+ * Order commands so a tick resolves identically on every client and replay.
+ *
+ * Highest `priority` first, then `actorId`, then `id` — the last two are not
+ * cosmetic tie-breaks. Commands arrive in map-iteration and entity order, so
+ * without a total order two peers can resolve the same tick in different
+ * sequences and consume the shared RNG differently.
+ */
+export function sortCommandsDeterministically(commands: Command[]): void {
   commands.sort((a, b) => {
     if (a.priority !== b.priority) return b.priority - a.priority;
     if (a.actorId !== b.actorId) return a.actorId.localeCompare(b.actorId);
