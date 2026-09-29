@@ -348,6 +348,7 @@ describe("Simulation Commands Management", () => {
       resolveCommand(state, cmd);
 
       expect(player.nextActTick).toBe(0);
+      expect(player.resting).toBe(false);
     });
   });
 });
