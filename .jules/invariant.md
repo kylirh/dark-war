@@ -48,7 +48,7 @@
 
 **Prevention:** When adding map or complex fields to `SerializedState`, remember to add corresponding diff/patch logic in `src/net/state-delta.ts` to prevent silent delta compression drift and keep running sessions in sync with snapshots.
 
-## 2024-11-20 - Ensure simulationSeed is synced through state deltas
+## 2026-09-15 - Ensure simulationSeed is synced through state deltas
 
 **What was found:** The `simulationSeed` scalar property in `SerializedState` was missing from `StateDelta`, meaning it was never synced via delta compression (in `computeStateDelta` and `applyStateDelta`). This violates the invariant that `applyStateDelta(base, computeStateDelta(base, next))` yields exactly what a full state snapshot of `next` would contain, leading to silent state drift.
 
@@ -56,10 +56,10 @@
 
 **Prevention:** When adding fields to `SerializedState`, developers must ensure they add corresponding diff/patch logic to `src/net/state-delta.ts` to prevent silent delta compression drift.
 
-## 2024-11-20 - Ensure levels is synced through state deltas
+## 2026-09-25 - Ensure levels is synced through state deltas
 
-**What was found:** The `levels` array property in `SerializedState` was missing from `StateDelta`, meaning it was never synced via delta compression (in `computeStateDelta` and `applyStateDelta`). This violates the invariant that `applyStateDelta(base, computeStateDelta(base, next))` yields exactly what a full state snapshot of `next` would contain, leading to silent state drift.
+**What was found:** The `levels` array in `SerializedState` was missing from `StateDelta`, meaning it was never synced via delta compression (in `computeStateDelta` and `applyStateDelta`). This violates the invariant that `applyStateDelta(base, computeStateDelta(base, next))` yields exactly what a full state snapshot of `next` would contain. While multiplayer may not directly use `levels` for gameplay, omitting it breaks the core serialization property.
 
-**Action:** Added `levels` as an optional property to `StateDelta`. Implemented the logic in `computeStateDelta` to calculate changes to `levels` using `shallowJsonEqual`, and in `applyStateDelta` to patch it over the baseline. Added a test in `src/net/state-delta.test.ts` to enforce that this field survives the round-trip.
+**Action:** Added `levels` as an optional property to `StateDelta`. Implemented the logic in `computeStateDelta` to calculate changes to `levels` via `shallowJsonEqual`, and in `applyStateDelta` to patch it over the baseline. Added a test in `src/net/state-delta.test.ts` to enforce that this array survives the round-trip.
 
-**Prevention:** When adding fields to `SerializedState`, developers must ensure they add corresponding diff/patch logic to `src/net/state-delta.ts` to prevent silent delta compression drift.
+**Prevention:** When adding fields to `SerializedState`, ensure they are properly handled in `src/net/state-delta.ts` to maintain delta compression integrity.
