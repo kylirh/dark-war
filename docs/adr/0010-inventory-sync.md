@@ -10,6 +10,7 @@ The `Player` state currently tracks stackable inventory items using two distinct
 A critical boundary exists when an item is consumed or removed entirely. When `itemCounts[ItemType]` reaches zero, the system must perform two synchronized mutations: `delete player.itemCounts[type]` and `removeFromInventory(player, type)`.
 
 Because this boundary cannot be structurally expressed by the `GameState` types, it is maintained entirely by convention and scattered conditionals. As a result, the logic frequently drifts. The `.jules/test.md` learning log documents two recurring failures stemming from this exact seam:
+
 - **2026-09-18:** "Vending machine exact coin deduction. The branch... is responsible for deleting the coin entry from the player's item counts and inventory if exactly VENDING_COST coins are spent. This edge case of having exactly enough coins was not covered by any existing test, making it vulnerable to regressions where exact spends might leave a 0-count item in the inventory."
 - **2026-09-20:** "Exact coin deduction during Moppet theft. The branch `if (left <= 0)` in `events.ts:stealFromPlayer()` for money theft clears the player's inventory slot when a moppet steals all their coins. This branch lacked test coverage."
 
