@@ -218,6 +218,31 @@ describe("computeStateDelta / applyStateDelta", () => {
     roundTrip(baseState(), next);
   });
 
+  it("round-trips levels", () => {
+    const next = baseState();
+    next.levels = [
+      {
+        depth: 1,
+        worldSpaceId: "space",
+        worldPlaneId: "plane",
+        levelKind: "dungeon",
+        plane: next.plane,
+        portals: [],
+        signs: [],
+        floorVariant: 0,
+        wallSet: "concrete",
+        stairsDown: [1, 1],
+        stairsUp: null,
+        explored: [],
+        exploredByPlayer: {},
+        entities: [],
+        consumedSpawnMarkers: [],
+        enhancedVision: false,
+      },
+    ];
+    roundTrip(baseState(), next);
+  });
+
   it("round-trips conversation, social-fact clearing, and relationships", () => {
     const base = baseState();
     base.socialFacts = { npc: { flags: { met: true } } };
