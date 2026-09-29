@@ -127,6 +127,50 @@ describe("findPath", () => {
   });
 });
 
+/**
+ * The pathfinder expands an 8-connected neighbourhood and gates each step on
+ * `tiles.canTraverse`. Against a `WorldPlane` — the production tile source —
+ * that means diagonal movement is real and shortens routes. `FlatTileSource`
+ * cannot cover this: its `canTraverse` ignores direction entirely and answers
+ * only "is the destination passable", so a direction-sensitive regression is
+ * invisible through it. These tests use a `WorldPlane` for that reason.
+ */
+describe("findPath diagonal movement", () => {
+  it("cuts straight across open ground instead of stepping around", () => {
+    const plane = createWorldPlaneFromTiles(
+      new Array(W * H).fill(TileType.FLOOR),
+      W,
+      H,
+    );
+    const path = findPath(1, 1, 5, 5, plane, fullyExplored(), []);
+
+    expect(path).not.toBeNull();
+    // Chebyshev distance is 4, so 4 steps plus the start cell. A
+    // four-directional pathfinder needs 8 steps (9 cells) for the same trip.
+    expect(path).toEqual([
+      [1, 1],
+      [2, 2],
+      [3, 3],
+      [4, 4],
+      [5, 5],
+    ]);
+  });
+
+  it("uses a diagonal step to round a corner", () => {
+    const plane = createWorldPlaneFromTiles(
+      new Array(W * H).fill(TileType.FLOOR),
+      W,
+      H,
+    );
+    const path = findPath(1, 1, 2, 2, plane, fullyExplored(), []);
+
+    expect(path).toEqual([
+      [1, 1],
+      [2, 2],
+    ]);
+  });
+});
+
 describe("findPathToClosestReachable", () => {
   it("reaches an open target", () => {
     const path = findPathToClosestReachable(

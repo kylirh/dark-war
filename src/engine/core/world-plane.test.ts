@@ -177,3 +177,59 @@ describe("WorldPlane", () => {
     expect(layers.damage[index]).toBe(255);
   });
 });
+
+/**
+ * Diagonal traversal is a deliberate contract, not an oversight.
+ *
+ * `canTraverse` is documented as "can cross directly between neighboring
+ * cells", and its neighbourhood is Chebyshev: both pathfinders expand all
+ * eight neighbours and gate each step on this predicate
+ * (`utils/pathfinding.ts` `directions`, `systems/simulation/ai.ts`). Narrowing
+ * it to Manhattan silently turns click-to-move and monster pathing
+ * four-directional, which is a movement design change rather than a bug fix.
+ *
+ * That narrowing has been proposed and rejected five times (#268, #270, #275,
+ * #284, #294) because nothing pinned the intended behaviour: the whole suite
+ * passed with the predicate switched to Manhattan. These tests are that pin.
+ * If a future change makes them fail, it is changing how the game moves and
+ * needs a human decision, not a one-line predicate edit.
+ */
+describe("WorldPlane.canTraverse diagonal contract", () => {
+  function flatPlane(size = 3): WorldPlane {
+    const layers = createWorldPlaneLayers(size, size);
+    layers.ground.fill(GROUND_GRASS);
+    return new WorldPlane(size, size, layers, resolveTestCell);
+  }
+
+  it("allows all four diagonal neighbours on level ground", () => {
+    const plane = flatPlane();
+    expect(plane.canTraverse(1, 1, 2, 2)).toBe(true);
+    expect(plane.canTraverse(1, 1, 0, 0)).toBe(true);
+    expect(plane.canTraverse(1, 1, 2, 0)).toBe(true);
+    expect(plane.canTraverse(1, 1, 0, 2)).toBe(true);
+  });
+
+  it("still allows the four orthogonal neighbours", () => {
+    const plane = flatPlane();
+    expect(plane.canTraverse(1, 1, 2, 1)).toBe(true);
+    expect(plane.canTraverse(1, 1, 0, 1)).toBe(true);
+    expect(plane.canTraverse(1, 1, 1, 2)).toBe(true);
+    expect(plane.canTraverse(1, 1, 1, 0)).toBe(true);
+  });
+
+  it("rejects a cell that is not a neighbour at all", () => {
+    const plane = flatPlane(5);
+    expect(plane.canTraverse(1, 1, 3, 1)).toBe(false);
+    expect(plane.canTraverse(1, 1, 3, 3)).toBe(false);
+    expect(plane.canTraverse(1, 1, 1, 1)).toBe(false);
+  });
+
+  it("still blocks a diagonal into an impassable cell", () => {
+    const layers = createWorldPlaneLayers(3, 3);
+    layers.ground.fill(GROUND_GRASS);
+    const plane = new WorldPlane(3, 3, layers, resolveTestCell);
+    plane.editCell(2, 2, { structure: STRUCTURE_TREE });
+
+    expect(plane.canTraverse(1, 1, 2, 2)).toBe(false);
+  });
+});
