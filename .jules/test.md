@@ -124,7 +124,7 @@
 
 **Prevention:** Ensure that boundary conditions for consumable items (such as attempting to use an item you have 0 of) are explicitly covered by tests to protect the UI feedback and prevent silent regressions where items might incorrectly be consumed or effects incorrectly applied.
 
-## $(date +%Y-%m-%d) - Armor sub-1 damage mitigation bypass
+## 2026-09-29 - Armor sub-1 damage mitigation bypass
 
 **What was found:** The armor damage mitigation logic in `events.ts` intentionally avoids softening naturally sub-1 damage attacks to a minimum of 1 HP (e.g. `Math.max(Math.min(1, rawIncoming), rawIncoming - armor)`). However, this specific behavior was uncovered by tests, meaning a developer simplifying the code to `Math.max(1, rawIncoming - armor)` could accidentally increase the damage of weak, sub-1 attacks against armored players to 1.
 
