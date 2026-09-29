@@ -173,7 +173,7 @@ export class WorldPlane implements TileSource {
       if (Math.abs(deltaX) > 1) deltaX -= Math.sign(deltaX) * this.width;
       if (Math.abs(deltaY) > 1) deltaY -= Math.sign(deltaY) * this.height;
     }
-    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1) return false;
+    if (Math.abs(deltaX) + Math.abs(deltaY) !== 1) return false;
     const fromIndex = this.indexFor(fromX, fromY);
     const toIndex = this.indexFor(toX, toY);
     if ((this.resolvedFlagCache[toIndex] & CELL_PASSABLE) === 0) return false;
