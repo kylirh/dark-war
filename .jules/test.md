@@ -123,3 +123,11 @@
 **Action:** Added a focused unit test to `src/engine/systems/simulation/use-item.test.ts` to verify that attempting to eat a cookie with 0 `itemCounts[ItemType.COOKIE]` does not consume a cookie, does not heal the player, and correctly emits the "No cookies left." alert to `state.pendingAlerts`.
 
 **Prevention:** Ensure that boundary conditions for consumable items (such as attempting to use an item you have 0 of) are explicitly covered by tests to protect the UI feedback and prevent silent regressions where items might incorrectly be consumed or effects incorrectly applied.
+
+## $(date +%Y-%m-%d) - Armor sub-1 damage mitigation bypass
+
+**What was found:** The armor damage mitigation logic in `events.ts` intentionally avoids softening naturally sub-1 damage attacks to a minimum of 1 HP (e.g. `Math.max(Math.min(1, rawIncoming), rawIncoming - armor)`). However, this specific behavior was uncovered by tests, meaning a developer simplifying the code to `Math.max(1, rawIncoming - armor)` could accidentally increase the damage of weak, sub-1 attacks against armored players to 1.
+
+**Action:** Added a dedicated test in `src/engine/systems/simulation/events.test.ts` where a player with 10 HP and 5 armor is hit with a sub-1 (0.5) damage event. Verified through mutation that removing the `Math.min(1, rawIncoming)` logic correctly caused the test to fail by rounding the HP loss up to 1.
+
+**Prevention:** Ensure damage mitigation bounds (e.g. minimum damage clamps) explicitly handle sub-1 attack scenarios in tests so that protective mechanics don't become penalties for specific enemy damage profiles.

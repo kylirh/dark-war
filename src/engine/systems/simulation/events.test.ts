@@ -177,3 +177,25 @@ describe("grantCoreDevice", () => {
     expect(result).toBe(false);
   });
 });
+
+describe("Damage mitigation", () => {
+  it("sub-1 attacks against armored players are not mitigated to 1", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    player.hp = 10;
+    (player as any).armor = 5;
+
+    state.eventQueue.push({
+      id: "test-damage",
+      depth: state.depth,
+      type: EventType.DAMAGE,
+      data: { type: "DAMAGE", targetId: player.id, amount: 0.5 },
+    });
+
+    processEventQueue(state);
+
+    expect(player.hp).toBe(9.5);
+  });
+});
