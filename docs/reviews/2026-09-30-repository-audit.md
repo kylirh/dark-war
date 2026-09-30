@@ -87,15 +87,19 @@ It now checks current capabilities and uses leased deletion for reviewed heads.
 
 ## Cleanup result
 
-After the reviewed changes are pushed, every open pull request is represented in
-`main`. All non-`main` remote heads are deleted only after their exact tips are
-captured in the recovery bundle. Local branches, remote branches, open pull
-requests, and linked worktrees are then re-enumerated to verify the result.
+The reviewed changes were pushed to `main` at `ca74217f`. GitHub recognized all
+six open pull requests as merged and automatically removed their source heads.
+The remaining 95 remote heads were verified byte-for-byte against the recovery
+bundle, then deleted atomically with exact-SHA leases. Final enumeration found
+one local branch (`main`), one remote branch (`main`), one worktree, and no open
+pull requests. The pre-existing stash was preserved.
 
 ## Validation boundary
 
 Automated verification covers deterministic engine behavior, persistence,
 state deltas, client/server types, asset compilation, formatting, and builds.
+The final gate passed 99 Vitest files / 890 tests, 12 Node tests, both TypeScript
+configurations, Prettier, `git diff --check`, `build:ts`, and `build:web`.
 The settings regression and ordinary game rendering were exercised in a running
 browser build with no console warnings or errors. Native Electron window-state
 behavior remains bounded by its automated tests; this audit does not claim a
