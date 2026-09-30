@@ -24,38 +24,18 @@ Phase 2 pull request, touch a pull request that is not from Jules, change CI
 workflows, secrets, `package.json`, `package-lock.json`, or TypeScript
 configuration, or add a dependency.
 
-## GitHub access in this environment
+## GitHub access
 
-**`gh` is not installed.** Every GitHub operation goes through the built-in
-`mcp__github__*` tools, which are present even when no connectors are attached.
-Load the ones you need first:
+Owner is `kylirh`, repo is `dark-war`. Use the GitHub CLI when it is installed
+and authenticated; otherwise use the available GitHub tools. Check capabilities
+at runtime instead of carrying forward an old sandbox result.
 
-```text
-ToolSearch: select:mcp__github__list_pull_requests,mcp__github__pull_request_read,
-            mcp__github__merge_pull_request,mcp__github__update_pull_request,
-            mcp__github__add_issue_comment,mcp__github__create_pull_request,
-            mcp__github__create_branch,mcp__github__create_or_update_file,
-            mcp__github__list_workflow_runs
-```
-
-Owner is `kylirh`, repo is `dark-war`.
-
-Two things this toolset cannot do, both verified against the live sandbox:
-
-- **There is no branch-deletion tool**, and `git push origin --delete` returns
-  HTTP 403.
-- The same 403 comes from `git-receive-pack`, the endpoint **every** push uses,
-  so pushing commits may be blocked too. `git push --dry-run` succeeds anyway —
-  it never contacts that endpoint, so it proves nothing. Don't trust it.
-
-Test push capability once, early, with a real push to a throwaway ref. If it
-403s, do not spend the run producing commits you cannot deliver: use
-`mcp__github__create_branch` plus `mcp__github__create_or_update_file` to write
-changes through the API instead, and if that also fails, stop and report the
-blocker as the first line of your run summary. A run that quietly produces
-nothing because it could not write is a failed run reported as a success.
-
-Reads (`list_pull_requests`, `pull_request_read`, cloning, fetching) all work.
+Do not create a throwaway remote branch to test push access. Those probes have
+accumulated as permanent branches and prove nothing about a later push. Perform
+all read-only review and local verification first, then let the first required
+real push establish whether writes work. If it fails, use an available GitHub
+write tool for the intended branch and report the exact blocker if no write path
+is available.
 
 ## Before you start
 
@@ -253,11 +233,10 @@ git ls-remote --heads origin | sed 's#.*refs/heads/##' | sort -u
 A branch is deletable when it still exists on origin, is in the merged set, and
 is none of: `main`, a `backup/*` branch, or the head of an open pull request.
 
-Attempt `git push origin --delete <branch>` for each. **Expect this to fail
-with a 403** — it did on every branch in testing. One attempt is enough to
-confirm; do not retry five times. On failure, list the branches you would have
-deleted in the run summary and move on. Do not treat this as a reason to abort
-the rest of the run.
+Attempt `git push origin --delete <branch>` for each. Resolve the exact current
+head first and use a lease so a branch that moved during review is not deleted.
+If deletion is unavailable, make one attempt, list the branches in the run
+summary, and move on.
 
 Keep scratch files in a temp directory, never in the working tree.
 
