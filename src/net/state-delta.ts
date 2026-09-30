@@ -364,26 +364,40 @@ function diffById(
   const nextIds = new Set<string>();
 
   const upserted: Entity[] = [];
-  const order: string[] = [];
-  let orderChanged = base.length !== next.length;
 
-  for (let i = 0; i < next.length; i++) {
-    const entity = next[i];
+  for (const entity of next) {
     nextIds.add(entity.id);
-    order.push(entity.id);
-    if (!orderChanged && base[i]?.id !== entity.id) {
-      orderChanged = true;
-    }
     const prior = baseById.get(entity.id);
     if (!prior || !shallowJsonEqual(prior, entity)) upserted.push(entity);
   }
 
   const removed: string[] = [];
+  let naturalOrderIndex = 0;
+  let orderChanged = false;
   for (const entity of base) {
-    if (!nextIds.has(entity.id)) removed.push(entity.id);
+    if (!nextIds.has(entity.id)) {
+      removed.push(entity.id);
+    } else if (next[naturalOrderIndex++]?.id !== entity.id) {
+      orderChanged = true;
+    }
+  }
+  // applyById keeps surviving entries in their original Map order and appends
+  // new IDs. Ordinary spawns/removals already round-trip in that order, so only
+  // send the full ID list when the authoritative order differs from it.
+  for (const entity of next) {
+    if (
+      !baseById.has(entity.id) &&
+      next[naturalOrderIndex++]?.id !== entity.id
+    ) {
+      orderChanged = true;
+    }
   }
 
-  return { upserted, removed, order: orderChanged ? order : undefined };
+  return {
+    upserted,
+    removed,
+    order: orderChanged ? next.map((entity) => entity.id) : undefined,
+  };
 }
 
 function applyById(

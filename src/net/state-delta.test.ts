@@ -92,17 +92,13 @@ function baseState(): SerializedState {
   };
 }
 
-/** Apply a computed delta and assert it reconstructs `next` (order-independent). */
+/** Cross the JSON wire boundary and reconstruct entity order and explored sets. */
 function roundTrip(base: SerializedState, next: SerializedState): void {
-  const delta = computeStateDelta(base, next, 2, 1);
+  const delta = JSON.parse(JSON.stringify(computeStateDelta(base, next, 2, 1)));
   const got = applyStateDelta(base, delta);
 
-  const byId = (arr: Array<{ id: string }>) =>
-    new Map(arr.map((o) => [o.id, JSON.stringify(o)]));
   for (const key of ["entities", "players"] as const) {
-    expect(byId(got[key] as Array<{ id: string }>)).toEqual(
-      byId(next[key] as Array<{ id: string }>),
-    );
+    expect(got[key]).toEqual(next[key]);
   }
   expect(new Set(got.explored)).toEqual(new Set(next.explored));
 
@@ -418,6 +414,47 @@ describe("requiresKeyframe", () => {
 });
 
 describe("state-delta array ordering", () => {
+  it.each([
+    ["append", ["p1", "p2", "p3", "p4"]],
+    ["remove", ["p1", "p3"]],
+    ["remove and append", ["p1", "p3", "p4"]],
+    ["remove all", []],
+  ])("omits redundant order payloads on %s", (_name, ids) => {
+    const base = baseState();
+    base.entities = base.players = [
+      player("p1", 1),
+      player("p2", 2),
+      player("p3", 3),
+    ];
+    const next = baseState();
+    next.entities = next.players = (ids as string[]).map((id) => player(id, 5));
+
+    const delta = computeStateDelta(base, next, 2, 1);
+    expect(delta.entityOrder).toBeUndefined();
+    expect(delta.playerOrder).toBeUndefined();
+    roundTrip(base, next);
+  });
+
+  it.each([
+    ["reorder", ["p3", "p1", "p2"]],
+    ["prepend", ["p4", "p1", "p2", "p3"]],
+    ["replace in place", ["p1", "p4", "p3"]],
+  ])("sends required entity and player order on %s", (_name, ids) => {
+    const base = baseState();
+    base.entities = base.players = [
+      player("p1", 1),
+      player("p2", 2),
+      player("p3", 3),
+    ];
+    const next = baseState();
+    next.entities = next.players = (ids as string[]).map((id) => player(id, 5));
+
+    const delta = computeStateDelta(base, next, 2, 1);
+    expect(delta.entityOrder).toEqual(ids);
+    expect(delta.playerOrder).toEqual(ids);
+    roundTrip(base, next);
+  });
+
   it("preserves entity array order when only reordered", () => {
     const e1 = entity("e1", 1) as unknown as Entity;
     const e2 = entity("e2", 2) as unknown as Entity;
