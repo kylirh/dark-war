@@ -2,6 +2,7 @@ import { isDebug } from "../utils/debug";
 
 import {
   GameState,
+  SimulationState,
   EntityKind,
   Entity,
   Monster,
@@ -152,7 +153,47 @@ export class Game {
     this.state = this.createInitialState();
   }
 
-  private createBaseState(localPlayerId: string) {
+  /**
+   * Fresh simulation state for a level that is starting from scratch.
+   * `deserialize` reuses this for the run-local fields a save does not carry.
+   */
+  private createBaseSim(): SimulationState {
+    return {
+      nowTick: 0,
+      mode: "REALTIME",
+      timeScale: 0.85,
+      targetTimeScale: 0.85,
+      accumulatorMs: 0,
+      lastFrameMs: performance.now(),
+      pauseReasons: new Set<string>(),
+    };
+  }
+
+  /**
+   * The `GameState` fields that are identical for every freshly built level.
+   * The return type names them explicitly, so a caller still has to supply
+   * every remaining field of `GameState` itself.
+   */
+  private createBaseState(
+    localPlayerId: string,
+  ): Pick<
+    GameState,
+    | "story"
+    | "options"
+    | "effects"
+    | "multiplayer"
+    | "sim"
+    | "commandsByTick"
+    | "eventQueue"
+    | "shouldDescend"
+    | "shouldAscend"
+    | "descendTarget"
+    | "changedTiles"
+    | "holeCreatedTiles"
+    | "pendingSounds"
+    | "pendingAlerts"
+    | "pendingCallouts"
+  > {
     return {
       story: [],
       options: { fov: true, godMode: false },
@@ -161,15 +202,7 @@ export class Game {
         mode: this.multiplayerMode,
         localPlayerId,
       },
-      sim: {
-        nowTick: 0,
-        mode: "REALTIME" as const,
-        timeScale: 0.85,
-        targetTimeScale: 0.85,
-        accumulatorMs: 0,
-        lastFrameMs: performance.now(),
-        pauseReasons: new Set<string>(),
-      },
+      sim: this.createBaseSim(),
       commandsByTick: new Map(),
       eventQueue: [],
       shouldDescend: false,
@@ -1689,7 +1722,7 @@ export class Game {
         localPlayerId,
       },
       sim: {
-        ...this.createBaseState(localPlayerId).sim,
+        ...this.createBaseSim(),
         nowTick: data.sim.nowTick,
         mode: data.sim.mode,
         timeScale: data.sim.timeScale,
