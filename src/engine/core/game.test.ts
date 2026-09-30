@@ -116,6 +116,43 @@ describe("Game serialize/deserialize round-trip", () => {
     ).toHaveLength(1);
   });
 
+  it("carries saved simulation state and resets the run-local fields", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+
+    // Every value here differs from a fresh state's default (tick 0,
+    // REALTIME, 0.85, 0.85), so a field that is silently reset rather than
+    // carried cannot satisfy this test by coincidence.
+    const state = game.getState();
+    state.sim.nowTick = 137;
+    state.sim.mode = "PLANNING";
+    state.sim.timeScale = 0.25;
+    state.sim.targetTimeScale = 0.4;
+    // Run-local pacing state, deliberately outside the save format.
+    state.sim.accumulatorMs = 31;
+    state.sim.pauseReasons.add("menu");
+
+    const serialized = game.serialize();
+    expect("accumulatorMs" in serialized.sim).toBe(false);
+    expect("lastFrameMs" in serialized.sim).toBe(false);
+    expect("pauseReasons" in serialized.sim).toBe(false);
+
+    const restored = new Game({ mode: "offline" });
+    restored.deserialize(serialized);
+    const after = restored.getState();
+
+    // The four fields a save carries.
+    expect(after.sim.nowTick).toBe(137);
+    expect(after.sim.mode).toBe("PLANNING");
+    expect(after.sim.timeScale).toBe(0.25);
+    expect(after.sim.targetTimeScale).toBe(0.4);
+
+    // The three it does not: a load starts them fresh rather than
+    // inheriting the saving session's frame pacing or pause reasons.
+    expect(after.sim.accumulatorMs).toBe(0);
+    expect(after.sim.pauseReasons.size).toBe(0);
+  });
+
   it("rejects legacy scalar saves without a world plane", () => {
     const game = new Game({ mode: "offline" });
     expect(() =>
