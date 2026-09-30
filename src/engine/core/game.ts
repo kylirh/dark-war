@@ -152,6 +152,37 @@ export class Game {
     this.state = this.createInitialState();
   }
 
+  private createBaseState(localPlayerId: string) {
+    return {
+      story: [],
+      options: { fov: true, godMode: false },
+      effects: [],
+      multiplayer: {
+        mode: this.multiplayerMode,
+        localPlayerId,
+      },
+      sim: {
+        nowTick: 0,
+        mode: "REALTIME" as const,
+        timeScale: 0.85,
+        targetTimeScale: 0.85,
+        accumulatorMs: 0,
+        lastFrameMs: performance.now(),
+        pauseReasons: new Set<string>(),
+      },
+      commandsByTick: new Map(),
+      eventQueue: [],
+      shouldDescend: false,
+      shouldAscend: false,
+      descendTarget: undefined,
+      changedTiles: new Set<number>(),
+      holeCreatedTiles: new Set<number>(),
+      pendingSounds: [],
+      pendingAlerts: [],
+      pendingCallouts: [],
+    };
+  }
+
   /**
    * Create initial game state
    */
@@ -211,32 +242,7 @@ export class Game {
       stairsDown: [0, 0],
       stairsUp: null,
       playerStart: [player.gridX, player.gridY],
-      story: [],
-      options: { fov: true, godMode: false },
-      effects: [],
-      multiplayer: {
-        mode: this.multiplayerMode,
-        localPlayerId,
-      },
-      sim: {
-        nowTick: 0,
-        mode: "REALTIME",
-        timeScale: 0.85,
-        targetTimeScale: 0.85,
-        accumulatorMs: 0,
-        lastFrameMs: performance.now(),
-        pauseReasons: new Set(),
-      },
-      commandsByTick: new Map(),
-      eventQueue: [],
-      shouldDescend: false,
-      shouldAscend: false,
-      descendTarget: undefined,
-      changedTiles: new Set(),
-      holeCreatedTiles: new Set(),
-      pendingSounds: [],
-      pendingAlerts: [],
-      pendingCallouts: [],
+      ...this.createBaseState(localPlayerId),
     };
   }
 
@@ -306,33 +312,7 @@ export class Game {
       stairsDown: dungeon.stairsDown,
       stairsUp: dungeonLevel ? dungeonLevel.stairsUp : null,
       playerStart: [dungeon.start[0], dungeon.start[1]],
-      story: [],
-      options: { fov: true, godMode: false },
-      effects: [],
-      multiplayer: {
-        mode: this.multiplayerMode,
-        localPlayerId,
-      },
-      // NEW: Simulation system
-      sim: {
-        nowTick: 0,
-        mode: "REALTIME",
-        timeScale: 0.85,
-        targetTimeScale: 0.85,
-        accumulatorMs: 0,
-        lastFrameMs: performance.now(),
-        pauseReasons: new Set(),
-      },
-      commandsByTick: new Map(),
-      eventQueue: [],
-      shouldDescend: false,
-      shouldAscend: false,
-      descendTarget: undefined,
-      changedTiles: new Set(),
-      holeCreatedTiles: new Set(),
-      pendingSounds: [],
-      pendingAlerts: [],
-      pendingCallouts: [],
+      ...this.createBaseState(localPlayerId),
     };
 
     // Add player to entities
@@ -1700,6 +1680,7 @@ export class Game {
       consumedSpawnMarkers: new Set(data.consumedSpawnMarkers),
       players,
       player,
+      ...this.createBaseState(localPlayerId),
       story: data.story,
       options: { fov: true, godMode: data.godMode },
       effects: data.effects,
@@ -1708,24 +1689,12 @@ export class Game {
         localPlayerId,
       },
       sim: {
+        ...this.createBaseState(localPlayerId).sim,
         nowTick: data.sim.nowTick,
         mode: data.sim.mode,
         timeScale: data.sim.timeScale,
         targetTimeScale: data.sim.targetTimeScale,
-        accumulatorMs: 0,
-        lastFrameMs: performance.now(),
-        pauseReasons: new Set(),
       },
-      commandsByTick: new Map(),
-      eventQueue: [],
-      shouldDescend: false,
-      shouldAscend: false,
-      descendTarget: undefined,
-      changedTiles: new Set(),
-      holeCreatedTiles: new Set(),
-      pendingSounds: [],
-      pendingAlerts: [],
-      pendingCallouts: [],
     };
 
     this.levels = new Map();

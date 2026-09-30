@@ -45,3 +45,11 @@
 **Action:** Extracted the portal lookup block into a new helper function `getTransitionPortal` in `commands.ts` which reduced size and improved single-responsibility. In `use-item.test.ts`, extracted `setupDeadPlayer`, `setupReloadTest`, and `setupMeleeTarget` helpers, drastically reducing test setup boilerplate and cutting the duplication report down to zero inside that file.
 
 **Prevention:** Run `npx jscpd` proactively on modified files before submitting to catch duplicated logic blocks.
+
+## 2026-09-30 - Consolidate duplicate game state initialization logic
+
+**What was found:** `src/engine/core/game.ts` contained a significant block of duplicated boilerplate logic (approx. 20 lines) for instantiating the core arrays, objects, and simulation fields of `GameState`. This exact block was repeated three times: in `createInitialState`, in `reset`, and again when loading a save in `deserialize`.
+
+**Action:** Extracted the duplicated initialization block into a new private helper `createBaseState(localPlayerId: string): Partial<GameState>`, and used object spread syntax to apply it cleanly in all three methods, reducing the file size and removing the duplication.
+
+**Prevention:** Use tools like `jscpd` to proactively identify and collapse duplicated boilerplate when initializing large state objects, especially before modifying state initialization routines.
