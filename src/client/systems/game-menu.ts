@@ -466,18 +466,20 @@ export class GameMenu {
   }
 
   private attachZoomControls(): void {
-    document.querySelectorAll("[data-zoom-value]").forEach((button) => {
-      button.addEventListener("click", () => {
-        const zoom = Number.parseInt(
-          (button as HTMLElement).dataset.zoomValue ?? "1",
-          10,
-        );
-        if (zoom === 1 || zoom === 2 || zoom === 3) {
-          this.updatePreferences({ zoom });
-          this.syncSettingsControls();
-        }
+    document
+      .querySelectorAll("#pause-dialog [data-zoom-value]")
+      .forEach((button) => {
+        button.addEventListener("click", () => {
+          const zoom = Number.parseInt(
+            (button as HTMLElement).dataset.zoomValue ?? "1",
+            10,
+          );
+          if (zoom === 1 || zoom === 2 || zoom === 3) {
+            this.updatePreferences({ zoom });
+            this.syncSettingsControls();
+          }
+        });
       });
-    });
   }
 
   private attachDevToolsControls(): void {
@@ -1228,15 +1230,17 @@ export class GameMenu {
 
   private syncSettingsControls(): void {
     this.syncSoundControls();
-    document.querySelectorAll("[data-zoom-value]").forEach((button) => {
-      const zoom = Number.parseInt(
-        (button as HTMLElement).dataset.zoomValue ?? "1",
-        10,
-      );
-      const isSelected = zoom === this.preferences.zoom;
-      button.classList.toggle("selected", isSelected);
-      button.setAttribute("aria-pressed", String(isSelected));
-    });
+    document
+      .querySelectorAll("#pause-dialog [data-zoom-value]")
+      .forEach((button) => {
+        const zoom = Number.parseInt(
+          (button as HTMLElement).dataset.zoomValue ?? "1",
+          10,
+        );
+        const isSelected = zoom === this.preferences.zoom;
+        button.classList.toggle("selected", isSelected);
+        button.setAttribute("aria-pressed", String(isSelected));
+      });
 
     const devToolsToggle = document.getElementById(
       "dev-tools-toggle",
@@ -1281,6 +1285,17 @@ export class GameMenu {
   }
 
   // ── Preferences ────────────────────────────────────────────────────────────────
+
+  /** Synchronize preferences changed through another settings surface. */
+  public setPreferences(preferences: UserPreferences): void {
+    this.preferences = {
+      ...preferences,
+      keyBindings: { ...preferences.keyBindings },
+    };
+    this.syncSettingsControls();
+    this.syncThemeButtons();
+    this.syncKeybindingControls();
+  }
 
   private updatePreferences(next: Partial<UserPreferences>): void {
     this.preferences = {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeWorldMapWindow,
   fitWorldMapCanvas,
+  nearestDisplayedTile,
   worldMapTileAtCanvasPoint,
   worldMapViewportRects,
   wrappedIntervals,
@@ -75,4 +76,25 @@ describe("discovered-world map geometry", () => {
       y: 28,
     });
   });
+
+  it("rejects the exclusive right and bottom map edges", () => {
+    const window = computeWorldMapWindow(128, 72, true, 0, 0);
+    expect(worldMapTileAtCanvasPoint(240, 60, 240, 135, window)).toBeNull();
+    expect(worldMapTileAtCanvasPoint(100, 135, 240, 135, window)).toBeNull();
+    expect(worldMapTileAtCanvasPoint(239, 134, 240, 135, window)).toEqual({
+      x: 127,
+      y: 71,
+    });
+  });
+
+  it.each([
+    [150, 0, 150],
+    [10, 200, 266],
+    [250, -80, -6],
+  ])(
+    "keeps tile %i inside the wrapped chunk starting at %i",
+    (tile, start, expected) => {
+      expect(nearestDisplayedTile(tile, start, 256, 160, true)).toBe(expected);
+    },
+  );
 });

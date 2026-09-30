@@ -798,8 +798,9 @@ class DarkWar {
     };
     savePreferences(this.preferences);
     this.applyPreferences();
-    // Keep CharacterModal in sync if prefs changed from elsewhere (e.g. GameMenu)
+    // Both settings surfaces must use the latest preferences before editing.
     this.characterModal.setPreferences(this.preferences);
+    this.gameMenu.setPreferences(this.preferences);
 
     if (this.preferences.devTools) {
       console.info("Dark War preferences updated.", this.preferences);

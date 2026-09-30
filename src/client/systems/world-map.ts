@@ -250,8 +250,8 @@ export function worldMapTileAtCanvasPoint(
   if (
     pointX < mapRect.x ||
     pointY < mapRect.y ||
-    pointX > mapRect.x + mapRect.width ||
-    pointY > mapRect.y + mapRect.height
+    pointX >= mapRect.x + mapRect.width ||
+    pointY >= mapRect.y + mapRect.height
   ) {
     return null;
   }
@@ -264,7 +264,7 @@ export function worldMapTileAtCanvasPoint(
 }
 
 /** Keep a world tile near the displayed chunk's unwrapped coordinates. */
-function nearestDisplayedTile(
+export function nearestDisplayedTile(
   tile: number,
   windowStart: number,
   mapSpan: number,
@@ -273,9 +273,10 @@ function nearestDisplayedTile(
 ): number {
   if (!wraps) return tile;
   if (windowSpan === mapSpan) return wrapValue(tile, mapSpan);
+  const windowCenter = windowStart + windowSpan / 2;
   const delta =
-    wrapValue(tile - windowStart + mapSpan / 2, mapSpan) - mapSpan / 2;
-  return windowStart + delta;
+    wrapValue(tile - windowCenter + mapSpan / 2, mapSpan) - mapSpan / 2;
+  return windowCenter + delta;
 }
 
 function isEntityAtKnownTile(state: GameState, entity: Entity): boolean {
