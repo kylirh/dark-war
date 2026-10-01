@@ -332,8 +332,9 @@ describe("Simulation Commands Management", () => {
       expect(player.nextActTick).toBe(0);
     });
 
-    it("ignores non-WAIT commands when resting", () => {
+    it("interrupts rest on non-WAIT commands", () => {
       player.resting = true;
+      player.hp = player.hpMax - 1; // Needs to be hurt to rest logically, though mocking state directly here
 
       const cmd: Command = {
         id: "cmd1",
@@ -345,9 +346,14 @@ describe("Simulation Commands Management", () => {
         data: { type: "RELOAD" },
       };
 
+      // Ensure mock player has initialized inventory for reload command fallback
+      player.inventorySlots = new Array(10).fill(null);
+      player.selectedBarSlot = 0;
+      state.pendingAlerts = [];
+
       resolveCommand(state, cmd);
 
-      expect(player.nextActTick).toBe(0);
+      expect(player.resting).toBe(false);
     });
   });
 });
