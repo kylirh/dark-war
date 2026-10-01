@@ -35,6 +35,14 @@ function dropItemOn(
   return item;
 }
 
+function setupPickupTest() {
+  const game = new Game({ mode: "offline" });
+  game.reset(1);
+  clearMonsters(game);
+  const state = game.getState();
+  return { game, state };
+}
+
 describe("monsters only consume items they actually pick up", () => {
   // Force the per-item pickup roll so the overlap always resolves.
   beforeEach(() => {
@@ -44,10 +52,7 @@ describe("monsters only consume items they actually pick up", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("leaves an un-carriable item type on the floor instead of deleting it", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
 
     const spider = spawnMonsterAtPlayer(game, MonsterType.GIANT_SPIDER);
     const coin = dropItemOn(game, spider, ItemType.COIN, 5);
@@ -60,10 +65,7 @@ describe("monsters only consume items they actually pick up", () => {
   });
 
   it("still consumes and carries a handled item type (keycard)", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
 
     const spider = spawnMonsterAtPlayer(game, MonsterType.GIANT_SPIDER);
     const card = dropItemOn(game, spider, ItemType.KEYCARD);
@@ -77,10 +79,7 @@ describe("monsters only consume items they actually pick up", () => {
   });
 
   it("lets monsters carry generic items from a player death drop", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
 
     const spider = spawnMonsterAtPlayer(game, MonsterType.GIANT_SPIDER);
     const coin = dropItemOn(game, spider, ItemType.COIN, 5);
@@ -97,10 +96,7 @@ describe("monsters only consume items they actually pick up", () => {
   });
 
   it("does not allow monsters with cannotCarryItems flag to pick up items", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
 
     const dog = spawnMonsterAtPlayer(game, MonsterType.WILD_DOG);
     const bone = dropItemOn(game, dog, ItemType.BONE);
@@ -121,10 +117,7 @@ describe("monster health and medkits", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("fleeing monsters pick up medkits from a larger radius to heal", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
 
     const spider = spawnMonsterAtPlayer(game, MonsterType.GIANT_SPIDER);
     spider.hpMax = 20;
@@ -143,10 +136,7 @@ describe("monster health and medkits", () => {
   });
 
   it("non-fleeing monsters ignore medkits", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
 
     const spider = spawnMonsterAtPlayer(game, MonsterType.GIANT_SPIDER);
     spider.hpMax = 20;
@@ -169,10 +159,7 @@ describe("explosives", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("monsters can pick up grenades and land mines", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
 
     const spider = spawnMonsterAtPlayer(game, MonsterType.GIANT_SPIDER);
     spider.grenades = 0;
@@ -204,10 +191,7 @@ describe("ranged monsters reload from ammo pickups", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("a zyth reloads its bullets instead of just stashing the ammo", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
 
     const zyth = spawnMonsterAtPlayer(game, MonsterType.ZYTH);
     zyth.bullets = 0;
@@ -221,10 +205,7 @@ describe("ranged monsters reload from ammo pickups", () => {
   });
 
   it("non-ranged monsters stash ammo in carried items instead of reloading", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
 
     const spider = spawnMonsterAtPlayer(game, MonsterType.GIANT_SPIDER);
     spider.bullets = 0;
@@ -252,10 +233,7 @@ describe("weapon-adaptive monsters", () => {
   it.each([MonsterType.ZYTH, MonsterType.TERRORIST_COLLABORATOR])(
     "%s equips a better weapon and drops its old one",
     (monsterType) => {
-      const game = new Game({ mode: "offline" });
-      game.reset(1);
-      clearMonsters(game);
-      const state = game.getState();
+      const { game, state } = setupPickupTest();
       const monster = spawnMonsterAtPlayer(game, monsterType);
       const smg = dropItemOn(game, monster, ItemType.GYROJET_SMG);
 
@@ -274,10 +252,7 @@ describe("weapon-adaptive monsters", () => {
   );
 
   it("leaves an inferior weapon on the floor", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
     const zyth = spawnMonsterAtPlayer(game, MonsterType.ZYTH);
     zyth.equippedWeapon = ItemType.LASER_PISTOL;
     const pistol = dropItemOn(game, zyth, ItemType.PISTOL);
@@ -289,10 +264,7 @@ describe("weapon-adaptive monsters", () => {
   });
 
   it("powercells recharge an adaptive monster's laser pistol", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
 
     const zyth = spawnMonsterAtPlayer(game, MonsterType.ZYTH);
     zyth.equippedWeapon = ItemType.LASER_PISTOL;
@@ -307,10 +279,7 @@ describe("weapon-adaptive monsters", () => {
   });
 
   it("powercells are stashed by non-laser adaptive monsters", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    clearMonsters(game);
-    const state = game.getState();
+    const { game, state } = setupPickupTest();
 
     const zyth = spawnMonsterAtPlayer(game, MonsterType.ZYTH);
     zyth.equippedWeapon = ItemType.GYROJET_SMG;
