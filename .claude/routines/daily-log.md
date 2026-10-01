@@ -389,13 +389,23 @@ pull request is coverage only.
    any uppercase character, so a `Claude-Session:` trailer still cannot be added
    locally without breaking the URL.
 
-6. **Branch hygiene is healthy now.** The September cleanup plus
-   `delete_branch_on_merge` left only `main` and one leftover. Nothing was
-   deletable this run. `fix-resting-interruption-15824223162374495795` is #328's
-   head and is **unmerged** — Jules pushed `4f317a9 Revert changes as PR was
-closed` onto it after the close — so it is left for a human. Pushing commits
-   worked fine this run; branch deletion was never attempted because nothing
-   qualified.
+6. **Branch deletion still 403s, and Jules pushes to branches after they
+   close.** One deletion was attempted this run, with a lease, and failed the
+   same way as every previous run: `git push origin --delete` returns HTTP 403.
+   Pushing commits works fine; it is deletion specifically. One attempt is
+   enough — do not retry.
+
+   More useful than the 403: **both bot branches moved after their pull request
+   closed.** `janitor/test-setup-consolidation-...` was merged at 07:21:14 and
+   Jules pushed `f665559` onto it at 07:22:17, which is simply the branch's
+   pre-review state — it would restore the mid-file `Player` import, drop the
+   delegation to `interact`, and drop the return types.
+   `fix-resting-interruption-15824223162374495795` (#328, closed unmerged) got
+   `4f317a9 Revert changes as PR was closed`. Both branches therefore carry
+   commits not in `main` and are **not** deletable under the routine's own
+   fully-merged rule, 403 or no 403. This is the 2026-09-19 hazard again — a bot
+   answering review by pushing over it — and the reason to re-check the diff
+   immediately before merging and to pin the head sha at merge time.
 
 7. **`deserialize`'s field order is load-bearing and was almost untested.** It
    spreads `createBaseState()` and then overrides the five fields a save carries.
