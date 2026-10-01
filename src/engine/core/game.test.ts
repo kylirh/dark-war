@@ -153,6 +153,51 @@ describe("Game serialize/deserialize round-trip", () => {
     expect(after.sim.pauseReasons.size).toBe(0);
   });
 
+  it("carries the remaining save-backed state fields across a load", () => {
+    // `deserialize` builds its state by spreading `createBaseState()` and then
+    // overriding the fields a save actually carries. That ordering is the only
+    // thing keeping these four from reverting to a fresh level's defaults, and
+    // it is invisible to every other test: moving the spread below the
+    // overrides leaves the whole suite green. Each value below differs from the
+    // default the base state supplies, so a silently reset field fails here.
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+
+    const state = game.getState();
+    state.story.push("the workshop lights came back on");
+    state.options.godMode = true;
+    state.effects.push({
+      id: "fx1",
+      type: "spark",
+      worldX: 64,
+      worldY: 96,
+      ageTicks: 2,
+      durationTicks: 10,
+    });
+
+    // `reset` already seeds a story line, so compare against the whole log as
+    // it stood at save time rather than just the appended entry.
+    const expectedStory = [...state.story];
+    expect(expectedStory.length).toBeGreaterThan(0);
+
+    const restored = new Game({ mode: "offline" });
+    restored.deserialize(game.serialize());
+    const after = restored.getState();
+
+    expect(after.story).toEqual(expectedStory);
+    expect(after.options.godMode).toBe(true);
+    expect(after.effects).toEqual([
+      {
+        id: "fx1",
+        type: "spark",
+        worldX: 64,
+        worldY: 96,
+        ageTicks: 2,
+        durationTicks: 10,
+      },
+    ]);
+  });
+
   it("rejects legacy scalar saves without a world plane", () => {
     const game = new Game({ mode: "offline" });
     expect(() =>
