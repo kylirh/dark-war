@@ -55,3 +55,22 @@
 **Reviewer correction:** the helper's return type is an explicit `Pick<GameState, ...>` naming the fifteen fields it owns, not `Partial<GameState>`. `Partial` would be the wrong choice here: it makes every field optional, so the three call-site object literals would no longer be checked for completeness and a missing `GameState` field would type-check. `Pick` keeps that check intact.
 
 **Prevention:** Use tools like `jscpd` to proactively identify and collapse duplicated boilerplate when initializing large state objects, especially before modifying state initialization routines.
+
+## 2026-10-01 - Consolidate duplicate test setups for items and vending machines
+
+**What was found:** `src/engine/systems/simulation/monster-pickup.test.ts` and `src/engine/systems/simulation/panic-vending.test.ts` contained repeated game setup boilerplate (e.g. `new Game`, `game.reset(1)`, `clearMonsters`) and repeated complex interactions like spawning an item entity and enqueuing an `INTERACT` command across multiple `it` blocks. This was discovered via `jscpd`.
+
+**Action:** Extracted the duplicated boilerplate into `setupPickupTest()` inside
+`monster-pickup.test.ts` (13 call sites), and the vending machine sequence into
+`interactVendingMachine(game, player)` inside `panic-vending.test.ts` (3 call sites).
+
+**Reviewer correction:** the vending helper originally re-implemented the body of the
+`interact(game, x, y)` helper already sitting ten lines above it in the same file —
+a second copy of the enqueue-and-step block, introduced by a change whose whole
+purpose was removing copies. It now spawns the machine and delegates to `interact`,
+which is the extraction the duplication actually called for. Its `Player` import had
+also been added in the middle of the file rather than to the existing `../../types`
+import at the top, and neither new helper declared a return type, which the file's
+own `interact` and `dropItemOn` both do.
+
+**Prevention:** Run `npx jscpd` proactively to detect block-level duplications, and extract generic test initialization or repetitive entity creation steps into scoped helper functions when writing new tests or refactoring.
