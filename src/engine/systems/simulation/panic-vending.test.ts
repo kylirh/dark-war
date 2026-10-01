@@ -26,11 +26,11 @@ function interact(
   return state;
 }
 
-import { PlayerEntity } from "../../entities/player-entity";
+import { Player } from "../../types";
 
 function interactVendingMachine(
   state: ReturnType<Game["getState"]>,
-  player: PlayerEntity,
+  player: Player,
 ) {
   const mx = player.gridX + 1;
   const my = player.gridY;
