@@ -35,7 +35,11 @@ function dropItemOn(
   return item;
 }
 
-function setupPickupTest() {
+/** A fresh offline game with the generated monsters cleared out. */
+function setupPickupTest(): {
+  game: Game;
+  state: ReturnType<Game["getState"]>;
+} {
   const game = new Game({ mode: "offline" });
   game.reset(1);
   clearMonsters(game);

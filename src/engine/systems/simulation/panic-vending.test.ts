@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "../../core/game";
 import { ItemEntity } from "../../entities/item-entity";
-import { ItemType, CommandType, TileType } from "../../types";
+import { ItemType, CommandType, TileType, Player } from "../../types";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { stepSimulationTick } from "./tick";
@@ -26,25 +26,17 @@ function interact(
   return state;
 }
 
-import { Player } from "../../types";
-
+/** Spawn a vending machine beside the player and interact with it once. */
 function interactVendingMachine(
-  state: ReturnType<Game["getState"]>,
+  game: Game,
   player: Player,
-) {
+): ReturnType<Game["getState"]> {
   const mx = player.gridX + 1;
   const my = player.gridY;
-  state.entityManager.spawn(new ItemEntity(mx, my, ItemType.VENDING_MACHINE));
-
-  enqueueCommand(state, {
-    tick: state.sim.nowTick,
-    actorId: player.id,
-    type: CommandType.INTERACT,
-    data: { type: "INTERACT", x: mx, y: my },
-    priority: 0,
-    source: "PLAYER",
-  });
-  stepSimulationTick(state);
+  game
+    .getState()
+    .entityManager.spawn(new ItemEntity(mx, my, ItemType.VENDING_MACHINE));
+  return interact(game, mx, my);
 }
 
 describe("locked doors", () => {
@@ -173,7 +165,7 @@ describe("vending machine", () => {
     const player = state.player;
     player.itemCounts[ItemType.COIN] = 10;
 
-    interactVendingMachine(state, player);
+    interactVendingMachine(game, player);
 
     expect(player.itemCounts[ItemType.COIN]).toBe(5); // -5 per purchase
   });
@@ -192,7 +184,7 @@ describe("vending machine", () => {
       true,
     );
 
-    interactVendingMachine(state, player);
+    interactVendingMachine(game, player);
 
     expect(player.itemCounts[ItemType.COIN]).toBeUndefined();
     expect(player.inventorySlots.some((s) => s.type === ItemType.COIN)).toBe(
@@ -207,7 +199,7 @@ describe("vending machine", () => {
     const player = state.player;
     player.itemCounts[ItemType.COIN] = 2;
 
-    interactVendingMachine(state, player);
+    interactVendingMachine(game, player);
     expect(player.itemCounts[ItemType.COIN]).toBe(2); // unchanged
   });
 });
