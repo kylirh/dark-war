@@ -26,6 +26,27 @@ function interact(
   return state;
 }
 
+import { Player } from "../../types";
+
+function interactVendingMachine(
+  state: ReturnType<Game["getState"]>,
+  player: Player,
+) {
+  const mx = player.gridX + 1;
+  const my = player.gridY;
+  state.entityManager.spawn(new ItemEntity(mx, my, ItemType.VENDING_MACHINE));
+
+  enqueueCommand(state, {
+    tick: state.sim.nowTick,
+    actorId: player.id,
+    type: CommandType.INTERACT,
+    data: { type: "INTERACT", x: mx, y: my },
+    priority: 0,
+    source: "PLAYER",
+  });
+  stepSimulationTick(state);
+}
+
 describe("locked doors", () => {
   beforeEach(() => RNG.reseed(1));
 
@@ -152,19 +173,7 @@ describe("vending machine", () => {
     const player = state.player;
     player.itemCounts[ItemType.COIN] = 10;
 
-    const mx = player.gridX + 1;
-    const my = player.gridY;
-    state.entityManager.spawn(new ItemEntity(mx, my, ItemType.VENDING_MACHINE));
-
-    enqueueCommand(state, {
-      tick: state.sim.nowTick,
-      actorId: player.id,
-      type: CommandType.INTERACT,
-      data: { type: "INTERACT", x: mx, y: my },
-      priority: 0,
-      source: "PLAYER",
-    });
-    stepSimulationTick(state);
+    interactVendingMachine(state, player);
 
     expect(player.itemCounts[ItemType.COIN]).toBe(5); // -5 per purchase
   });
@@ -183,19 +192,7 @@ describe("vending machine", () => {
       true,
     );
 
-    const mx = player.gridX + 1;
-    const my = player.gridY;
-    state.entityManager.spawn(new ItemEntity(mx, my, ItemType.VENDING_MACHINE));
-
-    enqueueCommand(state, {
-      tick: state.sim.nowTick,
-      actorId: player.id,
-      type: CommandType.INTERACT,
-      data: { type: "INTERACT", x: mx, y: my },
-      priority: 0,
-      source: "PLAYER",
-    });
-    stepSimulationTick(state);
+    interactVendingMachine(state, player);
 
     expect(player.itemCounts[ItemType.COIN]).toBeUndefined();
     expect(player.inventorySlots.some((s) => s.type === ItemType.COIN)).toBe(
@@ -210,19 +207,7 @@ describe("vending machine", () => {
     const player = state.player;
     player.itemCounts[ItemType.COIN] = 2;
 
-    const mx = player.gridX + 1;
-    const my = player.gridY;
-    state.entityManager.spawn(new ItemEntity(mx, my, ItemType.VENDING_MACHINE));
-
-    enqueueCommand(state, {
-      tick: state.sim.nowTick,
-      actorId: player.id,
-      type: CommandType.INTERACT,
-      data: { type: "INTERACT", x: mx, y: my },
-      priority: 0,
-      source: "PLAYER",
-    });
-    stepSimulationTick(state);
+    interactVendingMachine(state, player);
     expect(player.itemCounts[ItemType.COIN]).toBe(2); // unchanged
   });
 });
