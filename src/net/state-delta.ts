@@ -523,19 +523,24 @@ function shallowJsonEqual(a: unknown, b: unknown): boolean {
 
   const objA = a as Record<string, unknown>;
   const objB = b as Record<string, unknown>;
-  const keysA = Object.keys(objA);
-  const keysB = Object.keys(objB);
-  if (keysA.length !== keysB.length) return false;
 
-  for (let i = 0; i < keysA.length; i++) {
-    const key = keysA[i];
-    if (
-      !Object.prototype.hasOwnProperty.call(objB, key) ||
-      !shallowJsonEqual(objA[key], objB[key])
-    ) {
-      return false;
+  let countA = 0;
+  for (const key in objA) {
+    if (Object.prototype.hasOwnProperty.call(objA, key)) {
+      countA++;
+      if (!Object.prototype.hasOwnProperty.call(objB, key)) return false;
+      const valA = objA[key];
+      const valB = objB[key];
+      if (valA !== valB && !shallowJsonEqual(valA, valB)) {
+        return false;
+      }
     }
   }
 
-  return true;
+  let countB = 0;
+  for (const key in objB) {
+    if (Object.prototype.hasOwnProperty.call(objB, key)) countB++;
+  }
+
+  return countA === countB;
 }
