@@ -146,8 +146,39 @@ would silently strand stale values on clients. Coverage was added in
 
 ## 2026-10-01 - Optimize shallowJsonEqual object traversal
 
-**What was found:** `shallowJsonEqual` used `Object.keys()` to iterate over object keys for recursive equality checks in `state-delta.ts`. This was unnecessarily allocating an array of keys for every object comparison during the hot path of state delta encoding (which scales by player count times entity count), leading to heavy garbage collection pressure and wasted CPU cycles on the server.
+**What was found:** `shallowJsonEqual` used `Object.keys()` on both operands for every
+object comparison, on the per-entity hot path at `state-delta.ts:371` (which scales by
+player count times entity count). Each call allocated a key array that was read once and
+discarded.
 
-**Action:** Replaced `Object.keys(objA)` and `Object.keys(objB)` with zero-allocation `for...in` loops and `hasOwnProperty` checks. The new traversal first checks all keys in `a` and their matching values in `b`, while counting them. Then it counts keys in `b` and verifies both counts match. A microbenchmark showed a roughly 27% reduction in time taken per delta iteration and avoided allocations in the main equality check.
+**Action:** Replaced both `Object.keys()` calls with `for...in` loops guarded by
+`hasOwnProperty`. The first loop walks `a`'s own keys, checks each is present in `b`,
+compares the values, and counts; a second loop counts `b`'s own keys; the result is the
+count comparison. Measured on this box with both implementations in one process, rounds
+interleaved, over 500 real serialized entities: **-38% all-unchanged, -39% at a realistic
+20%-changed mix, -42% all-changed**, which is about a 15% cut in total `computeStateDelta`
+time, since the comparison is roughly a third of it. Cross-process A/B of the two branches
+was useless here — single-run `computeStateDelta` medians swing +-30% on this hardware, so
+isolate both variants in one process before believing any number.
 
-**Prevention:** Avoid allocating intermediate arrays like `Object.keys()` or `Object.values()` during recursive traversal on high-frequency paths (like multiplayer serialization/delta encoding). Prefer zero-allocation constructs like `for...in` loops.
+**Two things not to undo:**
+
+- The key-count check **moved from before the traversal to after it**, and that is the one
+  semantic restructure in the change. `Object.keys()` handed both lengths over for free, so
+  a shape mismatch used to exit before any recursion; now a differing key set costs a full
+  walk of `a` first. That is the price of not allocating, and it is the right trade because
+  identical shapes dominate: an entity is compared against its own prior serialization.
+  Both new branches are mutation-covered — replacing `return countA === countB` with
+  `return true` fails "detects an added property", and dropping the
+  `hasOwnProperty(objB, key)` presence check fails "detects differing keys that both hold
+  undefined".
+- The inline `valA !== valB` guard before the recursive call looks redundant, because
+  `shallowJsonEqual` already opens with `if (a === b) return true`. Measured alone on top of
+  the `Object.keys()` version it is worth -1.4%, i.e. nothing. Combined with `for...in` it is
+  worth about 7 points (-31% without it, -38% with), so it earns its place only in this form.
+
+**Prevention:** On a hot recursive path, prefer measuring to reasoning about allocation.
+`for...in` plus `hasOwnProperty` beat `Object.keys()` _here_, on small plain objects walked
+to completion — it is not a general rule, and V8 optimizes `Object.keys()` well enough that
+the opposite result is common. Benchmark both variants in a single process with interleaved
+rounds, and report the spread, not one number.
