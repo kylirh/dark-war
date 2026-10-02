@@ -131,3 +131,11 @@
 **Action:** Added a dedicated test in `src/engine/systems/simulation/events.test.ts` where a player with 10 HP and 5 armor is hit with a sub-1 (0.5) damage event. Verified through mutation that removing the `Math.min(1, rawIncoming)` logic correctly caused the test to fail by rounding the HP loss up to 1.
 
 **Prevention:** Ensure damage mitigation bounds (e.g. minimum damage clamps) explicitly handle sub-1 attack scenarios in tests so that protective mechanics don't become penalties for specific enemy damage profiles.
+
+## 2026-09-30 - Add missing test coverage for mining workshop structures
+
+**What was found:** In `src/engine/systems/simulation/commands.ts`, the `resolveMineCommand` function explicitly checks if the structure being mined is a `WORKSHOP` or `WORKSHOP_FOOTPRINT` and aborts with an alert if so. This logic prevents the player from destroying the permanent settlement structure on the surface. However, this specific behavioral decision lacked test coverage, leaving it vulnerable to being removed in future refactors without causing any tests to fail.
+
+**Action:** Added a dedicated behavioral test in `src/engine/systems/simulation/matter-manipulator.test.ts` ("refuses to mine the permanent workshop structure") that sets up a tile with `StructureType.WORKSHOP`, attempts to mine it, and verifies that the structure remains intact and the appropriate alert message is appended to `state.pendingAlerts`. Confirmed the test protects the behavior by manually mutating the engine code to bypass the check, ensuring the test fails.
+
+**Prevention:** Ensure explicit structural protections (like making certain map features indestructible or immutable) are tested so that they cannot be accidentally removed or bypassed as systems evolve.
