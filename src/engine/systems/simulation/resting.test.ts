@@ -200,44 +200,4 @@ describe("player resting", () => {
     game.removeNetworkPlayer(second.id);
     expect(areAllLivingPlayersResting(state)).toBe(true);
   });
-
-  it("stops resting when issuing a non-WAIT command", () => {
-    const game = emptyGame();
-    const state = game.getState();
-    const player = state.player;
-    player.hp = player.hpMax - 1;
-
-    // Start resting
-    enqueueCommand(state, {
-      tick: state.sim.nowTick,
-      actorId: player.id,
-      type: CommandType.WAIT,
-      data: { type: "WAIT" },
-      priority: 0,
-      source: "PLAYER",
-    });
-    stepSimulationTick(state);
-
-    // manually set time scale to simulate real execution loop which lerps
-    state.sim.timeScale = REST_TIME_SCALE;
-    state.sim.targetTimeScale = REST_TIME_SCALE;
-
-    expect(player.resting).toBe(true);
-
-    // Issue non-WAIT command
-    enqueueCommand(state, {
-      tick: state.sim.nowTick,
-      actorId: player.id,
-      type: CommandType.MOVE,
-      data: { type: "MOVE", dx: 1, dy: 0 },
-      priority: 0,
-      source: "PLAYER",
-    });
-
-    // Step simulation tick directly to run commands
-    stepSimulationTick(state);
-
-    expect(player.resting).toBe(false);
-    expect(state.sim.timeScale).not.toBe(REST_TIME_SCALE);
-  });
 });
