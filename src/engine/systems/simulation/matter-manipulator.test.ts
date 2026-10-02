@@ -74,6 +74,16 @@ function wallBesidePlayer(game: Game): { tileX: number; tileY: number } {
   return { tileX, tileY };
 }
 
+function setupMatterManipulatorTest() {
+  const game = new Game({ mode: "offline" });
+  game.reset(1);
+  const state = game.getState();
+  state.player.hasMatterManipulator = true;
+  const tileX = state.player.gridX + 1;
+  const tileY = state.player.gridY;
+  return { game, state, tileX, tileY };
+}
+
 describe("Matter Manipulator", () => {
   beforeEach(() => RNG.reseed(7));
 
@@ -230,12 +240,7 @@ describe("Matter Manipulator", () => {
   });
 
   it("mines water as water and can place it again", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    state.player.hasMatterManipulator = true;
-    const tileX = state.player.gridX + 1;
-    const tileY = state.player.gridY;
+    const { game, state, tileX, tileY } = setupMatterManipulatorTest();
     state.worldPlane.editCell(tileX, tileY, {
       ground: GroundType.WATER_DEEP,
       structure: StructureType.NONE,
@@ -269,12 +274,7 @@ describe("Matter Manipulator", () => {
   });
 
   it("removes a holowall into a placeable holowall item", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    state.player.hasMatterManipulator = true;
-    const tileX = state.player.gridX + 1;
-    const tileY = state.player.gridY;
+    const { game, state, tileX, tileY } = setupMatterManipulatorTest();
     setStateTile(state, tileX, tileY, TileType.HOLOWALL);
 
     mine(game, tileX, tileY);
@@ -292,12 +292,7 @@ describe("Matter Manipulator", () => {
   });
 
   it("never turns floor into a hole", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    state.player.hasMatterManipulator = true;
-    const tileX = state.player.gridX + 1;
-    const tileY = state.player.gridY;
+    const { game, state, tileX, tileY } = setupMatterManipulatorTest();
     state.worldPlane.editCell(tileX, tileY, {
       ground: GroundType.FLOOR,
       structure: StructureType.NONE,
@@ -346,12 +341,7 @@ describe("Matter Manipulator", () => {
   });
 
   it("raises and lowers clear semantic terrain with bounded invalidation", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    state.player.hasMatterManipulator = true;
-    const tileX = state.player.gridX + 1;
-    const tileY = state.player.gridY;
+    const { game, state, tileX, tileY } = setupMatterManipulatorTest();
     state.worldPlane.editCell(tileX, tileY, {
       ground: GroundType.DIRT,
       structure: StructureType.NONE,
@@ -377,12 +367,7 @@ describe("Matter Manipulator", () => {
   });
 
   it("does not reshape static water", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    state.player.hasMatterManipulator = true;
-    const tileX = state.player.gridX + 1;
-    const tileY = state.player.gridY;
+    const { game, state, tileX, tileY } = setupMatterManipulatorTest();
     state.worldPlane.editCell(tileX, tileY, {
       ground: GroundType.WATER_SHALLOW,
       structure: StructureType.NONE,
@@ -399,12 +384,7 @@ describe("Matter Manipulator", () => {
   });
 
   it("keeps player-authored terraces within the visual elevation range", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    state.player.hasMatterManipulator = true;
-    const tileX = state.player.gridX + 1;
-    const tileY = state.player.gridY;
+    const { game, state, tileX, tileY } = setupMatterManipulatorTest();
     state.worldPlane.editCell(tileX, tileY, {
       ground: GroundType.DIRT,
       structure: StructureType.NONE,
