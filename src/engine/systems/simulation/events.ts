@@ -1016,6 +1016,12 @@ function processPlayerDeathEvent(state: GameState, event: GameEvent): void {
 
   alertPlayer(state, "You have died.", data.playerId);
 
+  // Cancel any pending level transitions to prevent transitioning while dead
+  state.shouldDescend = false;
+  state.shouldAscend = false;
+  state.descendTarget = undefined;
+  state.pendingPortalId = undefined;
+
   // Note: Additional death handling (showing overlay, time adjustment)
   // is done in Game.updateDeathStatus() which is called after each simulation tick
 }
