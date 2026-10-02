@@ -74,7 +74,12 @@ function wallBesidePlayer(game: Game): { tileX: number; tileY: number } {
   return { tileX, tileY };
 }
 
-function setupMatterManipulatorTest() {
+function setupMatterManipulatorTest(): {
+  game: Game;
+  state: ReturnType<Game["getState"]>;
+  tileX: number;
+  tileY: number;
+} {
   const game = new Game({ mode: "offline" });
   game.reset(1);
   const state = game.getState();
@@ -137,14 +142,8 @@ describe("Matter Manipulator", () => {
   });
 
   it("places a stored wall block back onto open floor", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    state.player.hasMatterManipulator = true;
+    const { game, state, tileX, tileY } = setupMatterManipulatorTest();
     state.player.itemCounts[ItemType.WALL_BLOCK] = 2;
-
-    const tileX = state.player.gridX + 1;
-    const tileY = state.player.gridY;
     setStateTile(state, tileX, tileY, TileType.FLOOR);
 
     place(game, tileX, tileY, ItemType.WALL_BLOCK);
@@ -155,14 +154,8 @@ describe("Matter Manipulator", () => {
   });
 
   it("places a holowall item as an indestructible holowall tile", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    state.player.hasMatterManipulator = true;
+    const { game, state, tileX, tileY } = setupMatterManipulatorTest();
     state.player.itemCounts[ItemType.HOLOWALL] = 1;
-
-    const tileX = state.player.gridX + 1;
-    const tileY = state.player.gridY;
     setStateTile(state, tileX, tileY, TileType.FLOOR);
 
     place(game, tileX, tileY, ItemType.HOLOWALL);
@@ -190,14 +183,8 @@ describe("Matter Manipulator", () => {
   });
 
   it("refuses to place a non-placeable item", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-    state.player.hasMatterManipulator = true;
+    const { game, state, tileX, tileY } = setupMatterManipulatorTest();
     state.player.itemCounts[ItemType.COOKIE] = 3;
-
-    const tileX = state.player.gridX + 1;
-    const tileY = state.player.gridY;
     setStateTile(state, tileX, tileY, TileType.FLOOR);
 
     place(game, tileX, tileY, ItemType.COOKIE);
@@ -391,12 +378,7 @@ describe("Matter Manipulator", () => {
     ["workshop footprint", StructureType.WORKSHOP_FOOTPRINT],
   ] as const) {
     it(`refuses to mine the permanent ${label}`, () => {
-      const game = new Game({ mode: "offline" });
-      game.reset(1);
-      const state = game.getState();
-      state.player.hasMatterManipulator = true;
-      const tileX = state.player.gridX + 1;
-      const tileY = state.player.gridY;
+      const { game, state, tileX, tileY } = setupMatterManipulatorTest();
       state.worldPlane.editCell(tileX, tileY, {
         ground: GroundType.DIRT,
         structure,

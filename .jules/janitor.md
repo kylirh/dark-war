@@ -75,10 +75,12 @@ own `interact` and `dropItemOn` both do.
 
 **Prevention:** Run `npx jscpd` proactively to detect block-level duplications, and extract generic test initialization or repetitive entity creation steps into scoped helper functions when writing new tests or refactoring.
 
-## 2024-05-24 - Consolidate duplicated test setup in matter manipulator
+## 2026-10-02 - Consolidate duplicated test setup in matter manipulator
 
-**What was found:** The test file `src/engine/systems/simulation/matter-manipulator.test.ts` contained a highly duplicated test setup block spanning 6 test cases, where the game engine state was manually instantiated and a matter manipulator item added to the player entity.
+**What was found:** The test file `src/engine/systems/simulation/matter-manipulator.test.ts` repeated the same six-line setup block — `new Game`, `game.reset(1)`, `getState`, `hasMatterManipulator = true`, and the `gridX + 1` target cell — across ten `it` blocks. Discovered via `jscpd`.
 
-**Action:** Extracted the 8-line setup block into a new `setupMatterManipulatorTest` helper function that properly returns the variables (`{ game, state, tileX, tileY }`) needed by each specific test scope. This reduced boilerplate and eliminated 15 lines of net code duplication.
+**Action:** Extracted it into a `setupMatterManipulatorTest()` helper returning `{ game, state, tileX, tileY }`. Net effect against `main`: 33 insertions, 63 deletions.
 
-**Prevention:** Future invocations should prioritize resolving `jscpd` identified test duplications using similar setup helpers or beforeEach refactoring where state scopes allow. Output from `jscpd` should be explicitly redirected to a readable file to avoid truncation when verifying block indices.
+**Reviewer correction:** the helper was declared without a return type, which this log's 2026-10-01 entry had already called out on the previous pair of extracted helpers — the file's own `interact` and `dropItemOn` both declare one. It now returns an explicit shape. The first pass also converted only six of the ten identical call sites: three differed from the extracted block by a single `itemCounts` line, and one was the parameterized workshop test that landed in #334 while this was open. All ten now use the helper. The six blocks left alone genuinely differ: two derive their target from `wallBesidePlayer`, two call `game.reset(0)` for the surface, one sets `hasMatterManipulator = false` because that is the behaviour under test, and one aims at `gridX + 40` to land outside manipulator reach.
+
+**Prevention:** Declare a return type on every extracted helper — this is now the second entry correcting the same omission. When a duplicated block is followed by one differing line, the differing line belongs at the call site, not in a second copy of the block. And finish the sweep: count the matching call sites before extracting, so a consolidation does not leave near-identical copies behind.
