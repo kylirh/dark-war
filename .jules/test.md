@@ -132,10 +132,10 @@
 
 **Prevention:** Ensure damage mitigation bounds (e.g. minimum damage clamps) explicitly handle sub-1 attack scenarios in tests so that protective mechanics don't become penalties for specific enemy damage profiles.
 
-## 2026-09-30 - Add missing test coverage for mining workshop structures
+## 2026-10-02 - Add missing test coverage for mining workshop structures
 
 **What was found:** In `src/engine/systems/simulation/commands.ts`, the `resolveMineCommand` function explicitly checks if the structure being mined is a `WORKSHOP` or `WORKSHOP_FOOTPRINT` and aborts with an alert if so. This logic prevents the player from destroying the permanent settlement structure on the surface. However, this specific behavioral decision lacked test coverage, leaving it vulnerable to being removed in future refactors without causing any tests to fail.
 
-**Action:** Added a dedicated behavioral test in `src/engine/systems/simulation/matter-manipulator.test.ts` ("refuses to mine the permanent workshop structure") that sets up a tile with `StructureType.WORKSHOP`, attempts to mine it, and verifies that the structure remains intact and the appropriate alert message is appended to `state.pendingAlerts`. Confirmed the test protects the behavior by manually mutating the engine code to bypass the check, ensuring the test fails.
+**Action:** Added a behavioral test in `src/engine/systems/simulation/matter-manipulator.test.ts` for each arm of the guard, `StructureType.WORKSHOP` and `StructureType.WORKSHOP_FOOTPRINT`. Each attempts to mine the cell and verifies that the structure survives and the alert is appended to `state.pendingAlerts`. Mutation-checked: bypassing the whole guard fails both, and dropping only the footprint arm fails only the footprint case. Covering just `WORKSHOP`, as this entry originally did, left the footprint arm deletable with all 894 tests still passing.
 
 **Prevention:** Ensure explicit structural protections (like making certain map features indestructible or immutable) are tested so that they cannot be accidentally removed or bypassed as systems evolve.
