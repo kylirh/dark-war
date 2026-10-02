@@ -398,6 +398,37 @@ describe("Matter Manipulator", () => {
     ).toBe(-3);
   });
 
+  it.each([StructureType.WORKSHOP, StructureType.WORKSHOP_FOOTPRINT])(
+    "refuses to mine the permanent %s structure",
+    (structureType) => {
+      const game = new Game({ mode: "offline" });
+      game.reset(1);
+      const state = game.getState();
+      state.player.hasMatterManipulator = true;
+      const tileX = state.player.gridX + 1;
+      const tileY = state.player.gridY;
+      state.worldPlane.editCell(tileX, tileY, {
+        ground: GroundType.DIRT,
+        structure: structureType,
+        fixture: FixtureType.NONE,
+        elevation: 0,
+      });
+      const startAlerts = state.pendingAlerts.length;
+
+      mine(game, tileX, tileY);
+
+      expect(
+        state.worldPlane.layers.structure[
+          state.worldPlane.indexFor(tileX, tileY)
+        ],
+      ).toBe(structureType);
+      expect(state.pendingAlerts.length).toBeGreaterThan(startAlerts);
+      expect(state.pendingAlerts.at(-1)?.message).toContain(
+        "permanent part of the settlement",
+      );
+    },
+  );
+
   it("keeps player-authored terraces within the visual elevation range", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
