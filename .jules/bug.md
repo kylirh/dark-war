@@ -1,8 +1,25 @@
+## 2026-10-02 - Cancel level transitions upon player death
 
-## 2024-10-02 - Cancel level transitions upon player death
+**What was found:** `shouldDescend` / `shouldAscend` are set while commands
+resolve in step 1 of `stepSimulationTick`, but the host consumes them only after
+the tick ends (`src/client/main.ts:1616-1634`). `processEventQueue` runs in
+between (step 4), so any damage event that lands in the same tick — a monster's
+melee, an explosive detonating, a hole fall — could kill the player after the
+transition was already committed. The host then ran `Game.descend()` /
+`Game.ascend()` for a dead player.
 
-**What was found:** A bug where if a player initiated a level transition (`DESCEND` or `ASCEND`) and then died within the same simulation tick (e.g., from delayed explosion damage processed in the event queue), the pending transition flags (`shouldDescend`, `shouldAscend`) were not cleared. This caused the game to erroneously process a level transition for a dead player at the end of the tick.
+**Action:** `processPlayerDeathEvent` in
+`src/engine/systems/simulation/events.ts` now clears `shouldDescend`,
+`shouldAscend`, `descendTarget`, and `pendingPortalId`. Covered by
+`death-transition.test.ts` for the descend, ascend, and lethal-hole-fall paths;
+each of the four cleared fields fails a test when dropped individually.
 
-**Action:** Updated `processPlayerDeathEvent` in `src/engine/systems/simulation/events.ts` to explicitly clear pending level transitions by setting `state.shouldDescend = false`, `state.shouldAscend = false`, `state.descendTarget = undefined`, and `state.pendingPortalId = undefined` when the player dies.
+**Scope note:** the shared flags are an offline-only mechanism. The multiplayer
+server clears both after every tick (`server/multiplayer-server.ts:880-883`)
+because per-player migration is handled by the room, so this cannot cancel
+another player's transition.
 
-**Prevention:** Always consider the state invalidation effects of actor death on pending actions or delayed transitions. Any state flags set by a command (like `shouldDescend`) that are evaluated later in the tick (or after the tick) must be aborted if the actor dies in the interim.
+**Prevention:** Always consider the state invalidation effects of actor death on
+pending actions or delayed transitions. Any state flags set by a command that
+are evaluated later in the tick (or after the tick) must be aborted if the actor
+dies in the interim.
