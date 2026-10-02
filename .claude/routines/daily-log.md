@@ -328,3 +328,102 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-02
+
+**Merged:**
+
+- **#333** `fix(simulation): cancel pending level transitions when the player dies` —
+  Bug. `shouldDescend` / `shouldAscend` are set in step 1 of
+  `stepSimulationTick` but consumed by the host only after the tick returns
+  (`main.ts:1616-1634`, `:2415`, `:2455`), with `processEventQueue` running
+  between them at step 4. Any damage in that window — monster melee, explosive,
+  hole fall — killed the player after the transition was committed, and the host
+  then ran `Game.descend()` for a corpse. Oracle verified: reverting only
+  `events.ts` reproduces the failure. Corrected on the branch — the test pinned
+  only one of the four cleared fields, so the other three were deletable, and
+  the fix silently changed hole-fall behaviour (at `hp <= 3` the fall is its own
+  lethal blow, so it is now cancelled and the player dies on the upper floor).
+- **#334** `test(simulation): cover workshop protection in matter manipulator` —
+  Test. Oracle verified: bypassing the guard failed the new test and nothing
+  else. Corrected on the branch — the guard refuses `WORKSHOP` **and**
+  `WORKSHOP_FOOTPRINT`, and only the first was covered; dropping the footprint
+  arm left all 894 tests green. The footprint is what `terrain-prototype.ts:385`
+  stamps around the building, so it is the arm that actually stops a player
+  tunnelling in at the edges.
+- **#336** `refactor(simulation): consolidate test setup in matter manipulator` —
+  Janitor. Real duplication, behaviour-preserving (895 tests before and after).
+  Corrected on the branch: no return type on the helper, and only six of ten
+  identical call sites converted.
+
+**Closed:**
+
+- **#335** `fix(simulation): interrupt resting on non-wait commands` — the
+  **fifth** proposal of this change after #321, #325 and #328. The oracle is
+  circular: the test has to hand-write `state.sim.timeScale = REST_TIME_SCALE`
+  ("manually set time scale to simulate real execution loop which lerps") before
+  it can detect anything, and the remaining assertion is just the new behaviour.
+  It also drives the guard with a `source: "PLAYER"` `CommandType.MOVE`, which
+  the game never produces.
+- **#332** `docs(adr): propose splitting client main responsibility` — Architect.
+  Both evidence claims measured false (see below).
+
+**Found in main:** no correctness defect. The window was exactly the three
+merges above, and the only production change in it is the six-line clear in
+`events.ts`. The Phase 2 pull request is cleanup of what landed: `#333` created
+`death-transition.test.ts` as a third copy of a fixture
+`level-transitions.test.ts` already owns.
+
+**For next time — things a later run should believe without re-deriving:**
+
+1. **The `REST_TIME_SCALE` leak does not exist, and here is the reason it keeps
+   looking real.** Every offline player action goes through
+   `runOfflinePlayerCommand`, which sets `targetTimeScale = REAL_TIME_SCALE` at
+   `main.ts:1217` — _before_ the command is enqueued, so the accelerated scale
+   is already gone by the time the resting guard at `commands.ts:228` returns.
+   Nothing can leak. What is actually true is the **opposite** direction: an
+   ignored action while resting drops rest to real time and nothing restores
+   `REST_TIME_SCALE`, so rest continues un-accelerated. That is a pacing
+   question for a human, not a defect, and #335's change does not address it.
+   Whether an action should interrupt rest remains a product decision.
+
+2. **`main.ts` is not the churn hotspot the bots assume.** Measured over 90
+   days: 6 of 77 commits touch `src/client/main.ts`, ranking it fourth behind
+   `src/net/state-delta.ts` (14), `state-delta.test.ts` (13) and `renderer.ts`
+   (7). Any future ADR resting on "nearly every feature branch touches
+   `main.ts`" or on merge-conflict frequency there is resting on a false
+   premise. The file is genuinely 3458 lines, but size alone is the elegance
+   argument `architect.md` excludes.
+
+3. **`.jules/bolt.md` contains zero mentions of `main.ts`**, and `palette.md`
+   mentions it once — as a _fix_ site. ADR 0002 attributes the recurring focus
+   and ARIA regressions to `GameMenu`, `RetroModal`, `intro-story.ts` and
+   `character-modal.ts`, all already-extracted modules. So the logs argue
+   against "splitting would have prevented these", not for it. Third ADR in a
+   row with a citation defect; keep checking citations against the logs.
+
+4. **Jules now reverts review corrections by force-push, and does it _after_ the
+   merge.** All three branches merged this run were pushed back to their
+   pre-review state within minutes of merging — `fix/cancel-transition-on-death`
+   to `26ee1c3`, `jules-29639505278567073-fbe8577a` to `5293174`, and #329's
+   branch (merged _yesterday_) to `f665559`. Each tip is strictly behind `main`
+   and would revert landed work, including #330's `state-delta.ts` and #333's
+   `events.ts`. Nothing was lost because the merges were already in. The lesson
+   is unchanged — verify the head immediately before merging — but note the
+   window now extends past the merge, so **a surviving branch whose PR shows
+   `merged_at` may have a tip that is not what landed**. Diff it against `main`
+   before concluding anything from it.
+
+5. **Branch deletion is still 403.** `git push origin --delete` with a lease
+   fails with `HTTP 403` on every branch while ordinary pushes to the same
+   branches succeed, and the `mcp__github__*` toolset has no branch-deletion
+   tool. Three merged branches are deletable and were left; one attempt each is
+   enough to confirm.
+
+6. **`delete_branch_on_merge` works, but Jules' post-merge push undoes it.**
+   #336's branch was removed by GitHub on merge and stayed gone; #333's and
+   #334's were removed and then recreated by the force-pushes in 4.
+
+7. **Check:** the commit-msg hook rejects any uppercase anywhere in the message,
+   so camelCase identifiers cannot appear in a commit body. Write
+   `shouldDescend` as "the descend flag".
