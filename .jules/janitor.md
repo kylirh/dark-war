@@ -74,3 +74,11 @@ import at the top, and neither new helper declared a return type, which the file
 own `interact` and `dropItemOn` both do.
 
 **Prevention:** Run `npx jscpd` proactively to detect block-level duplications, and extract generic test initialization or repetitive entity creation steps into scoped helper functions when writing new tests or refactoring.
+
+## 2024-05-24 - Consolidate duplicated test setup in matter manipulator
+
+**What was found:** The test file `src/engine/systems/simulation/matter-manipulator.test.ts` contained a highly duplicated test setup block spanning 6 test cases, where the game engine state was manually instantiated and a matter manipulator item added to the player entity.
+
+**Action:** Extracted the 8-line setup block into a new `setupMatterManipulatorTest` helper function that properly returns the variables (`{ game, state, tileX, tileY }`) needed by each specific test scope. This reduced boilerplate and eliminated 15 lines of net code duplication.
+
+**Prevention:** Future invocations should prioritize resolving `jscpd` identified test duplications using similar setup helpers or beforeEach refactoring where state scopes allow. Output from `jscpd` should be explicitly redirected to a readable file to avoid truncation when verifying block indices.
