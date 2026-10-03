@@ -17,7 +17,7 @@ import { ItemEntity } from "../../entities/item-entity";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { ITEM_DEFS, itemName } from "../../content/item-defs";
 import { idxFor, setPositionFromGrid } from "../../utils/helpers";
-import { removeFromInventory, consumeItem } from "../../utils/inventory";
+import { consumeItem } from "../../utils/inventory";
 import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
@@ -688,13 +688,7 @@ function stealFromPlayer(
     const coins = player.itemCounts[ItemType.COIN] ?? 0;
     if (coins <= 0) return;
     const taken = Math.min(coins, 1 + RNG.int(5));
-    const left = coins - taken;
-    if (left <= 0) {
-      delete player.itemCounts[ItemType.COIN];
-      removeFromInventory(player, ItemType.COIN);
-    } else {
-      player.itemCounts[ItemType.COIN] = left;
-    }
+    consumeItem(player, ItemType.COIN, taken);
     monster.carriedItems.push({ type: ItemType.COIN, amount: taken });
     monster.fleeing = true;
     monster.fleeingFromPlayerId = player.id;

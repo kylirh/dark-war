@@ -87,8 +87,20 @@ own `interact` and `dropItemOn` both do.
 
 ## 2026-10-03 - Consolidate duplicate item consumption logic
 
-**What was found:** The functions `consumeOne(player, type)` in `commands.ts` and `takePlayerItem(player, type)` in `events.ts` were 100% identical and handled the exact same logic for consuming one of a counted item and clearing the inventory slot when empty.
+**What was found:** The "decrement a counted item, clear the inventory slot once it hits zero" block existed **five** times, not two. Three were named helpers and two were inline:
 
-**Action:** Extracted this logic into a single exported `consumeItem(player, itemType)` function in `inventory.ts` and updated all callers in `commands.ts` and `events.ts` to use it.
+| site                                                                 | shape                                          |
+| -------------------------------------------------------------------- | ---------------------------------------------- |
+| `commands.ts` `consumeOne(player, type)`                             | fixed amount of 1                              |
+| `events.ts` `takePlayerItem(player, type)`                           | fixed amount of 1, byte-identical to the above |
+| `conversation.ts` `consumeCountedItem(player, itemType, amount = 1)` | already parameterized                          |
+| `commands.ts` `buyFromVending`                                       | inline, `amount = VENDING_COST`                |
+| `events.ts` `stealFromPlayer` money arm                              | inline, `amount = taken`                       |
 
-**Prevention:** When adding logic to interact with the player's inventory, check `inventory.ts` first to see if a utility function already exists before creating an isolated helper in the current file.
+**Action:** One exported `consumeItem(player, itemType, amount = 1)` in `inventory.ts`; all five sites call it. `conversation.ts` already had the general form, so the signature is its signature — the two amount-of-1 helpers are its default case and the two inline blocks are the amount-bearing case. `removeFromInventory` became unused in `events.ts` and `conversation.ts` and was dropped from both imports.
+
+The dialogue effect that reaches the `conversation.ts` site is itself called `consumeItem` (`dialogue-defs.ts`), so the shared helper now carries the name the content layer already used.
+
+Each of the five sites was separately covered before the change: dropping the slot clear at any one of them failed exactly one test. After consolidation the same mutation on the single helper fails 5 tests across 5 files, so nothing lost its coverage.
+
+**Prevention:** This log's previous entry already ends with "finish the sweep: count the matching call sites before extracting", and the first pass here still stopped at the two that happened to be identical **functions**. Grep for the _body_ of the duplicated block, not for a helper name — the two sites missed were inline code with no name to find, and the third was a generalization of the same block that a name search for `consumeOne` would never reach. When one copy already takes a parameter the others hard-code, that copy is the signature to extract.

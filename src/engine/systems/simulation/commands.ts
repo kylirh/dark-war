@@ -23,9 +23,9 @@ import { applyWallDamageAt } from "../../utils/walls";
 import { applyRepairAt } from "../../utils/repair";
 import {
   canAddToInventory,
+  consumeItem,
   removeFromInventory,
   weaponTypeForItem,
-  consumeItem,
 } from "../../utils/inventory";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { ITEM_DEFS, itemName } from "../../content/item-defs";
@@ -1795,13 +1795,7 @@ function buyFromVending(state: GameState, player: Player): void {
     );
     return;
   }
-  const left = coins - VENDING_COST;
-  if (left <= 0) {
-    delete player.itemCounts[ItemType.COIN];
-    removeFromInventory(player, ItemType.COIN);
-  } else {
-    player.itemCounts[ItemType.COIN] = left;
-  }
+  consumeItem(player, ItemType.COIN, VENDING_COST);
   const type = VENDING_STOCK[RNG.int(VENDING_STOCK.length)];
   // Dispense at the player's feet; the magnetic pickup collects it next tick.
   const item = new ItemEntity(player.gridX, player.gridY, type);

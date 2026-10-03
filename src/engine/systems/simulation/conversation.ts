@@ -32,7 +32,7 @@ import {
 } from "../../content/dialogue-defs";
 import { SOCIAL_DEFS } from "../../content/social-defs";
 import { grantCoreDevice } from "./events";
-import { addToInventory, removeFromInventory } from "../../utils/inventory";
+import { addToInventory, consumeItem } from "../../utils/inventory";
 import { ItemEntity } from "../../entities/item-entity";
 import {
   playerHasWonOverSnagglepuss,
@@ -243,20 +243,6 @@ function conditionMet(
   }
 }
 
-function consumeCountedItem(
-  player: Player,
-  itemType: ItemType,
-  amount = 1,
-): void {
-  const remaining = (player.itemCounts[itemType] ?? 0) - amount;
-  if (remaining <= 0) {
-    delete player.itemCounts[itemType];
-    removeFromInventory(player, itemType);
-  } else {
-    player.itemCounts[itemType] = remaining;
-  }
-}
-
 function returnSpeakerLoot(
   state: GameState,
   player: Player,
@@ -331,7 +317,7 @@ function applyEffect(
       if (freeText) (facts.notes ??= {})[effect.note] = freeText;
       break;
     case "consumeItem":
-      consumeCountedItem(player, effect.item, effect.amount);
+      consumeItem(player, effect.item, effect.amount);
       break;
     case "returnSpeakerLoot":
       returnSpeakerLoot(state, player, speaker);
