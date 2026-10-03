@@ -139,3 +139,18 @@
 **Action:** Added a behavioral test in `src/engine/systems/simulation/matter-manipulator.test.ts` for each arm of the guard, `StructureType.WORKSHOP` and `StructureType.WORKSHOP_FOOTPRINT`. Each attempts to mine the cell and verifies that the structure survives and the alert is appended to `state.pendingAlerts`. Mutation-checked: bypassing the whole guard fails both, and dropping only the footprint arm fails only the footprint case. Covering just `WORKSHOP`, as this entry originally did, left the footprint arm deletable with all 894 tests still passing.
 
 **Prevention:** Ensure explicit structural protections (like making certain map features indestructible or immutable) are tested so that they cannot be accidentally removed or bypassed as systems evolve.
+
+## 2025-02-18 - Chain explosion coverage
+
+**What was found:** The logic that causes explosions to trigger other explosives (chain explosions) was uncovered.
+
+**Action:** Added a test in `src/engine/systems/simulation/explosives.test.ts` to verify that an explosion destroying an explosive item pushes another EXPLOSION event to the queue and destroys the item.
+
+**Prevention:** Future changes to the event queue processing or the explosive targeting logic will not silently break chain explosions without failing this test.
+## 2025-02-18 - Chain explosion coverage
+
+**What was found:** The logic that causes explosions to trigger other explosives (chain explosions) was uncovered.
+
+**Action:** Added a test in `src/engine/systems/simulation/explosives.test.ts` to verify that an explosion destroying an explosive item pushes another EXPLOSION event to the queue and destroys the item.
+
+**Prevention:** Future changes to the event queue processing or the explosive targeting logic will not silently break chain explosions without failing this test.

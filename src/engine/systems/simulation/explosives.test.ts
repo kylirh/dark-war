@@ -18,6 +18,8 @@ import {
 } from "../../types";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
 import { MonsterEntity } from "../../entities/monster-entity";
+import { ItemEntity } from "../../entities/item-entity";
+import { processEventQueue } from "./events";
 import {
   triggerExplosion,
   updateExplosives,
@@ -69,6 +71,42 @@ describe("explosives simulation", () => {
   });
 
   describe("updateExplosives", () => {
+    describe("Chain Explosions", () => {
+      it("triggers chain explosions when an explosion hits another explosive item", () => {
+        const state = game.getState();
+
+        const grenade1 = new ExplosiveEntity(
+          100,
+          100,
+          ItemType.GRENADE,
+          true,
+          1,
+        );
+        const grenade2 = new ItemEntity(100, 100, ItemType.GRENADE);
+        grenade2.worldX = 100;
+        grenade2.worldY = 100;
+
+        state.entityManager.spawn(grenade1);
+        state.entityManager.spawn(grenade2);
+
+        let explosionCount = 0;
+
+        const originalPush = state.eventQueue.push.bind(state.eventQueue);
+        state.eventQueue.push = (...items) => {
+          for (const item of items) {
+            if (item.type === EventType.EXPLOSION) explosionCount++;
+          }
+          return originalPush(...items);
+        };
+
+        updateExplosives(state);
+        processEventQueue(state);
+
+        expect(state.entityManager.getById(grenade2.id)).toBeUndefined();
+        expect(explosionCount).toBe(2);
+      });
+    });
+
     describe("Grenades", () => {
       it("decrements fuseTicks and does not explode if fuse > 0", () => {
         const state = game.getState();
