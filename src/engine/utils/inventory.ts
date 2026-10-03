@@ -86,6 +86,17 @@ export function removeFromInventory(player: Player, itemType: ItemType): void {
   if (slot) slot.type = null;
 }
 
+/** Consume one of a counted item; clear the inventory slot when it hits zero. */
+export function consumeItem(player: Player, itemType: ItemType): void {
+  const remaining = (player.itemCounts[itemType] ?? 0) - 1;
+  if (remaining <= 0) {
+    delete player.itemCounts[itemType];
+    removeFromInventory(player, itemType);
+  } else {
+    player.itemCounts[itemType] = remaining;
+  }
+}
+
 export function getSlotDisplayCount(
   player: Player,
   slotIndex: number,

@@ -25,6 +25,7 @@ import {
   canAddToInventory,
   removeFromInventory,
   weaponTypeForItem,
+  consumeItem,
 } from "../../utils/inventory";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { ITEM_DEFS, itemName } from "../../content/item-defs";
@@ -1068,17 +1069,6 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
 // Reload Command
 // ========================================
 
-/** Consume one of a counted item; clear the inventory slot when it hits zero. */
-function consumeOne(player: Player, type: ItemType): void {
-  const remaining = (player.itemCounts[type] ?? 0) - 1;
-  if (remaining <= 0) {
-    delete player.itemCounts[type];
-    removeFromInventory(player, type);
-  } else {
-    player.itemCounts[type] = remaining;
-  }
-}
-
 function msg(state: GameState, message: string, cause?: string): void {
   pushEvent(state, {
     type: EventType.MESSAGE,
@@ -1266,7 +1256,7 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
   state.mapDirty = true;
   state.changedTiles?.add(idx);
 
-  consumeOne(player, itemType);
+  consumeItem(player, itemType);
   state.pendingSounds.push({ effect: SoundEffect.REPAIR });
   msg(state, `You place a ${itemName(itemType)}.`, cmd.id);
 }
@@ -1356,7 +1346,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       }
       const heal = ITEM_DEFS[ItemType.MEDKIT].healAmount ?? 0;
       player.hp = Math.min(player.hpMax, player.hp + heal);
-      consumeOne(player, ItemType.MEDKIT);
+      consumeItem(player, ItemType.MEDKIT);
       const healSounds = [SoundEffect.HEAL_1, SoundEffect.HEAL_2];
       state.pendingSounds.push({
         effect: healSounds[RNG.int(healSounds.length)],
@@ -1371,7 +1361,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       }
       const heal = 6;
       player.hp = Math.min(player.hpMax, player.hp + heal);
-      consumeOne(player, ItemType.COOKIE);
+      consumeItem(player, ItemType.COOKIE);
       const eatSounds = [SoundEffect.EAT_1, SoundEffect.EAT_2];
       state.pendingSounds.push({
         effect: eatSounds[RNG.int(eatSounds.length)],
@@ -1401,7 +1391,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
         alertMsg(state, "No power cells left.", player.id);
         return;
       }
-      consumeOne(player, ItemType.POWERCELL);
+      consumeItem(player, ItemType.POWERCELL);
       // A cell is spent entirely to top off your energy gear.
       player.laserCharge = player.laserChargeMax;
       player.panicCharge = player.panicChargeMax;
@@ -1435,7 +1425,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       );
       thrown.thrownItem = active;
       state.entityManager.spawn(thrown);
-      consumeOne(player, active);
+      consumeItem(player, active);
       queuePlayerThrowSound(state, player);
       return;
     }
@@ -1467,7 +1457,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
       }
       setStateTile(state, tx, ty, TileType.HOLOWALL);
       state.mapDirty = true;
-      consumeOne(player, ItemType.HOLOWALL);
+      consumeItem(player, ItemType.HOLOWALL);
       state.pendingSounds.push({ effect: SoundEffect.PLACE_WALL });
       return;
     }
@@ -1563,7 +1553,7 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
       alertMsg(state, "No power cells to charge the laser.", player.id);
       return;
     }
-    consumeOne(player, ItemType.POWERCELL);
+    consumeItem(player, ItemType.POWERCELL);
     player.laserCharge = player.laserChargeMax;
     state.pendingSounds.push({ effect: SoundEffect.RELOAD });
     maybeEmitPlayerWeaponCallout(

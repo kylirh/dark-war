@@ -84,3 +84,11 @@ own `interact` and `dropItemOn` both do.
 **Reviewer correction:** the helper was declared without a return type, which this log's 2026-10-01 entry had already called out on the previous pair of extracted helpers — the file's own `interact` and `dropItemOn` both declare one. It now returns an explicit shape. The first pass also converted only six of the ten identical call sites: three differed from the extracted block by a single `itemCounts` line, and one was the parameterized workshop test that landed in #334 while this was open. All ten now use the helper. The six blocks left alone genuinely differ: two derive their target from `wallBesidePlayer`, two call `game.reset(0)` for the surface, one sets `hasMatterManipulator = false` because that is the behaviour under test, and one aims at `gridX + 40` to land outside manipulator reach.
 
 **Prevention:** Declare a return type on every extracted helper — this is now the second entry correcting the same omission. When a duplicated block is followed by one differing line, the differing line belongs at the call site, not in a second copy of the block. And finish the sweep: count the matching call sites before extracting, so a consolidation does not leave near-identical copies behind.
+
+## 2026-10-03 - Consolidate duplicate item consumption logic
+
+**What was found:** The functions `consumeOne(player, type)` in `commands.ts` and `takePlayerItem(player, type)` in `events.ts` were 100% identical and handled the exact same logic for consuming one of a counted item and clearing the inventory slot when empty.
+
+**Action:** Extracted this logic into a single exported `consumeItem(player, itemType)` function in `inventory.ts` and updated all callers in `commands.ts` and `events.ts` to use it.
+
+**Prevention:** When adding logic to interact with the player's inventory, check `inventory.ts` first to see if a utility function already exists before creating an isolated helper in the current file.
