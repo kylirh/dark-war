@@ -5,6 +5,7 @@ import {
   canAddToInventory,
   addToInventory,
   removeFromInventory,
+  consumeItem,
   getWeaponForSlot,
   getSlotDisplayCount,
   getSlotLabel,
@@ -87,6 +88,51 @@ describe("inventory add/remove", () => {
     expect(player.inventorySlots.some((s) => s.type === ItemType.PISTOL)).toBe(
       false,
     );
+  });
+});
+
+describe("consumeItem", () => {
+  /** A player holding `count` of one stackable item in a single slot. */
+  function playerHolding(itemType: ItemType, count: number): Player {
+    const player = makePlayer({ itemCounts: { [itemType]: count } });
+    addToInventory(player, itemType);
+    return player;
+  }
+
+  it("spends one by default and keeps the slot while a count remains", () => {
+    const player = playerHolding(ItemType.COOKIE, 3);
+
+    consumeItem(player, ItemType.COOKIE);
+
+    expect(player.itemCounts[ItemType.COOKIE]).toBe(2);
+    expect(player.inventorySlots[0].type).toBe(ItemType.COOKIE);
+  });
+
+  it("spends an explicit amount in one call", () => {
+    const player = playerHolding(ItemType.COIN, 10);
+
+    consumeItem(player, ItemType.COIN, 4);
+
+    expect(player.itemCounts[ItemType.COIN]).toBe(6);
+    expect(player.inventorySlots[0].type).toBe(ItemType.COIN);
+  });
+
+  it("clears the count and the slot when the last one is spent", () => {
+    const player = playerHolding(ItemType.COOKIE, 1);
+
+    consumeItem(player, ItemType.COOKIE);
+
+    expect(ItemType.COOKIE in player.itemCounts).toBe(false);
+    expect(player.inventorySlots[0].type).toBeNull();
+  });
+
+  it("clears the slot rather than leaving a negative count behind", () => {
+    const player = playerHolding(ItemType.COIN, 2);
+
+    consumeItem(player, ItemType.COIN, 5);
+
+    expect(ItemType.COIN in player.itemCounts).toBe(false);
+    expect(player.inventorySlots[0].type).toBeNull();
   });
 });
 
