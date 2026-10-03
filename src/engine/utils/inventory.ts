@@ -86,6 +86,26 @@ export function removeFromInventory(player: Player, itemType: ItemType): void {
   if (slot) slot.type = null;
 }
 
+/**
+ * Spend `amount` of a counted item, clearing the inventory slot once the count
+ * reaches zero. A count that would go negative clears the slot rather than
+ * leaving a negative tally behind, so callers may pass an amount they have not
+ * separately bounds-checked.
+ */
+export function consumeItem(
+  player: Player,
+  itemType: ItemType,
+  amount: number = 1,
+): void {
+  const remaining = (player.itemCounts[itemType] ?? 0) - amount;
+  if (remaining <= 0) {
+    delete player.itemCounts[itemType];
+    removeFromInventory(player, itemType);
+  } else {
+    player.itemCounts[itemType] = remaining;
+  }
+}
+
 export function getSlotDisplayCount(
   player: Player,
   slotIndex: number,
