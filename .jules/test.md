@@ -140,17 +140,12 @@
 
 **Prevention:** Ensure explicit structural protections (like making certain map features indestructible or immutable) are tested so that they cannot be accidentally removed or bypassed as systems evolve.
 
-## 2025-02-18 - Chain explosion coverage
+## 2026-10-03 - Chain explosion coverage
 
-**What was found:** The logic that causes explosions to trigger other explosives (chain explosions) was uncovered.
+**What was found:** `processExplosionEvent` chains a blast into two separate kinds of neighbour — armed `ExplosiveEntity`s (`explosivesToTrigger`) and dropped grenade/land-mine `ItemEntity`s (`itemsToTrigger`) — and neither arm was covered. Deleting either loop on `main` left all 895 tests passing.
 
-**Action:** Added a test in `src/engine/systems/simulation/explosives.test.ts` to verify that an explosion destroying an explosive item pushes another EXPLOSION event to the queue and destroys the item.
+**Action:** Added a top-level `chain explosions` describe to `src/engine/systems/simulation/explosives.test.ts` with one case per arm plus a negative case for the item-type filter, which restricts the item arm to grenades and land mines. Detonations are counted through the `"explosion"` entries in `state.effects`, one per resolved event, rather than by replacing `state.eventQueue.push`.
 
-**Prevention:** Future changes to the event queue processing or the explosive targeting logic will not silently break chain explosions without failing this test.
-## 2025-02-18 - Chain explosion coverage
+Mutation-checked, one failing case per mutation: dropping the `itemsToTrigger` loop fails the dropped-grenade case, dropping the `explosivesToTrigger` loop fails the neighbouring-explosive case, and widening the item filter to every item type fails the medkit case.
 
-**What was found:** The logic that causes explosions to trigger other explosives (chain explosions) was uncovered.
-
-**Action:** Added a test in `src/engine/systems/simulation/explosives.test.ts` to verify that an explosion destroying an explosive item pushes another EXPLOSION event to the queue and destroys the item.
-
-**Prevention:** Future changes to the event queue processing or the explosive targeting logic will not silently break chain explosions without failing this test.
+**Prevention:** When a function fans out over several entity kinds, count the arms before claiming the behaviour is covered — the first pass here covered the item arm only, while its log entry claimed chain explosions as a whole. And assert on observable state rather than monkey-patching a method on the state object: the replacement of `state.eventQueue.push` was never restored, and it would have gone on passing if the arm it tested had been reached by some other path.
