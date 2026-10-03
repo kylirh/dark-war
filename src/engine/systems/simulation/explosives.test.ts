@@ -13,11 +13,14 @@ import {
   ItemType,
   EventType,
   EntityKind,
+  GameState,
   MonsterType,
   Effect,
 } from "../../types";
 import { ExplosiveEntity } from "../../entities/explosive-entity";
 import { MonsterEntity } from "../../entities/monster-entity";
+import { ItemEntity } from "../../entities/item-entity";
+import { processEventQueue } from "./events";
 import {
   triggerExplosion,
   updateExplosives,
@@ -384,6 +387,94 @@ describe("explosives simulation", () => {
 
       expect(state.effects[0].worldX).toBe(100 + 100 * dt);
       expect(state.effects[0].worldY).toBe(100 - 50 * dt);
+    });
+  });
+
+  describe("chain explosions", () => {
+    /**
+     * Tile (3, 3)'s centre. ExplosiveEntity takes world pixels while ItemEntity
+     * takes grid coordinates, so the two arms are placed in their own units and
+     * land on the same tile.
+     */
+    const CHAIN_GRID_X = 3;
+    const CHAIN_GRID_Y = 3;
+    const CHAIN_WORLD_X = CHAIN_GRID_X * 32 + 16;
+    const CHAIN_WORLD_Y = CHAIN_GRID_Y * 32 + 16;
+
+    /**
+     * Each resolved EXPLOSION event pushes exactly one "explosion" effect, so
+     * counting them counts detonations without reaching into the event queue.
+     */
+    function explosionEffectCount(state: GameState): number {
+      return state.effects.filter((e) => e.type === "explosion").length;
+    }
+
+    /** A grenade whose fuse expires on the next tick of updateExplosives. */
+    function expiringGrenade(): ExplosiveEntity {
+      return new ExplosiveEntity(
+        CHAIN_WORLD_X,
+        CHAIN_WORLD_Y,
+        ItemType.GRENADE,
+        true,
+        1,
+      );
+    }
+
+    it("detonates a dropped grenade item caught in the blast", () => {
+      const state = game.getState();
+      const droppedGrenade = new ItemEntity(
+        CHAIN_GRID_X,
+        CHAIN_GRID_Y,
+        ItemType.GRENADE,
+      );
+      state.entityManager.spawn(expiringGrenade());
+      state.entityManager.spawn(droppedGrenade);
+      expect(explosionEffectCount(state)).toBe(0);
+
+      updateExplosives(state);
+      processEventQueue(state);
+
+      expect(state.entityManager.getById(droppedGrenade.id)).toBeUndefined();
+      expect(explosionEffectCount(state)).toBe(2);
+    });
+
+    it("detonates a neighbouring armed explosive before its own fuse ends", () => {
+      const state = game.getState();
+      // A fuse far longer than the single tick updateExplosives advances, so
+      // this grenade can only detonate via the chain.
+      const neighbour = new ExplosiveEntity(
+        CHAIN_WORLD_X,
+        CHAIN_WORLD_Y,
+        ItemType.GRENADE,
+        true,
+        500,
+      );
+      state.entityManager.spawn(expiringGrenade());
+      state.entityManager.spawn(neighbour);
+
+      updateExplosives(state);
+      processEventQueue(state);
+
+      expect(state.entityManager.getById(neighbour.id)).toBeUndefined();
+      expect(neighbour.fuseTicks).toBeGreaterThan(0);
+      expect(explosionEffectCount(state)).toBe(2);
+    });
+
+    it("leaves a non-explosive item in the blast alone", () => {
+      const state = game.getState();
+      const medkit = new ItemEntity(
+        CHAIN_GRID_X,
+        CHAIN_GRID_Y,
+        ItemType.MEDKIT,
+      );
+      state.entityManager.spawn(expiringGrenade());
+      state.entityManager.spawn(medkit);
+
+      updateExplosives(state);
+      processEventQueue(state);
+
+      expect(state.entityManager.getById(medkit.id)).toBeDefined();
+      expect(explosionEffectCount(state)).toBe(1);
     });
   });
 
