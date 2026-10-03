@@ -17,7 +17,7 @@ import { ItemEntity } from "../../entities/item-entity";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { ITEM_DEFS, itemName } from "../../content/item-defs";
 import { idxFor, setPositionFromGrid } from "../../utils/helpers";
-import { removeFromInventory } from "../../utils/inventory";
+import { removeFromInventory, consumeItem } from "../../utils/inventory";
 import { applyWallDamageAt } from "../../utils/walls";
 import { RNG } from "../../utils/rng";
 import { SoundEffect } from "../../content/sound-effects";
@@ -671,17 +671,6 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
   }
 }
 
-/** Remove one of a counted item from a player; clear the slot when empty. */
-function takePlayerItem(player: Player, type: ItemType): void {
-  const remaining = (player.itemCounts[type] ?? 0) - 1;
-  if (remaining <= 0) {
-    delete player.itemCounts[type];
-    removeFromInventory(player, type);
-  } else {
-    player.itemCounts[type] = remaining;
-  }
-}
-
 /**
  * A thief monster snatches money (moppet) or an item (snagglepuss) from the
  * player, stashes it, and turns to flee. Stolen loot drops when the thief dies.
@@ -721,7 +710,7 @@ function stealFromPlayer(
   // Restrict to genuinely count-backed trinkets (tracked in itemCounts). Gear
   // whose authoritative state lives in dedicated fields — ammo (ammoReserve),
   // grenades, mines, keycards (keys), CTDM (hasCTDM), armor, weapons — isn't in
-  // itemCounts, so takePlayerItem can't actually remove it: stealing it would
+  // itemCounts, so consumeItem can't actually remove it: stealing it would
   // clear the slot while the player keeps the resource, then drop a duplicate
   // when the thief dies. Excluding it keeps theft consistent.
   const candidates = player.inventorySlots
@@ -737,7 +726,7 @@ function stealFromPlayer(
   if (candidates.length === 0) return;
   const pick = candidates[RNG.int(candidates.length)];
   const type = pick.slot.type as ItemType;
-  takePlayerItem(player, type);
+  consumeItem(player, type);
   monster.carriedItems.push({ type });
   monster.fleeing = true;
   monster.fleeingFromPlayerId = player.id;
