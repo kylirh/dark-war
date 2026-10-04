@@ -48,6 +48,22 @@ function monsterAt(x: number, y: number): Entity {
 }
 
 describe("findPath", () => {
+  it("takes the straight run to an orthogonal target on open floor", () => {
+    // A diagonal excursion and back costs the same number of steps as going
+    // straight, so this is decided purely by the order of
+    // EIGHT_WAY_DIRECTIONS. Reordering it sends the player on a visible
+    // detour, and nothing else in the suite notices.
+    const path = findPath(1, 1, 1, 6, source(), fullyExplored(), []);
+    expect(path).toEqual([
+      [1, 1],
+      [1, 2],
+      [1, 3],
+      [1, 4],
+      [1, 5],
+      [1, 6],
+    ]);
+  });
+
   it("finds a path across open floor", () => {
     const path = findPath(1, 1, 5, 5, source(), fullyExplored(), []);
     expect(path).not.toBeNull();

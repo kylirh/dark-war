@@ -61,15 +61,25 @@ export function passableFor(
   return tile && !tile.block;
 }
 
-export const EIGHT_WAY_DIRECTIONS: [number, number][] = [
+/**
+ * The eight orthogonal and diagonal neighbour offsets.
+ *
+ * Consumers iterate or sample this array, so the order is part of the
+ * contract: `findPathToClosestReachable` breaks equal-cost ties in this
+ * order, and `chooseIdleWanderDirection` draws from it with `RNG`, so
+ * reordering changes both pathfinding output and monster wander for an
+ * identical seed. This is deliberately *not* angular order — see
+ * `directionFromAngle`, which needs its own array indexed by angle.
+ */
+export const EIGHT_WAY_DIRECTIONS: readonly [number, number][] = [
   [1, 0],
-  [1, 1],
-  [0, 1],
-  [-1, 1],
   [-1, 0],
-  [-1, -1],
+  [0, 1],
   [0, -1],
+  [1, 1],
   [1, -1],
+  [-1, 1],
+  [-1, -1],
 ];
 
 /**
