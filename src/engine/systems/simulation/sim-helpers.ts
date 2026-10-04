@@ -14,6 +14,7 @@ import { bresenhamLine } from "../../utils/bresenham";
 import { TileSource } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
 import {
+  IDLE_WANDER_DIRECTIONS,
   MELEE_ARC,
   MONSTER_ACTION_DELAY,
   UTILITY_BOT_REPAIR_COOLDOWN,
@@ -259,29 +260,10 @@ export function getActionCost(
   return 1;
 }
 
-/**
- * Quantize an angle in radians to one of the eight neighbour offsets.
- *
- * The array is indexed by `angle / 45 degrees`, so it must stay in
- * counter-clockwise angular order. That is a different contract from
- * `EIGHT_WAY_DIRECTIONS`, which holds the same eight offsets in iteration
- * order; the two look interchangeable and are not.
- */
-const ANGULAR_DIRECTIONS: readonly [number, number][] = [
-  [1, 0],
-  [1, 1],
-  [0, 1],
-  [-1, 1],
-  [-1, 0],
-  [-1, -1],
-  [0, -1],
-  [1, -1],
-];
-
 export function directionFromAngle(angle: number): [number, number] {
   const index = Math.round(angle / (Math.PI / 4));
-  return ANGULAR_DIRECTIONS[
-    (index + ANGULAR_DIRECTIONS.length) % ANGULAR_DIRECTIONS.length
+  return EIGHT_WAY_DIRECTIONS[
+    (index + EIGHT_WAY_DIRECTIONS.length) % EIGHT_WAY_DIRECTIONS.length
   ];
 }
 
