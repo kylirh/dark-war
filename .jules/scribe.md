@@ -52,4 +52,4 @@
 
 **Action:** Added detailed TSDoc to `TileSource.canTraverse` explaining that "neighboring" includes diagonals (Chebyshev distance of 1) and that pathfinders depend on this. Added an `@inheritDoc` block to `WorldPlane.canTraverse` explicitly warning against changing the `Math.max` check to a Manhattan sum.
 
-**Prevention:** Document invisible engine-wide constraints on the specific interface and implementation methods where developers actually read and edit code. Tests pin behavior, but documentation explains *why* the behavior is correct.
+**Prevention:** Document invisible engine-wide constraints on the specific interface and implementation methods where developers actually read and edit code. Tests pin behavior, but documentation explains _why_ the behavior is correct.

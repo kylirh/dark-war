@@ -14,12 +14,12 @@ import { bresenhamLine } from "../../utils/bresenham";
 import { TileSource } from "../../core/tile-source";
 import { RNG } from "../../utils/rng";
 import {
-  IDLE_WANDER_DIRECTIONS,
   MELEE_ARC,
   MONSTER_ACTION_DELAY,
   UTILITY_BOT_REPAIR_COOLDOWN,
   SKULKER_SHOOT_COOLDOWN,
 } from "./constants";
+import { EIGHT_WAY_DIRECTIONS } from "../../utils/helpers";
 import { MonsterType, WeaponType } from "../../types";
 import { wrapDelta } from "../../utils/wrap";
 
@@ -143,7 +143,7 @@ export function chooseIdleWanderDirection(
   state: GameState,
   monster: Monster,
 ): [number, number] | null {
-  const directions = [...IDLE_WANDER_DIRECTIONS];
+  const directions = [...EIGHT_WAY_DIRECTIONS];
 
   while (directions.length > 0) {
     const index = RNG.int(directions.length);
@@ -259,19 +259,30 @@ export function getActionCost(
   return 1;
 }
 
+/**
+ * Quantize an angle in radians to one of the eight neighbour offsets.
+ *
+ * The array is indexed by `angle / 45 degrees`, so it must stay in
+ * counter-clockwise angular order. That is a different contract from
+ * `EIGHT_WAY_DIRECTIONS`, which holds the same eight offsets in iteration
+ * order; the two look interchangeable and are not.
+ */
+const ANGULAR_DIRECTIONS: readonly [number, number][] = [
+  [1, 0],
+  [1, 1],
+  [0, 1],
+  [-1, 1],
+  [-1, 0],
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+];
+
 export function directionFromAngle(angle: number): [number, number] {
-  const directions: [number, number][] = [
-    [1, 0],
-    [1, 1],
-    [0, 1],
-    [-1, 1],
-    [-1, 0],
-    [-1, -1],
-    [0, -1],
-    [1, -1],
-  ];
   const index = Math.round(angle / (Math.PI / 4));
-  return directions[(index + directions.length) % directions.length];
+  return ANGULAR_DIRECTIONS[
+    (index + ANGULAR_DIRECTIONS.length) % ANGULAR_DIRECTIONS.length
+  ];
 }
 
 export function normalizeAngle(angle: number): number {

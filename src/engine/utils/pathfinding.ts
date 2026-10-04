@@ -1,6 +1,6 @@
 import { Entity, EntityKind } from "../types";
 import { TileSource } from "../core/tile-source";
-import { idxFor } from "./helpers";
+import { idxFor, EIGHT_WAY_DIRECTIONS } from "./helpers";
 import { wrapDelta, wrapValue } from "./wrap";
 
 /**
@@ -77,24 +77,13 @@ export function findPathToClosestReachable(
   const hasMonster = (x: number, y: number): boolean =>
     monsterTiles.has(idxFor(x, y, width));
 
-  const directions: [number, number][] = [
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-    [1, 1],
-    [1, -1],
-    [-1, 1],
-    [-1, -1],
-  ];
-
   let head = 0;
   while (head < queue.length) {
     const current = queue[head++];
     const currentX = current % width;
     const currentY = Math.floor(current / width);
 
-    for (const [dx, dy] of directions) {
+    for (const [dx, dy] of EIGHT_WAY_DIRECTIONS) {
       const nx = wraps ? wrapValue(currentX + dx, width) : currentX + dx;
       const ny = wraps ? wrapValue(currentY + dy, height) : currentY + dy;
       if (!tiles.inBounds(nx, ny) || (nx === currentX && ny === currentY)) {
