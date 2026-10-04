@@ -332,8 +332,11 @@ describe("Simulation Commands Management", () => {
       expect(player.nextActTick).toBe(0);
     });
 
-    it("ignores non-WAIT commands when resting", () => {
+    it("cancels rest and executes non-WAIT commands when resting", () => {
       player.resting = true;
+      player.inventorySlots = new Array(10).fill(null);
+      player.selectedBarSlot = 0;
+      state.pendingAlerts = [];
 
       const cmd: Command = {
         id: "cmd1",
@@ -347,7 +350,8 @@ describe("Simulation Commands Management", () => {
 
       resolveCommand(state, cmd);
 
-      expect(player.nextActTick).toBe(0);
+      expect(player.resting).toBe(false);
+      expect(player.nextActTick).toBeGreaterThan(0);
     });
   });
 });
