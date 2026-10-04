@@ -27,7 +27,14 @@ export interface TileSource {
   passable(x: number, y: number): boolean;
   /** Whether (x, y) blocks sight. */
   opaque(x: number, y: number): boolean;
-  /** Whether an actor can cross directly between neighboring cells. */
+  /**
+   * Whether an actor can cross directly between neighboring cells.
+   *
+   * "Neighboring" includes diagonals (Chebyshev distance of 1). The pathfinders
+   * and combat steering evaluate all 8 adjacent cells and gate movement on this
+   * predicate. Narrowing it to orthogonal (Manhattan) distance will silently
+   * remove diagonal movement from the game.
+   */
   canTraverse(
     fromX: number,
     fromY: number,

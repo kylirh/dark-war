@@ -310,6 +310,39 @@ describe("Matter Manipulator", () => {
     expect(tileAt(game, tileX, tileY)).toBe(TileType.WALL);
   });
 
+  it("refuses to place a block over a hole", () => {
+    const { game, state, tileX, tileY } = setupMatterManipulatorTest();
+    state.player.itemCounts[ItemType.WALL_BLOCK] = 1;
+    setStateTile(state, tileX, tileY, TileType.HOLE);
+    const startAlerts = state.pendingAlerts.length;
+
+    place(game, tileX, tileY, ItemType.WALL_BLOCK);
+
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.HOLE);
+    expect(state.player.itemCounts[ItemType.WALL_BLOCK] ?? 0).toBe(1);
+    expect(state.pendingAlerts.length).toBeGreaterThan(startAlerts);
+    expect(state.pendingAlerts.at(-1)?.message).toBe("You can't build there.");
+  });
+
+  it("refuses to place a block on an occupied tile", () => {
+    const { game, state } = setupMatterManipulatorTest();
+    state.player.itemCounts[ItemType.WALL_BLOCK] = 1;
+
+    // Try to build exactly where the player is standing
+    const tileX = state.player.gridX;
+    const tileY = state.player.gridY;
+    setStateTile(state, tileX, tileY, TileType.FLOOR);
+
+    const startAlerts = state.pendingAlerts.length;
+
+    place(game, tileX, tileY, ItemType.WALL_BLOCK);
+
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.FLOOR);
+    expect(state.player.itemCounts[ItemType.WALL_BLOCK] ?? 0).toBe(1);
+    expect(state.pendingAlerts.length).toBeGreaterThan(startAlerts);
+    expect(state.pendingAlerts.at(-1)?.message).toBe("Something's in the way.");
+  });
+
   it("won't place a block out of reach", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);

@@ -45,3 +45,11 @@
 **Action:** Added a TSDoc block to the `RetroModal` class and its `show()` method in `src/client/systems/retro-modal.ts`. The documentation explicitly states that the component does not manage focus, explains why (dialog stacking), and lists the three requirements for callers: capture `document.activeElement` before `show()`, shift focus inside on `onOpen`, and restore focus on `onClose`.
 
 **Prevention:** Document implicit architectural contracts (like "the caller is responsible for focus capture and restoration") on the specific component API where they are invoked. Future developers checking IntelliSense for `RetroModal` or its `show` method will now see the focus management requirement immediately, reducing the reliance on external memory documents.
+
+## 2026-10-04 - Document canTraverse diagonal movement contract
+
+**What was found:** A memory item explicitly noted a past design trap: developers frequently attempted to "fix" `canTraverse` in `WorldPlane` by changing `Math.max` to a Manhattan distance check (`Math.abs(deltaX) + Math.abs(deltaY) === 1`), rejecting diagonal moves. This broke eight-way movement. While tests were added in `world-plane.test.ts` to pin the behavior, the interface and implementation were entirely undocumented, leaving developers unaware of why the test was failing and the contract it protected.
+
+**Action:** Added detailed TSDoc to `TileSource.canTraverse` explaining that "neighboring" includes diagonals (Chebyshev distance of 1) and that pathfinders depend on this. Added an `@inheritDoc` block to `WorldPlane.canTraverse` explicitly warning against changing the `Math.max` check to a Manhattan sum.
+
+**Prevention:** Document invisible engine-wide constraints on the specific interface and implementation methods where developers actually read and edit code. Tests pin behavior, but documentation explains _why_ the behavior is correct.

@@ -159,6 +159,13 @@ export class WorldPlane implements TileSource {
     );
   }
 
+  /**
+   * @inheritDoc
+   *
+   * Diagonal traversal is permitted. The `Math.max` check ensures a Chebyshev
+   * distance of exactly 1. Changing it to `Math.abs(deltaX) + Math.abs(deltaY)`
+   * breaks eight-way movement.
+   */
   canTraverse(
     fromX: number,
     fromY: number,
