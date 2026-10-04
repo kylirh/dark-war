@@ -1,5 +1,4 @@
 import { ItemType, CELL_CONFIG } from "../../types";
-import { EIGHT_WAY_DIRECTIONS } from "../../utils/helpers";
 
 // ========================================
 // Constants
@@ -57,7 +56,6 @@ export const IDLE_WANDER_SPEED = MONSTER_SPEED * 0.5;
 export const UTILITY_BOT_SPEED = MONSTER_SPEED * 0.6;
 export const UTILITY_BOT_FOLLOW_DIST_PX = CELL_CONFIG.w * 2.5; // ~80px follow offset from player
 export const UTILITY_BOT_REPAIR_COOLDOWN = 8; // extra ticks between repairs
-export const IDLE_WANDER_DIRECTIONS = EIGHT_WAY_DIRECTIONS;
 
 /** Reach of the Matter Manipulator, in tiles from the player's tile. */
 export const MATTER_MANIPULATOR_RANGE = 6;

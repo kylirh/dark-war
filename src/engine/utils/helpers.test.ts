@@ -8,6 +8,7 @@ import {
   passableFor,
   dist,
   setPositionFromGrid,
+  EIGHT_WAY_DIRECTIONS,
 } from "./helpers";
 
 describe("index math", () => {
@@ -77,5 +78,31 @@ describe("setPositionFromGrid", () => {
     expect(entity.worldY).toBe(3 * 32 + 16);
     expect(entity.prevWorldX).toBe(entity.worldX);
     expect(entity.prevWorldY).toBe(entity.worldY);
+  });
+});
+
+describe("EIGHT_WAY_DIRECTIONS", () => {
+  it("keeps the iteration order its consumers depend on", () => {
+    // Pinned, not incidental: findPathToClosestReachable breaks equal-cost
+    // ties in this order and chooseIdleWanderDirection draws from it with
+    // RNG, so a reorder changes pathfinding output and monster wander for an
+    // identical seed. Notably it is *not* angular order, which is why
+    // directionFromAngle keeps a separate array.
+    expect(EIGHT_WAY_DIRECTIONS).toEqual([
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ]);
+  });
+
+  it("covers each of the eight neighbours exactly once", () => {
+    const keys = new Set(EIGHT_WAY_DIRECTIONS.map(([dx, dy]) => `${dx},${dy}`));
+    expect(keys.size).toBe(8);
+    expect(keys.has("0,0")).toBe(false);
   });
 });
