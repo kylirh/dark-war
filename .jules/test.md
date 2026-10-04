@@ -149,3 +149,11 @@
 Mutation-checked, one failing case per mutation: dropping the `itemsToTrigger` loop fails the dropped-grenade case, dropping the `explosivesToTrigger` loop fails the neighbouring-explosive case, and widening the item filter to every item type fails the medkit case.
 
 **Prevention:** When a function fans out over several entity kinds, count the arms before claiming the behaviour is covered — the first pass here covered the item arm only, while its log entry claimed chain explosions as a whole. And assert on observable state rather than monkey-patching a method on the state object: the replacement of `state.eventQueue.push` was never restored, and it would have gone on passing if the arm it tested had been reached by some other path.
+
+## 2026-10-04 - Add tests for building restrictions
+
+**What was found:** The matter manipulator's ability to place blocks had uncovered decisions: preventing players from building over unbuildable terrain (like holes) or directly over entities (like the player themselves). This was an edge case that was missing behavioral tests.
+
+**Action:** Added two new tests to `matter-manipulator.test.ts` that ensure the `PLACE_BLOCK` command correctly rejects these invalid placements and alerts the player.
+
+**Prevention:** When adding new player commands that mutate the world (like building), always consider edge cases where the action intersects with invalid tiles or occupying entities.
