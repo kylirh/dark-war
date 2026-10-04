@@ -20,6 +20,7 @@ import {
   UTILITY_BOT_REPAIR_COOLDOWN,
   SKULKER_SHOOT_COOLDOWN,
 } from "./constants";
+import { EIGHT_WAY_DIRECTIONS } from "../../utils/helpers";
 import { MonsterType, WeaponType } from "../../types";
 import { wrapDelta } from "../../utils/wrap";
 
@@ -143,7 +144,7 @@ export function chooseIdleWanderDirection(
   state: GameState,
   monster: Monster,
 ): [number, number] | null {
-  const directions = [...IDLE_WANDER_DIRECTIONS];
+  const directions = [...EIGHT_WAY_DIRECTIONS];
 
   while (directions.length > 0) {
     const index = RNG.int(directions.length);
@@ -260,18 +261,10 @@ export function getActionCost(
 }
 
 export function directionFromAngle(angle: number): [number, number] {
-  const directions: [number, number][] = [
-    [1, 0],
-    [1, 1],
-    [0, 1],
-    [-1, 1],
-    [-1, 0],
-    [-1, -1],
-    [0, -1],
-    [1, -1],
-  ];
   const index = Math.round(angle / (Math.PI / 4));
-  return directions[(index + directions.length) % directions.length];
+  return EIGHT_WAY_DIRECTIONS[
+    (index + EIGHT_WAY_DIRECTIONS.length) % EIGHT_WAY_DIRECTIONS.length
+  ];
 }
 
 export function normalizeAngle(angle: number): number {

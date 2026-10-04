@@ -61,6 +61,17 @@ export function passableFor(
   return tile && !tile.block;
 }
 
+export const EIGHT_WAY_DIRECTIONS: [number, number][] = [
+  [1, 0],
+  [1, 1],
+  [0, 1],
+  [-1, 1],
+  [-1, 0],
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+];
+
 /**
  * Calculate Manhattan distance between two points
  */

@@ -104,3 +104,11 @@ The dialogue effect that reaches the `conversation.ts` site is itself called `co
 Each of the five sites was separately covered before the change: dropping the slot clear at any one of them failed exactly one test. After consolidation the same mutation on the single helper fails 5 tests across 5 files, so nothing lost its coverage.
 
 **Prevention:** This log's previous entry already ends with "finish the sweep: count the matching call sites before extracting", and the first pass here still stopped at the two that happened to be identical **functions**. Grep for the _body_ of the duplicated block, not for a helper name — the two sites missed were inline code with no name to find, and the third was a generalization of the same block that a name search for `consumeOne` would never reach. When one copy already takes a parameter the others hard-code, that copy is the signature to extract.
+
+## 2025-02-27 - Consolidate direction array duplication
+
+**What was found:** The `directions` array in `src/engine/utils/pathfinding.ts` duplicated the exact values of `IDLE_WANDER_DIRECTIONS` in `src/engine/systems/simulation/constants.ts` (found via jscpd).
+
+**Action:** Replaced the hardcoded `directions` array in `src/engine/utils/pathfinding.ts` with `IDLE_WANDER_DIRECTIONS` imported from constants, consolidating them into a single location.
+
+**Prevention:** To avoid duplicated logic arrays, always extract common magic arrays or values used across different parts of the system into shared constants to ensure consistency.
