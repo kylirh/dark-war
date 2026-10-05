@@ -773,7 +773,11 @@ class RoomSession {
     return world.game.getState().tiles.getTile(player.gridX, player.gridY);
   }
 
-  private tryDescend(playerId: string): void {
+  private tryTransition(
+    playerId: string,
+    expectedTile: TileType,
+    direction: "descend" | "ascend",
+  ): void {
     const world = this.worldOfPlayer(playerId);
     if (!world) return;
     const state = world.game.getState();
@@ -785,29 +789,17 @@ class RoomSession {
       player.gridX,
       player.gridY,
     );
-    if (
-      !portal ||
-      this.tileUnderPlayer(world, playerId) !== TileType.STAIRS_DOWN
-    )
+    if (!portal || this.tileUnderPlayer(world, playerId) !== expectedTile)
       return;
-    this.migratePlayer(playerId, portal.destination, "descend");
+    this.migratePlayer(playerId, portal.destination, direction);
+  }
+
+  private tryDescend(playerId: string): void {
+    this.tryTransition(playerId, TileType.STAIRS_DOWN, "descend");
   }
 
   private tryAscend(playerId: string): void {
-    const world = this.worldOfPlayer(playerId);
-    if (!world) return;
-    const state = world.game.getState();
-    const player = world.game.getPlayerById(playerId);
-    if (!player) return;
-    const portal = portalAt(
-      state.portals,
-      world.address,
-      player.gridX,
-      player.gridY,
-    );
-    if (!portal || this.tileUnderPlayer(world, playerId) !== TileType.STAIRS_UP)
-      return;
-    this.migratePlayer(playerId, portal.destination, "ascend");
+    this.tryTransition(playerId, TileType.STAIRS_UP, "ascend");
   }
 
   /** After a world steps, drop any player standing on a hole to the next depth. */
