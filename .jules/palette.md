@@ -103,3 +103,11 @@ duplicate reads exactly like a regression.
 **Action:** Updated `syncAppearanceControls` in `src/client/systems/character-modal.ts` to explicitly set `btn.setAttribute("aria-pressed", String(isSelected))` on both the theme and zoom toggle buttons whenever their state is synchronized.
 
 **Prevention:** Whenever implementing UI controls that function as toggles within a `role="group"` container, always ensure that both visual cues (`selected` classes) and semantic state attributes (`aria-pressed`) are kept in sync so that the state change is announced by screen readers.
+
+## 2024-11-20 - IntroStory Focus Restoration
+
+**What was found:** The `IntroStory` component (mission briefing sequence) is presented as a modal dialog (`role="dialog"`, `aria-modal="true"`) but failed to restore keyboard focus back to the element that triggered it (e.g., the "New Game" button) upon being skipped or completed. This left keyboard focus stranded on the `<body>` element or game canvas, breaking keyboard navigation flow.
+
+**Action:** Added `this.previousFocus = document.activeElement as HTMLElement | null;` to the `IntroStory` constructor to capture the active element before the dialog steals focus. Updated the `dispose()` method to restore focus to `this.previousFocus` if it is still in the document; otherwise, it falls back to focusing the game canvas.
+
+**Prevention:** Modal or overlay components that intercept and manage focus must explicitly capture `document.activeElement` when opening and restore focus to it upon closing, falling back to a sensible default if the element no longer exists.
