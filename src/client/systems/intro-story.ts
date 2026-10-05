@@ -4,6 +4,7 @@
 
 import { Music } from "./music";
 import { escapeHtml } from "./html-escape";
+import { captureFocusOpener, restoreFocus } from "./focus-restore";
 
 interface IntroStorySlide {
   imageSrc: string;
@@ -96,6 +97,13 @@ export class IntroStory {
   private readonly nextButton: HTMLButtonElement;
   private readonly skipButton: HTMLButtonElement;
   private readonly hadModalOpenClass: boolean;
+  /**
+   * The control that opened the intro, restored on dispose. `dispose()`
+   * removes the overlay while one of its own buttons holds focus, so
+   * without this the browser drops focus to `<body>` and keyboard
+   * navigation restarts from the top of the page.
+   */
+  private readonly openerFocus: HTMLElement | null;
   private slideIndex = 0;
   private isDisposed = false;
 
@@ -128,6 +136,7 @@ export class IntroStory {
   constructor(private readonly onComplete: () => void) {
     Music.setScene("intro-story");
     Music.play();
+    this.openerFocus = captureFocusOpener();
     this.hadModalOpenClass = document.body.classList.contains("imb-modal-open");
     this.overlay = document.createElement("div");
     this.overlay.className = "intro-story-overlay";
@@ -223,5 +232,7 @@ export class IntroStory {
     document.body.classList.remove("intro-story-active");
     if (!this.hadModalOpenClass)
       document.body.classList.remove("imb-modal-open");
+
+    restoreFocus(this.openerFocus);
   }
 }
