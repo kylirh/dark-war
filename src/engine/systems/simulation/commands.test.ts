@@ -332,7 +332,7 @@ describe("Simulation Commands Management", () => {
       expect(player.nextActTick).toBe(0);
     });
 
-    it("ignores non-WAIT commands when resting", () => {
+    it("ignores non-WAIT commands when resting and interrupts the rest", () => {
       player.resting = true;
 
       const cmd: Command = {
@@ -348,6 +348,7 @@ describe("Simulation Commands Management", () => {
       resolveCommand(state, cmd);
 
       expect(player.nextActTick).toBe(0);
+      expect(player.resting).toBe(false);
     });
   });
 });
