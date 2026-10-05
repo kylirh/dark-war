@@ -34,3 +34,11 @@ coverage exists — check that the behaviour you are changing is actually tested
 before treating "all tests pass" as proof the change is safe. Whether Dark War
 should move four-directionally is a design decision for a human and an ADR, not
 a one-line predicate edit.
+
+## 2024-05-23 - Fix diagonal pathfinding across wrapped coordinate seams
+
+**What was found:** The `WorldPlane.canTraverse` pathfinding capability returned `false` for diagonal coordinates spanning the toroidal world seam (e.g., from `(mapWidth-1, mapHeight-1)` to `(0, mapHeight-1)`). While relative `deltaX` and `deltaY` were correctly constrained across seams, the `inBounds` coordinate bounds check occurred *before* absolute coordinates were wrapped, rejecting the out-of-bounds `toX` and `toY` coordinates before they could be resolved to valid wrapped coordinates on the grid.
+
+**Action:** Reordered coordinate logic in `WorldPlane.canTraverse` to wrap absolute `fromX`, `fromY`, `toX`, and `toY` coordinates over bounds first via modulo arithmetic when `wraps = true`. This allows the subsequent bounds check, grid index lookup, passability check, and elevation check to correctly evaluate the wrapped coordinate. The `deltaX` and `deltaY` are still resolved using absolute coordinates first.
+
+**Prevention:** When testing pathfinders or grid algorithms that utilize the toroidal world, ensure differential tests explicitly verify coordinates immediately straddling the boundaries, especially for cross-seam diagonal traversals.
