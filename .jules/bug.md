@@ -23,3 +23,11 @@ another player's transition.
 pending actions or delayed transitions. Any state flags set by a command that
 are evaluated later in the tick (or after the tick) must be aborted if the actor
 dies in the interim.
+
+## 2026-10-06 - Interrupt resting on non-wait player command
+
+**What was found:** When a player issued a non-WAIT command (like moving or firing) while resting, the `resolveCommand` pipeline returned early and aborted the command, but left the player in a `resting` state indefinitely. This caused the time scale acceleration to remain active without the player realizing they were still 'resting' but ignoring their inputs.
+
+**Action:** `resolveCommand` now explicitly calls `stopPlayerResting(state, player)` before returning early if a non-WAIT command is processed for a resting player. Added a test in `resting.test.ts` to cover this behavior.
+
+**Prevention:** Whenever state-interrupting rules (such as resting, sleeping, or status effects) require ignoring a command input, ensure that any side-effects of breaking that state (like canceling the rest time-scale or waking up) are applied before returning early and dropping the command.
