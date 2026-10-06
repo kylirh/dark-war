@@ -13,7 +13,7 @@ import {
   WeaponType,
   CELL_CONFIG,
 } from "../../types";
-import { idxFor, inBoundsFor } from "../../utils/helpers";
+import { idxFor, inBoundsFor, EIGHT_WAY_DIRECTIONS } from "../../utils/helpers";
 import { applyWallDamageAt } from "../../utils/walls";
 import {
   getStateDamageAtIndex,
@@ -130,16 +130,7 @@ function botNextStep(
     const cur = queue[queueHead++];
     const cx = cur % w,
       cy = Math.floor(cur / w);
-    for (const [dx, dy] of [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-      [1, 1],
-      [1, -1],
-      [-1, 1],
-      [-1, -1],
-    ] as [number, number][]) {
+    for (const [dx, dy] of EIGHT_WAY_DIRECTIONS) {
       const nx = cx + dx,
         ny = cy + dy;
       if (!inBoundsFor(nx, ny, w, h)) continue;
@@ -1867,14 +1858,7 @@ function decideMonsterCommand(
     [moveX, moveY], // Primary direction (diagonal)
     [moveX, 0], // Horizontal component
     [0, moveY], // Vertical component
-    [1, 0],
-    [-1, 0],
-    [0, 1],
-    [0, -1],
-    [1, 1],
-    [1, -1],
-    [-1, 1],
-    [-1, -1],
+    ...EIGHT_WAY_DIRECTIONS,
   ];
 
   // Score each direction by how much it reduces distance to player

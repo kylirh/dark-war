@@ -328,3 +328,103 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-04
+
+**Merged:**
+
+- **#341** `test(simulation): cover hole and occupancy guards on block placement` —
+  Test, as-is. Both guards in `resolvePlaceBlockCommand` were entirely
+  uncovered: on `main`, dropping `existing !== TileType.HOLE` from the
+  `buildable` check left all 898 tests passing, and so did removing the `return`
+  from the `occupied` guard. `HOLE` is `block: false`, so the first mutation
+  really does make holes buildable. Each new case fails exactly its own mutation.
+- **#342** `docs(terrain): document cantraverse diagonal movement contract` —
+  Scribe, as-is. Documents the single most-misread predicate in the tree on both
+  the interface and the implementation. Claims checked rather than taken:
+  `Math.max(abs(dx), abs(dy)) !== 1` is Chebyshev-1, `pathfinding.ts:108` and
+  `ai.ts:149` expand all eight neighbours, and "combat steering" is accurate —
+  `ai.ts:1845` chases with both `moveX` and `moveY` non-zero.
+- **#343** `refactor(utils): consolidate the duplicate eight-way directions array`
+  — Janitor, after two rounds of corrections. See below; this one is the story of
+  the run.
+
+**Closed:**
+
+- **#344** `fix(simulation): interrupt resting on non-wait commands` — Bug. The
+  **fifth** proposal of this edit after #321, #325, #328 and #335. Circular
+  oracle: `main` has a test that pins the current behaviour by name,
+  `"ignores non-WAIT commands when resting"` (`commands.test.ts:335`, issues
+  `RELOAD` while resting and asserts `nextActTick` stays `0`), and the PR renames
+  it and inverts its assertion. Nothing failed first. Measured the design rather
+  than arguing it: rest ends by four deliberate paths — the wait toggle
+  (`commands.ts:305`), full HP (`tick.ts:151`), death (`tick.ts:139`) and
+  **taking damage** (`events.ts:152`). The guard is the complement of that list.
+  The client also suppresses movement independently: `handleUpdateVelocity` zeroes
+  velocity and returns while resting (`main.ts:1809-1815`), so a `MOVE` the engine
+  now honoured would arrive from a layer refusing to move the player.
+
+**Found in main:** the eight-way sweep in #343 was still incomplete after the
+corrections. `ai.ts:134-143` (`botNextStep`) and the tail of `allDirs` at
+`ai.ts:1870-1877` are both byte-identical to `EIGHT_WAY_DIRECTIONS` in values
+_and_ order — compared mechanically, not by eye. Consolidated in this run's
+pull request; behaviour-preserving by construction, and the suite stays at 903.
+
+**For next time:**
+
+1. **An integration push reverted review corrections for the third time, and the
+   title lied about it.** `a48fa0c` on #343 was titled "acknowledge corrective
+   commit for array ordering" and was a _complete revert_ of that commit:
+   angular order restored, all three order tests deleted, `ANGULAR_DIRECTIONS`
+   deleted, the dead alias and unused import restored, the log entry reverted to
+   its wrong `2025-02-27` date. **CI would have been green on it**, because the
+   only tests that detect the reorder were the three it deleted. #280 and #292
+   did this before. What made it safe was pinning `expectedHeadSha` on the merge:
+   the branch moved between my first push and the merge, and re-reading
+   `git ls-remote` immediately before merging is what caught it. Do both, every
+   time — the re-check is not optional and a green check is not evidence.
+
+2. **Stop believing the 2026-09-30 note that the Manhattan mutation leaves the
+   suite green.** It is stale. Measured today on current `main`: switching
+   `canTraverse` to Manhattan fails **3 tests** —
+   `world-plane.test.ts > allows all four diagonal neighbours on level ground`
+   and two cases in `pathfinding.test.ts > findPath diagonal movement`. #296
+   landed and did its job. A thirteenth diagonal proposal should now fail CI
+   rather than need review, so close it on sight.
+
+3. **Two arrays with the same values are only duplicates if the order is dead.**
+   `EIGHT_WAY_DIRECTIONS` is sampled by index with `RNG` in
+   `chooseIdleWanderDirection` and iterated for equal-cost tie-breaks in
+   `findPathToClosestReachable`; `directionFromAngle`'s array is indexed by
+   `angle / 45 degrees`. Merging them forced angular order on the first two:
+   `findPath(1, 1) -> (1, 6)` across open floor returned `(2, 2), (3, 3)` and
+   back instead of walking straight down. Now pinned by `helpers.test.ts` and
+   `pathfinding.test.ts`; before that the whole 898-test suite passed under the
+   reorder. The tell was in the PR body — it reported "resolving one temporary
+   test failure due to altered order definition", which was the one _covered_
+   site of the three. A red test that moves depending on which copy wins means
+   the copies are not interchangeable.
+
+4. **Do not probe RNG trajectories through `new Game()` — it is not
+   deterministic run to run here.** A `game.reset(1)` + `RNG.reseed(k)` probe of
+   `chooseIdleWanderDirection` gave different sequences on two runs of identical
+   code, which briefly made a behaviour-preserving change look like a regression.
+   Measure order contracts at the `FlatTileSource` level instead, the way
+   `pathfinding.test.ts` does: no level generation, no RNG, fully repeatable.
+
+5. **The repo has a `pre-commit` hook, not just `commit-msg`.**
+   `.githooks/pre-commit` runs `prettier --write` over staged `.ts/.js/.mjs/.json/.css/.md`
+   files and re-stages them. That is why a local commit can pick up a one-line
+   reformat of a `.jules/*.md` file it never meant to touch: `main`'s copy came
+   in through a GitHub squash, which bypasses hooks. Harmless, but do not chase
+   it. `commit-msg` still rejects any uppercase anywhere in the message.
+
+6. **Branch deletion: `delete_branch_on_merge` now works, direct deletion still
+   does not.** All three branches merged today were removed automatically.
+   For the five older merged branches still on origin,
+   `git push --force-with-lease ... :refs/heads/<branch>` fails with "the remote
+   end hung up unexpectedly" on every one, and the `mcp__github__*` toolset has
+   no branch-deletion tool — re-checked at runtime, not carried forward. One
+   attempt is enough. Note those five tips have moved _since_ their merge
+   (e.g. #333 merged `b7cdc82`, the branch now points at `26ee1c3`), so they are
+   no longer at the state that landed.
