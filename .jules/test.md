@@ -157,3 +157,11 @@ Mutation-checked, one failing case per mutation: dropping the `itemsToTrigger` l
 **Action:** Added two new tests to `matter-manipulator.test.ts` that ensure the `PLACE_BLOCK` command correctly rejects these invalid placements and alerts the player.
 
 **Prevention:** When adding new player commands that mutate the world (like building), always consider edge cases where the action intersects with invalid tiles or occupying entities.
+
+## 2026-10-15 - Add test for monster hole fall chance
+
+**What was found:** In `src/engine/systems/simulation/tick.ts`, the logic in `processHoleFalls` that gives a monster a 50% chance to fall when moving onto a hole tile (`if (movedOntoHole && RNG.chance(0.5))`) was not covered by any behavioral test. This left it vulnerable to being accidentally changed or removed without failing any tests.
+
+**Action:** Added a focused test in `src/engine/systems/simulation/tick.test.ts` to verify that a monster moving onto a hole tile has a probabilistic chance of falling. The test uses a fixed random seed and runs multiple trials to assert that the fall count is greater than 0 and less than the total number of trials.
+
+**Prevention:** Ensure that probabilistic branches for entity interactions with the environment (e.g. falling through holes, triggering traps) are explicitly covered by tests using fixed seeds and multiple trials to protect against accidental removal of the randomness.
