@@ -3,8 +3,11 @@ import { stepSimulationTick } from "./tick";
 import { Game } from "../../core/game";
 import { MAX_COMMANDS_PER_TICK } from "./constants";
 import * as ai from "./ai";
-import { ItemType, TileType } from "../../types";
+import { CELL_CONFIG, ItemType, MonsterType, TileType } from "../../types";
 import { ItemEntity } from "../../entities/item-entity";
+import { MonsterEntity } from "../../entities/monster-entity";
+import { RNG } from "../../utils/rng";
+import { processEventQueue } from "./events";
 
 vi.mock("./ai", async (importOriginal) => {
   const actual = await importOriginal();
@@ -187,6 +190,72 @@ describe("stepSimulationTick", () => {
 
       expect(state.entityManager.items.length).toBe(0);
       expect(state.itemsFellThrough).toBeUndefined();
+    });
+
+    it("gives monsters moving onto a hole a 50% chance to fall", () => {
+      RNG.reseed(1);
+      const game = new Game({ mode: "offline" });
+      game.reset(1);
+      const state = game.getState();
+      const hx = 5;
+      const hy = 5;
+      state.tiles.setTile(hx, hy, TileType.HOLE);
+
+      let fallCount = 0;
+      const trials = 100;
+
+      for (let i = 0; i < trials; i++) {
+        const monster = new MonsterEntity(hx, hy, MonsterType.MUTANT, 1);
+        monster.prevWorldX = (hx - 1) * CELL_CONFIG.w;
+        monster.prevWorldY = hy * CELL_CONFIG.h;
+        state.entityManager.spawn(monster);
+
+        stepSimulationTick(state);
+        processEventQueue(state);
+
+        const exists = state.entities.some((e) => e.id === monster.id);
+        if (!exists) {
+          fallCount++;
+        }
+
+        if (exists) {
+          state.entityManager.destroy(monster.id);
+        }
+      }
+
+      expect(fallCount).toBeGreaterThan(0);
+      expect(fallCount).toBeLessThan(trials);
+    });
+
+    it("leaves a monster already standing on a hole where it is", () => {
+      RNG.reseed(1);
+      const game = new Game({ mode: "offline" });
+      game.reset(1);
+      const state = game.getState();
+      const hx = 5;
+      const hy = 5;
+      state.tiles.setTile(hx, hy, TileType.HOLE);
+
+      // Same trial count as the moving case: with a 50% chance per tick, a
+      // stationary monster surviving all of them is only meaningful in bulk.
+      const trials = 100;
+      let fallCount = 0;
+
+      for (let i = 0; i < trials; i++) {
+        const monster = new MonsterEntity(hx, hy, MonsterType.MUTANT, 1);
+        monster.prevWorldX = monster.worldX;
+        monster.prevWorldY = monster.worldY;
+        state.entityManager.spawn(monster);
+
+        stepSimulationTick(state);
+        processEventQueue(state);
+
+        const exists = state.entities.some((e) => e.id === monster.id);
+        if (!exists) fallCount++;
+        else state.entityManager.destroy(monster.id);
+      }
+
+      expect(fallCount).toBe(0);
     });
   });
 });
