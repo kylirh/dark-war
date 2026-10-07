@@ -53,3 +53,11 @@
 **Action:** Added detailed TSDoc to `TileSource.canTraverse` explaining that "neighboring" includes diagonals (Chebyshev distance of 1) and that pathfinders depend on this. Added an `@inheritDoc` block to `WorldPlane.canTraverse` explicitly warning against changing the `Math.max` check to a Manhattan sum.
 
 **Prevention:** Document invisible engine-wide constraints on the specific interface and implementation methods where developers actually read and edit code. Tests pin behavior, but documentation explains _why_ the behavior is correct.
+
+## 2026-10-07 - Document offline-only transition intents in GameState
+
+**What was found:** The `GameState` object contains ephemeral flags (`shouldDescend`, `shouldAscend`, `descendTarget`, `pendingPortalId`) used exclusively to signal level transitions to the offline host. As documented in `.jules/architect.md` and `.jules/bug.md`, these flags caused a bug where a dead player would warp if the transition wasn't canceled on death. Developers had no way to know these properties were ephemeral routing signals rather than persistent state, or that they were intentionally cleared by the multiplayer server.
+
+**Action:** Added TSDoc to `shouldDescend` (and related fields) in `GameState` (`src/engine/types.ts`) explicitly documenting that it is an offline-only intra-tick routing signal. Documented its lifecycle: read/cleared by the offline host (`main.ts`), explicitly cleared by the multiplayer server, and aborted if the player dies during the tick.
+
+**Prevention:** Document ephemeral host-signaling flags directly on their interface definitions so their offline-only lifecycle and ownership rules are visible in IntelliSense. This prevents bugs caused by treating routing signals as persistent state or forgetting to cancel them on state-invalidating events like actor death.
