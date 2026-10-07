@@ -819,9 +819,33 @@ export interface GameState {
   sim: SimulationState;
   commandsByTick: Map<number, Command[]>;
   eventQueue: GameEvent[];
+  /**
+   * Offline-only intent flag signaling that the local player initiated a descent.
+   *
+   * This is an intra-tick routing signal, not persistent state. The offline host
+   * (`main.ts`) reads and clears this after the tick to execute the transition.
+   * It is aborted (cleared) if the player dies during the same tick to prevent
+   * warping a corpse, and the multiplayer server explicitly clears it because
+   * it handles per-player migration differently.
+   *
+   * It also acts as an intra-tick guard in `processHoleFalls` to prevent
+   * falling while a transition is already pending.
+   */
   shouldDescend: boolean;
+  /**
+   * Offline-only intent flag signaling that the local player initiated an ascent.
+   * @see {@link shouldDescend} for lifecycle and ownership rules.
+   */
   shouldAscend: boolean;
+  /**
+   * Target grid coordinates for an offline descent.
+   * @see {@link shouldDescend} for lifecycle and ownership rules.
+   */
   descendTarget?: [number, number];
+  /**
+   * Target portal ID for an offline transition.
+   * @see {@link shouldDescend} for lifecycle and ownership rules.
+   */
   pendingPortalId?: string;
   /** Transient topology changes awaiting physics-collider synchronization. */
   changedTiles?: Set<number>;
