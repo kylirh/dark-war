@@ -819,9 +819,51 @@ export interface GameState {
   sim: SimulationState;
   commandsByTick: Map<number, Command[]>;
   eventQueue: GameEvent[];
+  /**
+   * Offline-only intent flag signaling that a descent is pending for the local
+   * player, set either by the descend command resolver or by a hole fall
+   * (`triggerPlayerFall`).
+   *
+   * This is an intra-tick routing signal, not persistent state. The offline host
+   * (`main.ts`) reads and clears this after the tick to execute the transition.
+   * It is aborted (cleared) if the player dies during the same tick to prevent
+   * warping a corpse, and the multiplayer server explicitly clears it because
+   * it handles per-player migration differently.
+   *
+   * It also acts as an intra-tick guard in `processHoleFalls` to prevent
+   * falling while a transition is already pending.
+   */
   shouldDescend: boolean;
+  /**
+   * Offline-only intent flag signaling that an ascent is pending for the local
+   * player, set by the ascend command resolver.
+   *
+   * Shares {@link GameState.shouldDescend}'s lifecycle — cleared by the offline
+   * host after the tick, cleared on player death, and cleared every tick by the
+   * multiplayer server — but has no intra-tick reader.
+   */
   shouldAscend: boolean;
+  /**
+   * Grid coordinates of the tile the player fell through, carried into the level
+   * below as their landing position.
+   *
+   * Set only by the hole-fall path (`triggerPlayerFall`); a descent through a
+   * portal clears it instead, so it is absent for ordinary stair transitions.
+   * Consumed and cleared by `Game.descend()`, and cleared on player death.
+   * Unlike {@link GameState.shouldDescend}, the multiplayer server does **not**
+   * clear it — inert there only because nothing on the server reads it. See
+   * `docs/adr/0011-engine-to-host-transition-signals.md`.
+   */
   descendTarget?: [number, number];
+  /**
+   * Portal the pending offline transition should travel through, set by both the
+   * descend and ascend command resolvers.
+   *
+   * Consumed and cleared by `Game.descend()` / `Game.ascend()`, and cleared on
+   * player death. Unlike {@link GameState.shouldDescend}, the multiplayer server
+   * does **not** clear it — inert there only because nothing on the server reads
+   * it. See `docs/adr/0011-engine-to-host-transition-signals.md`.
+   */
   pendingPortalId?: string;
   /** Transient topology changes awaiting physics-collider synchronization. */
   changedTiles?: Set<number>;
