@@ -328,3 +328,66 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-08
+
+**Merged:** nothing. All three open Jules pull requests were closed.
+
+**Closed:**
+
+- **#360** and **#361** (interrupt rest on a non-WAIT command) — the **eleventh
+  and twelfth** proposal of the same change. Previously #321, #325, #328, #335,
+  #344, #346, #350, #353, #354, #357. Both added the identical three lines to the
+  guard at `commands.ts:229`; #361 was closed as the duplicate, #360 carried the
+  reasoning.
+- **#359** (`chore(test): stop silently…`) — an empty pull request. One commit, no
+  changed files, `git diff origin/main...pr-359 | wc -c` = 0. The Test bot
+  correctly decided the finding belonged to Bug and restored the tree, then
+  opened a pull request to announce it. Second occurrence; #356 was the same
+  thing on 2026-10-07.
+
+**Found in main:** the 24-hour window was exactly one commit, #358, which is
+documentation. Two of its new TSDoc contracts are wrong, and the Phase 2 pull
+request corrects them.
+
+**For next time:**
+
+1. **The rest-interrupt "time scale leak" does not exist, and this is now the
+   settled disproof.** The scale is _derived_, not latched: `src/client/main.ts:1661`
+   re-evaluates `targetTimeScale` from `player.resting` every frame, and
+   `server/multiplayer-server.ts:842` re-evaluates it from
+   `areAllLivingPlayersResting` every tick. Measured on `e070671` across seeds 1,
+   2, 3, 11, 42, 99, 123, 777: after the discarded command the state is
+   `resting=true scale=0.85/8` and stays there, then flips to
+   `resting=false scale=0.85/0.85` in the same tick rest ends. `resting` and the
+   scale never disagree. Also: online, `applyAction` returns at
+   `multiplayer-server.ts:556` before anything is enqueued, so the patched guard
+   is not even reached in online play. What is left is a pacing decision — wake,
+   keep accelerating, or drop to real time — and it belongs to a human.
+2. **Root cause of the twelve duplicates, and the one thing worth a human's
+   time this run.** `.jules/bug.md` holds a single entry (the #333 one) and says
+   nothing about rest; `.jules/alpha.md` does not exist; and
+   `.jules/prompts/alpha.md:27` points Alpha directly at "health, resting,
+   damage, death, or restart". The bots have nowhere to read their own rejections
+   from, so they rediscover this daily. The 2026-09-30 entry already named the
+   missing `alpha.md` as the cause and nothing has acted on it. The curator
+   cannot fix this from inside a Jules pull request — it needs either the
+   rejection written into the bots' learning logs or a line in the prompts.
+3. **A bot test that does not call `RNG.reseed` is flaky, not just
+   order-dependent.** The shared `RNG` seeds from `Date.now()` when unseeded
+   (`rng.ts:18`), so `game.reset(n)` scatters monsters differently every run.
+   #360's new test failed on run 5 of 8 and again on run 3 of a second batch,
+   on `expect(player.resting).toBe(true)` — `hasRestThreat` refuses the rest
+   whenever a monster lands near the start tile (2 of 10 fixed seeds do).
+   Check for a `reseed` before believing any bot's "tests pass".
+4. **`Game.ascend()` does not always clear `pendingPortalId`.** Both early
+   returns — `game.ts:1391` (no portal at depth 0) and `game.ts:1404`
+   (destination snapshot not resident) — precede the clear at `:1417`.
+   `Game.descend()` has no such gap. Documented rather than changed: see the
+   Phase 2 pull request's excluded section for why the stale-portal hazard could
+   not be shown reachable.
+5. **Branch deletion still 403s**, now with a lease and a resolved head:
+   `error: RPC failed; HTTP 403` on all nine deletable merged branches. The
+   `mcp__github__*` toolset has `create_branch` and no delete. Origin is down to
+   29 heads from the 95 the 2026-09-30 entry counted, so someone is clearing
+   these by hand; 9 merged and 14 unmerged are listed in this run's summary.

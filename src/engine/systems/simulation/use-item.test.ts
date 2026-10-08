@@ -413,6 +413,23 @@ describe("panic button", () => {
     expect(state.pendingSounds.at(-1)?.effect).toBe(SoundEffect.PANIC_BUTTON);
   });
 
+  it("raises the ascent intent without a portal, so the host falls back a depth", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(2);
+    const state = game.getState();
+    const player = state.player;
+    player.panicCharge = player.panicChargeMax;
+    setActive(game, ItemType.PANIC_BUTTON);
+
+    use(game);
+
+    // The ascend command resolver pairs shouldAscend with a portal
+    // (level-transitions.test.ts); the panic button deliberately does not, so
+    // Game.ascend() takes its portal-less "one depth toward the entrance" path.
+    expect(state.shouldAscend).toBe(true);
+    expect(state.pendingPortalId).toBeUndefined();
+  });
+
   it("clicks when activation is attempted before it is charged", () => {
     const game = new Game({ mode: "offline" });
     game.reset(2);

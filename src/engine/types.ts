@@ -836,7 +836,14 @@ export interface GameState {
   shouldDescend: boolean;
   /**
    * Offline-only intent flag signaling that an ascent is pending for the local
-   * player, set by the ascend command resolver.
+   * player, set either by the ascend command resolver or by a charged
+   * panic button (`resolveUseItemCommand`).
+   *
+   * The two setters are not interchangeable: the resolver always pairs this with
+   * a {@link GameState.pendingPortalId}, and the panic button never does. A
+   * panic-button ascent is therefore carried by `Game.ascend()`'s portal-less
+   * fallback — one depth toward the entrance — rather than by a portal
+   * destination.
    *
    * Shares {@link GameState.shouldDescend}'s lifecycle — cleared by the offline
    * host after the tick, cleared on player death, and cleared every tick by the
@@ -859,10 +866,17 @@ export interface GameState {
    * Portal the pending offline transition should travel through, set by both the
    * descend and ascend command resolvers.
    *
-   * Consumed and cleared by `Game.descend()` / `Game.ascend()`, and cleared on
-   * player death. Unlike {@link GameState.shouldDescend}, the multiplayer server
-   * does **not** clear it — inert there only because nothing on the server reads
-   * it. See `docs/adr/0011-engine-to-host-transition-signals.md`.
+   * Absent when the intent came from a hole fall or a panic button instead, in
+   * which case both methods fall back to the adjacent depth.
+   *
+   * Consumed by `Game.descend()` / `Game.ascend()` to choose the destination.
+   * `Game.descend()` always clears it; `Game.ascend()` clears it only on the
+   * path that completes the transition, so both of its early returns — no portal
+   * at depth 0, and a destination snapshot that is not resident — leave it set.
+   * Also cleared on player death. Unlike {@link GameState.shouldDescend}, the
+   * multiplayer server does **not** clear it — inert there only because nothing
+   * on the server reads it. See
+   * `docs/adr/0011-engine-to-host-transition-signals.md`.
    */
   pendingPortalId?: string;
   /** Transient topology changes awaiting physics-collider synchronization. */
