@@ -24,10 +24,10 @@ pending actions or delayed transitions. Any state flags set by a command that
 are evaluated later in the tick (or after the tick) must be aborted if the actor
 dies in the interim.
 
-## 2026-10-08 - Explicitly interrupt player resting state on non-WAIT commands
+## 2026-10-08 - Invalid defect report on resting interruption
 
-**What was found:** When a player in a resting state issued a command other than WAIT, the simulation pipeline aborted the command (returning early from `resolveCommand`) but left the player in the resting state with an accelerated time scale.
+**What was found:** A previous run believed that an aborted command (non-WAIT during rest) leaked the accelerated `REST_TIME_SCALE` into normal gameplay because `stopPlayerResting` was not called. This was incorrect: the time scale is derived on every frame/tick and intrinsically coupled to `player.resting`. The player remained resting, and the time scale was correctly accelerated for a resting player.
 
-**Action:** Modified `resolveCommand` in `src/engine/systems/simulation/commands.ts` to explicitly call `stopPlayerResting(state, player)` before returning early when a non-WAIT command is encountered while resting.
+**Action:** Reverted the attempt to call `stopPlayerResting` on an aborted command, which was a pacing/design change masquerading as a bug fix, and closed the pull request without making changes.
 
-**Prevention:** Always ensure that early aborts in command resolution explicitly clean up any temporary states (like resting) that shouldn't persist when the command fails or interrupts the state.
+**Prevention:** Do not try to fix resting interruption pacing by changing `commands.ts`. The simulation design intentionally ignores non-WAIT commands during rest. Read `.jules/bug.md` and check PR feedback carefully; verify that your "defect" is not actually working exactly as intended by the derived time scale architecture.
