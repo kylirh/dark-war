@@ -25,7 +25,19 @@ export const MONSTER_AI_UPDATE_INTERVAL = 5; // Update monster velocities every 
 export const MONSTER_SPEED = 225; // pixels per second
 export const MONSTER_ARRIVAL_RADIUS = CELL_CONFIG.w * 1.5; // Stop when within 1.5 tiles for attack
 export const MONSTER_ITEM_PICKUP_CHANCE = 0.85; // 85% chance to pick up items when overlapping
+/**
+ * Hard safety limit on events processed per tick to prevent infinite recursion
+ * cascades without resorting to non-deterministic real-time budgets (e.g.
+ * performance.now()). Overflow events are deferred to the next tick.
+ */
 export const MAX_EVENTS_PER_TICK = 1000;
+
+/**
+ * Hard safety limit on AI commands generated per tick to prevent processing
+ * cascades without resorting to non-deterministic real-time budgets. Overflow
+ * commands are dropped outright (not deferred) because AI commands are rebuilt
+ * from scratch every tick.
+ */
 export const MAX_COMMANDS_PER_TICK = 1000;
 /** World-speed multiplier while every living player on a plane is resting. */
 export const REST_TIME_SCALE = 8;

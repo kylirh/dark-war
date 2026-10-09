@@ -61,3 +61,11 @@
 **Action:** Added TSDoc to `shouldDescend` (and related fields) in `GameState` (`src/engine/types.ts`) explicitly documenting that it is an offline-only intra-tick routing signal. Documented its lifecycle: read/cleared by the offline host (`main.ts`), explicitly cleared by the multiplayer server, and aborted if the player dies during the tick.
 
 **Prevention:** Document ephemeral host-signaling flags directly on their interface definitions so their offline-only lifecycle and ownership rules are visible in IntelliSense. This prevents bugs caused by treating routing signals as persistent state or forgetting to cancel them on state-invalidating events like actor death.
+
+## 2026-10-09 - Document deterministic simulation budgets
+
+**What was found:** ADR 0009 and the memory explicitly state that the engine must use deterministic operation counts (`MAX_EVENTS_PER_TICK` and `MAX_COMMANDS_PER_TICK`) instead of real-time budgets (`performance.now()`) to prevent processing cascades. However, this critical constraint and the divergent overflow handling (events defer, commands drop) were entirely undocumented on the constants themselves.
+
+**Action:** Added TSDoc to `MAX_EVENTS_PER_TICK` and `MAX_COMMANDS_PER_TICK` in `src/engine/systems/simulation/constants.ts` explaining that they replace non-deterministic wall-clock budgets, and documenting how each handles overflow (events are deferred, AI commands are dropped).
+
+**Prevention:** Document architectural constraints and overflow behavior directly on the constants that enforce them, rather than relying solely on external ADRs. Future developers will see why a real-time budget cannot be introduced.
