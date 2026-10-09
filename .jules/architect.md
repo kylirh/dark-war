@@ -15,3 +15,11 @@ cannot serve, so the recommended option keeps an internal marker rather than
 removing the flag. And the offline host consumes the flags at two sites in
 `main.ts`, not one. Verify which fields are serialized and count every reader
 before claiming a field is purely host-bound.
+
+## 2026-10-09 - Movement Connectivity
+
+**What was found:** The game's pathfinding natively supports 8-way (Chebyshev) movement via `WorldPlane.canTraverse` using `Math.max(Math.abs(deltaX), Math.abs(deltaY)) === 1`. However, because the visual terrain is strictly orthogonal, this code looks like an off-by-one error for Manhattan distance. As a result, developers have repeatedly tried to "fix" it by narrowing it to 4-way distance across eleven separate PRs, which broke diagonal movement but passed tests since the 8-way contract was uncovered.
+
+**Action:** Proposed ADR 0012 recommending changing the game's movement rules to explicitly be 4-way (Manhattan) distance. This aligns the physics with both developer expectations and the game's orthogonal visual presentation.
+
+**Prevention:** When a correct implementation of an engine rule repeatedly causes confusion and leads to repeated, identical, well-intentioned "fixes" from contributors, the root cause is often a mismatch between the system's structural affordances (like its visual presentation) and its mechanics. Consider whether the design itself should be aligned with the expected affordances rather than endlessly defending the counter-intuitive mechanic.
