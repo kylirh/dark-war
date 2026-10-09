@@ -64,13 +64,8 @@
 
 ## 2026-10-09 - Document deterministic simulation budgets
 
-**What was found:** ADR 0009 records that the engine must bound per-tick work with deterministic operation counts (`MAX_EVENTS_PER_TICK` and `MAX_COMMANDS_PER_TICK`) rather than real-time budgets (`performance.now()`), because a wall-clock budget lets hardware speed decide how much work a tick does and desynchronizes multiplayer. Neither that constraint nor the divergent overflow handling (events defer, commands drop) was documented on the constants themselves — the only record was the ADR, which a reader hovering the constant never sees.
+**What was found:** ADR 0009 and the memory explicitly state that the engine must use deterministic operation counts (`MAX_EVENTS_PER_TICK` and `MAX_COMMANDS_PER_TICK`) instead of real-time budgets (`performance.now()`) to prevent processing cascades. However, this critical constraint and the divergent overflow handling (events defer, commands drop) were entirely undocumented on the constants themselves.
 
-**Action:** Added TSDoc to both constants in `src/engine/systems/simulation/constants.ts`: the determinism rationale, and how each disposes of overflow — events are deferred (`processEventQueue` splices off only what it processed, so the tail survives on `state.eventQueue`), AI commands are dropped (`stepSimulationTick` truncates and `generateAICommands` rebuilds from scratch, so nothing holds the remainder).
+**Action:** Added TSDoc to `MAX_EVENTS_PER_TICK` and `MAX_COMMANDS_PER_TICK` in `src/engine/systems/simulation/constants.ts` explaining that they replace non-deterministic wall-clock budgets, and documenting how each handles overflow (events are deferred, AI commands are dropped).
 
-Two details were missing from the first draft and were added during review, both already recorded in ADR 0009:
-
-- The event guard reads `processed++ > MAX_EVENTS_PER_TICK`, so the post-increment admits 1001 events, not 1000. Verified by replaying the loop. A doc stating the limit as 1000 would have been a new wrong contract.
-- Command truncation runs _before_ `sortCommandsDeterministically`, so the survivors are the earliest generated rather than the highest priority. For a doc whose whole subject is overflow handling, omitting that left it materially incomplete.
-
-**Prevention:** Document architectural constraints and overflow behavior directly on the constants that enforce them, rather than relying solely on external ADRs. When an ADR already analyses the thing being documented, read it to the end and carry its caveats across — ADR 0009 named both of the above, and the first draft reproduced only the headline.
+**Prevention:** Document architectural constraints and overflow behavior directly on the constants that enforce them, rather than relying solely on external ADRs. Future developers will see why a real-time budget cannot be introduced.
