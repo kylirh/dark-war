@@ -1,8 +1,7 @@
+## 2026-10-09 - Reject rest interruption on non-WAIT commands
 
-## 2024-11-20 - Fix rest interruption leak
+**What was found:** A proposal was made to interrupt resting when a player issues a non-WAIT command (like MOVE), claiming that ignoring the command without waking violated the contract and risked leaking REST_TIME_SCALE.
 
-**What was found:** Resting players issuing a non-WAIT command had the command ignored, but their rest state was not explicitly interrupted via `stopPlayerResting`, which violates the contract that non-WAIT commands should cancel rest and require the player to input the command again.
+**Action:** The proposal was rejected. As per docs/HEALTH-AND-REST.md, only damage or the wake command (WAIT) interrupts rest. Silently ignoring other commands is the intended behavior, preventing accidental rest cancellation. There is also no timescale leak, as stopPlayerResting correctly resets the time scale synchronously.
 
-**Action:** Added `stopPlayerResting(state, player)` before returning early when a resting player issues a non-WAIT command in `resolveCommand`. Added a regression test to `resting.test.ts`.
-
-**Prevention:** Ensure that any early-return guard clauses that skip command execution during states like resting properly resolve the cleanup of that state before aborting.
+**Prevention:** Do not propose changing the rest interruption behavior to include non-WAIT commands. The current implementation (ignoring the command and maintaining rest) is a deliberate pacing decision documented in HEALTH-AND-REST.md, not a defect.
