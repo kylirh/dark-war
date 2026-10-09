@@ -1,45 +1,48 @@
-# 0012 - Movement Connectivity
+# 0012 - Pathfinding Movement Connectivity
 
 **Status:** Proposed
 **Date:** 2026-10-09
 
 ## Context
 
-The game's simulation and pathfinding currently support eight-way (Chebyshev) movement. The foundational guard for this is `WorldPlane.canTraverse`, which gates a single step by checking `Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1` (allowing diagonals).
+Dark War features continuous fluid movement for players, not a grid-locked system. Input is handled with continuous remappable movement with normalized diagonals (as implemented in `src/client/systems/input.ts:336-350`), ensuring diagonal movement speed matches orthogonal speed. Players move freely in float pixel coordinates (`worldX`/`worldY`).
 
-The concrete cost of this design is that the predicate looks exactly like an off-by-one error for a standard four-way (Manhattan) adjacency check. As documented in `.jules/world.md` (2026-09-29), contributors have "fixed" this predicate to Manhattan distance (`Math.abs(deltaX) + Math.abs(deltaY) !== 1`) in eleven separate pull requests (#263, #268, #270, #275, #284, #288, #294, #298, #300, #315, and #320). Every one of these PRs passed the test suite because the 8-connected contract lacked a test, and every one was closed because the change silently breaks both the click-to-move and monster pathfinders, which explicitly expand and rely on eight neighbors.
+However, pathfinding—specifically click-to-move and the monster BFS AI—is grid-based and relies on `WorldPlane.canTraverse`. This predicate gates a single pathfinding step by checking `Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1`, which explicitly allows eight-way (Chebyshev) diagonal movement to match the player's diagonal capability.
 
-The documentation has since been updated and tests added to pin the Chebyshev behavior (per #296), but the recurring friction points to a deeper architectural question: the codebase natively supports eight-way movement, but its visual grid and terrain rules strongly imply a four-way orthogonal world. If the game is actually meant to be four-directional, the engine should enforce it structurally rather than defending an eight-way predicate against constant "fixes."
+This code structurally resembles an off-by-one error for a standard four-way (Manhattan) grid adjacency check. Because the 8-way pathfinding contract was historically untested, contributors "fixed" this predicate to Manhattan distance (`Math.abs(deltaX) + Math.abs(deltaY) !== 1`) across twelve separate pull requests. Every one passed the test suite and broke diagonal pathfinding, creating a mismatch where monsters and click-to-move would become four-directional while keyboard player movement remained continuous and diagonal.
+
+This specific recurrence has been mitigated. As of PR #296, the 8-connected pathfinding contract is pinned by tests in `world-plane.test.ts` and `pathfinding.test.ts`, causing any Manhattan distance modification to loudly fail. The bleeding has stopped.
+
+The remaining open architectural question is whether grid-based pathfinders should continue to use 8-way connectivity to roughly approximate the player's continuous diagonal movement, or if they should be formally restricted to 4-way movement, even if it creates a divergence between player and AI capabilities.
 
 ## Options
 
-### 1. Do nothing (Maintain Eight-Way Movement)
+### 1. Maintain Eight-Way Pathfinding (Status Quo)
 
-Keep the current eight-way movement logic. Rely on the recently added tests and TSDoc comments to defend the `canTraverse` predicate against further Manhattan distance "fixes".
+Keep `WorldPlane.canTraverse` and the pathfinders 8-connected. Rely on the tests added in #296 to prevent accidental reversions to Manhattan distance.
 
-**The case for this:** The engine, pathfinding, and AI are already built and tested for eight-way movement. It allows more natural diagonal traversal of open spaces. The cost of contributors misunderstanding the predicate has been mitigated by documentation and test coverage, so the bleeding has stopped without needing to change the gameplay constraints.
+**The case for this:** It keeps AI and click-to-move capabilities roughly aligned with the player's ability to move diagonally across open spaces. Pathfinding feels more natural because entities don't stair-step to reach diagonal destinations. The cost of contributors misunderstanding the predicate has been definitively solved by test coverage, so no further changes are required to protect the code.
 
-**The case against:** It keeps the game in an awkward middle ground where visuals are strictly orthogonal but movement is not. It does not resolve whether Dark War *should* be four-directional, only that its current implementation is eight-directional.
+**The case against:** The grid-based nature of the world still strongly implies orthogonal rules to developers reading the code, requiring them to learn that pathfinding is an exception that approximates continuous movement.
 
-### 2. Switch to Four-Way (Manhattan) Movement
+### 2. Switch Pathfinding to Four-Way (Manhattan) Movement
 
-Formally change the game's movement rules to four-way orthogonal (Manhattan) distance. Update `canTraverse`, both pathfinders, and all movement command validations to reject diagonal steps.
+Change `WorldPlane.canTraverse` and both pathfinders to explicitly reject diagonal steps, enforcing 4-way Manhattan distance for all grid-based movement.
 
-**The case for this:** This aligns the game's physics and movement capabilities with its orthogonal visual presentation and tiled nature. It structurally eliminates the confusion around `canTraverse` because the Manhattan distance check is exactly what developers expect to see for grid adjacency. It simplifies pathfinding heuristics and AI movement logic.
+**The case for this:** It aligns the pathfinding logic exactly with what developers expect to see for grid adjacency. It simplifies the pathfinding heuristic and neighbor expansion from 8 directions to 4.
 
-**The case against:** Pathfinding will look more robotic as entities zig-zag to reach diagonal destinations. It requires a coordinated rewrite of the click-to-move pathfinder, the monster AI BFS logic, and several test suites to ensure they do not expand diagonal neighbors or expect diagonal traversal.
+**The case against:** It creates a direct, observable mismatch between player movement and AI/click-to-move movement. Players will move smoothly along diagonals while monsters and automated paths zig-zag in a stair-step pattern, making enemies easier to kite and automated movement feel robotic. It also requires rewriting the tests that currently pin the 8-way behavior.
 
 ## Decision
 
-We recommend **Option 2: Switch to Four-Way (Manhattan) Movement**.
+We document this tension but do not recommend a gameplay change.
 
-While adding tests and documentation has patched the immediate problem of developers breaking `canTraverse`, the sheer volume of PRs (eleven) attempting the exact same "fix" is a strong signal that the codebase's natural affordances point toward orthogonal movement. By changing the rules to match developer expectations and the game's orthogonal visual style, we permanently align the simulation with its presentation.
+The historical cost of the 8-way predicate—the twelve PRs attempting to change it—was a symptom of a test coverage gap, not necessarily a flawed design. Now that #296 has closed that gap, the 8-way pathfinding safely fulfills its purpose: giving grid-bound AI and click-to-move systems the ability to approximate the continuous diagonal movement the player enjoys.
 
-However, because this is a fundamental gameplay behavior change, the final call on whether diagonal movement is desired belongs to a human designer, not this document.
+Changing the pathfinders to 4-way movement would resolve a developer expectation mismatch but introduce a player-facing mechanics mismatch. Whether that trade-off is desirable is a fundamental design decision for a human, not a structural problem for this document to settle.
 
 ## Consequences
 
-- **What gets better:** The movement model aligns with the orthogonal terrain and visuals. `canTraverse` becomes the standard Manhattan distance check everyone expects. Pathfinding neighbor expansion simplifies from 8 directions to 4.
-- **What gets worse:** Movement across open spaces becomes strictly orthogonal (stair-stepping), which may feel slower or more artificial to players.
-- **What becomes harder to change:** Reverting back to 8-way movement later would require restoring the diagonal expansion logic across multiple systems.
-- **Migration cost:** Low to Medium. We must change `WorldPlane.canTraverse`, update the directional arrays in `src/engine/utils/helpers.ts` and the pathfinders to only expand 4 neighbors, and rewrite the tests that currently pin the 8-way behavior to instead enforce 4-way constraints.
+- **What gets better (if Status Quo maintained):** AI and automated movement continue to match the player's diagonal mobility. The test suite successfully defends the design.
+- **What gets worse (if Option 2 taken):** AI movement becomes strictly orthogonal (stair-stepping), creating a permanent divergence from the player's continuous diagonal movement.
+- **Migration cost (if Option 2 taken):** High. Requires changing `WorldPlane.canTraverse`, updating directional arrays in `src/engine/utils/helpers.ts` and the pathfinders to expand 4 neighbors, rewriting the tests that pin the 8-way behavior, and accepting the gameplay divergence.
