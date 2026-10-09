@@ -1225,6 +1225,100 @@ export class Renderer {
     const worldW = state.mapWidth * CELL_CONFIG.w;
     const worldH = state.mapHeight * CELL_CONFIG.h;
 
+    const applyFovAlpha = (
+      sprite: Sprite,
+      isVisible: boolean,
+      usingShadowFov: boolean,
+    ): void => {
+      if (!isVisible && usingShadowFov) {
+        sprite.alpha = 0.45;
+      }
+    };
+
+    const renderGround = (
+      key: string | number,
+      screenX: number,
+      screenY: number,
+      isVisible: boolean,
+      usingShadowFov: boolean,
+      coordOverride?: { x: number; y: number },
+    ): void => {
+      const coord = coordOverride ?? SPRITE_COORDS[key];
+      if (!coord) return;
+      const frame = this.resolveFrame(coord, key);
+      const sprite = this.createSpriteFromFrame(frame, screenX, screenY);
+      if (sprite) {
+        applyFovAlpha(sprite, isVisible, usingShadowFov);
+        this.mapContainer.addChild(sprite);
+      }
+    };
+
+    const renderDepthTile = (
+      key: string | number,
+      tileBaselineX: number,
+      tileBaselineY: number,
+      tileSortY: number,
+      isVisible: boolean,
+      usingShadowFov: boolean,
+      coordOverride?: { x: number; y: number },
+      depthOffset: number = 0,
+      glow?: { color: string; scale: number },
+    ): void => {
+      const coord = coordOverride ?? SPRITE_COORDS[key];
+      if (!coord) return;
+      const frame = this.resolveFrame(coord, key);
+      const sortY = tileSortY + frame.depthOffset + depthOffset;
+      if (glow) {
+        this.addGlow(
+          this.entityContainer,
+          glow.color,
+          tileBaselineX,
+          tileBaselineY - frame.renderHeight * 0.55,
+          sortY,
+          glow.scale,
+        );
+      }
+      this.addShadow(
+        this.entityContainer,
+        frame.shadow,
+        tileBaselineX,
+        tileBaselineY,
+        sortY,
+      );
+      const sprite = this.createSpriteFromFrame(
+        frame,
+        tileBaselineX,
+        tileBaselineY,
+      );
+      if (!sprite) return;
+      applyFovAlpha(sprite, isVisible, usingShadowFov);
+      sprite.zIndex = sortY;
+      this.entityContainer.addChild(sprite);
+    };
+
+    const renderDecoration = (
+      key: string,
+      tileBaselineX: number,
+      tileBaselineY: number,
+      tileSortY: number,
+      isVisible: boolean,
+      usingShadowFov: boolean,
+      depthOffset: number = 0,
+      glow?: { color: string; scale: number },
+    ): void => {
+      renderDepthTile(
+        key,
+        tileBaselineX,
+        tileBaselineY,
+        tileSortY,
+        isVisible,
+        usingShadowFov,
+        undefined,
+        depthOffset,
+        glow,
+      );
+    };
+
     if ("worldX" in player) {
       const targetX = (player as any).worldX;
       const targetY = (player as any).worldY;
@@ -1379,72 +1473,6 @@ export class Renderer {
           FLOOR_VARIANTS[floorVariant] || SPRITE_COORDS[TileType.FLOOR];
         const damage = getStateDamageAtIndex(state, tileIndex);
 
-        const applyFovAlpha = (sprite: Sprite): void => {
-          if (!isVisible && usingShadowFov) {
-            sprite.alpha = 0.45;
-          }
-        };
-
-        const renderGround = (
-          key: string | number,
-          coordOverride?: { x: number; y: number },
-        ): void => {
-          const coord = coordOverride ?? SPRITE_COORDS[key];
-          if (!coord) return;
-          const frame = this.resolveFrame(coord, key);
-          const sprite = this.createSpriteFromFrame(frame, screenX, screenY);
-          if (sprite) {
-            applyFovAlpha(sprite);
-            this.mapContainer.addChild(sprite);
-          }
-        };
-
-        const renderDepthTile = (
-          key: string | number,
-          coordOverride?: { x: number; y: number },
-          depthOffset: number = 0,
-          glow?: { color: string; scale: number },
-        ): void => {
-          const coord = coordOverride ?? SPRITE_COORDS[key];
-          if (!coord) return;
-          const frame = this.resolveFrame(coord, key);
-          const sortY = tileSortY + frame.depthOffset + depthOffset;
-          if (glow) {
-            this.addGlow(
-              this.entityContainer,
-              glow.color,
-              tileBaselineX,
-              tileBaselineY - frame.renderHeight * 0.55,
-              sortY,
-              glow.scale,
-            );
-          }
-          this.addShadow(
-            this.entityContainer,
-            frame.shadow,
-            tileBaselineX,
-            tileBaselineY,
-            sortY,
-          );
-          const sprite = this.createSpriteFromFrame(
-            frame,
-            tileBaselineX,
-            tileBaselineY,
-          );
-          if (!sprite) return;
-          applyFovAlpha(sprite);
-          sprite.zIndex = sortY;
-          this.entityContainer.addChild(sprite);
-        };
-
-        const renderDecoration = (
-          key: string,
-          depthOffset: number = 0,
-          glow?: { color: string; scale: number },
-        ): void => {
-          renderDepthTile(key, undefined, depthOffset, glow);
-        };
-
         const prototype = state.terrainPrototype;
         if (prototype) {
           const prototypeIndex = mx + my * prototype.width;
@@ -1464,6 +1492,10 @@ export class Renderer {
             groundKeyByVisual[
               prototype.visuals.ground[prototypeIndex] as PrototypeGroundVisual
             ],
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
           );
 
           // A lower cell directly south of a higher terrace carries the visible
@@ -1477,41 +1509,122 @@ export class Renderer {
               cliffVisual === PrototypeCliffVisual.TALL
                 ? "prototype_cliff_tall"
                 : "prototype_cliff_step",
+              screenX,
+              screenY,
+              isVisible,
+              usingShadowFov,
             );
           } else {
             if (cliffEdgeMask & ELEVATION_NORTH) {
-              renderGround("prototype_cliff_edge_north");
+              renderGround(
+                "prototype_cliff_edge_north",
+                screenX,
+                screenY,
+                isVisible,
+                usingShadowFov,
+              );
             }
             if (cliffEdgeMask & ELEVATION_EAST) {
-              renderGround("prototype_cliff_edge_east");
+              renderGround(
+                "prototype_cliff_edge_east",
+                screenX,
+                screenY,
+                isVisible,
+                usingShadowFov,
+              );
             }
             if (cliffEdgeMask & ELEVATION_SOUTH) {
-              renderGround("prototype_cliff_edge_south");
+              renderGround(
+                "prototype_cliff_edge_south",
+                screenX,
+                screenY,
+                isVisible,
+                usingShadowFov,
+              );
             }
             if (cliffEdgeMask & ELEVATION_WEST) {
-              renderGround("prototype_cliff_edge_west");
+              renderGround(
+                "prototype_cliff_edge_west",
+                screenX,
+                screenY,
+                isVisible,
+                usingShadowFov,
+              );
             }
           }
 
           const prototypeStructure = prototype.structure[prototypeIndex];
           if (prototypeStructure === PrototypeStructure.TREE) {
-            renderDecoration("prototype_tree");
+            renderDecoration(
+              "prototype_tree",
+              tileBaselineX,
+              tileBaselineY,
+              tileSortY,
+              isVisible,
+              usingShadowFov,
+            );
           } else if (
             prototypeStructure === PrototypeStructure.BRIDGE_HORIZONTAL
           ) {
-            renderGround("prototype_bridge_horizontal");
+            renderGround(
+              "prototype_bridge_horizontal",
+              screenX,
+              screenY,
+              isVisible,
+              usingShadowFov,
+            );
           } else if (prototypeStructure === PrototypeStructure.STAIRS) {
-            renderGround("prototype_stairs");
+            renderGround(
+              "prototype_stairs",
+              screenX,
+              screenY,
+              isVisible,
+              usingShadowFov,
+            );
           } else if (prototypeStructure === PrototypeStructure.GARDEN) {
-            renderGround("prototype_garden");
+            renderGround(
+              "prototype_garden",
+              screenX,
+              screenY,
+              isVisible,
+              usingShadowFov,
+            );
           } else if (prototypeStructure === PrototypeStructure.FLOWERS) {
-            renderDecoration("prototype_flowers");
+            renderDecoration(
+              "prototype_flowers",
+              tileBaselineX,
+              tileBaselineY,
+              tileSortY,
+              isVisible,
+              usingShadowFov,
+            );
           } else if (prototypeStructure === PrototypeStructure.CRATE) {
-            renderDecoration("crate");
+            renderDecoration(
+              "crate",
+              tileBaselineX,
+              tileBaselineY,
+              tileSortY,
+              isVisible,
+              usingShadowFov,
+            );
           } else if (prototypeStructure === PrototypeStructure.WORKSHOP) {
-            renderDecoration("prototype_workshop");
+            renderDecoration(
+              "prototype_workshop",
+              tileBaselineX,
+              tileBaselineY,
+              tileSortY,
+              isVisible,
+              usingShadowFov,
+            );
           } else if (prototypeStructure === PrototypeStructure.CAVE_MOUTH) {
-            renderDecoration("prototype_cave_mouth");
+            renderDecoration(
+              "prototype_cave_mouth",
+              tileBaselineX,
+              tileBaselineY,
+              tileSortY,
+              isVisible,
+              usingShadowFov,
+            );
           }
           const isDirty =
             prototype.editFeedback.dirtyCellIndices.has(prototypeIndex);
@@ -1544,9 +1657,19 @@ export class Renderer {
               : mixWorldVisualHash(coordinateHash, 31) % 5 === 0
                 ? "prototype_water_alt"
                 : "prototype_water_shallow",
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
           );
           if (productionStructure === StructureType.BRIDGE_HORIZONTAL) {
-            renderGround("prototype_bridge_horizontal");
+            renderGround(
+              "prototype_bridge_horizontal",
+              screenX,
+              screenY,
+              isVisible,
+              usingShadowFov,
+            );
           } else if (productionGround === GroundType.WATER_RIVER) {
             const riverMask = worldVisualLayers?.riverMask[tileIndex] ?? 0;
             const flow = this.acquireGraphics();
@@ -1560,12 +1683,32 @@ export class Renderer {
             this.entityContainer.addChild(flow);
           }
         } else if (tileType === TileType.FLOOR) {
-          renderGround(TileType.FLOOR, floorCoord);
+          renderGround(
+            TileType.FLOOR,
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
+            floorCoord,
+          );
           if (damage >= FLOOR_DAMAGE_THRESHOLDS[0]) {
-            renderGround("floor_damaged");
+            renderGround(
+              "floor_damaged",
+              screenX,
+              screenY,
+              isVisible,
+              usingShadowFov,
+            );
           }
         } else if (tileType === TileType.HOLE) {
-          renderGround(TileType.FLOOR, floorCoord);
+          renderGround(
+            TileType.FLOOR,
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
+            floorCoord,
+          );
           const holeMask =
             worldVisualLayers?.holeMask[tileIndex] ??
             cardinalAutotileMask(
@@ -1573,40 +1716,92 @@ export class Renderer {
               tileY,
               (x, y) => tileAtWindow(x, y) === TileType.HOLE,
             );
-          renderGround("hole", holeAutotileCoordinate(holeMask));
+          renderGround(
+            "hole",
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
+            holeAutotileCoordinate(holeMask),
+          );
         } else if (tileType === TileType.GRASS) {
           renderGround(
             mixWorldVisualHash(coordinateHash, 3) % 17 === 0
               ? "grass_flowers"
               : TileType.GRASS,
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
           );
-          renderDepthTile("grass_blades");
+          renderDepthTile(
+            "grass_blades",
+            tileBaselineX,
+            tileBaselineY,
+            tileSortY,
+            isVisible,
+            usingShadowFov,
+          );
         } else if (tileType === TileType.WEEDS) {
           renderGround(
             mixWorldVisualHash(coordinateHash, 4) % 4 === 0
               ? "weeds_dense"
               : TileType.WEEDS,
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
           );
-          renderDepthTile("weeds_blades");
+          renderDepthTile(
+            "weeds_blades",
+            tileBaselineX,
+            tileBaselineY,
+            tileSortY,
+            isVisible,
+            usingShadowFov,
+          );
         } else if (tileType === TileType.ASPHALT) {
           renderGround(
             mixWorldVisualHash(coordinateHash, 5) % 9 === 0
               ? "asphalt_cracked"
               : TileType.ASPHALT,
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
           );
         } else if (tileType === TileType.SIDEWALK) {
           renderGround(
             mixWorldVisualHash(coordinateHash, 6) % 7 === 0
               ? "sidewalk_cracked"
               : TileType.SIDEWALK,
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
           );
         } else if (tileType === TileType.LIGHT) {
           // A streetlight fixture: a paved base, the lamppost, and a warm glow.
-          renderGround(TileType.SIDEWALK);
-          renderDecoration("streetlight", 1, {
-            color: "rgba(255, 214, 112, 0.32)",
-            scale: 0.95,
-          });
+          renderGround(
+            TileType.SIDEWALK,
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
+          );
+          renderDecoration(
+            "streetlight",
+            tileBaselineX,
+            tileBaselineY,
+            tileSortY,
+            isVisible,
+            usingShadowFov,
+            1,
+            {
+              color: "rgba(255, 214, 112, 0.32)",
+              scale: 0.95,
+            },
+          );
         } else if (
           tileType === TileType.DOOR_CLOSED ||
           tileType === TileType.DOOR_OPEN ||
@@ -1615,33 +1810,86 @@ export class Renderer {
           tileType === TileType.STAIRS_UP
         ) {
           if (productionStructure === StructureType.WORKSHOP_FOOTPRINT) {
-            renderGround(TileType.GRASS);
+            renderGround(
+              TileType.GRASS,
+              screenX,
+              screenY,
+              isVisible,
+              usingShadowFov,
+            );
           } else {
-            renderGround(TileType.FLOOR, floorCoord);
+            renderGround(
+              TileType.FLOOR,
+              screenX,
+              screenY,
+              isVisible,
+              usingShadowFov,
+              floorCoord,
+            );
           }
           if (productionFixture === FixtureType.CAVE_MOUTH) {
-            renderDepthTile("prototype_cave_mouth");
+            renderDepthTile(
+              "prototype_cave_mouth",
+              tileBaselineX,
+              tileBaselineY,
+              tileSortY,
+              isVisible,
+              usingShadowFov,
+            );
           } else if (productionStructure === StructureType.WORKSHOP_FOOTPRINT) {
             // The workshop billboard already contains its visible doorway.
           } else if (
             state.levelKind === "outside" &&
             tileType === TileType.STAIRS_DOWN
           ) {
-            renderDepthTile("megacorp_entrance");
+            renderDepthTile(
+              "megacorp_entrance",
+              tileBaselineX,
+              tileBaselineY,
+              tileSortY,
+              isVisible,
+              usingShadowFov,
+            );
           } else if (
             tileType === TileType.DOOR_CLOSED ||
             tileType === TileType.DOOR_OPEN ||
             tileType === TileType.DOOR_LOCKED
           ) {
-            renderDepthTile(tileType);
+            renderDepthTile(
+              tileType,
+              tileBaselineX,
+              tileBaselineY,
+              tileSortY,
+              isVisible,
+              usingShadowFov,
+            );
           } else {
-            renderGround(tileType);
+            renderGround(tileType, screenX, screenY, isVisible, usingShadowFov);
           }
         } else if (productionStructure === StructureType.WORKSHOP) {
-          renderGround(TileType.GRASS);
-          renderDepthTile("prototype_workshop");
+          renderGround(
+            TileType.GRASS,
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
+          );
+          renderDepthTile(
+            "prototype_workshop",
+            tileBaselineX,
+            tileBaselineY,
+            tileSortY,
+            isVisible,
+            usingShadowFov,
+          );
         } else if (productionStructure === StructureType.WORKSHOP_FOOTPRINT) {
-          renderGround(TileType.GRASS);
+          renderGround(
+            TileType.GRASS,
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
+          );
         } else if (tileType === TileType.WALL) {
           const isWood = state.wallSet === "wood";
           const wallSpriteKey =
@@ -1669,11 +1917,30 @@ export class Renderer {
             });
           renderDepthTile(
             wallSpriteKey,
+            tileBaselineX,
+            tileBaselineY,
+            tileSortY,
+            isVisible,
+            usingShadowFov,
             wallAutotileCoordinate(wallSpriteKey, wallMask),
           );
         } else if (tileType === TileType.HOLOWALL) {
-          renderGround(TileType.FLOOR, floorCoord);
-          renderDepthTile(TileType.HOLOWALL);
+          renderGround(
+            TileType.FLOOR,
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
+            floorCoord,
+          );
+          renderDepthTile(
+            TileType.HOLOWALL,
+            tileBaselineX,
+            tileBaselineY,
+            tileSortY,
+            isVisible,
+            usingShadowFov,
+          );
         } else if (
           tileType === TileType.TREE ||
           tileType === TileType.BUILDING ||
@@ -1687,9 +1954,22 @@ export class Renderer {
                 ? ResolvedBuildingPart.ROOF
                 : ResolvedBuildingPart.FACADE);
             if (part === ResolvedBuildingPart.ROOF) {
-              renderGround("building_roof");
+              renderGround(
+                "building_roof",
+                screenX,
+                screenY,
+                isVisible,
+                usingShadowFov,
+              );
             } else {
-              renderDepthTile(TileType.BUILDING);
+              renderDepthTile(
+                TileType.BUILDING,
+                tileBaselineX,
+                tileBaselineY,
+                tileSortY,
+                isVisible,
+                usingShadowFov,
+              );
             }
           } else if (tileType === TileType.FENCE) {
             const orientation =
@@ -1702,22 +1982,60 @@ export class Renderer {
               orientation === ResolvedFenceOrientation.VERTICAL
                 ? "fence_vertical"
                 : "fence_horizontal",
+              tileBaselineX,
+              tileBaselineY,
+              tileSortY,
+              isVisible,
+              usingShadowFov,
             );
           } else {
-            renderDepthTile(tileType);
+            renderDepthTile(
+              tileType,
+              tileBaselineX,
+              tileBaselineY,
+              tileSortY,
+              isVisible,
+              usingShadowFov,
+            );
           }
         } else {
-          renderGround(tileType);
+          renderGround(tileType, screenX, screenY, isVisible, usingShadowFov);
         }
 
         if (productionFixture === FixtureType.STAIRS && !isProductionWater) {
-          renderGround("prototype_stairs");
+          renderGround(
+            "prototype_stairs",
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
+          );
         } else if (productionFixture === FixtureType.GARDEN) {
-          renderGround("prototype_garden");
+          renderGround(
+            "prototype_garden",
+            screenX,
+            screenY,
+            isVisible,
+            usingShadowFov,
+          );
         } else if (productionFixture === FixtureType.CRATE) {
-          renderDepthTile("crate");
+          renderDepthTile(
+            "crate",
+            tileBaselineX,
+            tileBaselineY,
+            tileSortY,
+            isVisible,
+            usingShadowFov,
+          );
         } else if (productionFixture === FixtureType.FLOWERS) {
-          renderDepthTile("prototype_flowers");
+          renderDepthTile(
+            "prototype_flowers",
+            tileBaselineX,
+            tileBaselineY,
+            tileSortY,
+            isVisible,
+            usingShadowFov,
+          );
         }
 
         if (
