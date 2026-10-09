@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
-import { CommandType, EntityKind, EventType, MonsterType } from "../../types";
+import {
+  CommandType,
+  EntityKind,
+  EventType,
+  GameState,
+  MonsterType,
+  TileType,
+} from "../../types";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { processEventQueue } from "./events";
@@ -37,6 +44,17 @@ function wait(game: Game): void {
     source: "PLAYER",
   });
   stepSimulationTick(state);
+}
+
+function enqueueMoveSouth(state: GameState, actorId: string): void {
+  enqueueCommand(state, {
+    tick: state.sim.nowTick,
+    actorId,
+    type: CommandType.MOVE,
+    data: { type: "MOVE", dx: 0, dy: 1 },
+    priority: 0,
+    source: "PLAYER",
+  });
 }
 
 describe("player resting", () => {
@@ -167,6 +185,55 @@ describe("player resting", () => {
     expect(state.player.resting).toBe(false);
     expect(state.sim.timeScale).toBe(0.85);
     expect(state.sim.targetTimeScale).toBe(0.85);
+  });
+
+  // `docs/HEALTH-AND-REST.md` names exactly two things that end a rest: "any
+  // damage or wake command interrupts it". Both are covered above. The third
+  // half of that contract was not: every *other* player command is discarded
+  // by the guard at `commands.ts:229` and the rest continues, accelerated and
+  // on schedule. Thirteen pull requests have proposed inverting it (#321,
+  // #325, #328, #335, #344, #346, #350, #353, #354, #357, #360, #361, #366),
+  // each reporting a green suite truthfully, because nothing here contradicted
+  // them.
+  //
+  // Facing is the observable, not velocity: `processRestingPlayers` zeroes a
+  // resting player's velocity every tick right after commands resolve, so
+  // `velocityX === 0` holds whether or not the MOVE was discarded and proves
+  // nothing. A resolved MOVE also sets `facingAngle`, and no part of the rest
+  // path touches it.
+  it("discards a non-wait command without interrupting the rest", () => {
+    const game = emptyGame();
+    const state = game.getState();
+    const player = state.player;
+    // Guarantee the step south is viable regardless of the generated layout.
+    state.tiles.setTile(player.gridX, player.gridY + 1, TileType.FLOOR);
+    player.facingAngle = 0;
+
+    player.hp = player.hpMax - 1;
+    wait(game);
+    expect(player.resting).toBe(true);
+
+    const healTick = player.restNextHealTick;
+    enqueueMoveSouth(state, player.id);
+    stepSimulationTick(state);
+
+    // The command never resolved: a resolved MOVE would have turned the player
+    // to face south.
+    expect(player.facingAngle).toBe(0);
+    // The rest is untouched — still resting, still on the same heal schedule,
+    // and still accelerated, so the rest scale neither leaks nor collapses.
+    expect(player.resting).toBe(true);
+    expect(player.restNextHealTick).toBe(healTick);
+    expect(state.sim.targetTimeScale).toBe(REST_TIME_SCALE);
+
+    // Not vacuous: the identical command turns the player once the wake
+    // command has ended the rest, so the guard is the only reason it was
+    // discarded above.
+    wait(game);
+    expect(player.resting).toBe(false);
+    enqueueMoveSouth(state, player.id);
+    stepSimulationTick(state);
+    expect(player.facingAngle).toBeCloseTo(Math.PI / 2, 1);
   });
 
   it("preserves resting state through save/load", () => {
