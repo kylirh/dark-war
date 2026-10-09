@@ -25,18 +25,41 @@ export const MONSTER_AI_UPDATE_INTERVAL = 5; // Update monster velocities every 
 export const MONSTER_SPEED = 225; // pixels per second
 export const MONSTER_ARRIVAL_RADIUS = CELL_CONFIG.w * 1.5; // Stop when within 1.5 tiles for attack
 export const MONSTER_ITEM_PICKUP_CHANCE = 0.85; // 85% chance to pick up items when overlapping
+
 /**
- * Hard safety limit on events processed per tick to prevent infinite recursion
- * cascades without resorting to non-deterministic real-time budgets (e.g.
- * performance.now()). Overflow events are deferred to the next tick.
+ * Safety ceiling on events processed per tick, guarding against a runaway
+ * cascade — an explosion that triggers further explosions — without a
+ * real-time budget. A wall-clock budget (`performance.now()`) would let a fast
+ * machine process more events than a slow one from the same inputs, which
+ * desynchronizes multiplayer; a fixed operation count runs identically
+ * everywhere. ADR 0009 records that constraint.
+ *
+ * Overflow is **deferred, not lost**: `processEventQueue` breaks out of its
+ * loop and splices off only what it processed, so the unprocessed tail stays
+ * on `state.eventQueue` and the next tick picks it up. A large legitimate
+ * cascade plays out over several ticks rather than resolving instantly.
+ *
+ * The guard reads `if (processed++ > MAX_EVENTS_PER_TICK)`, so the
+ * post-increment lets **1001** events through before it trips, not 1000.
  */
 export const MAX_EVENTS_PER_TICK = 1000;
 
 /**
- * Hard safety limit on AI commands generated per tick to prevent processing
- * cascades without resorting to non-deterministic real-time budgets. Overflow
- * commands are dropped outright (not deferred) because AI commands are rebuilt
- * from scratch every tick.
+ * Safety ceiling on AI commands generated per tick, for the same determinism
+ * reason as `MAX_EVENTS_PER_TICK` — a fixed operation count rather than a
+ * wall-clock budget.
+ *
+ * Overflow is **dropped, not deferred**, which is the one place the two limits
+ * disagree. `stepSimulationTick` truncates with
+ * `aiCommands.length = MAX_COMMANDS_PER_TICK`, and `generateAICommands`
+ * rebuilds the list from scratch next tick, so no queue holds the remainder:
+ * an actor's intent reappears only if the new state regenerates it.
+ *
+ * Truncation also runs **before** `sortCommandsDeterministically`, so the
+ * commands that survive are the earliest *generated*, not the highest
+ * priority. That is deterministic — the same inputs drop the same commands on
+ * every machine — but it is not what "safety limit" suggests. ADR 0009 leaves
+ * both the drop-versus-defer choice and the truncation order open for a human.
  */
 export const MAX_COMMANDS_PER_TICK = 1000;
 /** World-speed multiplier while every living player on a plane is resting. */
