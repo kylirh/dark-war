@@ -23,3 +23,21 @@ another player's transition.
 pending actions or delayed transitions. Any state flags set by a command that
 are evaluated later in the tick (or after the tick) must be aborted if the actor
 dies in the interim.
+
+## 2026-10-09 - The resting interrupt is not a defect; see .jules/alpha.md
+
+**What was found:** #353 reported the guard at `commands.ts:229` as a missing
+`stopPlayerResting` call — the same edit twelve other pull requests proposed
+(#321, #325, #328, #335, #344, #346, #350, #354, #357, #360, #361, #366), all
+closed. `docs/HEALTH-AND-REST.md` names damage and the wake command as the only
+things that interrupt a rest, so a swallowed `MOVE` is the documented
+behaviour.
+
+**Action:** None to the source. The full reasoning, the two false supporting
+claims, and the coverage that now pins the decision are recorded in
+`.jules/alpha.md` (2026-10-09).
+
+**Prevention:** A regression test that asserts the behaviour your own change
+introduces is circular, not an oracle. Bug's oracle is a failing test written
+_first_, derived from a contract the code violates — find and quote that
+contract before writing the test.

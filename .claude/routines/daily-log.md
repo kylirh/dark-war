@@ -328,3 +328,109 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-09
+
+**Merged:** #365 `docs(simulation): document deterministic budgets and overflow
+handling` — Scribe. `MAX_EVENTS_PER_TICK` and `MAX_COMMANDS_PER_TICK` had no
+TSDoc, and the one thing a reader most needs — that the two dispose of overflow
+differently — lived only in ADR 0009. Both of its claims check out
+(`events.ts:65-79` defers, `tick.ts:90-95` drops). Corrected on the branch
+before merging: the draft stated the event ceiling as 1000, where the guard's
+`processed++ > MAX_EVENTS_PER_TICK` post-increment admits **1001** (verified by
+replaying the loop), and it omitted that truncation runs _before_
+`sortCommandsDeterministically`, so the surviving commands are the earliest
+generated rather than the highest priority. ADR 0009 records both; the draft
+reproduced only the headline.
+
+**Closed:**
+
+- **#366** `fix(simulation): interrupt rest on non-wait commands` — the
+  **thirteenth** proposal of the identical edit to the resting guard, after
+  #321, #325, #328, #335, #344, #346, #350, #353, #354, #357, #360 and #361.
+  `docs/HEALTH-AND-REST.md` names damage and the wake command as the only
+  interrupters, so a swallowed `MOVE` is the documented behaviour; the claimed
+  `REST_TIME_SCALE` leak does not exist; and its regression test is circular.
+  Now pinned by a test, in this pull request.
+- **#363** `docs(adr): propose movement connectivity decision` — Architect, and
+  the venue was right: `.jules/world.md` nominates "a human and an ADR" as the
+  way to settle four-way movement. The document was not. Its premise — that the
+  codebase's affordances "strongly imply a four-way orthogonal world" — is
+  contradicted by `CLAUDE.md:7` ("continuous fluid movement (not grid-locked)")
+  and `input.ts:336-350`, which normalizes diagonal input to equal speed.
+  `canTraverse` gates _pathfinding adjacency only_, so Option 2 would make the
+  pathfinders four-directional while the player they chase keeps moving
+  diagonally — a new mismatch, not the removal of one. Its Decision also argued
+  from the volume of prior attempts, which is evidence about coverage, not
+  affordance, and which stopped the moment #296 landed.
+- **#364** `perf(renderer): hoist closures out of windowed tile loop` — Bolt.
+  The threading is correct; I verified all 50 call sites mechanically (parsed
+  both revisions' argument lists, stripped the injected arguments, compared
+  against base: identical). Closed on cost/benefit. Its own `.jules/bolt.md`
+  entry measured the renderer-shaped benchmark at 305ms→253ms and the ~3x
+  headline came from a synthetic one; the body quotes the synthetic figure.
+  Reproduced independently at 900 tiles/frame: **47us saved per frame, 0.28% of
+  a 16.67ms budget**, against 50 call sites now passing five or six positional
+  arguments — three interchangeable numbers and two interchangeable booleans —
+  in the most-edited loop in the codebase, where a transposition type-checks
+  cleanly and no test or launchable build would catch it.
+
+**Found in main:** nothing defective. The 24-hour window was empty before Phase
+1 (main's previous commit was 2026-10-07) and is exactly #365 after it, which I
+had already corrected on the branch. This pull request is instead the coverage
+that reviewing #366 exposed, plus the two learning logs whose absence is the
+direct cause of the recurrence.
+
+**For next time:**
+
+- **The resting-interrupt edit is now pinned, so it should stop coming back.**
+  `resting.test.ts` fails under the exact edit all thirteen proposed. This is
+  the `canTraverse` playbook: `world.md` + #296 landed around 2026-09-29/30 and
+  the Manhattan attempts went from roughly one a day (twelve in total, last
+  #324) to **zero in the ten days since**, while the resting edit arrived
+  thirteen times in that same window with no log and no coverage. Treat a
+  missing `.jules/<bot>.md` entry as the cause when an edit recurs, not the
+  bot's persistence.
+- **Velocity is the wrong observable for anything resting-related.**
+  `processRestingPlayers` zeroes a resting player's velocity every tick right
+  after commands resolve, so `velocityX === 0` proves nothing about whether a
+  command resolved. My first draft of this test made exactly that mistake and
+  passed with the resting guard deleted entirely. Use `facingAngle`.
+- **A Jules integration reverted review corrections twice on the same branch,
+  within minutes each time.** On #365, `2c309a3` and then `3f85185` each
+  restored the draft verbatim and dropped my corrective commit (normal commits,
+  not force-pushes, so correctable forward). This is the fourth and fifth
+  occurrence after #280, #292 and the three branches in the 2026-10-02 run.
+  **CI was green on both reverted states**, because a docs revert cannot turn
+  the suite red. What worked: re-apply, push, and merge immediately with
+  `expectedHeadSha` pinned to your own commit — then verify `main` afterwards
+  (`git diff main <your-branch>` empty). Budget for two or three rounds of this.
+- **`main` has an intermittently failing test, and I could not reproduce it.**
+  On the first clean `npm test` of this run, on `e070671` with an untouched
+  tree, `tick.test.ts > processHoleFalls > pushes items falling through holes
+into itemsFellThrough and destroys them offline` failed (1 failed | 904
+  passed). It has not failed since: 15 clean full-suite runs, 25 runs of that
+  file alone, and 1600 replays of the test body across both small and
+  realistic `RNG` seeds all passed, and I never captured the assertion message.
+  What is structurally true is that this test has no `RNG.reseed` — unlike the
+  fourth test in its own file and unlike `level-transitions.test.ts`, which
+  reseeds in `beforeEach` — so its dungeon comes from a `Date.now()`-seeded
+  generator and `simulationSeed` differs every run. Deliberately **not** fixed:
+  adding a reseed without a reproduction is a speculative fix for a defect never
+  shown, and I could not show the seed is what breaks it. Flagged for a human,
+  and worth re-checking if CI ever goes red on `tick.test.ts` for no reason.
+  Do not trust a single green run as proof it is gone.
+- **Branch deletion is still 403.** One attempt on
+  `scribe-transition-intents-6447489059092045224` (with a lease) returned `HTTP
+403` / `send-pack: unexpected disconnect`, and the `mcp__github__*` toolset
+  has no branch-deletion tool. Nine merged branches remain deletable and are
+  listed in the run summary; 17 unmerged leftovers from closed pull requests
+  must be left for a human either way. `delete_branch_on_merge` did work for
+  #365's own branch. One attempt is enough — do not retry.
+- **Not acted on, no oracle:** the server requires an exact stairs tile where
+  the offline path accepts stairs, ladders, cave mouths and doors — the
+  2026-10-05 run's note still stands, unchanged by this window.
+- `.claude/routines/daily-log.md` is now written by six open pull requests
+  (#331, #337, #340, #345, #352, #362) plus this one. Whichever lands last needs
+  a trivial merge of the entries; earlier entries were not copied in, since that
+  content belongs to pull requests still awaiting review.
