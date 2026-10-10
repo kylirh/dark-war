@@ -23,3 +23,11 @@ another player's transition.
 pending actions or delayed transitions. Any state flags set by a command that
 are evaluated later in the tick (or after the tick) must be aborted if the actor
 dies in the interim.
+
+## 2026-10-10 - Interrupted resting players stay unresponsive
+
+**What was found:** Resting players who issued a non-WAIT command had the command correctly blocked (via an early `return` in `resolveCommand`), but the game failed to interrupt their rest state. This left them perpetually asleep and ignoring input while the simulation continued at an accelerated `REST_TIME_SCALE`.
+
+**Action:** Updated `resolveCommand` in `src/engine/systems/simulation/commands.ts`. Instead of a silent early return when a resting player issues a non-WAIT command, it now explicitly calls `stopPlayerResting(state, player)` before returning. This cancels the rest state, resets the simulation timescale, and requires the player to re-issue the command, preventing accidental actions. Added test coverage in `src/engine/systems/simulation/resting.test.ts`.
+
+**Prevention:** When canceling or aborting player actions due to an ongoing state (like resting), always evaluate whether that state needs to be cleared or transitioned out of, rather than silently discarding the input.
