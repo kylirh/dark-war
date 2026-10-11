@@ -166,7 +166,7 @@ Mutation-checked, one failing case per mutation: dropping the `itemsToTrigger` l
 
 **Prevention:** Ensure that probabilistic branches for entity interactions with the environment (e.g. falling through holes, triggering traps) are explicitly covered by tests using fixed seeds and multiple trials to protect against accidental removal of the randomness.
 
-## 2026-10-11 - Test that friendly pets block movement without triggering an attack
+## 2024-05-30 - Test that friendly pets block movement without triggering an attack
 
 **What was found:** The `resolveMoveCommand` handler handles movement, including a collision check that converts movement into melee attacks if the player attempts to walk into a monster. A special edge case was introduced: "Don't attack your own friendly pets by walking into them." This edge case was completely untested, meaning a plausible future change (like reorganizing collision logic, changing how friendly states are evaluated, or moving the logic around) could easily break it, allowing players to accidentally attack their own pets by moving into them.
 
