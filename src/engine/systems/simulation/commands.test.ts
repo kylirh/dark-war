@@ -448,4 +448,23 @@ describe("resolveMoveCommand blocker precedence", () => {
     ).toBeUndefined();
     expect(actor.gridX).toBeGreaterThanOrEqual(startX);
   });
+
+  it("is blocked without attacking when moving into a friendly pet", () => {
+    const { state, actor, tx, ty } = setupBlockedMove();
+    const startX = actor.gridX;
+    const startActTick = actor.nextActTick;
+
+    const pet = new MonsterEntity(tx, ty, MonsterType.WILD_DOG, 1);
+    pet.friendly = true;
+    state.entityManager.spawn(pet);
+
+    moveRight(state, actor);
+
+    const damage = state.eventQueue.find((e) => e.type === EventType.DAMAGE);
+    expect(damage).toBeUndefined();
+    expect(actor.gridX).toBe(startX);
+    // The guard returns false, so resolveCommand charges no action cooldown -
+    // bumping a pet must not cost the player a turn.
+    expect(actor.nextActTick).toBe(startActTick);
+  });
 });
