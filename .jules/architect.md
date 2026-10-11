@@ -15,11 +15,3 @@ cannot serve, so the recommended option keeps an internal marker rather than
 removing the flag. And the offline host consumes the flags at two sites in
 `main.ts`, not one. Verify which fields are serialized and count every reader
 before claiming a field is purely host-bound.
-
-## 2026-10-11 - main.ts Action Routing
-
-**What was found:** The `src/client/main.ts` file acts as the central router for all player input and network events, leading to a massive 3450+ line file. Almost every user action contains an inline `if (this.isOnlineMode())` branch to coordinate between offline execution on the local game loop and online execution via `MultiplayerClient`.
-
-**Action:** Proposed ADR 0012 recommending the extraction of a `ClientActionRouter` interface with dedicated `OfflineRouter` and `OnlineRouter` implementations to cleanly separate these paths and significantly reduce the bloat and coupling in `main.ts`.
-
-**Prevention:** When implementing new core systems that bridge different operational modes (like offline and online multiplayer), prefer extracting dedicated implementations behind a common interface rather than using inline branching throughout the main presentation or coordination layer.
