@@ -165,3 +165,11 @@ Mutation-checked, one failing case per mutation: dropping the `itemsToTrigger` l
 **Action:** Added two focused tests in `src/engine/systems/simulation/tick.test.ts`. The first verifies that a monster moving onto a hole tile has a probabilistic chance of falling, using a fixed random seed and multiple trials to assert that the fall count is greater than 0 and less than the total number of trials. The second pins the `movedOntoHole` half of the predicate: a monster already standing on the hole never falls, so dropping that guard (which would make a stationary monster fall) cannot pass unnoticed.
 
 **Prevention:** Ensure that probabilistic branches for entity interactions with the environment (e.g. falling through holes, triggering traps) are explicitly covered by tests using fixed seeds and multiple trials to protect against accidental removal of the randomness.
+
+## 2024-05-30 - Test that friendly pets block movement without triggering an attack
+
+**What was found:** The `resolveMoveCommand` handler handles movement, including a collision check that converts movement into melee attacks if the player attempts to walk into a monster. A special edge case was introduced: "Don't attack your own friendly pets by walking into them." This edge case was completely untested, meaning a plausible future change (like reorganizing collision logic, changing how friendly states are evaluated, or moving the logic around) could easily break it, allowing players to accidentally attack their own pets by moving into them.
+
+**Action:** Added a unit test in `src/engine/systems/simulation/commands.test.ts` within the `resolveMoveCommand blocker precedence` block that spawns a friendly `WILD_DOG` on the target tile and validates that a move command correctly returns `false` (blocking movement) without pushing a `DAMAGE` event (meaning it avoids converting the collision into an attack).
+
+**Prevention:** When testing collision, pathfinding, or targeting logic, always look for explicit exceptions for friendly/allied entities and verify that tests exist covering those exceptions.
