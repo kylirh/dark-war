@@ -111,3 +111,11 @@ duplicate reads exactly like a regression.
 **Action:** Added `this.previousFocus = document.activeElement as HTMLElement | null;` to the `IntroStory` constructor to capture the active element before the dialog steals focus. Updated the `dispose()` method to restore focus to `this.previousFocus` if it is still in the document; otherwise, it falls back to focusing the game canvas.
 
 **Prevention:** Modal or overlay components that intercept and manage focus must explicitly capture `document.activeElement` when opening and restore focus to it upon closing, falling back to a sensible default if the element no longer exists.
+
+## 2026-10-12 - Character modal missing ARIA labels on appearance toggles
+
+**What was found:** The Character modal's Settings tab contains Appearance controls (Theme and Zoom) that are structurally grouped with `role="group"`. However, they were missing the `aria-label` attribute, which meant screen readers would announce them as generic, anonymous groups rather than identifying them as the "Appearance mode" and "Zoom level" toggle groups. The labels were never present: `git log -S` shows the only commit touching them is this one, while the `role="group"` has been there since #252 — so this is a gap against `GameMenu`'s equivalent markup (`game-menu.ts:258`, `:265`), not a regression.
+
+**Action:** Updated the creation of both the `themeToggle` and `zoomToggle` elements in `src/client/systems/character-modal.ts` to include `themeToggle.setAttribute("aria-label", "Appearance mode")` and `zoomToggle.setAttribute("aria-label", "Zoom level")`.
+
+**Prevention:** Whenever implementing UI controls that function as toggles within a `role="group"` container, always ensure that the container itself has a descriptive `aria-label` so its purpose is clearly conveyed to assistive technologies.
