@@ -398,6 +398,7 @@ export class CharacterModal {
     const themeToggle = document.createElement("div");
     themeToggle.className = "imb-theme-toggle";
     themeToggle.setAttribute("role", "group");
+    themeToggle.setAttribute("aria-label", "Appearance mode");
     for (const [value, text] of [
       ["dark", "Dark"],
       ["light", "Light"],
@@ -425,6 +426,7 @@ export class CharacterModal {
     const zoomToggle = document.createElement("div");
     zoomToggle.className = "imb-theme-toggle";
     zoomToggle.setAttribute("role", "group");
+    zoomToggle.setAttribute("aria-label", "Zoom level");
     for (const v of [1, 2, 3] as const) {
       const btn = document.createElement("button");
       btn.type = "button";
