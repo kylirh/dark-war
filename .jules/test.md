@@ -173,3 +173,29 @@ Mutation-checked, one failing case per mutation: dropping the `itemsToTrigger` l
 **Action:** Added a unit test in `src/engine/systems/simulation/commands.test.ts` within the `resolveMoveCommand blocker precedence` block that spawns a friendly `WILD_DOG` on the target tile and validates that a move command correctly returns `false` (blocking movement) without pushing a `DAMAGE` event (meaning it avoids converting the collision into an attack).
 
 **Prevention:** When testing collision, pathfinding, or targeting logic, always look for explicit exceptions for friendly/allied entities and verify that tests exist covering those exceptions.
+
+## 2026-10-13 - Test player movement stops on death
+
+**What was found:** Nothing asserted that a dead player's velocity is zeroed. Deleting both assignments — `processDamageEvent` (`events.ts:203`) and `processPlayerDeathEvent` (`events.ts:995`) — left all 906 tests on `main` green, so a dead player could keep sliding under its prior inertia with nothing to notice.
+
+**Action:** Added two cases in `src/engine/systems/simulation/death-transition.test.ts`, one per entry point into death: the black pill (`hp = 0` plus a direct `PLAYER_DEATH` push, no `DAMAGE` event) and a lethal `DAMAGE` event.
+
+**Prevention:** Ensure that entity physics state resets tied to lifecycle events like death are protected by behavioral tests so that corpses do not inherit active entity properties.
+
+**What these cases do and do not pin — measured, not assumed:**
+
+| mutation                                  | result                                       |
+| ----------------------------------------- | -------------------------------------------- |
+| `processPlayerDeathEvent` zeroing removed | black-pill case fails                        |
+| `processDamageEvent` zeroing removed      | **both cases pass** — full suite stays green |
+| both removed                              | both cases fail                              |
+
+Only the black-pill case pins a specific assignment. The damage case pins the
+observable behaviour, which either assignment satisfies, because the
+`PLAYER_DEATH` that `processDamageEvent` pushes drains inside the same
+`processEventQueue` call. Do not read the damage case as coverage of
+`events.ts:203`, and do not delete that line as redundant: a cascade that trips
+`MAX_EVENTS_PER_TICK` (1000) breaks out before the queued `PLAYER_DEATH` is
+reached, leaving it for the next tick, and that assignment is what stops the
+slide in the meantime. Writing a test for that window needs a 1000-event
+cascade, which is a fixture rather than an oracle.
