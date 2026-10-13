@@ -3,6 +3,7 @@ import { Game } from "../../core/game";
 import {
   CommandType,
   EventType,
+  GameState,
   HOLE_FALL_DAMAGE,
   ItemType,
 } from "../../types";
@@ -16,25 +17,22 @@ import { stepSimulationTick } from "./tick";
  * `stepSimulationTick`) but consumed by the host after the tick ends. The event
  * queue runs in between, so a player can die after committing to a transition.
  */
+function dungeonAtDepthOne(): Game {
+  const game = new Game({ mode: "offline" });
+  game.reset(1);
+  return game;
+}
+
+function pushLethalDamage(state: GameState, targetId: string): void {
+  state.eventQueue.push({
+    id: "lethal-dmg",
+    depth: state.depth,
+    type: EventType.DAMAGE,
+    data: { type: "DAMAGE", targetId, amount: 100 },
+  });
+}
+
 describe("death during transition", () => {
-  function dungeonAtDepthOne() {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    return game;
-  }
-
-  function pushLethalDamage(
-    state: ReturnType<Game["getState"]>,
-    targetId: string,
-  ): void {
-    state.eventQueue.push({
-      id: "lethal-dmg",
-      depth: state.depth,
-      type: EventType.DAMAGE,
-      data: { type: "DAMAGE", targetId, amount: 100 },
-    });
-  }
-
   it("cancels a pending descend when the player dies", () => {
     const state = dungeonAtDepthOne().getState();
     const player = state.player;
@@ -116,18 +114,28 @@ describe("death during transition", () => {
   });
 });
 
+/**
+ * Both entry points into player death zero the player's velocity, so a corpse
+ * does not keep sliding under the inertia it had when it died.
+ *
+ * The black-pill case pins `processPlayerDeathEvent`'s copy specifically: that
+ * path sets `hp = 0` and pushes `PLAYER_DEATH` directly, without a `DAMAGE`
+ * event. The damage case pins the observable behaviour through the ordinary
+ * combat path, where either copy satisfies it — `processDamageEvent` zeroes on
+ * the lethal hit and the `PLAYER_DEATH` it pushes drains in the same
+ * `processEventQueue` call. That earlier copy is not redundant: a cascade that
+ * trips `MAX_EVENTS_PER_TICK` leaves the queued `PLAYER_DEATH` for the next
+ * tick, and the player would slide until then.
+ */
 describe("death stops movement", () => {
   it("stops a player's movement on death from eating a black pill", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
+    const state = dungeonAtDepthOne().getState();
     const player = state.player;
 
     player.velocityX = 100;
     player.velocityY = 100;
-
+    player.selectedBarSlot = 0;
     player.inventorySlots[0] = { type: ItemType.BLACK_PILL };
-    player.itemCounts[ItemType.BLACK_PILL] = 1;
 
     resolveCommand(state, {
       id: "pill",
@@ -136,7 +144,7 @@ describe("death stops movement", () => {
       source: "PLAYER",
       actorId: player.id,
       priority: 0,
-      data: { type: "USE_ITEM", itemType: ItemType.BLACK_PILL } as any,
+      data: { type: "USE_ITEM", dx: 1, dy: 0 },
     });
 
     processEventQueue(state);
@@ -146,22 +154,14 @@ describe("death stops movement", () => {
     expect(player.velocityY).toBe(0);
   });
 
-  it("stops a player's movement on death from damage event", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
+  it("stops a player's movement on death from damage", () => {
+    const state = dungeonAtDepthOne().getState();
     const player = state.player;
 
     player.velocityX = 100;
     player.velocityY = 100;
 
-    state.eventQueue.push({
-      id: "dmg",
-      depth: state.depth,
-      type: EventType.DAMAGE,
-      data: { type: "DAMAGE", targetId: player.id, amount: 1000 },
-    });
-
+    pushLethalDamage(state, player.id);
     processEventQueue(state);
 
     expect(player.hp).toBeLessThanOrEqual(0);
