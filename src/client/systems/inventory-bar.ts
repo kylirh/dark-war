@@ -12,6 +12,27 @@ import { escapeHtml } from "./html-escape";
 const ICON_SIZE = 32;
 const SPRITESHEET_URL = "assets/img/sprites.png";
 
+export function renderInventoryTooltipHtml(
+  label: string,
+  count: number | null | undefined,
+  slotType: ItemType,
+  actions: string[],
+  ctdmEnabled: boolean,
+): string {
+  let html = `<div class="inv-tip-name">${escapeHtml(label)}</div>`;
+  if (count !== null && count !== undefined) {
+    html += `<div class="inv-tip-count">Count: ${count}</div>`;
+  }
+  if (slotType === ItemType.CTDM) {
+    const status = ctdmEnabled ? "ON" : "OFF";
+    html += `<div class="inv-tip-count">Status: ${status}</div>`;
+  }
+  if (actions.length > 0) {
+    html += `<div class="inv-tip-actions">${actions.map((a) => escapeHtml(a)).join("<br>")}</div>`;
+  }
+  return html;
+}
+
 export class InventoryBar {
   private container: HTMLElement;
   private slots: HTMLElement[] = [];
@@ -224,19 +245,13 @@ export class InventoryBar {
     const actions = getSlotActions(slot.type);
     const count = getSlotDisplayCount(this._lastPlayer, index);
 
-    let html = `<div class="inv-tip-name">${escapeHtml(label)}</div>`;
-    if (count !== null && count !== undefined) {
-      html += `<div class="inv-tip-count">Count: ${count}</div>`;
-    }
-    if (slot.type === ItemType.CTDM) {
-      const status = this._lastPlayer.ctdmEnabled ? "ON" : "OFF";
-      html += `<div class="inv-tip-count">Status: ${status}</div>`;
-    }
-    if (actions.length > 0) {
-      html += `<div class="inv-tip-actions">${actions.map((a) => escapeHtml(a)).join("<br>")}</div>`;
-    }
-
-    this.tooltipEl.innerHTML = html;
+    this.tooltipEl.innerHTML = renderInventoryTooltipHtml(
+      label,
+      count,
+      slot.type,
+      actions,
+      this._lastPlayer.ctdmEnabled,
+    );
     this.tooltipEl.style.display = "";
 
     const rect = slotEl.getBoundingClientRect();
