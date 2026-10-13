@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { Game } from "../../core/game";
-import { CommandType, EventType, HOLE_FALL_DAMAGE } from "../../types";
+import {
+  CommandType,
+  EventType,
+  HOLE_FALL_DAMAGE,
+  ItemType,
+} from "../../types";
 import { idxFor, setPositionFromGrid } from "../../utils/helpers";
 import { resolveCommand } from "./commands";
 import { processEventQueue } from "./events";
@@ -108,5 +113,59 @@ describe("death during transition", () => {
     expect(player.hp).toBeLessThanOrEqual(0);
     expect(state.shouldDescend).toBe(false);
     expect(state.descendTarget).toBeUndefined();
+  });
+});
+
+describe("death stops movement", () => {
+  it("stops a player's movement on death from eating a black pill", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+
+    player.velocityX = 100;
+    player.velocityY = 100;
+
+    player.inventorySlots[0] = { type: ItemType.BLACK_PILL };
+    player.itemCounts[ItemType.BLACK_PILL] = 1;
+
+    resolveCommand(state, {
+      id: "pill",
+      type: CommandType.USE_ITEM,
+      tick: state.sim.nowTick,
+      source: "PLAYER",
+      actorId: player.id,
+      priority: 0,
+      data: { type: "USE_ITEM", itemType: ItemType.BLACK_PILL } as any,
+    });
+
+    processEventQueue(state);
+
+    expect(player.hp).toBe(0);
+    expect(player.velocityX).toBe(0);
+    expect(player.velocityY).toBe(0);
+  });
+
+  it("stops a player's movement on death from damage event", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+
+    player.velocityX = 100;
+    player.velocityY = 100;
+
+    state.eventQueue.push({
+      id: "dmg",
+      depth: state.depth,
+      type: EventType.DAMAGE,
+      data: { type: "DAMAGE", targetId: player.id, amount: 1000 },
+    });
+
+    processEventQueue(state);
+
+    expect(player.hp).toBeLessThanOrEqual(0);
+    expect(player.velocityX).toBe(0);
+    expect(player.velocityY).toBe(0);
   });
 });
