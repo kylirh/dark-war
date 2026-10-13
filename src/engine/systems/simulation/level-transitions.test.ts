@@ -10,11 +10,19 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { Game } from "../../core/game";
-import { CommandType, EntityKind, MonsterType } from "../../types";
+import {
+  CommandType,
+  EntityKind,
+  EventType,
+  HOLE_FALL_DAMAGE,
+  MonsterType,
+} from "../../types";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { RNG } from "../../utils/rng";
-import { setPositionFromGrid } from "../../utils/helpers";
+import { idxFor, setPositionFromGrid } from "../../utils/helpers";
 import { resolveCommand } from "./commands";
+import { processEventQueue } from "./events";
+import { stepSimulationTick } from "./tick";
 
 const DOWN_STAIRS_PORTAL = "megacorp/floor-1:stairs-down";
 const UP_STAIRS_PORTAL = "megacorp/floor-1:stairs-up";
@@ -137,5 +145,81 @@ describe("descend and ascend commands", () => {
 
     expect(state.shouldDescend).toBe(false);
     expect(state.pendingAlerts).toEqual([]);
+  });
+});
+
+/**
+ * The flags above are set while commands resolve (step 1 of
+ * `stepSimulationTick`) but consumed by the host only after the tick returns
+ * (`src/client/main.ts:1616-1634`). `processEventQueue` runs in between at step
+ * 4, so any damage landing in the same tick — a monster's melee, an explosive,
+ * a hole fall — can kill the player after the transition is already committed.
+ * `processPlayerDeathEvent` cancels it; each of the four fields it clears fails
+ * a case here when dropped on its own.
+ *
+ * These are offline-only paths: the multiplayer server clears both flags after
+ * every tick (`server/multiplayer-server.ts:880-883`) because per-player
+ * migration is handled by the room, not the shared flags.
+ */
+describe("death during a pending transition", () => {
+  beforeEach(() => RNG.reseed(11));
+
+  function killPlayer(state: ReturnType<Game["getState"]>, id: string): void {
+    state.eventQueue.push({
+      id: "lethal-dmg",
+      depth: state.depth,
+      type: EventType.DAMAGE,
+      data: { type: "DAMAGE", targetId: id, amount: 100 },
+    });
+    processEventQueue(state);
+  }
+
+  it.each([
+    [CommandType.DESCEND, "shouldDescend", DOWN_STAIRS_PORTAL],
+    [CommandType.ASCEND, "shouldAscend", UP_STAIRS_PORTAL],
+  ] as const)(
+    "cancels a pending %s when the player dies",
+    (type, flag, portalId) => {
+      const { state, player } = startAtDepthOne();
+      const stairs = state.portals.find((p) => p.id === portalId)!;
+      setPositionFromGrid(player, stairs.source.x, stairs.source.y);
+
+      resolveCommand(state, transitionCommand(player.id, type));
+      expect(state[flag]).toBe(true);
+      expect(state.pendingPortalId).toBe(portalId);
+
+      killPlayer(state, player.id);
+
+      expect(player.hp).toBeLessThanOrEqual(0);
+      expect(state[flag]).toBe(false);
+      expect(state.pendingPortalId).toBeUndefined();
+    },
+  );
+
+  /**
+   * `triggerPlayerFall` (`tick.ts:547-567`) sets `shouldDescend` *and* queues
+   * `HOLE_FALL_DAMAGE` in the same tick, and the queue drains immediately
+   * after `processHoleFalls`, so at low health the fall is its own lethal blow.
+   * The transition is cancelled with every other one: the player dies on the
+   * floor they fell from rather than arriving dead on the one below.
+   */
+  it("cancels the descend when the fall through a hole is itself lethal", () => {
+    const { state, player } = startAtDepthOne();
+    player.hp = HOLE_FALL_DAMAGE;
+    state.holeCreatedTiles = new Set([
+      idxFor(player.gridX, player.gridY, state.mapWidth),
+    ]);
+
+    stepSimulationTick(state);
+
+    // Without this the assertions below pass vacuously: a player killed before
+    // `processHoleFalls` runs never falls, so `shouldDescend` is never set and
+    // there is nothing for the fix to cancel.
+    expect(state.pendingAlerts.map((alert) => alert.message)).toContain(
+      "You fall through the floor!",
+    );
+    expect(player.hp).toBe(0);
+    expect(state.shouldDescend).toBe(false);
+    expect(state.descendTarget).toBeUndefined();
   });
 });
