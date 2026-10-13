@@ -173,3 +173,11 @@ Mutation-checked, one failing case per mutation: dropping the `itemsToTrigger` l
 **Action:** Added a unit test in `src/engine/systems/simulation/commands.test.ts` within the `resolveMoveCommand blocker precedence` block that spawns a friendly `WILD_DOG` on the target tile and validates that a move command correctly returns `false` (blocking movement) without pushing a `DAMAGE` event (meaning it avoids converting the collision into an attack).
 
 **Prevention:** When testing collision, pathfinding, or targeting logic, always look for explicit exceptions for friendly/allied entities and verify that tests exist covering those exceptions.
+
+## 2026-10-12 - Test player movement stops on death
+
+**What was found:** The decision to stop a dead player's movement (`player.velocityX = 0`, `player.velocityY = 0`) in `processDamageEvent` and `processPlayerDeathEvent` was untested. If removed, a dead player could slide with prior inertia.
+
+**Action:** Added tests in `src/engine/systems/simulation/death-transition.test.ts` to assert that a player's velocity is immediately zeroed upon death from both a damage event and eating a black pill.
+
+**Prevention:** Ensure that entity physics state resets tied to lifecycle events like death are protected by behavioral tests so that corpses do not inherit active entity properties.
