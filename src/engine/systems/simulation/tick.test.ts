@@ -58,6 +58,61 @@ describe("stepSimulationTick", () => {
     }
   });
 
+  it("truncates aiCommands after sorting them when they exceed MAX_COMMANDS_PER_TICK", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const tick = 10;
+    state.sim.nowTick = tick;
+
+    const overflow = 5;
+    const mockCommands: any[] = [];
+
+    mockCommands.push({
+      id: `cmd-low`,
+      type: "WAIT",
+      actorId: `m-low`,
+      priority: -100,
+      tick,
+    });
+
+    for (let i = 0; i < MAX_COMMANDS_PER_TICK + overflow - 2; i++) {
+      mockCommands.push({
+        id: `cmd-${i}`,
+        type: "WAIT",
+        actorId: `m${i}`,
+        priority: 0,
+        tick,
+      });
+    }
+
+    mockCommands.push({
+      id: `cmd-high`,
+      type: "WAIT",
+      actorId: `m-high`,
+      priority: 100,
+      tick,
+    });
+
+    (ai.generateAICommands as any).mockReturnValue(mockCommands);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      stepSimulationTick(state);
+
+      expect(errorSpy).toHaveBeenCalled();
+      expect(mockCommands.length).toBe(MAX_COMMANDS_PER_TICK);
+
+      const hasHighPriority = mockCommands.some((cmd) => cmd.id === "cmd-high");
+      const hasLowPriority = mockCommands.some((cmd) => cmd.id === "cmd-low");
+
+      expect(hasHighPriority).toBe(true);
+      expect(hasLowPriority).toBe(false);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("leaves aiCommands alone when they are within the limit", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);

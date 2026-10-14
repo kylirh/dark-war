@@ -23,3 +23,11 @@ another player's transition.
 pending actions or delayed transitions. Any state flags set by a command that
 are evaluated later in the tick (or after the tick) must be aborted if the actor
 dies in the interim.
+
+## 2026-10-14 - sort ai commands before truncating
+
+**What was found:** In \`stepSimulationTick\`, the engine truncated generated AI commands to \`MAX_COMMANDS_PER_TICK\` before sorting them. This meant that overflow silently dropped the lowest-generated commands rather than the lowest-priority ones, violating the intent of the safety limit documented in ADR 0009.
+
+**Action:** Swapped the order of truncation and \`sortCommandsDeterministically\` in \`src/engine/systems/simulation/tick.ts\` so that AI commands are sorted first. Added a test in \`src/engine/systems/simulation/tick.test.ts\` to verify high-priority commands survive truncation while low-priority ones are dropped.
+
+**Prevention:** When enforcing safety limits by truncating an array of ordered operations, always sort the array before truncating to ensure that the least important items are dropped, rather than items determined by generation order.
