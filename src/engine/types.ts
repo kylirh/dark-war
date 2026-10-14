@@ -763,7 +763,10 @@ export interface GameState {
   /** Durable per-game seed for deterministic keyed rolls (never changes). */
   simulationSeed: number;
   mapDirty: boolean;
-  // Canonical tile accessor. Generated levels expose their WorldPlane here.
+  /**
+   * Canonical tile accessor. Generated levels expose their WorldPlane here.
+   * Do not reintroduce scalar runtime maps or editor IDs as gameplay state.
+   */
   tiles: TileSource;
   /** Authoritative compositional storage for the active world plane. */
   worldPlane: import("./core/world-plane").WorldPlane;
