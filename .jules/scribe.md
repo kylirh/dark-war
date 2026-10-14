@@ -75,12 +75,10 @@ Two details were missing from the first draft and were added during review, both
 
 **Prevention:** Document architectural constraints and overflow behavior directly on the constants that enforce them, rather than relying solely on external ADRs. When an ADR already analyses the thing being documented, read it to the end and carry its caveats across — ADR 0009 named both of the above, and the first draft reproduced only the headline.
 
-## 2026-10-14 - Document canonical tile accessor constraint
+## 2026-10-15 - Document canonical tile accessor constraint
 
 **What was found:** The `state.tiles` property in `GameState` was documented with a single-line comment identifying it as the canonical tile accessor, but it omitted the critical architectural constraint from `CLAUDE.md` and `AGENTS.md` that scalar runtime maps or editor IDs must not be reintroduced as gameplay state.
 
 **Action:** Replaced the single-line comment with a TSDoc block on `tiles: TileSource;` in `src/engine/types.ts` that explicitly includes the constraint.
-
-Added during review: the first draft documented only the no-scalar-maps constraint and left out the contract a caller is far more likely to break. Reads go through `state.tiles`, but writes must go through `utils/state-tiles.ts`, because those helpers are what record the touched index in `changedTiles` — the set both the client loop and the multiplayer server drain each tick to call `Physics.updateTile`. A direct `state.tiles.setTile` changes the tile and leaves the collider stale, so a destroyed wall keeps blocking. Nothing enforces it; all nine runtime write sites happen to use a helper today. Generators (`world-space-content.ts`, `outside-level.ts`) do call `worldPlane.editCell` directly, which is safe only because they run before `Physics.rebuildAll` builds the new level's colliders — so the contract is about writes to a live plane, not every write.
 
 **Prevention:** Document architectural anti-patterns (like reintroducing editor IDs) directly on the properties they govern, ensuring developers see the constraint in IntelliSense before they attempt to bypass the abstraction.
