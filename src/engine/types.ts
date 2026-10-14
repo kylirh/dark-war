@@ -763,7 +763,22 @@ export interface GameState {
   /** Durable per-game seed for deterministic keyed rolls (never changes). */
   simulationSeed: number;
   mapDirty: boolean;
-  // Canonical tile accessor. Generated levels expose their WorldPlane here.
+  /**
+   * Canonical tile accessor. Generated levels expose their WorldPlane here.
+   * Do not reintroduce scalar runtime maps or editor IDs as gameplay state.
+   *
+   * Reads go through this field. **Writes go through the helpers in
+   * `utils/state-tiles.ts`** — `setStateTile`, `setStateTileAtIndex` and
+   * `editStateCell` — because each one records the touched index in
+   * {@link GameState.changedTiles}, which both hosts that step the simulation
+   * (the client loop and the multiplayer server) drain every tick to reconcile
+   * the affected colliders through `Physics.updateTile`. Calling `setTile` on
+   * this source directly changes the tile but leaves the collider stale, so a
+   * destroyed wall keeps blocking and a newly placed one stays walkable. Only
+   * convention enforces this; all nine runtime write sites use a helper today.
+   * Generators write to the plane directly, which is safe because they run
+   * before `Physics.rebuildAll` builds the colliders for the new level.
+   */
   tiles: TileSource;
   /** Authoritative compositional storage for the active world plane. */
   worldPlane: import("./core/world-plane").WorldPlane;
