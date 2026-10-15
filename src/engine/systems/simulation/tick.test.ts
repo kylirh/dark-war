@@ -3,10 +3,17 @@ import { stepSimulationTick } from "./tick";
 import { Game } from "../../core/game";
 import { MAX_COMMANDS_PER_TICK } from "./constants";
 import * as ai from "./ai";
-import { CELL_CONFIG, ItemType, MonsterType, TileType } from "../../types";
+import {
+  CELL_CONFIG,
+  type GameState,
+  ItemType,
+  MonsterType,
+  TileType,
+} from "../../types";
 import { ItemEntity } from "../../entities/item-entity";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { RNG } from "../../utils/rng";
+import { idxFor } from "../../utils/helpers";
 import { processEventQueue } from "./events";
 
 vi.mock("./ai", async (importOriginal) => {
@@ -120,6 +127,10 @@ describe("stepSimulationTick", () => {
   });
 
   describe("processHoleFalls", () => {
+    // A 50% per-tick fall chance only shows up in bulk, so both monster cases
+    // run the same number of trials and assert against this one constant.
+    const FALL_TRIALS = 100;
+
     function setupHoleTest(mode: "offline" | "online" = "offline") {
       const game = new Game({ mode });
       game.reset(1);
@@ -139,14 +150,13 @@ describe("stepSimulationTick", () => {
     }
 
     function runFallTrials(
-      state: any,
+      state: GameState,
       hx: number,
       hy: number,
       isMoving: boolean,
     ): number {
       let fallCount = 0;
-      const trials = 100;
-      for (let i = 0; i < trials; i++) {
+      for (let i = 0; i < FALL_TRIALS; i++) {
         const monster = new MonsterEntity(hx, hy, MonsterType.MUTANT, 1);
         monster.prevWorldX = isMoving
           ? (hx - 1) * CELL_CONFIG.w
@@ -157,12 +167,38 @@ describe("stepSimulationTick", () => {
         stepSimulationTick(state);
         processEventQueue(state);
 
-        const exists = state.entities.some((e: any) => e.id === monster.id);
+        const exists = state.entities.some((e) => e.id === monster.id);
         if (!exists) fallCount++;
         else state.entityManager.destroy(monster.id);
       }
       return fallCount;
     }
+
+    it("prevents players from falling through holes during online multiplayer", () => {
+      // Online, the server owns player hole-falls — it migrates the individual
+      // player between per-depth worlds. Running the fall here too would warp
+      // the whole party and apply HOLE_FALL_DAMAGE twice.
+      const game = new Game({ mode: "online" });
+      game.reset(1);
+      const state = game.getState();
+      const player = state.player;
+
+      state.holeCreatedTiles = new Set([
+        idxFor(player.gridX, player.gridY, state.mapWidth),
+      ]);
+
+      (ai.generateAICommands as any).mockReturnValue([]);
+
+      const hpBefore = player.hp;
+
+      stepSimulationTick(state);
+
+      expect(state.shouldDescend).toBe(false);
+      // The damage assertion has to be on the player, not on `eventQueue`:
+      // `stepSimulationTick` drains the queue immediately after
+      // `processHoleFalls`, so a queue assertion passes no matter what.
+      expect(player.hp).toBe(hpBefore);
+    });
 
     it("pushes items falling through holes into itemsFellThrough and destroys them offline", () => {
       const { state, holeX, holeY } = setupHoleTest("offline");
@@ -213,19 +249,15 @@ describe("stepSimulationTick", () => {
       const { state, holeX: hx, holeY: hy } = setupHoleTest("offline");
 
       const fallCount = runFallTrials(state, hx, hy, true);
-      const trials = 100;
 
       expect(fallCount).toBeGreaterThan(0);
-      expect(fallCount).toBeLessThan(trials);
+      expect(fallCount).toBeLessThan(FALL_TRIALS);
     });
 
     it("leaves a monster already standing on a hole where it is", () => {
       RNG.reseed(1);
       const { state, holeX: hx, holeY: hy } = setupHoleTest("offline");
 
-      // Same trial count as the moving case: with a 50% chance per tick, a
-      // stationary monster surviving all of them is only meaningful in bulk.
-      const trials = 100;
       const fallCount = runFallTrials(state, hx, hy, false);
 
       expect(fallCount).toBe(0);
