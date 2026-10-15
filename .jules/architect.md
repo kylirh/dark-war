@@ -15,3 +15,11 @@ cannot serve, so the recommended option keeps an internal marker rather than
 removing the flag. And the offline host consumes the flags at two sites in
 `main.ts`, not one. Verify which fields are serialized and count every reader
 before claiming a field is purely host-bound.
+
+## 2026-10-15 - Proposed ADR for Eight-Directional Movement
+
+**What was found:** The Chebyshev distance check (`Math.max`) in `WorldPlane.canTraverse` enables 8-way diagonal movement but looks like an off-by-one bug to developers, leading to 11 separate PRs attempting to change it to a 4-way Manhattan distance check (as recorded in `.jules/world.md`). This caused recurring code review churn.
+
+**Action:** Wrote Proposed ADR 0012 formalizing the architectural decision to maintain 8-directional (Chebyshev) movement rather than changing the game design to 4-directional movement just to make the code look less confusing.
+
+**Prevention:** When an intended design decision causes repeated confusion or PR churn because it resembles a bug, document the explicit choice in an ADR. Never change core gameplay mechanics (like movement systems) merely to satisfy a perceived code aesthetic.
