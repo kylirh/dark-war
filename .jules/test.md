@@ -200,10 +200,21 @@ reached, leaving it for the next tick, and that assignment is what stops the
 slide in the meantime. Writing a test for that window needs a 1000-event
 cascade, which is a fixture rather than an oracle.
 
-## 2026-10-14 - Test online multiplayer hole-fall prevention
+## 2026-10-15 - Test online multiplayer hole-fall prevention
 
 **What was found:** The logic in `processHoleFalls` (in `src/engine/systems/simulation/tick.ts`) that prevents players from falling through holes during online multiplayer (`if (holeCreated && !online)`) lacked behavioral test coverage. This left the protection vulnerable to being removed without any failing tests, potentially causing double-application of fall damage or unwanted client-side warp signaling.
 
-**Action:** Added a focused unit test to `src/engine/systems/simulation/tick.test.ts` that explicitly simulates a player standing on a newly created hole in `online` mode, verifying that `state.shouldDescend` remains false and no `DAMAGE` event is pushed. Mutation tested to ensure removal of `!online` fails the test.
+**Action:** Added a focused unit test to `src/engine/systems/simulation/tick.test.ts` that explicitly simulates a player standing on a newly created hole in `online` mode, verifying that `state.shouldDescend` stays false and that the player takes no fall damage. Mutation tested: with `!online` dropped from the guard, each assertion fails on its own (`shouldDescend` becomes true; hp goes 20 -> 17).
 
 **Prevention:** Ensure explicit multiplayer divergences (like preventing server-owned logic from running on the client) are covered by explicit tests simulating `online` mode to prevent regressions in multiplayer sync logic.
+
+**Corrected during review:** the first draft asserted on `state.eventQueue` after
+the tick. That assertion could never fail for two independent reasons:
+`stepSimulationTick` calls `processEventQueue` immediately after
+`processHoleFalls`, so the queue is always empty by then, and it matched
+`amount === 10` when `HOLE_FALL_DAMAGE` is 3. Assert on the damaged entity, not
+on a queue the tick has already drained. The draft also relied on an earlier
+test in the file having set `generateAICommands.mockReturnValue([])` — vitest is
+not configured with `clearMocks`, so it passed in a full-file run and threw
+`Cannot read properties of undefined (reading 'length')` when run alone. Set the
+mock in every test that steps a tick.
