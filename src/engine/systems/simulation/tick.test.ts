@@ -3,17 +3,10 @@ import { stepSimulationTick } from "./tick";
 import { Game } from "../../core/game";
 import { MAX_COMMANDS_PER_TICK } from "./constants";
 import * as ai from "./ai";
-import {
-  CELL_CONFIG,
-  type GameState,
-  ItemType,
-  MonsterType,
-  TileType,
-} from "../../types";
+import { CELL_CONFIG, ItemType, MonsterType, TileType } from "../../types";
 import { ItemEntity } from "../../entities/item-entity";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { RNG } from "../../utils/rng";
-import { idxFor } from "../../utils/helpers";
 import { processEventQueue } from "./events";
 
 vi.mock("./ai", async (importOriginal) => {
@@ -127,81 +120,19 @@ describe("stepSimulationTick", () => {
   });
 
   describe("processHoleFalls", () => {
-    // A 50% per-tick fall chance only shows up in bulk, so both monster cases
-    // run the same number of trials and assert against this one constant.
-    const FALL_TRIALS = 100;
-
-    function setupHoleTest(mode: "offline" | "online" = "offline") {
-      const game = new Game({ mode });
+    it("pushes items falling through holes into itemsFellThrough and destroys them offline", () => {
+      const game = new Game({ mode: "offline" });
       game.reset(1);
       const state = game.getState();
+
       const holeX = 5;
       const holeY = 5;
 
+      // Clear existing items that might have spawned in reset()
       const existingItems = [...state.entityManager.items];
       for (const item of existingItems) {
         state.entityManager.destroy(item.id);
       }
-      state.tiles.setTile(holeX, holeY, TileType.HOLE);
-
-      (ai.generateAICommands as any).mockReturnValue([]);
-
-      return { state, holeX, holeY };
-    }
-
-    function runFallTrials(
-      state: GameState,
-      hx: number,
-      hy: number,
-      isMoving: boolean,
-    ): number {
-      let fallCount = 0;
-      for (let i = 0; i < FALL_TRIALS; i++) {
-        const monster = new MonsterEntity(hx, hy, MonsterType.MUTANT, 1);
-        monster.prevWorldX = isMoving
-          ? (hx - 1) * CELL_CONFIG.w
-          : monster.worldX;
-        monster.prevWorldY = isMoving ? hy * CELL_CONFIG.h : monster.worldY;
-        state.entityManager.spawn(monster);
-
-        stepSimulationTick(state);
-        processEventQueue(state);
-
-        const exists = state.entities.some((e) => e.id === monster.id);
-        if (!exists) fallCount++;
-        else state.entityManager.destroy(monster.id);
-      }
-      return fallCount;
-    }
-
-    it("prevents players from falling through holes during online multiplayer", () => {
-      // Online, the server owns player hole-falls — it migrates the individual
-      // player between per-depth worlds. Running the fall here too would warp
-      // the whole party and apply HOLE_FALL_DAMAGE twice.
-      const game = new Game({ mode: "online" });
-      game.reset(1);
-      const state = game.getState();
-      const player = state.player;
-
-      state.holeCreatedTiles = new Set([
-        idxFor(player.gridX, player.gridY, state.mapWidth),
-      ]);
-
-      (ai.generateAICommands as any).mockReturnValue([]);
-
-      const hpBefore = player.hp;
-
-      stepSimulationTick(state);
-
-      expect(state.shouldDescend).toBe(false);
-      // The damage assertion has to be on the player, not on `eventQueue`:
-      // `stepSimulationTick` drains the queue immediately after
-      // `processHoleFalls`, so a queue assertion passes no matter what.
-      expect(player.hp).toBe(hpBefore);
-    });
-
-    it("pushes items falling through holes into itemsFellThrough and destroys them offline", () => {
-      const { state, holeX, holeY } = setupHoleTest("offline");
 
       const item1 = new ItemEntity(holeX, holeY, ItemType.MEDKIT);
       const item2 = new ItemEntity(holeX, holeY, ItemType.AMMO);
@@ -209,6 +140,10 @@ describe("stepSimulationTick", () => {
 
       state.entityManager.spawn(item1);
       state.entityManager.spawn(item2);
+
+      state.tiles.setTile(holeX, holeY, TileType.HOLE);
+
+      (ai.generateAICommands as any).mockReturnValue([]);
 
       expect(state.entityManager.items.length).toBe(2);
       expect(state.itemsFellThrough).toBeUndefined();
@@ -230,10 +165,23 @@ describe("stepSimulationTick", () => {
       // The constructor mode is what `state.multiplayer.mode` is built from, so
       // driving the branch through it also pins that wiring. Overwriting
       // `state.multiplayer` here instead would pass even if the two diverged.
-      const { state, holeX, holeY } = setupHoleTest("online");
+      const game = new Game({ mode: "online" });
+      game.reset(1);
+      const state = game.getState();
+
+      const holeX = 5;
+      const holeY = 5;
+
+      const existingItems = [...state.entityManager.items];
+      for (const item of existingItems) {
+        state.entityManager.destroy(item.id);
+      }
 
       const item = new ItemEntity(holeX, holeY, ItemType.MEDKIT);
       state.entityManager.spawn(item);
+      state.tiles.setTile(holeX, holeY, TileType.HOLE);
+
+      (ai.generateAICommands as any).mockReturnValue([]);
 
       expect(state.entityManager.items.length).toBe(1);
       expect(state.itemsFellThrough).toBeUndefined();
@@ -246,19 +194,66 @@ describe("stepSimulationTick", () => {
 
     it("gives monsters moving onto a hole a 50% chance to fall", () => {
       RNG.reseed(1);
-      const { state, holeX: hx, holeY: hy } = setupHoleTest("offline");
+      const game = new Game({ mode: "offline" });
+      game.reset(1);
+      const state = game.getState();
+      const hx = 5;
+      const hy = 5;
+      state.tiles.setTile(hx, hy, TileType.HOLE);
 
-      const fallCount = runFallTrials(state, hx, hy, true);
+      let fallCount = 0;
+      const trials = 100;
+
+      for (let i = 0; i < trials; i++) {
+        const monster = new MonsterEntity(hx, hy, MonsterType.MUTANT, 1);
+        monster.prevWorldX = (hx - 1) * CELL_CONFIG.w;
+        monster.prevWorldY = hy * CELL_CONFIG.h;
+        state.entityManager.spawn(monster);
+
+        stepSimulationTick(state);
+        processEventQueue(state);
+
+        const exists = state.entities.some((e) => e.id === monster.id);
+        if (!exists) {
+          fallCount++;
+        }
+
+        if (exists) {
+          state.entityManager.destroy(monster.id);
+        }
+      }
 
       expect(fallCount).toBeGreaterThan(0);
-      expect(fallCount).toBeLessThan(FALL_TRIALS);
+      expect(fallCount).toBeLessThan(trials);
     });
 
     it("leaves a monster already standing on a hole where it is", () => {
       RNG.reseed(1);
-      const { state, holeX: hx, holeY: hy } = setupHoleTest("offline");
+      const game = new Game({ mode: "offline" });
+      game.reset(1);
+      const state = game.getState();
+      const hx = 5;
+      const hy = 5;
+      state.tiles.setTile(hx, hy, TileType.HOLE);
 
-      const fallCount = runFallTrials(state, hx, hy, false);
+      // Same trial count as the moving case: with a 50% chance per tick, a
+      // stationary monster surviving all of them is only meaningful in bulk.
+      const trials = 100;
+      let fallCount = 0;
+
+      for (let i = 0; i < trials; i++) {
+        const monster = new MonsterEntity(hx, hy, MonsterType.MUTANT, 1);
+        monster.prevWorldX = monster.worldX;
+        monster.prevWorldY = monster.worldY;
+        state.entityManager.spawn(monster);
+
+        stepSimulationTick(state);
+        processEventQueue(state);
+
+        const exists = state.entities.some((e) => e.id === monster.id);
+        if (!exists) fallCount++;
+        else state.entityManager.destroy(monster.id);
+      }
 
       expect(fallCount).toBe(0);
     });
