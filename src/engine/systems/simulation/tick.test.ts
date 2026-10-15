@@ -120,6 +120,26 @@ describe("stepSimulationTick", () => {
   });
 
   describe("processHoleFalls", () => {
+    it("prevents players from falling through holes during online multiplayer", () => {
+      const game = new Game({ mode: "online" });
+      game.reset(1);
+      const state = game.getState();
+      const player = state.player;
+
+      // Ensure AI commands don't interfere.
+      (ai.generateAICommands as any).mockReturnValue([]);
+
+      const hx = player.gridX;
+      const hy = player.gridY;
+
+      state.holeCreatedTiles = new Set([hx + hy * state.mapWidth]);
+
+      stepSimulationTick(state);
+
+      expect(state.shouldDescend).toBe(false);
+      expect(player.hp).toBe(player.hpMax);
+    });
+
     it("pushes items falling through holes into itemsFellThrough and destroys them offline", () => {
       const game = new Game({ mode: "offline" });
       game.reset(1);

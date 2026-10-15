@@ -199,3 +199,11 @@ observable behaviour, which either assignment satisfies, because the
 reached, leaving it for the next tick, and that assignment is what stops the
 slide in the meantime. Writing a test for that window needs a 1000-event
 cascade, which is a fixture rather than an oracle.
+
+## 2026-10-14 - Test online multiplayer hole-fall prevention
+
+**What was found:** The logic in `processHoleFalls` (in `src/engine/systems/simulation/tick.ts`) that prevents players from falling through holes during online multiplayer (`if (holeCreated && !online)`) lacked behavioral test coverage. This left the protection vulnerable to being removed without any failing tests, potentially causing double-application of fall damage or unwanted client-side warp signaling.
+
+**Action:** Added a focused unit test to `src/engine/systems/simulation/tick.test.ts` that explicitly simulates a player standing on a newly created hole in `online` mode, verifying that `state.shouldDescend` remains false and no `DAMAGE` event is pushed. Mutation tested to ensure removal of `!online` fails the test.
+
+**Prevention:** Ensure explicit multiplayer divergences (like preventing server-owned logic from running on the client) are covered by explicit tests simulating `online` mode to prevent regressions in multiplayer sync logic.
