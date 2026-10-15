@@ -18,8 +18,18 @@ before claiming a field is purely host-bound.
 
 ## 2026-10-15 - Proposed ADR for Eight-Directional Movement
 
-**What was found:** The Chebyshev distance check (`Math.max`) in `WorldPlane.canTraverse` enables 8-way diagonal movement but looks like an off-by-one bug to developers, leading to 11 separate PRs attempting to change it to a 4-way Manhattan distance check (as recorded in `.jules/world.md`). This caused recurring code review churn.
+**What was found:** The Chebyshev distance check (`Math.max`) in `WorldPlane.canTraverse` enables 8-way diagonal movement but looks like an off-by-one bug to developers, leading to repeated pull requests attempting to narrow it to a 4-way Manhattan check. Thirteen have been closed unmerged: #263, #268, #270, #275, #284, #288, #294, #298, #300, #315, #317, #320, #324. This caused recurring code review churn.
 
 **Action:** Wrote Proposed ADR 0012 formalizing the architectural decision to maintain 8-directional (Chebyshev) movement rather than changing the game design to 4-directional movement just to make the code look less confusing.
 
 **Prevention:** When an intended design decision causes repeated confusion or PR churn because it resembles a bug, document the explicit choice in an ADR. Never change core gameplay mechanics (like movement systems) merely to satisfy a perceived code aesthetic.
+
+**Corrected during review:** the first draft cited `.jules/world.md`'s count of
+eleven and asserted the contract is untested. Both were stale. #317 is missing
+from that list and #324 landed the day after the entry was written, so the real
+count is thirteen; and `world-plane.test.ts` plus two `pathfinding.test.ts`
+cases now fail under the Manhattan edit, verified by mutating
+`world-plane.ts:183` and running the full suite (3 failed / 906 passed).
+A log's own count is a snapshot, not a current fact — re-derive it from the
+pull request list before citing it, and mutate the predicate before claiming
+nothing covers it.
