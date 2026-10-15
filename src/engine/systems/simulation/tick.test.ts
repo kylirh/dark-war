@@ -7,6 +7,7 @@ import { CELL_CONFIG, ItemType, MonsterType, TileType } from "../../types";
 import { ItemEntity } from "../../entities/item-entity";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { RNG } from "../../utils/rng";
+import { idxFor } from "../../utils/helpers";
 import { processEventQueue } from "./events";
 
 vi.mock("./ai", async (importOriginal) => {
@@ -120,6 +121,32 @@ describe("stepSimulationTick", () => {
   });
 
   describe("processHoleFalls", () => {
+    it("prevents players from falling through holes during online multiplayer", () => {
+      // Online, the server owns player hole-falls — it migrates the individual
+      // player between per-depth worlds. Running the fall here too would warp
+      // the whole party and apply HOLE_FALL_DAMAGE twice.
+      const game = new Game({ mode: "online" });
+      game.reset(1);
+      const state = game.getState();
+      const player = state.player;
+
+      state.holeCreatedTiles = new Set([
+        idxFor(player.gridX, player.gridY, state.mapWidth),
+      ]);
+
+      (ai.generateAICommands as any).mockReturnValue([]);
+
+      const hpBefore = player.hp;
+
+      stepSimulationTick(state);
+
+      expect(state.shouldDescend).toBe(false);
+      // The damage assertion has to be on the player, not on `eventQueue`:
+      // `stepSimulationTick` drains the queue immediately after
+      // `processHoleFalls`, so a queue assertion passes no matter what.
+      expect(player.hp).toBe(hpBefore);
+    });
+
     it("pushes items falling through holes into itemsFellThrough and destroys them offline", () => {
       const game = new Game({ mode: "offline" });
       game.reset(1);
