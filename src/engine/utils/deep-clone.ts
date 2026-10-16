@@ -16,7 +16,12 @@ export function deepCloneSerializable<T>(value: T): T {
     return value;
   }
   if (Array.isArray(value)) {
-    return value.map((item) => deepCloneSerializable(item)) as unknown as T;
+    const len = value.length;
+    const arr = new Array(len);
+    for (let i = 0; i < len; i++) {
+      arr[i] = deepCloneSerializable(value[i]);
+    }
+    return arr as unknown as T;
   }
   if (value instanceof Map) {
     const out = new Map();
@@ -33,8 +38,10 @@ export function deepCloneSerializable<T>(value: T): T {
     return out as unknown as T;
   }
   const out: Record<string, unknown> = {};
-  for (const key of Object.keys(value as object)) {
-    out[key] = deepCloneSerializable((value as Record<string, unknown>)[key]);
+  for (const key in value as object) {
+    if (Object.prototype.hasOwnProperty.call(value, key)) {
+      out[key] = deepCloneSerializable((value as Record<string, unknown>)[key]);
+    }
   }
   return out as T;
 }
