@@ -84,3 +84,11 @@ Two details were missing from the first draft and were added during review, both
 Added during review: the first draft documented only the no-scalar-maps constraint and left out the contract a caller is far more likely to break. Reads go through `state.tiles`, but writes must go through `utils/state-tiles.ts`, because those helpers are what record the touched index in `changedTiles` — the set both the client loop and the multiplayer server drain each tick to call `Physics.updateTile`. A direct `state.tiles.setTile` changes the tile and leaves the collider stale, so a destroyed wall keeps blocking. Nothing enforces it; all nine runtime write sites happen to use a helper today. Generators (`world-space-content.ts`, `outside-level.ts`) do call `worldPlane.editCell` directly, which is safe only because they run before `Physics.rebuildAll` builds the new level's colliders — so the contract is about writes to a live plane, not every write.
 
 **Prevention:** Document architectural anti-patterns (like reintroducing editor IDs) directly on the properties they govern, ensuring developers see the constraint in IntelliSense before they attempt to bypass the abstraction.
+
+## 2026-10-16 - Document resting command abortion contract
+
+**What was found:** A memory item explicitly noted a past design trap: when a resting player issues a non-WAIT command, the command is intentionally aborted (returning early) without canceling the rest state. However, this contract was missing from the documentation in `commands.ts`.
+
+**Action:** Added a comment to the early return in `src/engine/systems/simulation/commands.ts` explaining that non-WAIT commands are intentionally aborted and that resting is only interrupted by damage or the explicit wake command.
+
+**Prevention:** Document invisible engine-wide constraints on the specific implementation lines where developers actually read and edit code. This prevents developers from accidentally changing the early return to also cancel the resting state.

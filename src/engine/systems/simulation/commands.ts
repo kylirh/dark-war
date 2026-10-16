@@ -226,6 +226,9 @@ export function resolveCommand(state: GameState, cmd: Command): void {
     ) {
       return;
     }
+    // In Dark War, when a resting player issues a non-WAIT command, the command
+    // is intentionally aborted without canceling the rest state.
+    // Rest is only interrupted by damage or the explicit wake command.
     if (player?.resting && cmd.type !== CommandType.WAIT) return;
   }
 
