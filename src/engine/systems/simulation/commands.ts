@@ -226,6 +226,15 @@ export function resolveCommand(state: GameState, cmd: Command): void {
     ) {
       return;
     }
+    // A resting player's non-WAIT commands are dropped, and dropping them
+    // deliberately leaves `resting` set: issuing one is not a way to wake up.
+    // Rest ends only by re-issuing WAIT (`resolveWaitCommand` below toggles it
+    // off), by taking damage (`events.ts`, which also applies
+    // `REST_DAMAGE_MULTIPLIER`), by reaching full or zero health
+    // (`processRestingPlayers` in `tick.ts`), or by leaving the level — portal
+    // transitions and multiplayer world migration clear it in `game.ts`.
+    // Whether an action *should* interrupt rest is a product decision, not a
+    // defect; do not change this early return into a cancel without one.
     if (player?.resting && cmd.type !== CommandType.WAIT) return;
   }
 

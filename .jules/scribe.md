@@ -84,3 +84,38 @@ Two details were missing from the first draft and were added during review, both
 Added during review: the first draft documented only the no-scalar-maps constraint and left out the contract a caller is far more likely to break. Reads go through `state.tiles`, but writes must go through `utils/state-tiles.ts`, because those helpers are what record the touched index in `changedTiles` — the set both the client loop and the multiplayer server drain each tick to call `Physics.updateTile`. A direct `state.tiles.setTile` changes the tile and leaves the collider stale, so a destroyed wall keeps blocking. Nothing enforces it; all nine runtime write sites happen to use a helper today. Generators (`world-space-content.ts`, `outside-level.ts`) do call `worldPlane.editCell` directly, which is safe only because they run before `Physics.rebuildAll` builds the new level's colliders — so the contract is about writes to a live plane, not every write.
 
 **Prevention:** Document architectural anti-patterns (like reintroducing editor IDs) directly on the properties they govern, ensuring developers see the constraint in IntelliSense before they attempt to bypass the abstraction.
+
+## 2026-10-16 - Document resting command abortion contract
+
+**What was found:** `resolveCommand` drops a resting player's non-WAIT commands
+with a bare early return (`commands.ts:226`). The return deliberately does _not_
+clear `resting`, which is the non-obvious half — a reader assumes acting wakes
+you up, and the recurring "wake the resting player on any action" proposals come
+from exactly that assumption. The line carried no comment.
+
+**Action:** Documented the contract on the early return, including the full set
+of ways rest actually ends.
+
+**Corrected during review:** the first draft asserted "Rest is only interrupted
+by damage or the explicit wake command." That is wrong, and wrong in the
+direction this bot exists to prevent — it would have replaced a missing contract
+with a confidently incorrect one. There are four exits, not two, and the one the
+draft omitted is the most common in play:
+
+- re-issuing WAIT — `resolveWaitCommand` toggles `resting` off (`commands.ts:305`);
+- taking damage — `events.ts:152`, which also applies `REST_DAMAGE_MULTIPLIER`
+  to the incoming hit;
+- **reaching full or zero health** — `processRestingPlayers` (`tick.ts:139` and
+  `tick.ts:151`), whose own doc comment reads "wake them as soon as they reach
+  full health." Resting to full heals you _and_ wakes you; this is the normal
+  ending of an uninterrupted rest;
+- leaving the level — `Game.detachPlayer`, `Game.attachExistingPlayer`, and the
+  level-transition path clear it (`game.ts:664`, `:692`, `:936`).
+
+There is also no separate "wake command" to refer to: waking is the same WAIT
+command toggled a second time.
+
+**Prevention:** Before documenting a contract as "only X happens," grep for
+every write to the field first — here, `resting =` and `stopPlayerResting`
+together name all four sites in seconds. An inline comment that under-counts the
+exits is worse than no comment, because the next reader stops looking after it.
