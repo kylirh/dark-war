@@ -226,6 +226,11 @@ export function resolveCommand(state: GameState, cmd: Command): void {
     ) {
       return;
     }
+    // A resting player dropping a command without waking up is a frequent
+    // point of confusion. Rest is broken by re-issuing WAIT, taking damage,
+    // reaching full/zero health, or leaving the level — never by a normal
+    // action like MOVE or SHOOT. Converting this return into a cancel is a
+    // product decision, not a bugfix.
     if (player?.resting && cmd.type !== CommandType.WAIT) return;
   }
 

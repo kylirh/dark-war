@@ -84,3 +84,11 @@ Two details were missing from the first draft and were added during review, both
 Added during review: the first draft documented only the no-scalar-maps constraint and left out the contract a caller is far more likely to break. Reads go through `state.tiles`, but writes must go through `utils/state-tiles.ts`, because those helpers are what record the touched index in `changedTiles` — the set both the client loop and the multiplayer server drain each tick to call `Physics.updateTile`. A direct `state.tiles.setTile` changes the tile and leaves the collider stale, so a destroyed wall keeps blocking. Nothing enforces it; all nine runtime write sites happen to use a helper today. Generators (`world-space-content.ts`, `outside-level.ts`) do call `worldPlane.editCell` directly, which is safe only because they run before `Physics.rebuildAll` builds the new level's colliders — so the contract is about writes to a live plane, not every write.
 
 **Prevention:** Document architectural anti-patterns (like reintroducing editor IDs) directly on the properties they govern, ensuring developers see the constraint in IntelliSense before they attempt to bypass the abstraction.
+
+## 2026-10-16 - Document resting command abortion contract
+
+**What was found:** A memory item noted a past design trap: when a resting player issues a non-WAIT command, the command is intentionally aborted without canceling the rest state. The initial documentation draft claimed rest was "only interrupted by damage or the explicit wake command," which was factually incorrect (waking is a toggle on WAIT, healing to full automatically wakes you, and level transitions clear it).
+
+**Action:** Added a comment to the early return in `src/engine/systems/simulation/commands.ts` explaining that non-WAIT commands drop without waking the player, enumerating the four actual exits (re-issuing WAIT, damage, full/zero health, leaving the level), and explicitly noting that changing the return to a cancel is a product decision.
+
+**Prevention:** Before documenting that "only X" happens or clears a state, grep for all writes to the field (e.g. `resting =` and `stopPlayerResting`). Never under-count exits in inline documentation, as the next reader will stop looking and rely on the incomplete list.
