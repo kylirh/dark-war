@@ -185,8 +185,37 @@ rounds, and report the spread, not one number.
 
 ## 2026-10-16 - Optimize deep clone serialization path
 
-**What was found:** `deepCloneSerializable` in `src/engine/utils/deep-clone.ts` used `Array.prototype.map` for arrays and `Object.keys()` for plain objects. This function is heavily used in hot paths like state delta computation and entity serialization, making it a hotspot for array and closure allocations.
+**What was found:** `deepCloneSerializable` in `src/engine/utils/deep-clone.ts`
+built an intermediate array per level of recursion — `Array.prototype.map` for
+arrays, `Object.keys()` for plain objects. It has exactly one caller,
+`Game.stripRuntimeEntityState` (`core/game.ts:1952`), which runs once per entity
+per serialization, so the per-entity object shape is what the cost scales on.
 
-**Action:** Replaced `Array.prototype.map` with a pre-allocated `new Array(len)` and a basic `for` loop. Replaced `Object.keys()` with a `for...in` loop guarded by `hasOwnProperty`. Measured on a 2000-entity array simulating full state serialization, these changes yielded roughly a ~25% reduction in total deep clone time (from ~1225ms down to ~930ms per 500 iterations).
+**Action:** Replaced `.map` with a pre-allocated `new Array(len)` and an index
+loop, and `Object.keys()` with `for...in` guarded by
+`Object.prototype.hasOwnProperty.call`. The guard keeps the key set identical to
+`Object.keys()` — own enumerable string keys, same order — and `.call` is what
+makes it safe on a null-prototype object.
 
-**Prevention:** On hot recursive paths like deep structural cloning, avoid array-allocating convenience methods (`Object.keys()`, `.map()`, etc.). They force the garbage collector to clean up numerous small short-lived arrays. Pre-allocate known-size arrays and use zero-allocation iterators (`for...in`) instead.
+**Measurement.** Taken on real generated-level entities rather than a synthetic
+array: seed 7 yields 56 entities averaging 18 own keys each. Cloning the whole
+entity array 2000 times per round, 7 rounds, alternating which variant runs
+first within each round, after warming both:
+
+| variant                   | median  | min     | max     |
+| ------------------------- | ------- | ------- | ------- |
+| `Object.keys()` + `.map`  | 190.7ms | 166.8ms | 244.3ms |
+| `for...in` + pre-allocate | 148.4ms | 139.4ms | 198.1ms |
+
+Median -22%. The spread matters more than the point estimate: the ranges do
+overlap at the tails, so the honest claim is "about a fifth faster on this
+shape," not a fixed percentage. The original pull request reported ~25% from a
+single number on a 2000-entity array, which no level produces.
+
+**Prevention:** This is the **second** confirmation of the narrow result
+recorded directly above, on the same kind of data — small plain objects walked
+to completion. Read that entry's caution as still standing: it is not a general
+rule, V8 optimizes `Object.keys()` well enough that the opposite result is
+common on other shapes, and the only thing that settles it is both variants in
+one process with interleaved rounds and the spread reported. Do not generalize
+this into "avoid `Object.keys()` on hot paths."

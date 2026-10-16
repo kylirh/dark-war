@@ -35,6 +35,27 @@ describe("deepCloneSerializable", () => {
     expect(copy.a).toBe(undefined);
   });
 
+  it("copies only own properties, not inherited enumerable ones", () => {
+    const proto = { inherited: "nope" };
+    const src = Object.create(proto) as { own: number; inherited?: string };
+    src.own = 1;
+
+    const copy = deepCloneSerializable(src);
+
+    expect(copy.own).toBe(1);
+    expect(Object.prototype.hasOwnProperty.call(copy, "inherited")).toBe(false);
+  });
+
+  it("clones a null-prototype object", () => {
+    const src = Object.create(null) as Record<string, unknown>;
+    src.a = { b: 1 };
+
+    const copy = deepCloneSerializable(src);
+
+    expect(copy.a).toEqual({ b: 1 });
+    expect(copy.a).not.toBe(src.a);
+  });
+
   it("deep-clones Map and Set independently", () => {
     const src = { m: new Map([["k", { v: 1 }]]), s: new Set([1, 2]) };
     const copy = deepCloneSerializable(src);
