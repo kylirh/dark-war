@@ -87,8 +87,35 @@ Added during review: the first draft documented only the no-scalar-maps constrai
 
 ## 2026-10-16 - Document resting command abortion contract
 
-**What was found:** A memory item explicitly noted a past design trap: when a resting player issues a non-WAIT command, the command is intentionally aborted (returning early) without canceling the rest state. However, this contract was missing from the documentation in `commands.ts`.
+**What was found:** `resolveCommand` drops a resting player's non-WAIT commands
+with a bare early return (`commands.ts:226`). The return deliberately does _not_
+clear `resting`, which is the non-obvious half — a reader assumes acting wakes
+you up, and the recurring "wake the resting player on any action" proposals come
+from exactly that assumption. The line carried no comment.
 
-**Action:** Added a comment to the early return in `src/engine/systems/simulation/commands.ts` explaining that non-WAIT commands are intentionally aborted and that resting is only interrupted by damage or the explicit wake command.
+**Action:** Documented the contract on the early return, including the full set
+of ways rest actually ends.
 
-**Prevention:** Document invisible engine-wide constraints on the specific implementation lines where developers actually read and edit code. This prevents developers from accidentally changing the early return to also cancel the resting state.
+**Corrected during review:** the first draft asserted "Rest is only interrupted
+by damage or the explicit wake command." That is wrong, and wrong in the
+direction this bot exists to prevent — it would have replaced a missing contract
+with a confidently incorrect one. There are four exits, not two, and the one the
+draft omitted is the most common in play:
+
+- re-issuing WAIT — `resolveWaitCommand` toggles `resting` off (`commands.ts:305`);
+- taking damage — `events.ts:152`, which also applies `REST_DAMAGE_MULTIPLIER`
+  to the incoming hit;
+- **reaching full or zero health** — `processRestingPlayers` (`tick.ts:139` and
+  `tick.ts:151`), whose own doc comment reads "wake them as soon as they reach
+  full health." Resting to full heals you _and_ wakes you; this is the normal
+  ending of an uninterrupted rest;
+- leaving the level — `Game.detachPlayer`, `Game.attachExistingPlayer`, and the
+  level-transition path clear it (`game.ts:664`, `:692`, `:936`).
+
+There is also no separate "wake command" to refer to: waking is the same WAIT
+command toggled a second time.
+
+**Prevention:** Before documenting a contract as "only X happens," grep for
+every write to the field first — here, `resting =` and `stopPlayerResting`
+together name all four sites in seconds. An inline comment that under-counts the
+exits is worse than no comment, because the next reader stops looking after it.
