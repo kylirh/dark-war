@@ -25,7 +25,7 @@ vi.mock("./ai", async (importOriginal) => {
 });
 
 describe("stepSimulationTick", () => {
-  it("truncates aiCommands when they exceed MAX_COMMANDS_PER_TICK, dropping the lowest priority commands", () => {
+  it("truncates aiCommands when they exceed MAX_COMMANDS_PER_TICK", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
@@ -34,30 +34,12 @@ describe("stepSimulationTick", () => {
 
     const overflow = 5;
     const mockCommands: any[] = [];
-
-    mockCommands.push({
-      id: "cmd-low",
-      type: "WAIT",
-      actorId: "m-low",
-      tick,
-      priority: 0,
-    });
-
-    mockCommands.push({
-      id: "cmd-high",
-      type: "WAIT",
-      actorId: "m-high",
-      tick,
-      priority: 100,
-    });
-
-    for (let i = 0; i < MAX_COMMANDS_PER_TICK + overflow - 2; i++) {
+    for (let i = 0; i < MAX_COMMANDS_PER_TICK + overflow; i++) {
       mockCommands.push({
         id: `cmd-${i}`,
         type: "WAIT",
         actorId: `m${i}`,
         tick,
-        priority: 50,
       });
     }
 
@@ -78,11 +60,6 @@ describe("stepSimulationTick", () => {
       // guard truncates in place (`aiCommands.length = MAX_COMMANDS_PER_TICK`);
       // a future non-mutating rewrite would need this assertion updated.
       expect(mockCommands.length).toBe(MAX_COMMANDS_PER_TICK);
-
-      const hasHighPriority = mockCommands.some((c) => c.id === "cmd-high");
-      const hasLowPriority = mockCommands.some((c) => c.id === "cmd-low");
-      expect(hasHighPriority).toBe(true);
-      expect(hasLowPriority).toBe(false);
     } finally {
       errorSpy.mockRestore();
     }

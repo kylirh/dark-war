@@ -23,11 +23,3 @@ another player's transition.
 pending actions or delayed transitions. Any state flags set by a command that
 are evaluated later in the tick (or after the tick) must be aborted if the actor
 dies in the interim.
-
-## 2026-10-02 - Sort AI commands before truncating to preserve high-priority intent
-
-**What was found:** `MAX_COMMANDS_PER_TICK` (1000) was enforced in `stepSimulationTick` by truncating the `aiCommands` array _before_ it was sorted by priority. This meant that if the limit was exceeded, the commands that survived were the first 1000 generated (based on map iteration order), rather than the 1000 most important ones. A low-priority ambient wander could push out a high-priority combat maneuver. Also, `sortCommandsDeterministically` didn't handle `undefined` priority, meaning commands without a priority might not sort correctly if mixed with those that had one.
-
-**Action:** Moved `sortCommandsDeterministically(aiCommands)` to run _before_ truncation, so the array is sorted by priority (highest first) before being sliced to `MAX_COMMANDS_PER_TICK`. `sortCommandsDeterministically` now explicitly falls back to `0` for undefined priorities. Covered by adding a test to `tick.test.ts` to verify the lowest priority commands are dropped, and tests in `command-order.test.ts` to ensure undefined priority treats it as 0.
-
-**Prevention:** When enforcing bounds or safety limits on a queue or buffer (such as dropping overflow), verify that the items being dropped are actually the least important ones. Truncation must generally follow sorting, not precede it.

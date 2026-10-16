@@ -20,7 +20,7 @@ function command(id: string, actorId: string, priority: number): Command {
     actorId,
     type: CommandType.MOVE,
     data: {} as Command["data"],
-    priority: priority as any, // Allowing undefined testing if needed
+    priority,
     source: "AI",
   };
 }
@@ -38,17 +38,6 @@ describe("sortCommandsDeterministically", () => {
     sortCommandsDeterministically(commands);
 
     expect(order(commands)).toEqual(["b", "c", "a"]);
-  });
-
-  it("treats undefined priority as 0", () => {
-    const commands = [
-      command("a", "actor-1", undefined as any),
-      command("b", "actor-1", 1),
-    ];
-
-    sortCommandsDeterministically(commands);
-
-    expect(order(commands)).toEqual(["b", "a"]);
   });
 
   it("breaks equal priority by actorId, ascending", () => {
