@@ -65,6 +65,23 @@ const GRENADE_RICOCHET_SPEED_RETAINED = 0.58;
 const LANDED_GRENADE_DAMPING = 0.82;
 
 /**
+ * Whether `velocity` still drives an actor into the wall it just overlapped,
+ * along one axis.
+ *
+ * The actor was separated along `pushSign * overlap`, so the inward direction
+ * is `-pushSign * sign(overlap)`. A zero overlap on this axis (the wall is not
+ * on it) or a zero velocity cancels nothing.
+ */
+function movesIntoWall(
+  velocity: number,
+  overlap: number,
+  pushSign: 1 | -1,
+): boolean {
+  const inward = -pushSign * Math.sign(overlap);
+  return inward !== 0 && Math.sign(velocity) === inward;
+}
+
+/**
  * Physics system manager
  */
 export class Physics {
@@ -417,7 +434,8 @@ export class Physics {
       this.system.checkOne(body, (response) => {
         if (!(response.b as any).isWall) return;
         collided = true;
-        this.resolvePredictedWallCollision(entity, response);
+        // The queried body is response.a, so the actor separates along -overlapV.
+        this.resolveActorWallOverlap(entity, response.overlapV, -1);
       });
       if (!collided) break;
       this.system.update();
@@ -425,35 +443,41 @@ export class Physics {
   }
 
   /**
-   * Push a predicted entity out of a wall with sliding. Mirrors the entityA
-   * branch of handleCollision (queried body is response.a, wall is response.b).
+   * Resolve an actor's overlap with a wall: separate it along
+   * `pushSign * overlapV`, then cancel only the velocity component that was
+   * driving it into the wall so movement parallel to the surface survives.
+   *
+   * `response.overlapV` points from body A to body B, so the actor is pushed
+   * along positive `overlapV` when it is B (`pushSign` 1) and along negative
+   * `overlapV` when it is A (`pushSign` -1). That sign is the only difference
+   * between the three wall-contact sites, and it also decides which velocity
+   * direction counts as inward — see {@link movesIntoWall}.
    */
-  private resolvePredictedWallCollision(
+  private resolveActorWallOverlap(
     entity: GameEntity,
-    response: Response,
+    overlapV: { x: number; y: number },
+    pushSign: 1 | -1,
   ): void {
-    const separation = 1.01;
-    entity.worldX -= response.overlapV.x * separation;
-    entity.worldY -= response.overlapV.y * separation;
+    // Push the actor clear with a small safety margin to prevent tunneling.
+    const separation = 1.01; // 1% extra separation
+    entity.worldX += overlapV.x * separation * pushSign;
+    entity.worldY += overlapV.y * separation * pushSign;
 
-    const absOverlapX = Math.abs(response.overlapV.x);
-    const absOverlapY = Math.abs(response.overlapV.y);
+    const absOverlapX = Math.abs(overlapV.x);
+    const absOverlapY = Math.abs(overlapV.y);
 
     if (absOverlapX > absOverlapY) {
-      if (
-        (response.overlapV.x > 0 && entity.velocityX > 0) ||
-        (response.overlapV.x < 0 && entity.velocityX < 0)
-      ) {
+      // Horizontal wall - only cancel X velocity if moving into wall
+      if (movesIntoWall(entity.velocityX, overlapV.x, pushSign)) {
         entity.velocityX = 0;
       }
     } else if (absOverlapY > absOverlapX) {
-      if (
-        (response.overlapV.y > 0 && entity.velocityY > 0) ||
-        (response.overlapV.y < 0 && entity.velocityY < 0)
-      ) {
+      // Vertical wall - only cancel Y velocity if moving into wall
+      if (movesIntoWall(entity.velocityY, overlapV.y, pushSign)) {
         entity.velocityY = 0;
       }
     } else {
+      // Corner hit - cancel all velocity
       entity.velocityX = 0;
       entity.velocityY = 0;
     }
@@ -593,79 +617,15 @@ export class Physics {
       entityB &&
       this.usesActorWallResolution(entityB)
     ) {
-      // Push entity out with small safety margin to prevent tunneling
-      const separation = 1.01; // 1% extra separation
-      entityB.worldX += response.overlapV.x * separation;
-      entityB.worldY += response.overlapV.y * separation;
-
-      // Wall sliding: Only cancel velocity component pushing INTO the wall
-      const absOverlapX = Math.abs(response.overlapV.x);
-      const absOverlapY = Math.abs(response.overlapV.y);
-
-      if (absOverlapX > absOverlapY) {
-        // Horizontal wall - only cancel X velocity if moving into wall
-        if (
-          (response.overlapV.x > 0 && entityB.velocityX < 0) ||
-          (response.overlapV.x < 0 && entityB.velocityX > 0)
-        ) {
-          entityB.velocityX = 0;
-        }
-      } else if (absOverlapY > absOverlapX) {
-        // Vertical wall - only cancel Y velocity if moving into wall
-        if (
-          (response.overlapV.y > 0 && entityB.velocityY < 0) ||
-          (response.overlapV.y < 0 && entityB.velocityY > 0)
-        ) {
-          entityB.velocityY = 0;
-        }
-      } else {
-        // Corner hit - cancel all velocity
-        entityB.velocityX = 0;
-        entityB.velocityY = 0;
-      }
-
-      if (entityB.physicsBody) {
-        entityB.physicsBody.setPosition(entityB.worldX, entityB.worldY);
-      }
+      // B separates along positive overlapV.
+      this.resolveActorWallOverlap(entityB, response.overlapV, 1);
     } else if (
       (bodyB as any).isWall &&
       entityA &&
       this.usesActorWallResolution(entityA)
     ) {
-      // Push entity out with small safety margin to prevent tunneling
-      const separation = 1.01; // 1% extra separation
-      entityA.worldX -= response.overlapV.x * separation;
-      entityA.worldY -= response.overlapV.y * separation;
-
-      // Wall sliding: Only cancel velocity component pushing INTO the wall
-      const absOverlapX = Math.abs(response.overlapV.x);
-      const absOverlapY = Math.abs(response.overlapV.y);
-
-      if (absOverlapX > absOverlapY) {
-        // Horizontal wall - only cancel X velocity if moving into wall
-        if (
-          (response.overlapV.x > 0 && entityA.velocityX > 0) ||
-          (response.overlapV.x < 0 && entityA.velocityX < 0)
-        ) {
-          entityA.velocityX = 0;
-        }
-      } else if (absOverlapY > absOverlapX) {
-        // Vertical wall - only cancel Y velocity if moving into wall
-        if (
-          (response.overlapV.y > 0 && entityA.velocityY > 0) ||
-          (response.overlapV.y < 0 && entityA.velocityY < 0)
-        ) {
-          entityA.velocityY = 0;
-        }
-      } else {
-        // Corner hit - cancel all velocity
-        entityA.velocityX = 0;
-        entityA.velocityY = 0;
-      }
-
-      if (entityA.physicsBody) {
-        entityA.physicsBody.setPosition(entityA.worldX, entityA.worldY);
-      }
+      // A separates along negative overlapV.
+      this.resolveActorWallOverlap(entityA, response.overlapV, -1);
     } else if (
       entityA &&
       entityB &&

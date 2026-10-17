@@ -152,6 +152,71 @@ describe("Physics.predictLocalMovement", () => {
   });
 });
 
+describe("Physics.updatePhysics (actor wall sliding)", () => {
+  function actorState(map: TileType[]): GameState {
+    const entities: Entity[] = [];
+    return {
+      entities,
+      entityManager: new EntityManager(entities),
+      effects: [],
+      eventQueue: [],
+      map,
+      mapWidth: W,
+      mapHeight: H,
+      tiles: new FlatTileSource(map, W, H),
+      sim: { nowTick: 0 },
+    } as unknown as GameState;
+  }
+
+  it("cancels only the inward velocity when an actor runs into a wall", () => {
+    const physics = new Physics();
+    const map = makeMap();
+    const state = actorState(map);
+
+    // Player at grid (3,3) → worldX 112, left of the interior wall at (4,3)
+    // which spans worldX 128..160. Driving right and down at once: X is the
+    // inward component, Y runs parallel to the wall face.
+    const player = new PlayerEntity(3, 3);
+    player.velocityX = 300;
+    player.velocityY = 150;
+    state.entityManager.spawn(player);
+    physics.rebuildAll(state);
+
+    const startY = player.worldY;
+    for (let step = 0; step < 6; step++) {
+      physics.updatePhysics(state, 1 / 60);
+    }
+
+    expect(player.worldX).toBeLessThan(128); // never enters the wall
+    expect(player.velocityX).toBe(0); // inward component cancelled
+    expect(player.velocityY).toBe(150); // parallel component preserved
+    expect(player.worldY).toBeGreaterThan(startY + 5); // still sliding along it
+  });
+
+  it("cancels both components when an actor hits a corner square-on", () => {
+    const physics = new Physics();
+    const map = makeMap();
+    const state = actorState(map);
+
+    // The interior wall's top-left corner is at world (128,96). Approaching it
+    // exactly diagonally makes |overlapV.x| === |overlapV.y|, the corner case.
+    const monster = new MonsterEntity(3, 2, MonsterType.RAT, 1);
+    monster.worldX = 128 - 12;
+    monster.worldY = 96 - 12;
+    monster.velocityX = 200;
+    monster.velocityY = 200;
+    state.entityManager.spawn(monster);
+    physics.rebuildAll(state);
+
+    for (let step = 0; step < 6; step++) {
+      physics.updatePhysics(state, 1 / 60);
+    }
+
+    expect(monster.velocityX).toBe(0);
+    expect(monster.velocityY).toBe(0);
+  });
+});
+
 describe("Physics.updateBullets (anti-tunnel)", () => {
   function bulletState(map: TileType[]): GameState {
     const entities: Entity[] = [];
