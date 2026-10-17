@@ -425,6 +425,32 @@ export class Physics {
   }
 
   /**
+   * Applies wall sliding velocity cancellation.
+   */
+  private applyWallSliding(
+    entity: GameEntity,
+    overlapV: { x: number; y: number },
+    movingIntoWallXCondition: boolean,
+    movingIntoWallYCondition: boolean,
+  ): void {
+    const absOverlapX = Math.abs(overlapV.x);
+    const absOverlapY = Math.abs(overlapV.y);
+
+    if (absOverlapX > absOverlapY) {
+      if (movingIntoWallXCondition) {
+        entity.velocityX = 0;
+      }
+    } else if (absOverlapY > absOverlapX) {
+      if (movingIntoWallYCondition) {
+        entity.velocityY = 0;
+      }
+    } else {
+      entity.velocityX = 0;
+      entity.velocityY = 0;
+    }
+  }
+
+  /**
    * Push a predicted entity out of a wall with sliding. Mirrors the entityA
    * branch of handleCollision (queried body is response.a, wall is response.b).
    */
@@ -436,27 +462,14 @@ export class Physics {
     entity.worldX -= response.overlapV.x * separation;
     entity.worldY -= response.overlapV.y * separation;
 
-    const absOverlapX = Math.abs(response.overlapV.x);
-    const absOverlapY = Math.abs(response.overlapV.y);
-
-    if (absOverlapX > absOverlapY) {
-      if (
-        (response.overlapV.x > 0 && entity.velocityX > 0) ||
-        (response.overlapV.x < 0 && entity.velocityX < 0)
-      ) {
-        entity.velocityX = 0;
-      }
-    } else if (absOverlapY > absOverlapX) {
-      if (
-        (response.overlapV.y > 0 && entity.velocityY > 0) ||
-        (response.overlapV.y < 0 && entity.velocityY < 0)
-      ) {
-        entity.velocityY = 0;
-      }
-    } else {
-      entity.velocityX = 0;
-      entity.velocityY = 0;
-    }
+    this.applyWallSliding(
+      entity,
+      response.overlapV,
+      (response.overlapV.x > 0 && entity.velocityX > 0) ||
+        (response.overlapV.x < 0 && entity.velocityX < 0),
+      (response.overlapV.y > 0 && entity.velocityY > 0) ||
+        (response.overlapV.y < 0 && entity.velocityY < 0),
+    );
 
     entity.physicsBody?.setPosition(entity.worldX, entity.worldY);
   }
@@ -599,30 +612,14 @@ export class Physics {
       entityB.worldY += response.overlapV.y * separation;
 
       // Wall sliding: Only cancel velocity component pushing INTO the wall
-      const absOverlapX = Math.abs(response.overlapV.x);
-      const absOverlapY = Math.abs(response.overlapV.y);
-
-      if (absOverlapX > absOverlapY) {
-        // Horizontal wall - only cancel X velocity if moving into wall
-        if (
-          (response.overlapV.x > 0 && entityB.velocityX < 0) ||
-          (response.overlapV.x < 0 && entityB.velocityX > 0)
-        ) {
-          entityB.velocityX = 0;
-        }
-      } else if (absOverlapY > absOverlapX) {
-        // Vertical wall - only cancel Y velocity if moving into wall
-        if (
-          (response.overlapV.y > 0 && entityB.velocityY < 0) ||
-          (response.overlapV.y < 0 && entityB.velocityY > 0)
-        ) {
-          entityB.velocityY = 0;
-        }
-      } else {
-        // Corner hit - cancel all velocity
-        entityB.velocityX = 0;
-        entityB.velocityY = 0;
-      }
+      this.applyWallSliding(
+        entityB,
+        response.overlapV,
+        (response.overlapV.x > 0 && entityB.velocityX < 0) ||
+          (response.overlapV.x < 0 && entityB.velocityX > 0),
+        (response.overlapV.y > 0 && entityB.velocityY < 0) ||
+          (response.overlapV.y < 0 && entityB.velocityY > 0),
+      );
 
       if (entityB.physicsBody) {
         entityB.physicsBody.setPosition(entityB.worldX, entityB.worldY);
@@ -638,30 +635,14 @@ export class Physics {
       entityA.worldY -= response.overlapV.y * separation;
 
       // Wall sliding: Only cancel velocity component pushing INTO the wall
-      const absOverlapX = Math.abs(response.overlapV.x);
-      const absOverlapY = Math.abs(response.overlapV.y);
-
-      if (absOverlapX > absOverlapY) {
-        // Horizontal wall - only cancel X velocity if moving into wall
-        if (
-          (response.overlapV.x > 0 && entityA.velocityX > 0) ||
-          (response.overlapV.x < 0 && entityA.velocityX < 0)
-        ) {
-          entityA.velocityX = 0;
-        }
-      } else if (absOverlapY > absOverlapX) {
-        // Vertical wall - only cancel Y velocity if moving into wall
-        if (
-          (response.overlapV.y > 0 && entityA.velocityY > 0) ||
-          (response.overlapV.y < 0 && entityA.velocityY < 0)
-        ) {
-          entityA.velocityY = 0;
-        }
-      } else {
-        // Corner hit - cancel all velocity
-        entityA.velocityX = 0;
-        entityA.velocityY = 0;
-      }
+      this.applyWallSliding(
+        entityA,
+        response.overlapV,
+        (response.overlapV.x > 0 && entityA.velocityX > 0) ||
+          (response.overlapV.x < 0 && entityA.velocityX < 0),
+        (response.overlapV.y > 0 && entityA.velocityY > 0) ||
+          (response.overlapV.y < 0 && entityA.velocityY < 0),
+      );
 
       if (entityA.physicsBody) {
         entityA.physicsBody.setPosition(entityA.worldX, entityA.worldY);
