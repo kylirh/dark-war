@@ -328,3 +328,74 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-13
+
+**Merged:**
+
+- **#375** `chore(ui): consolidate inventory tooltip generation` — extracts the
+  slot-tooltip markup shared by `inventory-bar.ts` and `character-modal.ts` into
+  one exported `renderInventoryTooltipHtml`. Merged as-is. The two original
+  blocks were semantically identical (extracted and compared side by side, not
+  read), so the extraction is behaviour-preserving by construction. Only the
+  content was duplicated; the positioning below each block legitimately differs
+  — the hot bar centres its tooltip under the slot, the modal puts it beside —
+  so the sweep stopping at the markup is correct, not incomplete.
+- **#376** `test(simulation): assert player movement stops on death` — corrected
+  on the branch first (see below).
+
+**Fixed before merging:** #376's oracle held but half of it did not pin what the
+body claimed. Deleting both velocity resets on `main` — `events.ts:203` in the
+damage handler and `events.ts:995` in `processPlayerDeathEvent` — left all 906
+tests green, so the decision was genuinely uncovered. But only the black-pill
+case pins a specific assignment; see "for next time" item 1. Also dropped an
+`as any` that was hiding a nonexistent `itemType` field and the absent required
+`dx`/`dy` on the `USE_ITEM` command (the case only worked by accident of the
+default bar slot), dropped an `itemCounts` write for an item that never enters
+`itemCounts`, reused the file's existing helpers instead of re-creating them,
+and corrected the log entry's date.
+
+**Closed:** nothing. Only two Jules pull requests were open, both salvageable,
+and they solved unrelated problems — no duplicate groups this run.
+
+**Found in main:** nothing defective. The window was #374, #375 and #376.
+#374's two `aria-label`s match `GameMenu`'s equivalent markup exactly
+(`game-menu.ts:258`, `:265`), which is what it claimed to be closing the gap
+against. The phase 2 pull request is coverage for #375's new shared helper.
+
+**For next time:**
+
+1. **Do not delete the velocity reset at `events.ts:203` as redundant, and do
+   not read #376's damage case as covering it.** Measured both ways: removing
+   that assignment alone leaves the entire suite green, because the
+   `PLAYER_DEATH` event it pushes drains inside the same `processEventQueue`
+   call and zeroes the velocity again. It is still load-bearing —
+   `processEventQueue` breaks out at `MAX_EVENTS_PER_TICK` (1000) and splices
+   only what it processed, so a large cascade leaves the queued `PLAYER_DEATH`
+   for the next tick and the player would slide until then. A test for that
+   window needs a 1000-event fixture, which is a fixture rather than an oracle.
+   The mutation table is in `.jules/test.md` under 2026-10-13.
+2. **`#337` still proposes deleting `death-transition.test.ts`** and folding its
+   cases into `level-transitions.test.ts`. #376's two cases now live in that
+   file, so whichever lands second needs a trivial move. #337 has been open
+   since 2026-10-02.
+3. **The resting-interrupt proposal is still arriving.** Origin currently holds
+   13 closed, unmerged branches for it. #367 — the 2026-10-09 phase 2 pull
+   request, still open — adds both the test that would pin the contract and the
+   `.jules/alpha.md` / `.jules/bug.md` entries the bots have nowhere to read
+   their rejection from. Until it lands, expect more.
+4. **Branch deletion is still `HTTP 403`** from this environment, and the
+   `mcp__github__*` toolset has no branch-deletion tool. `delete_branch_on_merge`
+   is doing its job — both branches merged this run were gone before the
+   post-merge fetch. What is left on origin is older: **10** merged branches that
+   are deletable, and **21** unmerged leftovers from closed pull requests that
+   must not be deleted either way. Both lists are in the run summary. One attempt
+   is enough to confirm — do not retry.
+5. **The commit-msg hook rejects any uppercase character anywhere in the
+   message**, so a camelCase identifier cannot appear in a commit body. Describe
+   the symbol in prose instead; the detail belongs in the pull request comment,
+   where it can be written correctly.
+6. `.claude/routines/daily-log.md` is also written by #331, #337, #340, #345,
+   #352, #362 and #367, all still open. Whichever lands last needs a trivial
+   merge of the entries; earlier entries were not copied in, since that content
+   belongs to pull requests still awaiting review.
