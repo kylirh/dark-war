@@ -328,3 +328,101 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-14
+
+**Merged:** #378 `docs(engine): document state.tiles architectural constraint` —
+Scribe, corrected on the branch twice (see below). The `//` comment on
+`GameState.tiles` never reached IntelliSense, and the constraint it states is
+accurate — `CLAUDE.md` carries "Do not reintroduce scalar runtime maps or editor
+IDs as gameplay state" verbatim.
+
+**Fixed before merging:** the draft documented the constraint a caller is least
+likely to trip over and omitted the one they are most likely to break. Reads go
+through `state.tiles`; writes are supposed to go through `utils/state-tiles.ts`,
+and the reason is load-bearing rather than stylistic — those helpers are what
+record the touched index in `changedTiles`, which both hosts that step the
+simulation drain every tick to call `Physics.updateTile`. A direct
+`state.tiles.setTile` changes the tile and never reconciles the collider, so a
+destroyed wall keeps blocking. Checked before writing it down: there are no
+direct `setTile` calls in non-test code, all nine runtime write sites use a
+helper, and generators do write to the plane directly — safe only because they
+run before `Physics.rebuildAll` builds the new level's colliders, so the
+contract is about writes to a live plane rather than every write. Also corrected
+the learning-log entry date, which read `2026-10-15`.
+
+**Closed:** #379 `fix(simulation): sort ai commands before truncating` — Bug.
+The change is ADR 0009's open question 2, implemented. The ADR analyses the
+truncation order at length and then explicitly declines to decide it: "Two
+questions are left open for a human, because both are behaviour changes rather
+than documentation." The `MAX_COMMANDS_PER_TICK` TSDoc that #365 landed says the
+same thing, and the diff updated neither, so merging would have left both
+documents contradicting the code. Its body also inverts what the ADR says — it
+claims the current order violates the documented intent, where the ADR calls it
+deterministic and merely not what "safety limit" suggests. The test does fail
+before and pass after, but it only restates the proposed behaviour, and it has
+to mock `generateAICommands` into returning 1005 commands to reach the guard at
+all; ADR 0009 records that nothing demonstrates the 1000 ceiling is ever
+reached.
+
+**Found in main:** one uncovered decision, in this pull request. Reviewing #378
+turned up that `editStateCell` — one of the three helpers whose contract #378
+now advertises in IntelliSense — had no test at all. Removing
+`for (const index of dirty) state.changedTiles?.add(index);` outright left all
+100 files / 908 tests passing, and so did narrowing it to the edited index.
+
+**For next time:**
+
+1. **`editStateCell` was the untested arm of the write-path contract, and the
+   neighbourhood matters.** `WorldPlane.editCell` returns the refreshed
+   neighbourhood, not the single index, because physics collides thin boundaries
+   at non-traversable elevation edges — raising one cell changes the boundary it
+   shares with each neighbour, so queueing only the edited index leaves those
+   neighbours' colliders stale. The new case is mutation-checked against both
+   the drop-the-loop and the only-the-edited-index variants. `setStateTile`'s
+   own recording was already pinned by `state-tiles.test.ts`, and
+   `setStateDamageAtIndex` deliberately records nothing (damage alone does not
+   change collision — `state-tiles.ts:67`); do not "fix" that one.
+
+2. **Every merged branch left on origin has a tip that moved after its merge —
+   all eleven, measured, not sampled.** Previous runs listed these as
+   "deletable merged branches"; at their current tips they are not fully merged
+   into `main` and the routine's own never-delete-an-unmerged-branch rule
+   therefore covers them too. That is also why `delete_branch_on_merge` did not
+   leave them gone: GitHub removed each one at merge time and Jules pushed it
+   back afterwards. Their tips are the discarded pre-review states, so anyone
+   merging one would revert landed corrections. The honest count for a human is
+   33 branches needing judgement — 11 post-merge revenants and 22 never-merged
+   leftovers — not "11 deletable".
+
+3. **The revert-the-review-correction behaviour is now immediate and it
+   happened again, at a new point in the cycle.** On #378, Jules pushed
+   `96db907` eight minutes after my corrective commit: a normal forward commit
+   whose content was a _complete_ revert — the wrong date restored, the whole
+   write-path paragraph and TSDoc block deleted. CI went green on it, as a docs
+   revert always will. This is the seventh occurrence (#280, #292, the three
+   branches on 2026-10-02, #343, #348, #365). What worked is unchanged and is
+   not optional: re-apply, push, re-read `git ls-remote` immediately before
+   merging, and merge with `expectedHeadSha` pinned to your own commit. The pin
+   is the part that makes it safe — had it reverted again in the gap, the merge
+   would have failed instead of landing the revert. Verified after the fact:
+   `git diff <my commit> main` is empty.
+
+4. **The resting-interrupt and diagonal-traversal proposals both stayed away
+   this run.** Zero of either, for the first time in a while; the two open Jules
+   pull requests were unrelated. #367 — which carries the `resting.test.ts` pin
+   plus the `.jules/alpha.md` and `.jules/bug.md` entries the bots have nowhere
+   to read their rejection from — is still open and still the thing that would
+   end the cycle at the source. Origin still holds 13 closed, unmerged branches
+   for the resting edit.
+
+5. **Branch deletion is still `HTTP 403`.** One attempt, on
+   `test-player-death-movement-...` with a lease against the resolved head:
+   `error: RPC failed; HTTP 403` / `send-pack: unexpected disconnect`. The
+   `mcp__github__*` toolset has no branch-deletion tool. One attempt is enough —
+   do not retry.
+
+6. `.claude/routines/daily-log.md` is now written by nine open pull requests
+   (#331, #337, #340, #345, #352, #362, #367, #377 and this one). Whichever
+   lands last needs a trivial merge of the entries; earlier entries were not
+   copied in, since that content belongs to pull requests still awaiting review.
