@@ -328,3 +328,86 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-03
+
+**Merged:** both open Jules pull requests, each after corrective commits.
+
+- **#338** `test(simulation): cover both arms of the explosion chain`. The oracle
+  held — chain explosions were genuinely uncovered. Confirmed by deleting each
+  arm of `processExplosionEvent` on `main` in turn, which left **100 files / 895
+  tests passing** both times. But the submitted test covered only one of the two
+  arms, and its log entry claimed chain explosions as a whole. Three other
+  corrections: the test replaced `state.eventQueue.push` and never restored it;
+  the two grenades were built in mismatched units (see below); and the learning
+  log entry was appended twice, verbatim, dated `2025-02-18`.
+- **#339** `refactor(simulation): consolidate the five counted-item consume
+sites`. The duplication was real — `consumeOne` in `commands.ts` and
+  `takePlayerItem` in `events.ts` were byte-identical. But the block existed
+  **five** times, not two, and the first pass took only the two that were
+  identical _functions_.
+
+**Closed:** nothing. Both open Jules pull requests were salvageable, and there
+were no duplicate groups this run — the two addressed unrelated problems.
+
+**Found in main:** no correctness defect. The 24-hour window was three commits:
+`a47770d` (yesterday's matter-manipulator test-setup consolidation) and the two
+merged above. The Phase 2 pull request is coverage for a contract this run's own
+merge introduced — `consumeItem`'s over-spend branch, see below.
+
+**For next time — things a later run should believe without re-deriving:**
+
+1. **`ExplosiveEntity`'s constructor takes world pixels; `ItemEntity`'s takes
+   grid coordinates.** `explosive-entity.ts:43-56` assigns `worldX`/`worldY`
+   directly after calling `super(0, 0)`; `item-entity.ts:28` passes its
+   arguments through to `GameEntity`, which multiplies by `CELL_CONFIG.w`. #338
+   placed both at `(100, 100)` and the two landed ~4400px apart — grid row 100
+   is off the bottom of a 96-row dungeon — then reassigned the item's world
+   coordinates two lines later. The test passed, but not for the reason it read
+   as. Check which space an entity constructor takes before trusting a
+   co-location in a test.
+
+2. **`processExplosionEvent` chains into two separate entity kinds**, and a test
+   covering one says nothing about the other: `explosivesToTrigger` for armed
+   `ExplosiveEntity`s, `itemsToTrigger` for dropped `ItemEntity`s whose type is
+   `GRENADE` or `LAND_MINE`. Both are now pinned, plus the item-type filter.
+
+3. **The counted-item consume block had five copies, three of which no name
+   search would find.** Two were identical functions (`consumeOne`,
+   `takePlayerItem`), one was the same block already carrying an `amount`
+   parameter (`conversation.ts` `consumeCountedItem`), and two were inline with
+   no name at all (`buyFromVending`, the money arm of `stealFromPlayer`). All
+   five now call `consumeItem(player, itemType, amount = 1)` in `inventory.ts`.
+   This is the **second** janitor run in a row to stop early on the same
+   consolidation; its log already said "finish the sweep". Grep for the body,
+   not the helper name.
+
+4. **`consumeItem`'s `remaining <= 0` branch is about over-spend, not just
+   exact depletion, and nothing exercised it.** Narrowing it to `=== 0` on
+   `main` left all 898 tests passing, because every one of the five callers
+   bounds-checks before calling. The Phase 2 pull request pins it. It matters
+   now in a way it did not when the logic was three private copies: the helper
+   is exported, shared, and documented as tolerating an unchecked amount, so the
+   sixth caller is the one that will rely on it.
+
+5. **Branch deletion still 403s**, and `git push origin --delete` fails
+   identically with a lease. Confirmed again on four branches this run. The
+   `mcp__github__*` toolset has no branch-deletion tool. One attempt is enough —
+   do not retry.
+
+6. **The remote branch list is down to ten.** A human appears to have cleared
+   the ~95-branch backlog the 2026-09-30 entry recorded. What is left is four
+   deletable merged branches, three unmerged leftovers from closed pull
+   requests, `main`, and two open `claude/daily-*` heads. Do not go looking for
+   more.
+
+7. **`delete_branch_on_merge` worked for both merges this run.** The four
+   merged branches that survived are the three the 2026-10-02 entry recorded as
+   force-pushed back to their pre-review state after merging, plus #329's. Their
+   tips are not what landed, which is why GitHub did not remove them.
+
+8. **`.claude/routines/daily-log.md` is still written by two other open pull
+   requests**, #331 (2026-10-01) and #337 (2026-10-02). This entry was appended
+   to `main`'s copy, which has neither. Whichever lands last needs a trivial
+   merge of the entries; earlier entries were not copied in, since that content
+   belongs to pull requests still awaiting review.
