@@ -103,4 +103,47 @@ describe("sortCommandsDeterministically", () => {
     expect(same).toBe(commands);
     expect(order(commands)).toEqual(["a", "b"]);
   });
+
+  it("defaults undefined priority to 0", () => {
+    const commands = [
+      {
+        id: "a",
+        actorId: "b",
+        priority: undefined,
+        type: CommandType.MOVE,
+        data: {} as any,
+        tick: 1,
+        source: "AI",
+      },
+      {
+        id: "b",
+        actorId: "a",
+        priority: 1,
+        type: CommandType.MOVE,
+        data: {} as any,
+        tick: 1,
+        source: "AI",
+      },
+      {
+        id: "c",
+        actorId: "c",
+        priority: -1,
+        type: CommandType.MOVE,
+        data: {} as any,
+        tick: 1,
+        source: "AI",
+      },
+      {
+        id: "d",
+        actorId: "d",
+        priority: 0,
+        type: CommandType.MOVE,
+        data: {} as any,
+        tick: 1,
+        source: "AI",
+      },
+    ] as Command[];
+    sortCommandsDeterministically(commands);
+    expect(order(commands)).toEqual(["b", "a", "d", "c"]);
+  });
 });

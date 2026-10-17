@@ -23,3 +23,11 @@ another player's transition.
 pending actions or delayed transitions. Any state flags set by a command that
 are evaluated later in the tick (or after the tick) must be aborted if the actor
 dies in the interim.
+
+## 2026-10-02 - default priority to 0 for deterministic sorting
+
+**What was found:** `sortCommandsDeterministically` subtracted `a.priority` from `b.priority`, however, the `priority` field of a `Command` can be `undefined`, which evaluates to `NaN` during subtraction, potentially causing non-deterministic sorting order.
+
+**Action:** Updated `sortCommandsDeterministically` to default `undefined` to `0`. Also, the function is now run before truncating commands instead of after, in `src/engine/systems/simulation/tick.ts`.
+
+**Prevention:** Ensure deterministic behavior in numerical comparisons by properly dealing with `undefined` and `null` values to prevent them from becoming `NaN`.

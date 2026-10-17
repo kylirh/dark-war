@@ -86,6 +86,8 @@ export function stepSimulationTick(state: GameState): void {
   // 2. Generate AI commands based on UPDATED state (after player moved)
   const aiCommands = generateAICommands(state, tick);
 
+  sortCommandsDeterministically(aiCommands);
+
   // Guard against too many AI commands
   if (aiCommands.length > MAX_COMMANDS_PER_TICK) {
     console.error(
@@ -93,8 +95,6 @@ export function stepSimulationTick(state: GameState): void {
     );
     aiCommands.length = MAX_COMMANDS_PER_TICK;
   }
-
-  sortCommandsDeterministically(aiCommands);
 
   // 3. Resolve AI commands
   for (const cmd of aiCommands) {
@@ -590,7 +590,9 @@ function triggerMonsterFall(state: GameState, monster: Monster): void {
  */
 export function sortCommandsDeterministically(commands: Command[]): void {
   commands.sort((a, b) => {
-    if (a.priority !== b.priority) return b.priority - a.priority;
+    const pA = a.priority ?? 0;
+    const pB = b.priority ?? 0;
+    if (pA !== pB) return pB - pA;
     if (a.actorId !== b.actorId) return a.actorId.localeCompare(b.actorId);
     return a.id.localeCompare(b.id);
   });
