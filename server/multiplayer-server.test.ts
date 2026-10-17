@@ -176,6 +176,41 @@ function collectCalloutsFor(
   });
 }
 
+/**
+ * Walk the player onto `target` by steering one tile at a time.
+ *
+ * The entry world is deterministic, so the route is the same on every run,
+ * but the number of ticks it takes is not — hence the poll rather than a
+ * fixed delay. Mirrors `approachMarda`, which walks to an entity instead of
+ * a tile.
+ */
+async function walkToTile(
+  socket: WebSocket,
+  target: [number, number],
+): Promise<any> {
+  let lastPosition = "unknown";
+  for (let attempt = 0; attempt < 120; attempt++) {
+    const snapshot = await requestState(socket);
+    const position = gridPosition(snapshot.state.player);
+    lastPosition = `${position.x},${position.y}`;
+    if (position.x === target[0] && position.y === target[1]) {
+      send(socket, { type: "velocity", vx: 0, vy: 0 });
+      await delay(80);
+      return requestState(socket);
+    }
+    send(socket, {
+      type: "velocity",
+      vx: Math.sign(target[0] - position.x) * 200,
+      vy: Math.sign(target[1] - position.y) * 200,
+    });
+    await delay(60);
+  }
+  send(socket, { type: "velocity", vx: 0, vy: 0 });
+  throw new Error(
+    `client did not reach ${target[0]},${target[1]} (last at ${lastPosition})`,
+  );
+}
+
 describe("multiplayer server (multi-world)", () => {
   it("boots, lobbies a host, starts the game, and broadcasts a keyframe", async () => {
     server = await startMultiplayerServer(0);
@@ -531,6 +566,66 @@ describe("multiplayer server (multi-world)", () => {
     host.close();
     guest.close();
   }, 15_000);
+
+  it("migrates a player through stairs only in the matching direction", async () => {
+    // `tryTransition` pairs an expected tile with a migration direction at the
+    // call site, so the pairing itself is what stops a player on a down-stair
+    // from ascending. Nothing exercised it: inverting both pairings leaves the
+    // whole suite green.
+    server = await startMultiplayerServer(0);
+    const client = connect(server.port, "Host");
+    await waitFor(client, "welcome");
+
+    send(client, { type: "start_game" });
+    const initial = await waitFor(client, "state_full");
+    expect(initial.state.depth).toBe(0);
+    const stairsDown = initial.state.stairsDown as [number, number];
+
+    const onStairs = await walkToTile(client, stairsDown);
+    expect(gridPosition(onStairs.state.player)).toEqual({
+      x: stairsDown[0],
+      y: stairsDown[1],
+    });
+
+    // Ascending while standing on a *down* stair must do nothing. This is the
+    // guard the offline path grew in #309's follow-up; the server enforces it
+    // through the expected-tile argument instead.
+    send(client, { type: "action", action: { type: "ASCEND" }, seq: 1 });
+    await delay(150);
+    const refused = await requestState(client);
+    expect(refused.state.depth).toBe(0);
+    expect(refused.state.worldPlaneId).toBe(initial.state.worldPlaneId);
+
+    // Descending from the same tile moves exactly one depth down, into a
+    // different plane, and lands the player on that plane's up-stair.
+    send(client, { type: "action", action: { type: "DESCEND" }, seq: 2 });
+    await delay(250);
+    const descended = await requestState(client);
+    expect(descended.state.depth).toBe(1);
+    expect(descended.state.worldPlaneId).not.toBe(initial.state.worldPlaneId);
+    expect(descended.state.stairsUp).not.toBeNull();
+    expect(gridPosition(descended.state.player)).toEqual({
+      x: descended.state.stairsUp[0],
+      y: descended.state.stairsUp[1],
+    });
+
+    // And ascending from the up-stair returns to the entry plane, landing back
+    // on the down-stair rather than at the plane's default spawn. The arrival
+    // tile is what distinguishes the two directions inside `migratePlayer`:
+    // with the direction argument pinned to one value, the entry world has no
+    // `stairsUp` to fall back on and the player reappears at `playerStart`.
+    send(client, { type: "action", action: { type: "ASCEND" }, seq: 3 });
+    await delay(250);
+    const ascended = await requestState(client);
+    expect(ascended.state.depth).toBe(0);
+    expect(ascended.state.worldPlaneId).toBe(initial.state.worldPlaneId);
+    expect(gridPosition(ascended.state.player)).toEqual({
+      x: stairsDown[0],
+      y: stairsDown[1],
+    });
+
+    client.close();
+  }, 30000);
 
   it("rejects a set_name message whose name is not a string", async () => {
     server = await startMultiplayerServer(0);
