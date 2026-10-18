@@ -86,7 +86,8 @@ import {
 } from "../engine/utils/multiplayer";
 import { findPathToClosestReachable } from "../engine/utils/pathfinding";
 import { nearestWrappedImage, wrapValue } from "../engine/utils/wrap";
-import { MultiplayerClient, NetworkAction } from "../net/multiplayer-client";
+import { MultiplayerClient } from "../net/multiplayer-client";
+import { NetworkAction } from "../net/protocol";
 import {
   emitWorldTextCallout,
   sanitizeWorldCalloutText,
