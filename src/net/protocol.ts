@@ -9,3 +9,38 @@
  * to play on a mismatch rather than silently desyncing.
  */
 export const PROTOCOL_VERSION = 15;
+
+export type NetworkAction =
+  | {
+      type: "FIRE";
+      dx: number;
+      dy: number;
+      facingAngle?: number;
+      targetWorldX?: number;
+      targetWorldY?: number;
+    }
+  | {
+      type: "USE_ITEM";
+      dx: number;
+      dy: number;
+      facingAngle?: number;
+      targetWorldX?: number;
+      targetWorldY?: number;
+    }
+  | { type: "INTERACT"; dx: number; dy: number }
+  | { type: "SIGN_CLOSE" }
+  | { type: "PICKUP" }
+  | { type: "RELOAD" }
+  | { type: "WAIT" }
+  | { type: "DESCEND" }
+  | { type: "ASCEND" }
+  | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 }
+  | { type: "SPEAK"; kind: "speech" | "thought"; text: string }
+  | {
+      type: "DIALOGUE_CHOICE";
+      choiceId: string;
+      freeText?: string;
+      expectedRevision: number;
+    }
+  | { type: "DIALOGUE_LEAVE"; expectedRevision: number }
+  | { type: "TOGGLE_GOD_MODE" };

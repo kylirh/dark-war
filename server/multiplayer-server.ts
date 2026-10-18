@@ -9,6 +9,7 @@ import {
   SIM_DT_MS,
 } from "../src/engine/systems/simulation/constants";
 import { PROTOCOL_VERSION } from "../src/net/protocol";
+import { NetworkAction } from "../src/net/protocol";
 import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
 import { Sound } from "../src/client/systems/sound";
 import {
@@ -60,44 +61,9 @@ export interface LobbyPlayer {
 
 type RoomPhase = "lobby" | "playing";
 
-type IncomingAction =
-  | {
-      type: "FIRE";
-      dx: number;
-      dy: number;
-      facingAngle?: number;
-      targetWorldX?: number;
-      targetWorldY?: number;
-    }
-  | {
-      type: "USE_ITEM";
-      dx: number;
-      dy: number;
-      facingAngle?: number;
-      targetWorldX?: number;
-      targetWorldY?: number;
-    }
-  | { type: "INTERACT"; dx: number; dy: number }
-  | { type: "SIGN_CLOSE" }
-  | { type: "PICKUP" }
-  | { type: "RELOAD" }
-  | { type: "WAIT" }
-  | { type: "DESCEND" }
-  | { type: "ASCEND" }
-  | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 }
-  | { type: "SPEAK"; kind: "speech" | "thought"; text: string }
-  | {
-      type: "DIALOGUE_CHOICE";
-      choiceId: string;
-      freeText?: string;
-      expectedRevision: number;
-    }
-  | { type: "DIALOGUE_LEAVE"; expectedRevision: number }
-  | { type: "TOGGLE_GOD_MODE" };
-
 type IncomingMessage2 =
   | { type: "velocity"; vx: number; vy: number; seq?: number }
-  | { type: "action"; action: IncomingAction; seq?: number }
+  | { type: "action"; action: NetworkAction; seq?: number }
   | { type: "select_weapon"; slot: number }
   | { type: "inventory_swap"; from: number; to: number }
   | { type: "new_game" }
@@ -142,7 +108,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function isIncomingAction(value: unknown): value is IncomingAction {
+function isNetworkAction(value: unknown): value is NetworkAction {
   if (!isRecord(value) || typeof value.type !== "string") return false;
   return (
     value.type === "FIRE" ||
@@ -454,7 +420,7 @@ class RoomSession {
       return;
     }
     if (message.type === "action") {
-      if (!isIncomingAction(message.action)) {
+      if (!isNetworkAction(message.action)) {
         this.send(socket, { type: "error", message: "Invalid action." });
         return;
       }
@@ -540,7 +506,7 @@ class RoomSession {
     player.velocityY = nextVy;
   }
 
-  private applyAction(playerId: string, action: IncomingAction): void {
+  private applyAction(playerId: string, action: NetworkAction): void {
     const world = this.worldOfPlayer(playerId);
     if (!world) return;
     const state = world.game.getState();
