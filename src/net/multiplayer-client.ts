@@ -1,6 +1,5 @@
 import { SerializedState } from "../engine/types";
-import { PROTOCOL_VERSION } from "./protocol";
-import { NetworkAction } from "./protocol";
+import { NetworkAction, PROTOCOL_VERSION } from "./protocol";
 import { StateDelta, applyStateDelta } from "./state-delta";
 
 export interface LobbyPlayer {
