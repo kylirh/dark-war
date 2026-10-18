@@ -168,4 +168,28 @@ describe("death stops movement", () => {
     expect(player.velocityX).toBe(0);
     expect(player.velocityY).toBe(0);
   });
+
+  it("stops a player's movement on death from damage when event queue cascades", () => {
+    const state = dungeonAtDepthOne().getState();
+    const player = state.player;
+
+    player.velocityX = 100;
+    player.velocityY = 100;
+
+    for (let i = 0; i < 1000; i++) {
+      state.eventQueue.push({
+        id: `evt-${i}`,
+        depth: state.depth,
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "test event" },
+      });
+    }
+    pushLethalDamage(state, player.id);
+
+    processEventQueue(state);
+
+    expect(player.hp).toBeLessThanOrEqual(0);
+    expect(player.velocityX).toBe(0);
+    expect(player.velocityY).toBe(0);
+  });
 });
