@@ -219,7 +219,7 @@ not configured with `clearMocks`, so it passed in a full-file run and threw
 `Cannot read properties of undefined (reading 'length')` when run alone. Set the
 mock in every test that steps a tick.
 
-## 2024-03-24 - death velocity zeroing on event cascade
+## 2026-10-18 - death velocity zeroing on event cascade
 
 **What was found:** The `death-transition.test.ts` described a decision where `processDamageEvent` zeroes the player's velocity when dealing lethal damage, which guards against corpse sliding if the resulting `PLAYER_DEATH` event gets deferred to the next tick due to exceeding `MAX_EVENTS_PER_TICK`. However, there was no test specifically forcing this event cascade to assert the behavior.
 

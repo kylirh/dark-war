@@ -9,6 +9,7 @@ import {
 } from "../../types";
 import { idxFor, setPositionFromGrid } from "../../utils/helpers";
 import { resolveCommand } from "./commands";
+import { MAX_EVENTS_PER_TICK } from "./constants";
 import { processEventQueue } from "./events";
 import { stepSimulationTick } from "./tick";
 
@@ -176,7 +177,11 @@ describe("death stops movement", () => {
     player.velocityX = 100;
     player.velocityY = 100;
 
-    for (let i = 0; i < 1000; i++) {
+    // Exactly enough filler that the lethal damage is the last event processed
+    // this tick, so the PLAYER_DEATH it pushes falls past the limit. Derived
+    // from the constant: a hardcoded count would stop hitting the boundary if
+    // the limit ever changed, silently reducing this to the test above.
+    for (let i = 0; i < MAX_EVENTS_PER_TICK; i++) {
       state.eventQueue.push({
         id: `evt-${i}`,
         depth: state.depth,
@@ -188,6 +193,12 @@ describe("death stops movement", () => {
 
     processEventQueue(state);
 
+    // The deferral this guard exists for: PLAYER_DEATH is still queued, so the
+    // velocity below was zeroed by processDamageEvent and not by the death
+    // handler.
+    expect(state.eventQueue.map((event) => event.type)).toEqual([
+      EventType.PLAYER_DEATH,
+    ]);
     expect(player.hp).toBeLessThanOrEqual(0);
     expect(player.velocityX).toBe(0);
     expect(player.velocityY).toBe(0);
