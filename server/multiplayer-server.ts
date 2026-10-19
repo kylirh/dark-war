@@ -8,7 +8,11 @@ import {
   REST_TIME_SCALE,
   SIM_DT_MS,
 } from "../src/engine/systems/simulation/constants";
-import { NetworkAction, PROTOCOL_VERSION } from "../src/net/protocol";
+import {
+  NetworkAction,
+  PROTOCOL_VERSION,
+  isNetworkAction,
+} from "../src/net/protocol";
 import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
 import { Sound } from "../src/client/systems/sound";
 import {
@@ -105,26 +109,6 @@ function toCardinalStep(value: unknown): number | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function isNetworkAction(value: unknown): value is NetworkAction {
-  if (!isRecord(value) || typeof value.type !== "string") return false;
-  return (
-    value.type === "FIRE" ||
-    value.type === "USE_ITEM" ||
-    value.type === "INTERACT" ||
-    value.type === "SIGN_CLOSE" ||
-    value.type === "PICKUP" ||
-    value.type === "RELOAD" ||
-    value.type === "WAIT" ||
-    value.type === "DESCEND" ||
-    value.type === "ASCEND" ||
-    value.type === "SHAPE_TERRAIN" ||
-    value.type === "SPEAK" ||
-    value.type === "DIALOGUE_CHOICE" ||
-    value.type === "DIALOGUE_LEAVE" ||
-    value.type === "TOGGLE_GOD_MODE"
-  );
 }
 
 function isIncomingMessage(value: unknown): value is IncomingMessage2 {
