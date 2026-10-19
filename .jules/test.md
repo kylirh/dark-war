@@ -226,3 +226,11 @@ mock in every test that steps a tick.
 **Action:** Added a test in `src/engine/systems/simulation/death-transition.test.ts` that fills the event queue to the `MAX_EVENTS_PER_TICK` limit before pushing lethal damage, proving that the velocity is stopped in the same tick despite the subsequent `PLAYER_DEATH` event being deferred.
 
 **Prevention:** When testing boundary conditions involving tick-deferred events, explicitly construct the overflow condition to ensure behavior isn't accidentally coupled to deferred processing steps.
+
+## 2026-10-19 - Test resting command abort
+
+**What was found:** In `src/engine/systems/simulation/commands.ts`, the logic that explicitly aborts non-WAIT commands for resting players without waking them (`if (player?.resting && cmd.type !== CommandType.WAIT) return;`) lacked test coverage.
+
+**Action:** Added a test in `src/engine/systems/simulation/resting.test.ts` that ensures a MOVE command issued while resting is aborted and the player remains resting at their current position.
+
+**Prevention:** Ensure explicit behavioral exceptions, such as ignoring specific commands during special states like resting, are covered by behavioral tests to prevent silent regressions.

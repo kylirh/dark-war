@@ -200,4 +200,27 @@ describe("player resting", () => {
     game.removeNetworkPlayer(second.id);
     expect(areAllLivingPlayersResting(state)).toBe(true);
   });
+
+  it("aborts a non-WAIT command issued while resting without waking", () => {
+    const game = emptyGame();
+    const state = game.getState();
+    const player = state.player;
+    player.hp = player.hpMax - 1;
+    wait(game);
+    expect(player.resting).toBe(true);
+
+    const startX = player.worldX;
+    enqueueCommand(state, {
+      tick: state.sim.nowTick,
+      actorId: player.id,
+      type: CommandType.MOVE,
+      data: { type: "MOVE", dx: 1, dy: 0 },
+      priority: 0,
+      source: "PLAYER",
+    });
+    stepSimulationTick(state);
+
+    expect(player.resting).toBe(true);
+    expect(player.worldX).toBe(startX);
+  });
 });
