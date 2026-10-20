@@ -328,3 +328,101 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-19
+
+**Merged:** nothing. All three open Jules pull requests failed their own oracle.
+
+**Closed:**
+
+- **#394** `docs(adr): No architectural topics require action` — Architect, and
+  its body reaches the right conclusion: the topic it considered is already
+  covered by ADR 0007. It then shipped that conclusion as a pull request. The
+  branch is one empty commit (`git diff origin/main...pr-394` prints nothing),
+  which is exactly what `.jules/README.md` rule 2 says not to open.
+- **#393** `test(simulation): cover command abort during rest` — Test. The
+  decision it names is already covered, **and** its own test does not cover it.
+  `commands.test.ts:335` (`"ignores non-WAIT commands when resting"`) resolves a
+  `RELOAD` against a resting player and asserts `nextActTick`; deleting the
+  guard turns that red (`1 failed | 914 passed`). With the same guard deleted on
+  #393's branch, all 8 tests in `resting.test.ts` still pass, the new one
+  included. Its observable is the cause: `expect(player.worldX).toBe(startX)`
+  cannot separate a discarded `MOVE` from a resolved one, because
+  `resolveMoveCommand` sets velocity rather than position, `stepSimulationTick`
+  does not step physics, and `processRestingPlayers` zeroes a resting player's
+  velocity every tick anyway.
+- **#395** `fix(medkit): respect medkit carry limit when picking up` — Bug, with
+  no test, and both halves of the claim are false. Medkits are
+  `stackable: true`, so `canAddToInventory` already returns `true` whenever a
+  slot holds one: a player carrying one medkit with every other slot occupied
+  picks up the second on `main` today (verified with a throwaway probe). The
+  only case the diff reaches is zero medkits and no free slot — the documented
+  normal path, pinned by `pickup.test.ts` → `"respects a full inventory when
+picking up a medkit"`. And it changes nothing there either, because
+  `processPickupItemEvent` re-applies the same constraint via
+  `addToInventory` (`events.ts:859`); the full pickup suite and the probe give
+  identical results on both branches. Net effect: one wasted `PICKUP_ITEM` event
+  per blocked attempt. Its title and body also argue for the behaviour `main`
+  already has, against its own diff.
+
+**Found in main:** both commits in the window are sound, and I verified rather
+than assumed:
+
+- **#391** (cascade-limit death test) hits the boundary it claims. Setting the
+  filler to `MAX_EVENTS_PER_TICK - 1` fails on the queue assertion
+  (`expected [] to deeply equal [ 'PLAYER_DEATH' ]`), so it is not vacuous.
+- **#392** (`NetworkAction` consolidation) is an exact extraction. All three
+  declarations — the old server `IncomingAction`, the old client
+  `NetworkAction`, and the new one in `protocol.ts` — are character-identical
+  after normalizing the alias name. No wire change, so leaving
+  `PROTOCOL_VERSION` at 15 was right.
+
+What #392 did **not** close is the drift it set out to remove. It moved the type
+to `src/net/protocol.ts` and left `isNetworkAction` — which it renamed and
+re-typed in the same commit — in `server/multiplayer-server.ts` as a
+hand-written `||` chain over the same fourteen tags. TypeScript cannot link the
+two: adding `| { type: "DROP_ITEM"; slot: number }` to the union on `main`
+type-checks clean on both client and server while the server answers
+`"Invalid action."` at runtime. That is this pull request.
+
+**For next time:**
+
+- **`Record<Union["type"], true>` is the idiom that makes a tag list
+  non-driftable**, and it is enforced in both directions: a union member with no
+  entry is `TS2741`, an entry with no union member is `TS2353`. Both verified by
+  mutation. A `readonly [...] as const` tuple only gets the first direction, and
+  a `||` chain gets neither.
+- **Use a `Set`, not `in`, for a tag whitelist.** `"toString" in flags` and
+  `"constructor" in flags` are both `true` through the prototype chain, which
+  would have handed those to `applyAction`. Covered in `protocol.test.ts`.
+- **`isNetworkAction` validates the discriminant only** — `{ type:
+"SHAPE_TERRAIN" }` with no `tileX`/`tileY`/`delta` passes. Deliberately left
+  alone: that is the whole subject of **ADR 0007**, which is still **Proposed**
+  and says in terms that choosing between shared hand-written parsers and a
+  schema library "is a judgement call for a human, not something this document
+  settles". Do not narrow it, and do not accept a bot pull request that does;
+  the routine also forbids adding a dependency.
+- **The resting-interrupt family has changed shape, not stopped.** The direct
+  edit has not reappeared since #366 (2026-10-09), which matches the
+  `canTraverse` playbook — coverage plus a log entry ends it. What arrives now
+  are _tests_ for the same guard (#393 here, #368, #359, and the open #367).
+  Check `commands.test.ts:335` before accepting another one; the decision has
+  been covered all along.
+- **Branch deletion is still 403**, unchanged across every run since
+  2026-09-23. One attempt on
+  `refactor/consolidate-wall-sliding-9238113360981292441` returned `HTTP 403` /
+  `send-pack: unexpected disconnect`. 15 merged branches remain on origin and 29
+  unmerged leftovers from closed pull requests must be left for a human.
+  Worth noting: that branch's tip has **moved since its merge**
+  (`464d1489`, not the `380fe100` #389 merged), so a Jules integration pushed to
+  it afterwards. Expect a lease to refuse it even if deletion is ever restored.
+- **The 24-hour window is a few seconds wide against the previous run.** Both
+  commits here landed at 07:20 and 07:23 UTC on 2026-10-18 and this run fired at
+  07:16; by the time `git rev-list --before='24 hours ago'` ran it had rolled
+  past both. Scope the window from the previous run's merges, not from the
+  literal flag.
+- `.claude/routines/daily-log.md` is now written by nine open pull requests
+  (#331, #337, #340, #345, #352, #362, #367, #377, #380) plus this one.
+  Whichever lands last needs a trivial merge of entries; earlier entries were
+  not copied in, since that content belongs to pull requests still awaiting
+  review.
