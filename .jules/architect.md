@@ -34,10 +34,10 @@ A log's own count is a snapshot, not a current fact — re-derive it from the
 pull request list before citing it, and mutate the predicate before claiming
 nothing covers it.
 
-## 2026-10-20 - Extract an Action Router Interface for main.ts
+## 2026-10-20 - Stopped work on duplicated ADR (Action Router)
 
-**What was found:** The `src/client/main.ts` file acts as the central router for all player input and network events, meaning almost every user action contains an `if (this.isOnlineMode())` branch. This bloats `main.ts` to over 3400 lines, makes the client layer difficult to test, and risks divergence between offline and online behaviors.
+**What was found:** Created a proposed ADR to extract an action router from `main.ts` based on the high line count and `isOnlineMode()` inline branches.
 
-**Action:** Wrote Proposed ADR 0013 formalizing the architectural decision to extract an `ActionRouter` interface with `OfflineRouter` and `OnlineRouter` implementations, cleanly separating the divergent logic and improving testability.
+**Action:** Discarded the ADR. The PR was closed because this exact decision was already recorded in `docs/adr/0001-offline-online-action-routing.md`.
 
-**Prevention:** When a single component handles multiple disparate routing paths (e.g., direct state mutation vs. network payloads) across many actions, use polymorphism (interfaces and specialized classes) rather than scattered inline conditionals to enforce consistency and boundary separation.
+**Prevention:** Before writing a new ADR, explicitly list and read the contents of all existing files in `docs/adr/` to ensure the problem hasn't already been addressed, even if the finding is correct.
