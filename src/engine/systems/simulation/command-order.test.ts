@@ -103,4 +103,16 @@ describe("sortCommandsDeterministically", () => {
     expect(same).toBe(commands);
     expect(order(commands)).toEqual(["a", "b"]);
   });
+
+  it("defaults undefined priority to 0", () => {
+    const commands = [
+      command("c", "actor-a", undefined as unknown as number),
+      command("a", "actor-b", 5),
+      command("b", "actor-c", -5),
+    ];
+
+    sortCommandsDeterministically(commands);
+
+    expect(order(commands)).toEqual(["a", "c", "b"]);
+  });
 });
