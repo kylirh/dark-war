@@ -105,7 +105,7 @@ export class Renderer {
   private mmOverlay: MatterManipulatorOverlay | null = null;
   private spriteSheet?: Texture;
   private spriteSheetImage?: HTMLImageElement;
-  private textureCache: Map<string, Texture> = new Map();
+  private textureCache: Map<number, Texture> = new Map();
   private shadowTextureCache: Map<SpriteShadowSize, Texture> = new Map();
   private glowTextureCache: Map<string, Texture> = new Map();
   private spritePool: Sprite[] = [];
@@ -893,7 +893,7 @@ export class Renderer {
   ): Texture | null {
     if (!this.spriteSheet) return null;
 
-    const key = `${x},${y},${width},${height}`;
+    const key = x + y * 8192 + width * 67108864 + height * 549755813888;
 
     // Return cached texture if available
     if (this.textureCache.has(key)) {
