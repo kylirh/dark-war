@@ -219,3 +219,35 @@ rule, V8 optimizes `Object.keys()` well enough that the opposite result is
 common on other shapes, and the only thing that settles it is both variants in
 one process with interleaved rounds and the spread reported. Do not generalize
 this into "avoid `Object.keys()` on hot paths."
+
+## 2026-10-20 - Numeric texture-cache keys in the renderer
+
+**What was found:** `getTexture` in `src/client/systems/renderer.ts` built a
+`${x},${y},${width},${height}` string on every call. It is reached once per
+sprite per frame through `createSpriteFromFrame`, which the tile loop calls for
+the ground, the depth tile and each decoration, so the key is an allocation in
+the hottest loop in the renderer.
+
+**Action:** Pack the four fields into one integer (2^13 / 2^26 / 2^39) and key
+the cache on a number. The bound that makes it correct is now stated at the
+call site: every field must stay under 8192, which holds because these are
+sprite-sheet grid coordinates and spans from `SPRITE_COORDS`, not pixels.
+
+**Measurement:** interleaved A/B in one process, 7 rounds, alternating order,
+600k lookups per run against a 220-rect cache (the real shape: a small set of
+distinct rects looked up repeatedly). Medians 86.4 ms string vs 23.9 ms
+numeric — 144 ns vs 40 ns per lookup, or **0.216 ms vs 0.060 ms per
+1500-sprite frame**. That is roughly 1% of a 16.7 ms frame budget: real, and
+small. Node 22.22.0.
+
+**Do not repeat the measurement this entry originally claimed** — "~1123 ms to
+~85 ms over 10000 operations", i.e. 112 us per string interpolation. That is
+three orders of magnitude off and cannot have been measured; a template literal
+over four small numbers costs ~100 ns. The entry also documented multipliers
+(`10000` / `1e8` / `1e11`) that the code never used.
+
+**Prevention:** String keys in a per-sprite loop are worth replacing, but
+report the saving as a share of the frame budget, not as a ratio on a
+synthetic loop. Integer packing is a constant-factor win, not an "exponential"
+one. When packing, state the per-field bound next to the arithmetic: the whole
+correctness argument is that no field reaches the next field's multiplier.

@@ -105,7 +105,7 @@ export class Renderer {
   private mmOverlay: MatterManipulatorOverlay | null = null;
   private spriteSheet?: Texture;
   private spriteSheetImage?: HTMLImageElement;
-  private textureCache: Map<string, Texture> = new Map();
+  private textureCache: Map<number, Texture> = new Map();
   private shadowTextureCache: Map<SpriteShadowSize, Texture> = new Map();
   private glowTextureCache: Map<string, Texture> = new Map();
   private spritePool: Sprite[] = [];
@@ -893,7 +893,13 @@ export class Renderer {
   ): Texture | null {
     if (!this.spriteSheet) return null;
 
-    const key = `${x},${y},${width},${height}`;
+    // Packed as four 13-bit fields (2^13 / 2^26 / 2^39) rather than a
+    // `${x},${y},${width},${height}` string: this runs once per sprite per
+    // frame, so the key is the allocation. Correct only while every field
+    // stays under 8192, which holds because these are sprite-sheet grid
+    // coordinates and spans from `SPRITE_COORDS`, not pixels. The widest
+    // packed value is ~2^52, still an exact integer.
+    const key = x + y * 8192 + width * 67108864 + height * 549755813888;
 
     // Return cached texture if available
     if (this.textureCache.has(key)) {
