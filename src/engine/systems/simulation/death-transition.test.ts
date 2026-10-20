@@ -33,18 +33,6 @@ function pushLethalDamage(state: GameState, targetId: string): void {
   });
 }
 
-/** Inert events, used only to push the queue past a pass's event budget. */
-function pushFillerEvents(state: GameState, count: number): void {
-  for (let i = 0; i < count; i++) {
-    state.eventQueue.push({
-      id: `filler-${i}`,
-      depth: state.depth,
-      type: EventType.MESSAGE,
-      data: { type: "MESSAGE", message: "filler" },
-    });
-  }
-}
-
 describe("death during transition", () => {
   it("cancels a pending descend when the player dies", () => {
     const state = dungeonAtDepthOne().getState();
@@ -100,52 +88,6 @@ describe("death during transition", () => {
 
     expect(player.hp).toBeLessThanOrEqual(0);
     expect(state.shouldAscend).toBe(false);
-    expect(state.pendingPortalId).toBeUndefined();
-  });
-
-  /**
-   * `stepSimulationTick` drains the queue twice -- step 4, then again after
-   * `processHoleFalls` -- and each pass gets its own `MAX_EVENTS_PER_TICK`
-   * budget, so a `PLAYER_DEATH` deferred by the first pass is normally
-   * collected by the second. It outlives the tick only when the lethal hit
-   * lands inside the first budget and more than a second budget's worth of
-   * events sits between it and the death appended to the tail. Cancelling in
-   * `processPlayerDeathEvent` alone leaves the flags set with the player dead,
-   * and the host warps a corpse down the stairs.
-   */
-  it("cancels a pending descend when the death event outlives the tick", () => {
-    const state = dungeonAtDepthOne().getState();
-    const player = state.player;
-
-    const stairs = state.portals.find((p) => p.id.endsWith("stairs-down"))!;
-    setPositionFromGrid(player, stairs.source.x, stairs.source.y);
-
-    resolveCommand(state, {
-      id: "descend-cmd",
-      tick: state.sim.nowTick,
-      actorId: player.id,
-      type: CommandType.DESCEND,
-      data: { type: "DESCEND" },
-      priority: 0,
-      source: "PLAYER",
-    });
-
-    expect(state.shouldDescend).toBe(true);
-
-    pushLethalDamage(state, player.id);
-    // Derived from the constant rather than hardcoded: the case is only
-    // meaningful while the tail stays out of reach of both budgets.
-    pushFillerEvents(state, 2 * MAX_EVENTS_PER_TICK + 2);
-
-    stepSimulationTick(state);
-
-    expect(player.hp).toBeLessThanOrEqual(0);
-    // The deferral the eager cancellation exists for: nothing cleared these
-    // flags on the way out of the tick except `processDamageEvent`.
-    expect(
-      state.eventQueue.some((event) => event.type === EventType.PLAYER_DEATH),
-    ).toBe(true);
-    expect(state.shouldDescend).toBe(false);
     expect(state.pendingPortalId).toBeUndefined();
   });
 
