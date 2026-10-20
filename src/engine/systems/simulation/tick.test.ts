@@ -126,6 +126,104 @@ describe("stepSimulationTick", () => {
     });
   });
 
+  it("ignores items that are machines", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+
+    const player = state.players[0];
+    player.worldX = 50;
+    player.worldY = 50;
+
+    // Clear existing items
+    const existingItems = [...state.entityManager.items];
+    for (const item of existingItems) {
+      state.entityManager.destroy(item.id);
+    }
+
+    const machine = new ItemEntity(0, 0, ItemType.VENDING_MACHINE);
+    machine.worldX = 70;
+    machine.worldY = 50;
+    machine.prevWorldX = 70;
+    machine.prevWorldY = 50;
+    state.entityManager.spawn(machine);
+
+    (ai.generateAICommands as any).mockReturnValue([]);
+
+    stepSimulationTick(state);
+
+    expect(state.entityManager.items.length).toBe(1);
+    expect(state.entityManager.items[0].worldX).toBe(70); // Did not move
+  });
+
+  it("drifts items toward the player before collecting them", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+
+    const player = state.players[0];
+    player.worldX = 50;
+    player.worldY = 50;
+
+    // Clear existing items
+    const existingItems = [...state.entityManager.items];
+    for (const item of existingItems) {
+      state.entityManager.destroy(item.id);
+    }
+
+    // MAGNET_RADIUS is 72, MAGNET_COLLECT_RADIUS is 20, MAGNET_PULL_PX is 7
+    const item = new ItemEntity(0, 0, ItemType.MEDKIT);
+    item.worldX = 90; // 50 + 40
+    item.worldY = 50;
+    item.prevWorldX = 90;
+    item.prevWorldY = 50;
+    state.entityManager.spawn(item);
+
+    (ai.generateAICommands as any).mockReturnValue([]);
+
+    stepSimulationTick(state);
+
+    expect(state.entityManager.items.length).toBe(1);
+    // Distance is 40. Should move 7px toward player.
+    expect(state.entityManager.items[0].worldX).toBeCloseTo(83);
+  });
+
+  it("drifts items toward the player across the toroidal seam on the outside level", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+
+    state.levelKind = "outside";
+
+    const player = state.players[0];
+    const worldW = state.mapWidth * CELL_CONFIG.w;
+    player.worldX = worldW - 10;
+    player.worldY = 50;
+
+    // Clear existing items
+    const existingItems = [...state.entityManager.items];
+    for (const item of existingItems) {
+      state.entityManager.destroy(item.id);
+    }
+
+    const item = new ItemEntity(0, 0, ItemType.MEDKIT);
+    item.worldX = 30; // distance is 40 across the seam
+    item.worldY = 50;
+    item.prevWorldX = 30;
+    item.prevWorldY = 50;
+    state.entityManager.spawn(item);
+
+    (ai.generateAICommands as any).mockReturnValue([]);
+
+    stepSimulationTick(state);
+
+    expect(state.entityManager.items.length).toBe(1);
+    const newX = state.entityManager.items[0].worldX;
+    // Should move 7px towards player (LEFT across the seam, decreasing X).
+    // So newX should be 23.
+    expect(newX).toBeCloseTo(23);
+  });
+
   describe("processHoleFalls", () => {
     // A 50% per-tick fall chance only shows up in bulk, so both monster cases
     // run the same number of trials and assert against this one constant.

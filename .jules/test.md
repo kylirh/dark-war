@@ -226,3 +226,15 @@ mock in every test that steps a tick.
 **Action:** Added a test in `src/engine/systems/simulation/death-transition.test.ts` that fills the event queue to the `MAX_EVENTS_PER_TICK` limit before pushing lethal damage, proving that the velocity is stopped in the same tick despite the subsequent `PLAYER_DEATH` event being deferred.
 
 **Prevention:** When testing boundary conditions involving tick-deferred events, explicitly construct the overflow condition to ensure behavior isn't accidentally coupled to deferred processing steps.
+
+## 2025-01-23 - Add test for magnetic auto-pickup drifting and wrapping logic
+
+**What was found:** The \`processMagneticPickup\` logic inside \`src/engine/systems/simulation/tick.ts\` had branches handling non-collectible / machine item exclusion, item drift before collection, and toroidal wrapping of positions on the outside level. These branches were entirely uncovered, meaning future changes could accidentally modify or drop them without failing the test suite.
+
+**Action:** Added three tests to \`tick.test.ts\` that:
+
+1. Verify items with the machine category (e.g., \`VENDING_MACHINE\`) do not get pulled.
+2. Verify items within \`MAGNET_RADIUS\` but outside \`MAGNET_COLLECT_RADIUS\` drift toward the player by the exact \`MAGNET_PULL_PX\` value.
+3. Verify items correctly evaluate the shortest distance across the toroidal seam and drift accordingly when on an outside level.
+
+**Prevention:** Ensure explicit movement, wrapping computations, and edge case exclusion in background simulation logic are completely covered by asserting the concrete intermediate output (like position updates).
