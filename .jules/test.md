@@ -226,3 +226,11 @@ mock in every test that steps a tick.
 **Action:** Added a test in `src/engine/systems/simulation/death-transition.test.ts` that fills the event queue to the `MAX_EVENTS_PER_TICK` limit before pushing lethal damage, proving that the velocity is stopped in the same tick despite the subsequent `PLAYER_DEATH` event being deferred.
 
 **Prevention:** When testing boundary conditions involving tick-deferred events, explicitly construct the overflow condition to ensure behavior isn't accidentally coupled to deferred processing steps.
+
+## 2025-01-23 - Two-layer guard trap in magnetic pickup
+
+**What was found:** The test added to ensure vending machines do not get pulled by magnetic pickup was vacuous. It placed a machine inside the `MAGNET_COLLECT_RADIUS`. Even when the guard `if (ITEM_DEFS[itm.type]?.category === "machine") continue` was deleted, the test passed because `processPickupItemEvent` also refuses machines. The magnet's guard is only observable in the drift phase.
+
+**Action:** The test was updated to place the machine in the drift band (between `MAGNET_COLLECT_RADIUS` and `MAGNET_RADIUS`) where the magnet guard is the only protection. Mutation checking confirmed that dropping the guard now correctly fails the test.
+
+**Prevention:** When testing a guard that has a secondary fallback downstream (e.g., event resolution), explicitly position the fixture in the window where _only_ the tested guard operates, and always verify by mutation that deleting the exact guard causes a test failure.

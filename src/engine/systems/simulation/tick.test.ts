@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { stepSimulationTick } from "./tick";
 import { Game } from "../../core/game";
 import { MAX_COMMANDS_PER_TICK } from "./constants";
+import { MAGNET_RADIUS, MAGNET_COLLECT_RADIUS, MAGNET_PULL_PX } from "./tick";
 import * as ai from "./ai";
 import {
   CELL_CONFIG,
@@ -90,11 +91,11 @@ describe("stepSimulationTick", () => {
   });
 
   describe("processMagneticPickup", () => {
-    it("pushes a PICKUP_ITEM event (processed in the same tick) when within collect radius", () => {
-      const game = new Game({ mode: "offline" });
+    function setupMagnetTest(mode = "offline", levelKind = "dungeon") {
+      const game = new Game({ mode });
       game.reset(1);
       const state = game.getState();
-
+      state.levelKind = levelKind;
       const player = state.players[0];
       player.worldX = 50;
       player.worldY = 50;
@@ -106,13 +107,26 @@ describe("stepSimulationTick", () => {
         state.entityManager.destroy(item.id);
       }
 
-      // Position item exactly at MAGNET_COLLECT_RADIUS distance
-      const item = new ItemEntity(0, 0, ItemType.MEDKIT);
-      item.worldX = 70; // 50 + 20
-      item.worldY = 50;
-      state.entityManager.spawn(item);
-
       (ai.generateAICommands as any).mockReturnValue([]);
+
+      return { state, player };
+    }
+
+    function dropItem(state, type, dist, isMachine = false) {
+      const item = new ItemEntity(0, 0, type);
+      item.worldX = 50 + dist;
+      item.worldY = 50;
+      item.prevWorldX = item.worldX;
+      item.prevWorldY = item.worldY;
+      state.entityManager.spawn(item);
+      return item;
+    }
+
+    it("pushes a PICKUP_ITEM event (processed in the same tick) when within collect radius", () => {
+      const { state, player } = setupMagnetTest();
+
+      // Position item exactly at MAGNET_COLLECT_RADIUS distance
+      dropItem(state, ItemType.MEDKIT, MAGNET_COLLECT_RADIUS);
 
       expect(player.itemCounts[ItemType.MEDKIT] || 0).toBe(0);
       expect(state.entityManager.items.length).toBe(1);
@@ -123,6 +137,61 @@ describe("stepSimulationTick", () => {
       expect(player.itemCounts[ItemType.MEDKIT]).toBe(1);
       // The item is destroyed after collection.
       expect(state.entityManager.items.length).toBe(0);
+    });
+
+    it("ignores items that are machines", () => {
+      const { state } = setupMagnetTest();
+
+      // Put it in the drift band
+      dropItem(
+        state,
+        ItemType.VENDING_MACHINE,
+        MAGNET_COLLECT_RADIUS + 10,
+        true,
+      );
+
+      stepSimulationTick(state);
+
+      expect(state.entityManager.items.length).toBe(1);
+      expect(state.entityManager.items[0].worldX).toBe(
+        50 + MAGNET_COLLECT_RADIUS + 10,
+      ); // Did not move
+    });
+
+    it("drifts items toward the player before collecting them", () => {
+      const { state } = setupMagnetTest();
+
+      dropItem(state, ItemType.MEDKIT, MAGNET_COLLECT_RADIUS + 20);
+
+      stepSimulationTick(state);
+
+      expect(state.entityManager.items.length).toBe(1);
+      // Distance is 40. Should move MAGNET_PULL_PX toward player.
+      expect(state.entityManager.items[0].worldX).toBeCloseTo(
+        50 + MAGNET_COLLECT_RADIUS + 20 - MAGNET_PULL_PX,
+      );
+    });
+
+    it("drifts items toward the player across the toroidal seam on the outside level", () => {
+      const { state, player } = setupMagnetTest("offline", "outside");
+
+      const worldW = state.mapWidth * CELL_CONFIG.w;
+      player.worldX = worldW - 10;
+
+      const item = new ItemEntity(0, 0, ItemType.MEDKIT);
+      item.worldX = MAGNET_COLLECT_RADIUS + 10; // 30
+      item.worldY = 50;
+      item.prevWorldX = item.worldX;
+      item.prevWorldY = item.worldY;
+      state.entityManager.spawn(item);
+
+      stepSimulationTick(state);
+
+      expect(state.entityManager.items.length).toBe(1);
+      // Should move MAGNET_PULL_PX towards player (LEFT across the seam, decreasing X).
+      expect(state.entityManager.items[0].worldX).toBeCloseTo(
+        MAGNET_COLLECT_RADIUS + 10 - MAGNET_PULL_PX,
+      );
     });
   });
 
