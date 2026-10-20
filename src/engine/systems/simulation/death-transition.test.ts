@@ -150,6 +150,58 @@ describe("death during transition", () => {
   });
 
   /**
+   * The black pill reaches death without a `DAMAGE` event at all --
+   * `consumeItem` sets `hp = 0` and pushes `PLAYER_DEATH` itself -- so the
+   * eager cancellation never runs and `processPlayerDeathEvent`'s is the only
+   * one that fires. Once the eager copy existed, nothing covered this: with
+   * `cancelPendingTransition(state)` deleted from the death handler the whole
+   * suite stayed green, because every other case in this file arrives through
+   * `processDamageEvent`.
+   */
+  it("cancels a pending descend when the player dies without taking damage", () => {
+    const state = dungeonAtDepthOne().getState();
+    const player = state.player;
+
+    const stairs = state.portals.find((p) => p.id.endsWith("stairs-down"))!;
+    setPositionFromGrid(player, stairs.source.x, stairs.source.y);
+
+    resolveCommand(state, {
+      id: "descend-cmd",
+      tick: state.sim.nowTick,
+      actorId: player.id,
+      type: CommandType.DESCEND,
+      data: { type: "DESCEND" },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    expect(state.shouldDescend).toBe(true);
+    expect(state.pendingPortalId).toBe(stairs.id);
+
+    player.selectedBarSlot = 0;
+    player.inventorySlots[0] = { type: ItemType.BLACK_PILL };
+
+    resolveCommand(state, {
+      id: "pill",
+      tick: state.sim.nowTick,
+      actorId: player.id,
+      type: CommandType.USE_ITEM,
+      data: { type: "USE_ITEM", dx: 1, dy: 0 },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    // No DAMAGE event on this path, so the flags are still set going in.
+    expect(player.hp).toBe(0);
+    expect(state.shouldDescend).toBe(true);
+
+    processEventQueue(state);
+
+    expect(state.shouldDescend).toBe(false);
+    expect(state.pendingPortalId).toBeUndefined();
+  });
+
+  /**
    * `triggerPlayerFall` sets `shouldDescend` and queues `HOLE_FALL_DAMAGE` in
    * the same tick, so the fall itself can be the lethal blow. The transition is
    * cancelled with every other one: the player dies on the floor they fell

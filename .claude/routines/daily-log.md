@@ -328,3 +328,105 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-20
+
+**Merged:** four of six open Jules pull requests, all but one with corrective
+commits first.
+
+- **#397** `fix(simulation): cancel level transitions immediately on player death`
+- **#398** `refactor(engine): consolidate duplicated item spawning`
+- **#399** `perf(renderer): use numeric hash for texture cache keys`
+- **#401** `test(simulation): cover magnetic pickup drift, wrapping, and machine exclusion`
+
+**Closed:**
+
+- **#400** (proposed ADR 0013, client action router) duplicates
+  `docs/adr/0001-offline-online-action-routing.md`, already on `main` since
+  2026-09-01 with the same three options and the same recommendation. Its
+  findings were accurate (`main.ts` is 3459 lines with 43 `isOnlineMode()`
+  sites); the decision was simply already recorded, and 0002 covers the
+  testability half.
+- **#402** (default `undefined` command priority to 0) defends an unreachable
+  state. `Command.priority` is required, every one of the 25 construction sites
+  assigns a literal, and `commandsByTick` is not in `SerializedState` or the
+  wire protocol — so nothing outside the process can build a command. Its test
+  only compiles via `undefined as unknown as number`.
+
+**Things worth believing without re-deriving:**
+
+1. **The deferred-death window is two event budgets wide, not one.**
+   `stepSimulationTick` drains the queue twice — step 4, then again after
+   `processHoleFalls` — and each pass gets its own `MAX_EVENTS_PER_TICK`. A
+   cascade of exactly `MAX_EVENTS_PER_TICK` does **not** leave transition flags
+   set; the second pass collects the deferred `PLAYER_DEATH` and cancels them.
+   Measured on unpatched `main`: 1000 filler events gave `shouldDescend` false,
+   and 2100 left it true only because the `DAMAGE` event was never reached
+   (player still at HP 20). #397's body claimed the one-pass boundary and named
+   an existing, passing test as its oracle. The real case needs the lethal hit
+   inside the first budget with more than a second budget behind it, and is now
+   pinned in `death-transition.test.ts`.
+
+2. **Both death-side transition cancellations are load-bearing.** After #397
+   there are two, now behind `cancelPendingTransition` in `sim-helpers.ts`.
+   `processDamageEvent`'s covers the deferral above; `processPlayerDeathEvent`'s
+   covers the paths that never raise a `DAMAGE` event, of which the black pill
+   is the live one (`commands.ts:1383` sets `hp = 0` and pushes `PLAYER_DEATH`
+   directly). Deleting either now fails exactly one test. Do not "deduplicate"
+   by removing a call site.
+
+3. **A magnet test inside the collect radius proves nothing about machines.**
+   `processPickupItemEvent` refuses machines on its own (`events.ts`, "Machines
+   (vending machines) are fixtures"), so collection is guarded twice and
+   `processMagneticPickup`'s category check is observable only in the drift.
+   #401's machine test passed with that check deleted; it now sits in the drift
+   band. The same two-layer trap will catch the next test aimed at an outer
+   guard.
+
+4. **Bolt's texture-key win is about 1% of a frame, not a 13x speedup.**
+   #399's log entry claimed 1123 ms to 85 ms over 10000 operations — 112 us per
+   string interpolation, which cannot have been measured. Interleaved A/B, 7
+   rounds, 600k lookups: 144 ns vs 40 ns per lookup, or 0.216 ms vs 0.060 ms per
+   1500-sprite frame. The change is still right. Its correctness rests on every
+   packed field staying under 8192, which is now stated at the call site.
+
+5. **`reset()`'s spawn order is unprotected by any test.** #398's
+   consolidation was verified by hand — entity kind, type, position and amount
+   plus three following `RNG.int` draws across 9 seed/depth combinations,
+   byte-identical on both sides. Nothing in the suite would have caught a
+   reordering. A golden-ordering test over `reset()` is the obvious gap; it was
+   left out of the Phase 2 pull request as a new test for untouched code rather
+   than for what landed.
+
+6. **Jules bots re-push over corrective commits.** #397's branch was force-set
+   back to its original state at 07:24, after the corrective commit landed at
+   07:22, deleting the regression test and restoring the wrong-dated log entry.
+   Re-applied as a new commit and merged with `expectedHeadSha` pinned. Check
+   the branch tip again immediately before merging, and do not trust a
+   `head.sha` read minutes earlier — the first merge attempt was rejected 409
+   for exactly this.
+
+7. **Branch deletion still 403s**, now also under
+   `--force-with-lease`. 16 merged branches remain on origin and 31 unmerged
+   leftovers from closed pull requests must be left for a human regardless. One
+   attempt is enough; do not retry.
+
+8. **`.claude/routines/daily-log.md` now has eleven open pull requests
+   appending to it** (#331, #337, #340, #345, #352, #362, #367, #377, #380,
+   #396 and this run's). Whichever lands after the first needs a trivial merge
+   of entries. Earlier runs' entries were deliberately not copied forward,
+   since that content belongs to pull requests still awaiting review.
+
+**Found in main:** one coverage regression caused by the day's own merges, in
+the Phase 2 pull request. #397 added a second transition cancellation, which
+silently took over the existing "cancels a pending descend when the player
+dies" test; the older copy in `processPlayerDeathEvent` then had no coverage at
+all, and deleting it left 918/918 green. Fixed by extracting both to one helper
+and pinning the damage-free death path.
+
+**For next time:** no defects were found in the merged code itself. The
+recurring failure mode this run was not wrong code but wrong prose — three of
+four merged pull requests had a false measurement, a false oracle, or a vacuous
+test, in each case stated confidently. Verify the stated oracle by mutation or
+measurement before reading the diff; it is faster than reasoning about the
+change and it caught something every time.
