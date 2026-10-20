@@ -96,6 +96,24 @@ export function stopPlayerResting(state: GameState, player: Player): void {
   state.sim.targetTimeScale = normalTimeScale;
 }
 
+/**
+ * Abort a pending level transition.
+ *
+ * Both routes into player death call this, and both are load-bearing:
+ * `processDamageEvent` cancels the moment HP crosses zero, so the flags do not
+ * survive a `PLAYER_DEATH` the event budget defers, and
+ * `processPlayerDeathEvent` cancels on the paths that never raise a `DAMAGE`
+ * event at all, such as the black pill. `types.ts` states the contract these
+ * four fields owe: cleared if the player dies during the same tick, so the
+ * host never warps a corpse.
+ */
+export function cancelPendingTransition(state: GameState): void {
+  state.shouldDescend = false;
+  state.shouldAscend = false;
+  state.descendTarget = undefined;
+  state.pendingPortalId = undefined;
+}
+
 export function getClosestPlayer(
   state: GameState,
   source: { worldX: number; worldY: number },

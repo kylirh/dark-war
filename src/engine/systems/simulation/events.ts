@@ -52,6 +52,7 @@ import {
 } from "./constants";
 import {
   pushEvent,
+  cancelPendingTransition,
   getClosestPlayer,
   positiveAmount,
   stopPlayerResting,
@@ -203,12 +204,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       player.velocityX = 0;
       player.velocityY = 0;
 
-      // Cancel any pending level transitions immediately when the player dies
-      // so a deferred PLAYER_DEATH event doesn't leave them active.
-      state.shouldDescend = false;
-      state.shouldAscend = false;
-      state.descendTarget = undefined;
-      state.pendingPortalId = undefined;
+      cancelPendingTransition(state);
 
       pushEvent(state, {
         type: EventType.PLAYER_DEATH,
@@ -1006,11 +1002,7 @@ function processPlayerDeathEvent(state: GameState, event: GameEvent): void {
 
   alertPlayer(state, "You have died.", data.playerId);
 
-  // Cancel any pending level transitions to prevent transitioning while dead
-  state.shouldDescend = false;
-  state.shouldAscend = false;
-  state.descendTarget = undefined;
-  state.pendingPortalId = undefined;
+  cancelPendingTransition(state);
 
   // Note: Additional death handling (showing overlay, time adjustment)
   // is done in Game.updateDeathStatus() which is called after each simulation tick
