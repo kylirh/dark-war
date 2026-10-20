@@ -1,13 +1,20 @@
 import { describe, it, expect, vi } from "vitest";
-import { stepSimulationTick } from "./tick";
+import {
+  MAGNET_COLLECT_RADIUS,
+  MAGNET_PULL_PX,
+  MAGNET_RADIUS,
+  stepSimulationTick,
+} from "./tick";
 import { Game } from "../../core/game";
 import { MAX_COMMANDS_PER_TICK } from "./constants";
 import * as ai from "./ai";
 import {
   CELL_CONFIG,
   type GameState,
+  type Item,
   ItemType,
   MonsterType,
+  type Player,
   TileType,
 } from "../../types";
 import { ItemEntity } from "../../entities/item-entity";
@@ -90,7 +97,12 @@ describe("stepSimulationTick", () => {
   });
 
   describe("processMagneticPickup", () => {
-    it("pushes a PICKUP_ITEM event (processed in the same tick) when within collect radius", () => {
+    /**
+     * A level with every generated item cleared and the player parked at a
+     * known spot, so the only thing in magnet range is what the test drops.
+     * AI is stubbed because these drive the whole of `stepSimulationTick`.
+     */
+    function magnetScene(): { state: GameState; player: Player } {
       const game = new Game({ mode: "offline" });
       game.reset(1);
       const state = game.getState();
@@ -98,130 +110,107 @@ describe("stepSimulationTick", () => {
       const player = state.players[0];
       player.worldX = 50;
       player.worldY = 50;
-      player.itemCounts = {}; // Reset inventory
+      player.itemCounts = {};
 
-      // Clear existing items that might have spawned in reset()
-      const existingItems = [...state.entityManager.items];
-      for (const item of existingItems) {
+      for (const item of [...state.entityManager.items]) {
         state.entityManager.destroy(item.id);
       }
 
-      // Position item exactly at MAGNET_COLLECT_RADIUS distance
-      const item = new ItemEntity(0, 0, ItemType.MEDKIT);
-      item.worldX = 70; // 50 + 20
-      item.worldY = 50;
-      state.entityManager.spawn(item);
-
       (ai.generateAICommands as any).mockReturnValue([]);
+      return { state, player };
+    }
+
+    /** Drops one item at an absolute world position, already at rest there. */
+    function dropItem(
+      state: GameState,
+      type: ItemType,
+      worldX: number,
+      worldY: number,
+    ): Item {
+      const item = new ItemEntity(0, 0, type);
+      item.worldX = worldX;
+      item.worldY = worldY;
+      item.prevWorldX = worldX;
+      item.prevWorldY = worldY;
+      state.entityManager.spawn(item);
+      return item;
+    }
+
+    /** Midway through the drift band: pulled, but not yet collected. */
+    const DRIFT_BAND_OFFSET = (MAGNET_COLLECT_RADIUS + MAGNET_RADIUS) / 2;
+
+    it("pushes a PICKUP_ITEM event (processed in the same tick) when within collect radius", () => {
+      const { state, player } = magnetScene();
+      dropItem(
+        state,
+        ItemType.MEDKIT,
+        player.worldX + MAGNET_COLLECT_RADIUS,
+        player.worldY,
+      );
 
       expect(player.itemCounts[ItemType.MEDKIT] || 0).toBe(0);
       expect(state.entityManager.items.length).toBe(1);
 
       stepSimulationTick(state);
 
-      // The pickup event should be emitted and processed during this tick's processEventQueue.
+      // The pickup event is emitted and drained by this tick's processEventQueue.
       expect(player.itemCounts[ItemType.MEDKIT]).toBe(1);
       // The item is destroyed after collection.
       expect(state.entityManager.items.length).toBe(0);
     });
-  });
 
-  it("ignores items that are machines", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
+    it("drifts items toward the player before collecting them", () => {
+      const { state, player } = magnetScene();
+      const startX = player.worldX + DRIFT_BAND_OFFSET;
+      dropItem(state, ItemType.MEDKIT, startX, player.worldY);
 
-    const player = state.players[0];
-    player.worldX = 50;
-    player.worldY = 50;
+      stepSimulationTick(state);
 
-    // Clear existing items
-    const existingItems = [...state.entityManager.items];
-    for (const item of existingItems) {
-      state.entityManager.destroy(item.id);
-    }
+      expect(state.entityManager.items.length).toBe(1);
+      expect(state.entityManager.items[0].worldX).toBeCloseTo(
+        startX - MAGNET_PULL_PX,
+      );
+    });
 
-    const machine = new ItemEntity(0, 0, ItemType.VENDING_MACHINE);
-    machine.worldX = 70;
-    machine.worldY = 50;
-    machine.prevWorldX = 70;
-    machine.prevWorldY = 50;
-    state.entityManager.spawn(machine);
+    /**
+     * On the torus the nearest player can be the one across the seam, so the
+     * pull has to follow the wrapped delta: the item moves further *down* in x
+     * and wraps, rather than travelling the long way up the map.
+     */
+    it("drifts items toward the player across the toroidal seam on the outside level", () => {
+      const { state, player } = magnetScene();
+      state.levelKind = "outside";
 
-    (ai.generateAICommands as any).mockReturnValue([]);
+      const worldW = state.mapWidth * CELL_CONFIG.w;
+      player.worldX = worldW - 10;
+      const startX = DRIFT_BAND_OFFSET - 10;
+      dropItem(state, ItemType.MEDKIT, startX, player.worldY);
 
-    stepSimulationTick(state);
+      stepSimulationTick(state);
 
-    expect(state.entityManager.items.length).toBe(1);
-    expect(state.entityManager.items[0].worldX).toBe(70); // Did not move
-  });
+      expect(state.entityManager.items.length).toBe(1);
+      expect(state.entityManager.items[0].worldX).toBeCloseTo(
+        startX - MAGNET_PULL_PX,
+      );
+    });
 
-  it("drifts items toward the player before collecting them", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
+    /**
+     * `processPickupItemEvent` refuses machines on its own, so a machine inside
+     * the collect radius stays put whether or not the magnet skips it -- the
+     * magnet's own guard is observable only in the drift. Park the machine in
+     * the drift band instead: without the category check, a vending machine
+     * slides across the floor toward the player.
+     */
+    it("leaves machines where they are instead of drifting them", () => {
+      const { state, player } = magnetScene();
+      const startX = player.worldX + DRIFT_BAND_OFFSET;
+      dropItem(state, ItemType.VENDING_MACHINE, startX, player.worldY);
 
-    const player = state.players[0];
-    player.worldX = 50;
-    player.worldY = 50;
+      stepSimulationTick(state);
 
-    // Clear existing items
-    const existingItems = [...state.entityManager.items];
-    for (const item of existingItems) {
-      state.entityManager.destroy(item.id);
-    }
-
-    // MAGNET_RADIUS is 72, MAGNET_COLLECT_RADIUS is 20, MAGNET_PULL_PX is 7
-    const item = new ItemEntity(0, 0, ItemType.MEDKIT);
-    item.worldX = 90; // 50 + 40
-    item.worldY = 50;
-    item.prevWorldX = 90;
-    item.prevWorldY = 50;
-    state.entityManager.spawn(item);
-
-    (ai.generateAICommands as any).mockReturnValue([]);
-
-    stepSimulationTick(state);
-
-    expect(state.entityManager.items.length).toBe(1);
-    // Distance is 40. Should move 7px toward player.
-    expect(state.entityManager.items[0].worldX).toBeCloseTo(83);
-  });
-
-  it("drifts items toward the player across the toroidal seam on the outside level", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
-
-    state.levelKind = "outside";
-
-    const player = state.players[0];
-    const worldW = state.mapWidth * CELL_CONFIG.w;
-    player.worldX = worldW - 10;
-    player.worldY = 50;
-
-    // Clear existing items
-    const existingItems = [...state.entityManager.items];
-    for (const item of existingItems) {
-      state.entityManager.destroy(item.id);
-    }
-
-    const item = new ItemEntity(0, 0, ItemType.MEDKIT);
-    item.worldX = 30; // distance is 40 across the seam
-    item.worldY = 50;
-    item.prevWorldX = 30;
-    item.prevWorldY = 50;
-    state.entityManager.spawn(item);
-
-    (ai.generateAICommands as any).mockReturnValue([]);
-
-    stepSimulationTick(state);
-
-    expect(state.entityManager.items.length).toBe(1);
-    const newX = state.entityManager.items[0].worldX;
-    // Should move 7px towards player (LEFT across the seam, decreasing X).
-    // So newX should be 23.
-    expect(newX).toBeCloseTo(23);
+      expect(state.entityManager.items.length).toBe(1);
+      expect(state.entityManager.items[0].worldX).toBe(startX);
+    });
   });
 
   describe("processHoleFalls", () => {

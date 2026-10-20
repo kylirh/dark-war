@@ -329,9 +329,9 @@ export function processMonsterItemPickups(state: GameState): void {
 // Magnetic Auto-Pickup
 // ========================================
 
-const MAGNET_RADIUS = 72; // items within this drift toward the player
-const MAGNET_COLLECT_RADIUS = 20; // and are collected within this
-const MAGNET_PULL_PX = 7; // per tick
+export const MAGNET_RADIUS = 72; // items within this drift toward the player
+export const MAGNET_COLLECT_RADIUS = 20; // and are collected within this
+export const MAGNET_PULL_PX = 7; // per tick
 
 /**
  * Pull loose items toward nearby players and auto-collect them. Machines (e.g.

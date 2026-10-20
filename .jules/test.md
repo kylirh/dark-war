@@ -227,14 +227,30 @@ mock in every test that steps a tick.
 
 **Prevention:** When testing boundary conditions involving tick-deferred events, explicitly construct the overflow condition to ensure behavior isn't accidentally coupled to deferred processing steps.
 
-## 2025-01-23 - Add test for magnetic auto-pickup drifting and wrapping logic
+## 2026-10-20 - Magnetic auto-pickup drift, wrapping, and machine exclusion
 
-**What was found:** The \`processMagneticPickup\` logic inside \`src/engine/systems/simulation/tick.ts\` had branches handling non-collectible / machine item exclusion, item drift before collection, and toroidal wrapping of positions on the outside level. These branches were entirely uncovered, meaning future changes could accidentally modify or drop them without failing the test suite.
+**What was found:** `processMagneticPickup` in
+`src/engine/systems/simulation/tick.ts` had one covered decision (collection
+inside `MAGNET_COLLECT_RADIUS`) and three uncovered ones: the drift step, the
+wrapped-delta path on the torus, and the machine-category exclusion.
 
-**Action:** Added three tests to \`tick.test.ts\` that:
+**Action:** Four tests in `tick.test.ts`, grouped in the existing
+`processMagneticPickup` block behind a shared scene helper, each verified by
+mutation: dropping the category guard, forcing `step = 0`, forcing
+`wraps = false`, and disabling the collect branch each fail exactly the test
+that owns them. The magnet constants are exported so the expectations are
+derived rather than written as literals.
 
-1. Verify items with the machine category (e.g., \`VENDING_MACHINE\`) do not get pulled.
-2. Verify items within \`MAGNET_RADIUS\` but outside \`MAGNET_COLLECT_RADIUS\` drift toward the player by the exact \`MAGNET_PULL_PX\` value.
-3. Verify items correctly evaluate the shortest distance across the toroidal seam and drift accordingly when on an outside level.
+**A machine inside the collect radius proves nothing.** The first draft of the
+machine test parked a `VENDING_MACHINE` 20px from the player and asserted it
+survived the tick. It passes with the guard deleted: `processPickupItemEvent`
+refuses machines on its own (`events.ts`, "Machines (vending machines) are
+fixtures"), so the collection path is guarded twice. The magnet's own guard is
+observable only in the **drift** — without it a vending machine slides across
+the floor — so the machine has to sit in the drift band, between
+`MAGNET_COLLECT_RADIUS` and `MAGNET_RADIUS`.
 
-**Prevention:** Ensure explicit movement, wrapping computations, and edge case exclusion in background simulation logic are completely covered by asserting the concrete intermediate output (like position updates).
+**Prevention:** When a decision is defended at two layers, a test aimed at the
+outer layer passes on the inner one's behaviour. Before writing the assertion,
+delete the branch and check the test fails; if it does not, find the observable
+that only that branch owns.
