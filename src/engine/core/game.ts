@@ -398,46 +398,6 @@ export class Game {
     if (isDebug())
       console.log(`Spawned ${ratCount} rats, ${mutantCount} mutants`);
 
-    // Spawn items
-    for (let i = 0; i < 10 && freeTiles.length > 0; i++) {
-      const tileIndex = RNG.int(freeTiles.length);
-      const [x, y] = freeTiles[tileIndex];
-      this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.AMMO));
-      removeFreeTileAt(freeTiles, tileIndex);
-    }
-
-    for (
-      let i = 0;
-      i < this.medkitSpawnCount(depth) && freeTiles.length > 0;
-      i++
-    ) {
-      const tileIndex = RNG.int(freeTiles.length);
-      const [x, y] = freeTiles[tileIndex];
-      this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.MEDKIT));
-      removeFreeTileAt(freeTiles, tileIndex);
-    }
-
-    for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
-      const tileIndex = RNG.int(freeTiles.length);
-      const [x, y] = freeTiles[tileIndex];
-      this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.KEYCARD));
-      removeFreeTileAt(freeTiles, tileIndex);
-    }
-
-    for (let i = 0; i < 4 && freeTiles.length > 0; i++) {
-      const tileIndex = RNG.int(freeTiles.length);
-      const [x, y] = freeTiles[tileIndex];
-      this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.GRENADE));
-      removeFreeTileAt(freeTiles, tileIndex);
-    }
-
-    for (let i = 0; i < 3 && freeTiles.length > 0; i++) {
-      const tileIndex = RNG.int(freeTiles.length);
-      const [x, y] = freeTiles[tileIndex];
-      this.state.entityManager.spawn(new ItemEntity(x, y, ItemType.LAND_MINE));
-      removeFreeTileAt(freeTiles, tileIndex);
-    }
-
     const spawnItems = (count: number, type: ItemType): void => {
       for (let i = 0; i < count && freeTiles.length > 0; i++) {
         const tileIndex = RNG.int(freeTiles.length);
@@ -447,6 +407,12 @@ export class Game {
       }
     };
 
+    // Spawn items
+    spawnItems(10, ItemType.AMMO);
+    spawnItems(this.medkitSpawnCount(depth), ItemType.MEDKIT);
+    spawnItems(3, ItemType.KEYCARD);
+    spawnItems(4, ItemType.GRENADE);
+    spawnItems(3, ItemType.LAND_MINE);
     spawnItems(2 + Math.floor(depth / 4), ItemType.POWERCELL);
     spawnItems(1, ItemType.PICKAXE);
 
