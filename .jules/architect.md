@@ -33,3 +33,11 @@ cases now fail under the Manhattan edit, verified by mutating
 A log's own count is a snapshot, not a current fact — re-derive it from the
 pull request list before citing it, and mutate the predicate before claiming
 nothing covers it.
+
+## 2026-10-20 - Extract an Action Router Interface for main.ts
+
+**What was found:** The `src/client/main.ts` file acts as the central router for all player input and network events, meaning almost every user action contains an `if (this.isOnlineMode())` branch. This bloats `main.ts` to over 3400 lines, makes the client layer difficult to test, and risks divergence between offline and online behaviors.
+
+**Action:** Wrote Proposed ADR 0013 formalizing the architectural decision to extract an `ActionRouter` interface with `OfflineRouter` and `OnlineRouter` implementations, cleanly separating the divergent logic and improving testability.
+
+**Prevention:** When a single component handles multiple disparate routing paths (e.g., direct state mutation vs. network payloads) across many actions, use polymorphism (interfaces and specialized classes) rather than scattered inline conditionals to enforce consistency and boundary separation.
