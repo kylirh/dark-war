@@ -203,6 +203,13 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       player.velocityX = 0;
       player.velocityY = 0;
 
+      // Cancel any pending level transitions immediately when the player dies
+      // so a deferred PLAYER_DEATH event doesn't leave them active.
+      state.shouldDescend = false;
+      state.shouldAscend = false;
+      state.descendTarget = undefined;
+      state.pendingPortalId = undefined;
+
       pushEvent(state, {
         type: EventType.PLAYER_DEATH,
         data: { type: "PLAYER_DEATH", playerId: player.id },
