@@ -226,3 +226,31 @@ mock in every test that steps a tick.
 **Action:** Added a test in `src/engine/systems/simulation/death-transition.test.ts` that fills the event queue to the `MAX_EVENTS_PER_TICK` limit before pushing lethal damage, proving that the velocity is stopped in the same tick despite the subsequent `PLAYER_DEATH` event being deferred.
 
 **Prevention:** When testing boundary conditions involving tick-deferred events, explicitly construct the overflow condition to ensure behavior isn't accidentally coupled to deferred processing steps.
+
+## 2026-10-20 - Magnetic auto-pickup drift, wrapping, and machine exclusion
+
+**What was found:** `processMagneticPickup` in
+`src/engine/systems/simulation/tick.ts` had one covered decision (collection
+inside `MAGNET_COLLECT_RADIUS`) and three uncovered ones: the drift step, the
+wrapped-delta path on the torus, and the machine-category exclusion.
+
+**Action:** Four tests in `tick.test.ts`, grouped in the existing
+`processMagneticPickup` block behind a shared scene helper, each verified by
+mutation: dropping the category guard, forcing `step = 0`, forcing
+`wraps = false`, and disabling the collect branch each fail exactly the test
+that owns them. The magnet constants are exported so the expectations are
+derived rather than written as literals.
+
+**A machine inside the collect radius proves nothing.** The first draft of the
+machine test parked a `VENDING_MACHINE` 20px from the player and asserted it
+survived the tick. It passes with the guard deleted: `processPickupItemEvent`
+refuses machines on its own (`events.ts`, "Machines (vending machines) are
+fixtures"), so the collection path is guarded twice. The magnet's own guard is
+observable only in the **drift** — without it a vending machine slides across
+the floor — so the machine has to sit in the drift band, between
+`MAGNET_COLLECT_RADIUS` and `MAGNET_RADIUS`.
+
+**Prevention:** When a decision is defended at two layers, a test aimed at the
+outer layer passes on the inner one's behaviour. Before writing the assertion,
+delete the branch and check the test fails; if it does not, find the observable
+that only that branch owns.
