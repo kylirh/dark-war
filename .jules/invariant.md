@@ -63,11 +63,3 @@
 **Action:** Added `levels` as an optional property to `StateDelta`. Implemented the logic in `computeStateDelta` to calculate changes to `levels` via `shallowJsonEqual`, and in `applyStateDelta` to patch it over the baseline. Added a test in `src/net/state-delta.test.ts` to enforce that this array survives the round-trip.
 
 **Prevention:** When adding fields to `SerializedState`, ensure they are properly handled in `src/net/state-delta.ts` to maintain delta compression integrity.
-
-## 2024-10-21 - Fix state-delta simulationSeed and levels omission
-
-**What was found:** `simulationSeed` and `levels` fields were added to `SerializedState` but were not properly handled in `state-delta.ts` for clearing. When these fields were cleared in the authoritative state, the delta sent to the client would lack the update because `undefined` is dropped by `JSON.stringify`.
-
-**Action:** Updated `computeStateDelta` to assign `null` when these fields are cleared, and updated `applyStateDelta` to `delete` the field from the reconstructed baseline when `null` is received. Also bumped `PROTOCOL_VERSION` to 16 since the wire format changed to include `null`.
-
-**Prevention:** When adding a new optional field to `SerializedState`, add corresponding diff and patch logic to `state-delta.ts` to explicitly set `null` in the delta when the field is cleared, otherwise clients will silently keep a stale copy. Ensure `StateDelta` typing explicitly allows `null` for the new field.
