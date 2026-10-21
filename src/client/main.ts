@@ -424,16 +424,11 @@ class DarkWar {
       event.clientX,
       event.clientY,
     );
-    let tileX = Math.floor(world.x / CELL_CONFIG.w);
-    let tileY = Math.floor(world.y / CELL_CONFIG.h);
-    if (state.levelKind === "outside") {
-      tileX = ((tileX % state.mapWidth) + state.mapWidth) % state.mapWidth;
-      tileY = ((tileY % state.mapHeight) + state.mapHeight) % state.mapHeight;
-    }
-
-    if (!inBoundsFor(tileX, tileY, state.mapWidth, state.mapHeight)) {
+    const tilePos = this.cursorTileFromWorld(world.x, world.y);
+    if (!tilePos) {
       return;
     }
+    const { tileX, tileY } = tilePos;
 
     // With the Matter Manipulator equipped, right-click places a wall block
     // instead of issuing a click-to-move order.
