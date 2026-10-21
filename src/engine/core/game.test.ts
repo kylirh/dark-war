@@ -360,6 +360,57 @@ describe("Game serialize/deserialize round-trip", () => {
   });
 });
 
+describe("dungeon item spawning", () => {
+  /**
+   * The spawn table is a sequence, not a set: each `spawnItems` call draws from
+   * the same shrinking `freeTiles` pool, so the *order* of the calls decides
+   * which tile every type lands on. Two same-seed runs agree no matter how the
+   * calls are arranged, which is why the existing medkit determinism test
+   * cannot see a reordering; pinning the ordered type list can, and it does not
+   * depend on generated coordinates.
+   */
+  function itemSpawnSequence(depth: number): ItemType[] {
+    RNG.reseed(31337);
+    const game = new Game({ mode: "offline" });
+    game.reset(depth);
+    return game
+      .getState()
+      .entities.filter((entity) => entity.kind === EntityKind.ITEM)
+      .map((entity) => (entity as Item).type);
+  }
+
+  function repeat(type: ItemType, count: number): ItemType[] {
+    return Array.from({ length: count }, () => type);
+  }
+
+  it("spawns the depth-1 table in call order", () => {
+    expect(itemSpawnSequence(1)).toEqual([
+      ...repeat(ItemType.AMMO, 10),
+      // Offline depth 1 is a medkit level; depth 2 is not.
+      ...repeat(ItemType.MEDKIT, 1),
+      ...repeat(ItemType.KEYCARD, 3),
+      ...repeat(ItemType.GRENADE, 4),
+      ...repeat(ItemType.LAND_MINE, 3),
+      ...repeat(ItemType.POWERCELL, 2),
+      ...repeat(ItemType.PICKAXE, 1),
+    ]);
+  });
+
+  it("drops the medkit and scales power cells with depth", () => {
+    // Depth 5 is neither a medkit level (`depth % 3 === 1`) nor still on the
+    // opening power-cell count.
+    expect(itemSpawnSequence(5)).toEqual([
+      ...repeat(ItemType.AMMO, 10),
+      ...repeat(ItemType.KEYCARD, 3),
+      ...repeat(ItemType.GRENADE, 4),
+      ...repeat(ItemType.LAND_MINE, 3),
+      // 2 + floor(depth / 4).
+      ...repeat(ItemType.POWERCELL, 3),
+      ...repeat(ItemType.PICKAXE, 1),
+    ]);
+  });
+});
+
 describe("Game multiplayer player management", () => {
   beforeEach(() => RNG.reseed(7));
 
