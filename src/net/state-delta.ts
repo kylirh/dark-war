@@ -47,7 +47,7 @@ export interface StateDelta {
   worldSpaceId?: string;
   worldPlaneId?: string;
   levelKind?: LevelKind;
-  simulationSeed?: number;
+  simulationSeed?: number | null;
   floorVariant?: number;
   wallSet?: WallSet;
   portals?: SerializedState["portals"];
@@ -68,7 +68,7 @@ export interface StateDelta {
   relationships?: SerializedState["relationships"];
   consumedSpawnMarkers?: string[];
   multiplayer?: SerializedState["multiplayer"];
-  levels?: SerializedState["levels"];
+  levels?: SerializedState["levels"] | null;
   // `sim`, `effects`, `sounds`, `alerts`, and `callouts` are tiny / ephemeral
   // and always sent.
   sim: SerializedState["sim"];
@@ -137,8 +137,9 @@ export function computeStateDelta(
   if (base.worldPlaneId !== next.worldPlaneId)
     delta.worldPlaneId = next.worldPlaneId;
   if (base.levelKind !== next.levelKind) delta.levelKind = next.levelKind;
-  if (base.simulationSeed !== next.simulationSeed)
-    delta.simulationSeed = next.simulationSeed;
+  if (base.simulationSeed !== next.simulationSeed) {
+    delta.simulationSeed = next.simulationSeed ?? null;
+  }
   if (base.floorVariant !== next.floorVariant)
     delta.floorVariant = next.floorVariant;
   if (base.wallSet !== next.wallSet) delta.wallSet = next.wallSet;
@@ -177,7 +178,7 @@ export function computeStateDelta(
     delta.multiplayer = next.multiplayer;
   }
   if (!shallowJsonEqual(base.levels, next.levels)) {
-    delta.levels = next.levels;
+    delta.levels = next.levels ?? null;
   }
 
   const entityDiff = diffById(base.entities ?? [], next.entities ?? []);
@@ -230,8 +231,13 @@ export function applyStateDelta(
   if (delta.worldSpaceId !== undefined) next.worldSpaceId = delta.worldSpaceId;
   if (delta.worldPlaneId !== undefined) next.worldPlaneId = delta.worldPlaneId;
   if (delta.levelKind !== undefined) next.levelKind = delta.levelKind;
-  if (delta.simulationSeed !== undefined)
-    next.simulationSeed = delta.simulationSeed;
+  if (delta.simulationSeed !== undefined) {
+    if (delta.simulationSeed === null) {
+      delete (next as any).simulationSeed;
+    } else {
+      next.simulationSeed = delta.simulationSeed;
+    }
+  }
   if (delta.floorVariant !== undefined) next.floorVariant = delta.floorVariant;
   if (delta.wallSet !== undefined) next.wallSet = delta.wallSet;
   if (delta.portals !== undefined) next.portals = delta.portals;
@@ -259,7 +265,13 @@ export function applyStateDelta(
   }
   if (delta.story !== undefined) next.story = delta.story;
   if (delta.multiplayer !== undefined) next.multiplayer = delta.multiplayer;
-  if (delta.levels !== undefined) next.levels = delta.levels;
+  if (delta.levels !== undefined) {
+    if (delta.levels === null) {
+      delete (next as any).levels;
+    } else {
+      next.levels = delta.levels;
+    }
+  }
 
   if (delta.entitiesUpserted || delta.entitiesRemoved || delta.entityOrder) {
     next.entities = applyById(
