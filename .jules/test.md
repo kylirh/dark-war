@@ -254,3 +254,23 @@ the floor — so the machine has to sit in the drift band, between
 outer layer passes on the inner one's behaviour. Before writing the assertion,
 delete the branch and check the test fails; if it does not, find the observable
 that only that branch owns.
+
+## 2026-10-22 - truncation happens before the priority sort
+
+**What was found:** `stepSimulationTick` truncates the AI command array to
+`MAX_COMMANDS_PER_TICK` before `sortCommandsDeterministically` runs, so overflow
+drops the latest-generated commands rather than the lowest-priority ones. A
+high-priority command generated last is discarded while a priority-0 command
+generated first survives. Nothing in the suite pinned that order: moving the
+truncation after the sort on `main` left all 100 files / 918 tests passing.
+
+**Action:** Added a test that appends one high-priority command past the limit
+and asserts it does not survive. With the sort moved before the truncation it is
+the only failing test in the suite.
+
+**Prevention:** The order is **not** settled. `docs/adr/0009-deterministic-simulation-budgets.md`
+records it as open question 2, explicitly left for a human, and #379 was closed
+for implementing that question as if it were decided. The test pins today's
+behaviour so the change is deliberate and visible, not silent; a human answering
+the open question is expected to update it, and should update the ADR and the
+`MAX_COMMANDS_PER_TICK` TSDoc in the same change.
