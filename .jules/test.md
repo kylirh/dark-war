@@ -254,3 +254,11 @@ the floor — so the machine has to sit in the drift band, between
 outer layer passes on the inner one's behaviour. Before writing the assertion,
 delete the branch and check the test fails; if it does not, find the observable
 that only that branch owns.
+
+## 2025-02-23 - test truncation happens before priority sort
+
+**What was found:** The AI command array is truncated to `MAX_COMMANDS_PER_TICK` before the commands are sorted by priority, meaning that higher priority commands generated late in the tick can be dropped instead of lower priority commands generated early.
+
+**Action:** Added a test to verify that `stepSimulationTick` truncates commands before sorting, so that if the logic is altered, it will be caught.
+
+**Prevention:** The anomaly is documented and accepted. This test secures the codebase against accidental modifications to the truncation order.

@@ -72,6 +72,44 @@ describe("stepSimulationTick", () => {
     }
   });
 
+  it("truncates aiCommands before sorting them by priority (accepted anomaly for overflow)", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const tick = 10;
+    state.sim.nowTick = tick;
+
+    const mockCommands: any[] = [];
+    for (let i = 0; i < MAX_COMMANDS_PER_TICK; i++) {
+      mockCommands.push({
+        id: `cmd-low-${i}`,
+        type: "WAIT",
+        actorId: `m${i}`,
+        tick,
+        priority: 0,
+      });
+    }
+    mockCommands.push({
+      id: "cmd-high",
+      type: "WAIT",
+      actorId: "m-high",
+      tick,
+      priority: 100,
+    });
+
+    (ai.generateAICommands as any).mockReturnValue(mockCommands);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      stepSimulationTick(state);
+
+      expect(mockCommands.length).toBe(MAX_COMMANDS_PER_TICK);
+      expect(mockCommands.some((c) => c.id === "cmd-high")).toBe(false);
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("leaves aiCommands alone when they are within the limit", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
