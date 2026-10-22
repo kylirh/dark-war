@@ -72,7 +72,13 @@ describe("stepSimulationTick", () => {
     }
   });
 
-  it("truncates aiCommands before sorting them by priority (accepted anomaly for overflow)", () => {
+  // Overflow drops the latest-generated commands, not the least important
+  // ones, because the truncation above runs before the sort. ADR 0009 records
+  // that order as open question 2 and leaves it to a human, so this pins
+  // current behaviour rather than endorsing it: if the question is answered,
+  // this test, the ADR, and the `MAX_COMMANDS_PER_TICK` TSDoc all change
+  // together. Nothing else in the suite fails when the two are swapped.
+  it("drops a late high-priority command, because truncation precedes the sort", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
@@ -103,7 +109,12 @@ describe("stepSimulationTick", () => {
     try {
       stepSimulationTick(state);
 
+      // As in the test above, this asserts on the caller's array because the
+      // guard truncates in place. The length check keeps the second assertion
+      // honest: without it, a guard that dropped the whole array would pass.
       expect(mockCommands.length).toBe(MAX_COMMANDS_PER_TICK);
+      // Sorting first would move `cmd-high` (priority 100) to index 0, where
+      // the truncation cannot reach it.
       expect(mockCommands.some((c) => c.id === "cmd-high")).toBe(false);
     } finally {
       errorSpy.mockRestore();
