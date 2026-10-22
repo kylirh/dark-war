@@ -251,3 +251,19 @@ report the saving as a share of the frame budget, not as a ratio on a
 synthetic loop. Integer packing is a constant-factor win, not an "exponential"
 one. When packing, state the per-field bound next to the arithmetic: the whole
 correctness argument is that no field reaches the next field's multiplier.
+
+## 2026-10-22 - Remove redundant map lookups in hot renderer tile loop
+
+**What was found:** In `Renderer`, `getTexture`, `getShadowTexture`, and `getGlowTexture` used `if (cache.has(key)) return cache.get(key);`, performing the map hash lookup twice. These loops run thousands of times per frame in the main tile render cycle. An attempt was also made to skip redundant `scale.set(1)` and `anchor.set(0,0)` calls in `createSpriteFromFrame`, but this was reverted during review.
+
+**Action:**
+
+- In texture cache getters, replaced `has` then `get` with a single `get` check (`const cached = cache.get(key); if (cached !== undefined) return cached;`).
+
+_Measurement verified:_ The double Map lookup (`has` + `get`) cost ~21.0 ns, while the single `get` cost ~17.1 ns, saving ~3.9 ns per sprite. For a frame of 1500 sprites, this saves roughly 0.006 ms per frame (0.03% of a 16.7ms budget). This is a clean simplification that happens to be slightly faster. The initially claimed ~20% improvement was based on a flawed synthetic benchmark using a fake Pixi object that lacked the early-exit dirty checking in real Pixi's `ObservablePoint`. Real `ObservablePoint.set` exits early when unchanged, making the redundant calls cost only ~1.0 ns overhead.
+
+**Prevention:**
+
+- When measuring performance, use real production dependencies (e.g., real Pixi objects, not mocks) to capture actual overheads (like internal dirty checking).
+- Avoid micro-optimizations that remove unconditional assignments if they rely on undocumented initialization defaults from multiple disconnected places (e.g., `acquireSprite` resetting state, `new Sprite` defaults, texture missing a `defaultAnchor`). The 1ns saving is not worth the risk of a bug if any of those defaults change.
+- State savings as a share of the frame budget, not as a ratio on a synthetic loop.

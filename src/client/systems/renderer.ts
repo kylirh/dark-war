@@ -902,8 +902,9 @@ export class Renderer {
     const key = x + y * 8192 + width * 67108864 + height * 549755813888;
 
     // Return cached texture if available
-    if (this.textureCache.has(key)) {
-      return this.textureCache.get(key)!;
+    const cached = this.textureCache.get(key);
+    if (cached !== undefined) {
+      return cached;
     }
 
     // Create new texture and cache it
@@ -1001,8 +1002,9 @@ export class Renderer {
 
   private getShadowTexture(size: SpriteShadowSize): Texture | null {
     if (size === "none") return null;
-    if (this.shadowTextureCache.has(size)) {
-      return this.shadowTextureCache.get(size)!;
+    const cached = this.shadowTextureCache.get(size);
+    if (cached !== undefined) {
+      return cached;
     }
 
     const canvas = document.createElement("canvas");
@@ -1058,8 +1060,9 @@ export class Renderer {
   }
 
   private getGlowTexture(color: string): Texture | null {
-    if (this.glowTextureCache.has(color)) {
-      return this.glowTextureCache.get(color)!;
+    const cached = this.glowTextureCache.get(color);
+    if (cached !== undefined) {
+      return cached;
     }
 
     const canvas = document.createElement("canvas");
