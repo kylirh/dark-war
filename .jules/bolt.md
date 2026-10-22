@@ -252,15 +252,45 @@ synthetic loop. Integer packing is a constant-factor win, not an "exponential"
 one. When packing, state the per-field bound next to the arithmetic: the whole
 correctness argument is that no field reaches the next field's multiplier.
 
-## 2026-10-22 - Remove redundant Pixi setters in hot rendering loops
+## 2026-10-22 - One map lookup instead of two in the texture caches
 
-**What was found:** `Renderer.createSpriteFromFrame` called `acquireSprite`, which sets scale to `1` and anchor to `(0, 0)`. Then `createSpriteFromFrame` conditionally re-applied `sprite.scale.set(1)` and unconditionally called `sprite.anchor.set` (often with `(0, 0)`). In addition, `getTexture`, `getShadowTexture`, and `getGlowTexture` used `if (cache.has(key)) return cache.get(key);`, performing the map hash lookup twice. Both these loops run thousands of times per frame in the main tile render cycle.
+**What was found:** `getTexture`, `getShadowTexture`, and `getGlowTexture` each
+did `if (cache.has(key)) return cache.get(key)!;`, hashing the key twice per
+call. `getTexture` runs once per sprite per frame, so it is on the hot path.
+All three maps are typed `Map<K, Texture>` and every `set` stores a real
+`Texture`, so `get(key) !== undefined` is exactly equivalent to `has(key)` —
+and it drops two non-null assertions.
 
-**Action:**
+**Action:** Replaced `has` then `get` with a single `get` and an `undefined`
+check at all three sites. A sweep of `src/client`, `src/engine`, and `server`
+found no other `has`-then-`get` pair, so this is the whole of the pattern.
 
-- In `createSpriteFromFrame`, skipped calling `scale.set(1)` if unscaled, and only called `anchor.set` if the anchor is non-zero.
-- In texture cache getters, replaced `has` then `get` with a single `get` check (`const cached = cache.get(key); if (cached !== undefined) return cached;`).
+_Measurement._ Interleaved A/B, 9 rounds, 600k lookups per round, medians:
+**21.0 ns -> 17.1 ns per lookup** (12.59 ms -> 10.27 ms per round), an 18%
+saving on the lookup itself. In frame terms that is the honest number:
+~3.9 ns per sprite, so **0.006 ms at 1500 sprites per frame, or 0.035% of a
+16.7 ms budget**. It is merged as a simplification that happens to be faster,
+not as a frame-rate win.
 
-_Measurement verified:_ Using a localized synthetic benchmark running over 1000 frames of 1500 sprites per frame, the median frame creation+destruction loop improved from ~197.8ms to ~159.4ms (a ~20% improvement). The redundant Map lookup alone improved `get` performance by ~30%, and removing redundant `anchor.set` and `scale.set` each saved ~5-8ms over a million iterations. This adds up to small but measurable gains across the 16.7ms frame budget.
+**Rejected in review — skipping the `scale.set(1)` and `anchor.set(0, 0)` calls
+in `createSpriteFromFrame`.** The first draft of this entry claimed ~198 ms ->
+~159 ms, "a ~20% improvement", for that plus the lookups together. Measured
+against the real `ObservablePoint`, the setter half is worth **1.0 ns per
+sprite** (11.4 ns -> 10.4 ns for both calls), i.e. 0.0015 ms per frame, or
+0.009% of the budget. The reason it is nearly free to begin with is that
+`ObservablePoint.set` already returns early when the value is unchanged
+(`ObservablePoint.mjs:59`), so the redundant calls never dirtied a transform —
+only the call overhead was there to save. Counted against that: the skip is
+correct only while `acquireSprite` keeps resetting pooled sprites **and** a
+fresh `new Sprite(texture)` keeps defaulting to anchor `(0, 0)`, which holds
+only because `getTexture` builds textures without a `defaultAnchor`
+(`Sprite.mjs:33-37` applies `texture.defaultAnchor` when there is one). That is
+four places to re-derive, in exchange for 1 ns, so `createSpriteFromFrame`
+keeps writing both properties unconditionally.
 
-**Prevention:** On extremely hot paths traversing thousands of iterations (like rendering loops), avoid redundantly calling properties/methods on objects you just initialized to their defaults, and always prefer a single map lookup instead of a `has` followed by a `get`.
+**Prevention:** `ObservablePoint.set` and Pixi's other observable setters are
+already guarded against no-op writes, so "remove the redundant set" is worth a
+call's overhead and nothing more. Measure a setter skip before trading an
+invariant for it, and quote the saving as a share of the frame budget — the
+lesson directly above this entry says the same thing, and the first draft of
+this one did not follow it.

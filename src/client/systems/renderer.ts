@@ -947,18 +947,18 @@ export class Renderer {
     const originalWidth = texture.orig.width;
     const originalHeight = texture.orig.height;
     if (
-      frame.renderWidth !== originalWidth ||
-      frame.renderHeight !== originalHeight
+      frame.renderWidth === originalWidth &&
+      frame.renderHeight === originalHeight
     ) {
+      sprite.scale.set(1);
+    } else {
       sprite.scale.set(
         frame.renderWidth / originalWidth,
         frame.renderHeight / originalHeight,
       );
     }
 
-    if (frame.anchorX !== 0 || frame.anchorY !== 0) {
-      sprite.anchor.set(frame.anchorX, frame.anchorY);
-    }
+    sprite.anchor.set(frame.anchorX, frame.anchorY);
 
     return sprite;
   }
