@@ -119,3 +119,11 @@ duplicate reads exactly like a regression.
 **Action:** Updated the creation of both the `themeToggle` and `zoomToggle` elements in `src/client/systems/character-modal.ts` to include `themeToggle.setAttribute("aria-label", "Appearance mode")` and `zoomToggle.setAttribute("aria-label", "Zoom level")`.
 
 **Prevention:** Whenever implementing UI controls that function as toggles within a `role="group"` container, always ensure that the container itself has a descriptive `aria-label` so its purpose is clearly conveyed to assistive technologies.
+
+## 2024-10-24 - Fix character modal focus restoration
+
+**What was found:** The CharacterModal explicitly returned focus to the game canvas rather than properly restoring focus to the element that opened it. This caused a broken keyboard path because if a user opens the modal from another UI element (e.g. via keyboard shortcut while focused elsewhere), closing the modal drops focus unconditionally back to the canvas, stranding the keyboard user.
+
+**Action:** Added `captureFocusOpener` and `restoreFocus` from `focus-restore.ts` to `character-modal.ts`, capturing the opener element before rendering the modal, and explicitly restoring focus to it on close.
+
+**Prevention:** For modals, always capture the element that initiated the modal opening before shifting focus. Do not hardcode focus restoration to the game canvas if there's a possibility the modal was opened from a different element.
