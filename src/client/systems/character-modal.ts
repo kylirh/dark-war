@@ -1,3 +1,4 @@
+import { captureFocusOpener, restoreFocus } from "./focus-restore";
 import {
   INVENTORY_BAR_SIZE,
   INVENTORY_TOTAL_SLOTS,
@@ -61,6 +62,7 @@ export class CharacterModal {
   private _player: Player | null = null;
   private _isOpen = false;
   private _currentTab: ModalTab = "inventory";
+  private openerFocus: HTMLElement | null = null;
 
   // Drag state
   private isDragging = false;
@@ -1461,6 +1463,7 @@ export class CharacterModal {
       if (this._currentTab !== tab) this.switchTab(tab);
       return;
     }
+    this.openerFocus = captureFocusOpener();
     this._player = player;
     this._isOpen = true;
     this.scrim.style.display = "";
@@ -1480,13 +1483,14 @@ export class CharacterModal {
     this.stopDrag();
     this._isOpen = false;
     // Opening moves focus into the modal, so closing has to hand it back;
-    // otherwise focus is stranded on a hidden button. Matches the restore in
-    // dialogue-panel and sign-reader.
+    // otherwise focus is stranded on a hidden button. The restore target is the
+    // opener, per the focus contract in retro-modal.ts — the game canvas is only
+    // the fallback restoreFocus applies when there is no usable opener.
     const ownedFocus = this.window.contains(document.activeElement);
     this.scrim.style.display = "none";
     this.window.style.display = "none";
     document.body.classList.remove("imb-modal-open");
-    if (ownedFocus) document.getElementById("game")?.focus();
+    if (ownedFocus) restoreFocus(this.openerFocus);
     this.onClose?.();
   }
 

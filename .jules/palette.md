@@ -119,3 +119,11 @@ duplicate reads exactly like a regression.
 **Action:** Updated the creation of both the `themeToggle` and `zoomToggle` elements in `src/client/systems/character-modal.ts` to include `themeToggle.setAttribute("aria-label", "Appearance mode")` and `zoomToggle.setAttribute("aria-label", "Zoom level")`.
 
 **Prevention:** Whenever implementing UI controls that function as toggles within a `role="group"` container, always ensure that the container itself has a descriptive `aria-label` so its purpose is clearly conveyed to assistive technologies.
+
+## 2026-10-23 - Fix character modal focus restoration
+
+**What was found:** The CharacterModal explicitly returned focus to the game canvas rather than restoring focus to the element that opened it, which is the last modal in `src/client/systems/` that had not adopted the focus contract documented in `retro-modal.ts`. The reachable path: the input listener is on `window` with no active-element guard, so a keyboard user sitting on a control that the modal does not hide — `#story-expand-tab`, or one of the window-chrome buttons in `app/index.html` — can press `E` to open the modal, and closing it moved focus to the canvas instead of back to that control, so tab order restarted from the top of the page. Focus was already gated on `ownedFocus`, so the modal never stole focus it did not hold; the defect was only in where it handed focus back.
+
+**Action:** Added `captureFocusOpener` and `restoreFocus` from `focus-restore.ts` to `character-modal.ts`, capturing the opener element before rendering the modal, and explicitly restoring focus to it on close.
+
+**Prevention:** For modals, always capture the element that initiated the modal opening before shifting focus. Do not hardcode focus restoration to the game canvas if there's a possibility the modal was opened from a different element.
