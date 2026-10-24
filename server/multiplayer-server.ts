@@ -109,20 +109,35 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNetworkAction(value: unknown): value is NetworkAction {
   if (!isRecord(value) || typeof value.type !== "string") return false;
+  if (value.type === "FIRE" || value.type === "USE_ITEM")
+    return typeof value.dx === "number" && typeof value.dy === "number";
+  if (value.type === "INTERACT")
+    return typeof value.dx === "number" && typeof value.dy === "number";
+  if (value.type === "SHAPE_TERRAIN")
+    return (
+      typeof value.tileX === "number" &&
+      typeof value.tileY === "number" &&
+      (value.delta === 1 || value.delta === -1)
+    );
+  if (value.type === "SPEAK")
+    return (
+      typeof value.text === "string" &&
+      (value.kind === "speech" || value.kind === "thought")
+    );
+  if (value.type === "DIALOGUE_CHOICE")
+    return (
+      typeof value.choiceId === "string" &&
+      typeof value.expectedRevision === "number"
+    );
+  if (value.type === "DIALOGUE_LEAVE")
+    return typeof value.expectedRevision === "number";
   return (
-    value.type === "FIRE" ||
-    value.type === "USE_ITEM" ||
-    value.type === "INTERACT" ||
     value.type === "SIGN_CLOSE" ||
     value.type === "PICKUP" ||
     value.type === "RELOAD" ||
     value.type === "WAIT" ||
     value.type === "DESCEND" ||
     value.type === "ASCEND" ||
-    value.type === "SHAPE_TERRAIN" ||
-    value.type === "SPEAK" ||
-    value.type === "DIALOGUE_CHOICE" ||
-    value.type === "DIALOGUE_LEAVE" ||
     value.type === "TOGGLE_GOD_MODE"
   );
 }
@@ -130,11 +145,13 @@ function isNetworkAction(value: unknown): value is NetworkAction {
 function isIncomingMessage(value: unknown): value is IncomingMessage2 {
   if (!isRecord(value) || typeof value.type !== "string") return false;
   if (value.type === "set_name") return typeof value.name === "string";
+  if (value.type === "select_weapon") return typeof value.slot === "number";
+  if (value.type === "inventory_swap")
+    return typeof value.from === "number" && typeof value.to === "number";
+  if (value.type === "velocity")
+    return typeof value.vx === "number" && typeof value.vy === "number";
   return (
-    value.type === "velocity" ||
     value.type === "action" ||
-    value.type === "select_weapon" ||
-    value.type === "inventory_swap" ||
     value.type === "new_game" ||
     value.type === "start_game" ||
     value.type === "request_respawn" ||
