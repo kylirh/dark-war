@@ -328,3 +328,103 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-22
+
+**Merged:** both open Jules pull requests, each with corrective commits first.
+
+- **#408** `test(simulation): pin that ai command truncation precedes the priority sort`
+- **#409** `perf(renderer): use one map lookup in the texture cache getters`
+
+**Closed:** nothing. Only two were open and both were salvageable. No duplicate
+groups this run.
+
+**Fixed before merging:**
+
+- **#408** dated its `.jules/test.md` entry `2025-02-23` and called the
+  truncation order an "accepted anomaly", in the entry and in the test name. It
+  is not accepted: ADR 0009 records it as **open question 2**, explicitly left
+  for a human, and #379 was closed on 2026-10-14 for implementing that question
+  as though it had been answered. Corrected to cite the ADR and to say the test
+  pins current behaviour rather than endorsing it.
+- **#409** claimed "~198 ms to ~159 ms, a ~20% improvement". Remeasured
+  (interleaved A/B, 9 rounds, 600k iterations, real `ObservablePoint` from
+  `pixi.js@8.14.0`): the lookup change is 21.0 -> 17.1 ns, the two setter calls
+  11.4 -> 10.4 ns, together **4.8 ns per sprite — 0.04% of a 16.7 ms frame**,
+  against the ~26 ns the body implies. Kept the cache-lookup half, reverted the
+  setter half (below).
+
+**Things worth believing without re-deriving:**
+
+1. **The Jules tasks re-push their original draft on top of a curator's
+   corrections.** Witnessed live this run: after `2af28f8` fixed #408, the task
+   pushed `7fd7c31`, which reverted both corrections verbatim and restored the
+   wrong date. Re-applied as `f36dc30`. **Always re-read `head.sha` immediately
+   before merging and pin `expectedHeadSha`** — the first merge attempt was
+   rejected 409 "Head branch was modified" for exactly this reason, which is the
+   check working.
+2. **This is also why no merged branch on origin ever looks deletable.** Measured
+   on all 18 merged-and-still-present branches, not sampled: every one has a tip
+   that differs from the sha GitHub merged. 16 of them differ from `main` in the
+   files they touch — the re-pushed, uncorrected draft — so they are genuinely
+   unmerged and must be left alone. Only
+   `jules-3548332226881430514-d5e710ee` (#370) and
+   `refactor-game-spawns-12314085654796856362` (#398) are content-identical to
+   `main` on their own files. The 2026-10-14 entry saw the same thing on eleven
+   branches; this is the cause.
+3. **`ObservablePoint.set` already returns early when the value is unchanged**
+   (`ObservablePoint.mjs:59-64`), so "remove the redundant `scale.set(1)` /
+   `anchor.set(0, 0)`" never saves a transform invalidation — only a call's
+   overhead, 1.0 ns per sprite. Against that, the skip holds only while
+   `acquireSprite` keeps resetting pooled sprites **and** a fresh
+   `new Sprite(texture)` keeps defaulting to anchor `(0, 0)`, which is true only
+   because `getTexture` builds textures without a `defaultAnchor`
+   (`Sprite.mjs:33-37` adopts `texture.defaultAnchor` when one exists). Four
+   places to re-derive for 1 ns: not worth it. Do not re-propose it.
+4. **Branch deletion is blocked at the proxy, not by repository permissions.**
+   `gh api -X DELETE repos/.../git/refs/heads/<branch>` returns HTTP 403 "Write
+   access to this GitHub API path is not permitted through this proxy", and
+   `git push origin --delete` dies with "the remote end hung up unexpectedly".
+   Both attempted once this run, on a branch that was safe to delete. The
+   `mcp__github__*` toolset still has no branch-deletion tool. One attempt per
+   transport is enough; do not retry.
+5. **The event-budget off-by-one is already covered.** ADR 0009 notes that
+   `if (processed++ > MAX_EVENTS_PER_TICK)` lets 1001 events through;
+   `events.test.ts:34` already asserts
+   `originalLength - (MAX_EVENTS_PER_TICK + 1)`. Not a coverage gap — do not
+   report it.
+
+**Found in main:** no correctness defect in the window (`484ffbf..1a2bf95`).
+`#409`'s net change is three cache getters, equivalent because all three maps
+are typed `Map<K, Texture>` and every `set` stores a real texture; a sweep of
+`src/client`, `src/engine` and `server` found no fourth `has`-then-`get` site.
+What the window did leave is the duplication in this pull request: #408 added a
+**third** copy of the AI-overflow scaffold in `tick.test.ts`, in a file that
+already keeps a `magnetScene()` helper for exactly this job, and #329
+(`janitor/test-setup-consolidation`) landed the same consolidation for the
+magnet cases.
+
+**For next time:**
+
+- The three overflow cases now share `runTickWithAICommands` and `waitCommand`.
+  The refactor is mutation-checked against all three mutations the originals
+  caught (guard removed, sort moved before the truncation, truncation made
+  unconditional) and catches each identically. If a fourth overflow case
+  appears, extend the helper rather than copying the scaffold a fourth time.
+- `waitCommand` builds a complete `Command`. The old literals were `any[]` with
+  no `data`, `source`, or (in two of three) `priority`, which modelled a state
+  the engine cannot reach — the same unreachable-`priority` state that #405,
+  #402, #390 and #388 were all closed for defending.
+- **`snagglepuss.test.ts` -> "occasionally mutters while within hearing
+  distance" is flaky, and it is not this pull request.** It failed once in a
+  full-suite run and then passed in isolation and in four further full-suite
+  runs (two on clean `main`, two on this branch); the change here touches only
+  `tick.test.ts`, which stubs AI generation out entirely. Root cause, for
+  whoever fixes it: the module-level `RNG` is seeded from the clock
+  (`rng.ts:18`, `initialSeed ?? (Date.now() ^ 0x9e3779b1) >>> 0`), so anything
+  reading it without reseeding varies run to run — and the test's wait loop
+  exits on `state.pendingSounds.length === 0` being false, i.e. on **any**
+  sound, while the assertion requires the mutter specifically
+  (`snagglepuss.test.ts:131-144`). Any other sound arriving first ends the loop
+  with the wrong sound queued. Left alone deliberately: it is outside the
+  24-hour window and fixing it is Test's scope, not a Phase 2 cleanup.
