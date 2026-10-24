@@ -128,11 +128,3 @@ the save-file half as closed.
 **Action:** Added a type guard inside `isIncomingMessage` to ensure `value.name` is strictly a string when `value.type === "set_name"`, dropping malformed payloads at the boundary before they reach the handler logic.
 
 **Prevention:** Always explicitly validate the types of all properties on incoming untrusted messages inside the boundary type guards (`isIncomingMessage` or similar). Never rely on downstream helper functions to coerce or handle fundamentally incorrect types unless they are explicitly written to accept `unknown`.
-
-## 2026-10-24 - Prevent server DoS from untrusted message fields
-
-**What was found:** The server's boundary validations `isIncomingMessage` and `isNetworkAction` (in `server/multiplayer-server.ts`) did not sufficiently check the types of individual fields inside payloads (like `velocity`, `select_weapon`, `inventory_swap`, and specific network actions like `FIRE`, `SHAPE_TERRAIN`, `SPEAK`). Although the previous run fixed `set_name`, other handlers could still crash the server by calling methods on incorrectly typed values (e.g. `inventory_swap` passing string indexes to array splice operations, or network actions passing objects to math operations).
-
-**Action:** Added strict primitive type checking for all fields on all `IncomingMessage2` and `NetworkAction` variants inside the `isIncomingMessage` and `isNetworkAction` boundary type guards.
-
-**Prevention:** TypeScript interfaces provide no runtime guarantees. Always explicitly validate the types of all nested fields on incoming untrusted messages inside the outermost boundary type guards.

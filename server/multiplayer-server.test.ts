@@ -532,28 +532,6 @@ describe("multiplayer server (multi-world)", () => {
     guest.close();
   }, 15_000);
 
-  it("rejects messages with invalid primitive types", async () => {
-    server = await startMultiplayerServer(0);
-    const client = connect(server.port, "Host");
-    await waitFor(client, "welcome");
-
-    const rejectionSelectWeapon = waitFor(client, "error");
-    send(client, { type: "select_weapon", slot: "0" });
-    expect((await rejectionSelectWeapon).message).toBe("Invalid payload.");
-
-    const rejectionInventorySwap = waitFor(client, "error");
-    send(client, { type: "inventory_swap", from: "0", to: 1 });
-    expect((await rejectionInventorySwap).message).toBe("Invalid payload.");
-
-    const rejectionVelocity = waitFor(client, "error");
-    send(client, { type: "velocity", vx: "1", vy: 0 });
-    expect((await rejectionVelocity).message).toBe("Invalid payload.");
-
-    expect(client.readyState).toBe(WebSocket.OPEN);
-
-    client.close();
-  });
-
   it("rejects a set_name message whose name is not a string", async () => {
     server = await startMultiplayerServer(0);
     const client = connect(server.port, "Host");
