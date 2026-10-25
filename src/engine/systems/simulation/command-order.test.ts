@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { Command, CommandType } from "../../types";
 import { sortCommandsDeterministically } from "./tick";
 
-function command(id: string, actorId: string, priority: number): Command {
+function command(id: string, actorId: string, priority?: number): Command {
   return {
     id,
     tick: 1,
@@ -22,7 +22,7 @@ function command(id: string, actorId: string, priority: number): Command {
     data: {} as Command["data"],
     priority,
     source: "AI",
-  };
+  } as unknown as Command;
 }
 
 const order = (commands: Command[]): string[] => commands.map((c) => c.id);
@@ -38,6 +38,19 @@ describe("sortCommandsDeterministically", () => {
     sortCommandsDeterministically(commands);
 
     expect(order(commands)).toEqual(["b", "c", "a"]);
+  });
+
+  it("treats undefined priority as 0 to avoid returning NaN", () => {
+    const commands = [
+      command("a", "actor-1", 5),
+      command("b", "actor-1", undefined),
+      command("c", "actor-1", -1),
+    ];
+
+    sortCommandsDeterministically(commands);
+
+    // If it returns NaN, the sort order will be broken or unchanged.
+    expect(order(commands)).toEqual(["a", "b", "c"]);
   });
 
   it("breaks equal priority by actorId, ascending", () => {

@@ -63,3 +63,11 @@
 **Action:** Added `levels` as an optional property to `StateDelta`. Implemented the logic in `computeStateDelta` to calculate changes to `levels` via `shallowJsonEqual`, and in `applyStateDelta` to patch it over the baseline. Added a test in `src/net/state-delta.test.ts` to enforce that this array survives the round-trip.
 
 **Prevention:** When adding fields to `SerializedState`, ensure they are properly handled in `src/net/state-delta.ts` to maintain delta compression integrity.
+
+## 2026-10-25 - Fix deterministic command sorting with undefined priorities
+
+**What was found:** `sortCommandsDeterministically` in `src/engine/systems/simulation/tick.ts` subtracted `a.priority` from `b.priority` or compared them directly, without handling cases where `priority` might be `undefined`. If it's undefined, numerical subtraction leads to `NaN`, which breaks the sort order and leads to nondeterministic simulation state.
+
+**Action:** Replaced the unsafe priority subtraction with one that defaults `undefined` priority values to `0`, `const pA = a.priority ?? 0; const pB = b.priority ?? 0;`. Modified `src/engine/systems/simulation/command-order.test.ts` to add a test proving `undefined` priorities don't produce `NaN` sorting errors and actually fallback to 0.
+
+**Prevention:** When deterministically sorting simulation commands by priority, any undefined priority values must be explicitly defaulted to 0 to avoid returning NaN from numerical subtraction comparators.
