@@ -590,7 +590,9 @@ function triggerMonsterFall(state: GameState, monster: Monster): void {
  */
 export function sortCommandsDeterministically(commands: Command[]): void {
   commands.sort((a, b) => {
-    if (a.priority !== b.priority) return b.priority - a.priority;
+    const aPri = a.priority ?? 0;
+    const bPri = b.priority ?? 0;
+    if (aPri !== bPri) return bPri - aPri;
     if (a.actorId !== b.actorId) return a.actorId.localeCompare(b.actorId);
     return a.id.localeCompare(b.id);
   });
