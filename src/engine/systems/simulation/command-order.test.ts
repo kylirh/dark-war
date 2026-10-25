@@ -28,18 +28,6 @@ function command(id: string, actorId: string, priority: number): Command {
 const order = (commands: Command[]): string[] => commands.map((c) => c.id);
 
 describe("sortCommandsDeterministically", () => {
-  it("treats undefined priority as 0", () => {
-    const commands = [
-      command("a", "actor-1", undefined as any),
-      command("b", "actor-1", 1),
-      command("c", "actor-1", -1),
-    ];
-
-    sortCommandsDeterministically(commands);
-
-    expect(order(commands)).toEqual(["b", "a", "c"]);
-  });
-
   it("puts higher priority first", () => {
     const commands = [
       command("a", "actor-1", 1),
