@@ -23,3 +23,11 @@ another player's transition.
 pending actions or delayed transitions. Any state flags set by a command that
 are evaluated later in the tick (or after the tick) must be aborted if the actor
 dies in the interim.
+
+## 2026-10-26 - Default undefined command priorities to 0 to prevent NaN during sort
+
+**What was found:** `sortCommandsDeterministically` in `src/engine/systems/simulation/tick.ts` used `a.priority - b.priority`. When `priority` was `undefined`, this subtraction resulted in `NaN`. This caused the sorting algorithm to fail, returning inconsistent or unexpected command execution orders.
+
+**Action:** Modified `sortCommandsDeterministically` to fall back to `0` when `priority` is undefined (`a.priority ?? 0`). Added a test case in `src/engine/systems/simulation/command-order.test.ts` to prove that undefined priorities sort deterministically as 0.
+
+**Prevention:** When deterministically sorting simulation commands by priority, any `undefined` priority values must be explicitly defaulted to `0` to avoid returning `NaN` from numerical subtraction comparators.
