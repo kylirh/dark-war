@@ -23,3 +23,9 @@ another player's transition.
 pending actions or delayed transitions. Any state flags set by a command that
 are evaluated later in the tick (or after the tick) must be aborted if the actor
 dies in the interim.
+
+## 2024-10-27 - default command priority to 0 during sort
+
+**What was found:** commands missing an explicit priority could produce undefined values during sorting, leading to nan comparisons and non-deterministic or broken ordering.
+**Action:** updated `sortCommandsDeterministically` to explicitly default `undefined` priorities to `0` when comparing.
+**Prevention:** when deterministically sorting simulation commands by priority, any `undefined` priority values must be explicitly defaulted to `0` to avoid returning `NaN` from numerical subtraction comparators.
