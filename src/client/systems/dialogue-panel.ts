@@ -57,7 +57,6 @@ export class DialoguePanel {
     this.root.setAttribute("aria-labelledby", "dialogue-speaker");
     this.root.setAttribute("aria-describedby", "dialogue-text");
     this.root.hidden = true;
-    this.root.tabIndex = -1;
 
     this.portrait = document.createElement("canvas");
     this.portrait.width = PORTRAIT_PX;

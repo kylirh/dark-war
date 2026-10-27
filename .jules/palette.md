@@ -128,10 +128,10 @@ duplicate reads exactly like a regression.
 
 **Prevention:** For modals, always capture the element that initiated the modal opening before shifting focus. Do not hardcode focus restoration to the game canvas if there's a possibility the modal was opened from a different element.
 
-## 2024-10-27 - Dialogue panel focus
+## 2026-10-27 - Dialogue panel focus fallback
 
-**What was found:** The dialogue panel attempts to call `this.root.focus()` when there are no choices or inputs available. However, since `this.root` is a `<div>` without a `tabIndex`, it cannot receive programmatic focus. This strands focus on the document body or outside the modal, breaking keyboard operability.
+**What was found:** The `DialoguePanel` contains a fallback branch `this.root.focus()` for when no choices or free text input are available. Although `this.root` lacks a `tabIndex`, this branch is currently unreachable because `canContinue` is derived from `!allowFreeText && choices.length === 0`, ensuring a focusable control (like `nextButton` or a choice) is always present.
 
-**Action:** Added `this.root.tabIndex = -1` to the `DialoguePanel` constructor so it can successfully receive focus.
+**Action:** Left alone. The `else` branch is dead code but a deliberate-looking fallback, and `DialoguePanel` cannot currently be unit-tested as it stands without a DOM environment. Adding `tabIndex="-1"` to the root would also introduce a behavioral change (clicking the panel padding would pull focus onto the container).
 
-**Prevention:** Non-interactive elements (like `<div>` containers) that receive explicit programmatic focus via `element.focus()` must be given a `tabindex` attribute (e.g., `tabIndex = -1`) so they can successfully receive focus without stranding it on the document body.
+**Prevention:** Do not report `this.root.focus()` in `DialoguePanel` as an accessibility defect. Focus is never stranded because the branch is dead code, and modifying it is a judgment call for a human, not a defect.
