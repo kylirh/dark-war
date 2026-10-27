@@ -127,3 +127,11 @@ duplicate reads exactly like a regression.
 **Action:** Added `captureFocusOpener` and `restoreFocus` from `focus-restore.ts` to `character-modal.ts`, capturing the opener element before rendering the modal, and explicitly restoring focus to it on close.
 
 **Prevention:** For modals, always capture the element that initiated the modal opening before shifting focus. Do not hardcode focus restoration to the game canvas if there's a possibility the modal was opened from a different element.
+
+## 2024-10-27 - Dialogue panel focus
+
+**What was found:** The dialogue panel attempts to call `this.root.focus()` when there are no choices or inputs available. However, since `this.root` is a `<div>` without a `tabIndex`, it cannot receive programmatic focus. This strands focus on the document body or outside the modal, breaking keyboard operability.
+
+**Action:** Added `this.root.tabIndex = -1` to the `DialoguePanel` constructor so it can successfully receive focus.
+
+**Prevention:** Non-interactive elements (like `<div>` containers) that receive explicit programmatic focus via `element.focus()` must be given a `tabindex` attribute (e.g., `tabIndex = -1`) so they can successfully receive focus without stranding it on the document body.
