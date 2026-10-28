@@ -81,7 +81,7 @@ describe("generateAICommands", () => {
 
     // Only m1 and m3 can act
     (simHelpers.canActorAct as any).mockImplementation(
-      (state: any, id: string) => {
+      (_state: any, id: string) => {
         return id === "m1" || id === "m3";
       },
     );
