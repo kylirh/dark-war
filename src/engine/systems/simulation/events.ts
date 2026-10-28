@@ -997,7 +997,9 @@ function processPlayerDeathEvent(state: GameState, event: GameEvent): void {
   const data = event.data as { type: "PLAYER_DEATH"; playerId: string };
 
   // Stop dead player's movement immediately (works for both single and multiplayer)
-  const player = state.players.find((p) => p.id === data.playerId);
+  const player = state.entityManager.getById(data.playerId) as
+    | Player
+    | undefined;
   if (player) {
     player.velocityX = 0;
     player.velocityY = 0;
@@ -1041,9 +1043,9 @@ function processSignReadEvent(state: GameState, event: GameEvent): void {
     signId: string;
   };
   const view = signViewForPlacement(state, data.signId);
-  const player = state.players.find(
-    (candidate) => candidate.id === data.playerId,
-  );
+  const player = state.entityManager.getById(data.playerId) as
+    | Player
+    | undefined;
   if (!view || !player) return;
 
   state.activeSignViews.set(player.id, view);
