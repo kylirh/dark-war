@@ -56,7 +56,6 @@ export class DialoguePanel {
     this.root.setAttribute("aria-modal", "true");
     this.root.setAttribute("aria-labelledby", "dialogue-speaker");
     this.root.setAttribute("aria-describedby", "dialogue-text");
-    this.root.tabIndex = -1;
     this.root.hidden = true;
 
     this.portrait = document.createElement("canvas");
@@ -180,8 +179,6 @@ export class DialoguePanel {
       this.focusChoice(0);
     } else if (view.canContinue) {
       this.nextButton.focus();
-    } else {
-      this.root.focus();
     }
   }
 

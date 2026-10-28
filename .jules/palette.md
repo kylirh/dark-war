@@ -128,10 +128,10 @@ duplicate reads exactly like a regression.
 
 **Prevention:** For modals, always capture the element that initiated the modal opening before shifting focus. Do not hardcode focus restoration to the game canvas if there's a possibility the modal was opened from a different element.
 
-## 2024-10-28 - Fix focus stranding in dialog modals
+## 2024-10-28 - Remove unreachable focus fallback in DialoguePanel
 
-**What was found:** The `DialoguePanel` and `SignReader` modals were attempting to set focus to their root container elements (`this.root.focus()`), but because those containers did not have a `tabindex`, the focus calls were silently ignored by the browser, stranding keyboard focus on the `<body>`.
+**What was found:** A previous run correctly identified that `this.root.focus()` was a no-op on `DialoguePanel` because the root lacked a `tabIndex`. However, PR review revealed that the branch containing `this.root.focus()` was inherently unreachable due to the logic calculating `canContinue`.
 
-**Action:** Added `this.root.tabIndex = -1;` to the constructors of `DialoguePanel` and `SignReader` so their container elements can programmatically receive focus.
+**Action:** Removed the unreachable `else { this.root.focus(); }` branch from `DialoguePanel` as it's dead code. Reverted the `tabIndex` change to `SignReader` because it natively focuses its `closeButton`, meaning it never needed root focusability to begin with.
 
-**Prevention:** When an interface component relies on programmatically focusing a generic HTML container (like a `<div>`) to manage keyboard interaction, always verify that the container has `tabIndex = -1` set, otherwise the focus will be lost.
+**Prevention:** Before fixing an accessibility issue with a control, verify that the control or branch in question is actually reachable and functionally active under realistic use cases.
