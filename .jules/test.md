@@ -274,3 +274,9 @@ for implementing that question as if it were decided. The test pins today's
 behaviour so the change is deliberate and visible, not silent; a human answering
 the open question is expected to update it, and should update the ADR and the
 `MAX_COMMANDS_PER_TICK` TSDoc in the same change.
+
+## 2026-10-28
+
+- **Finding:** The JSON parsing logic in `MultiplayerClient`'s socket message handler lacked test coverage for invalid JSON strings.
+- **Action:** Added a test in `src/net/multiplayer-client.test.ts` to simulate receiving a malformed JSON string and verify that it doesn't crash or trigger unexpected callbacks.
+- **Prevention:** To prevent regressions, ensure all code paths involving network message parsing are covered by tests.

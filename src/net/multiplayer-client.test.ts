@@ -121,4 +121,28 @@ describe("MultiplayerClient", () => {
       expect(onLobby).not.toHaveBeenCalled();
     });
   });
+
+  it("silently drops invalid JSON messages", () => {
+    const client = new MultiplayerClient(
+      "ws://localhost:8080",
+      "room-1",
+      "player-1",
+    );
+
+    const onLobbyMock = vi.fn();
+    client.onLobbyUpdate(onLobbyMock);
+
+    client.connect();
+
+    const messageCall = mockSocket.addEventListener.mock.calls.find(
+      (call: any[]) => call[0] === "message",
+    );
+    expect(messageCall).toBeDefined();
+
+    // Trigger message event with invalid JSON
+    messageCall[1]({ data: "{ invalid_json }" });
+
+    // Verify it doesn't crash and no callbacks are invoked
+    expect(onLobbyMock).not.toHaveBeenCalled();
+  });
 });
