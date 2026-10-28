@@ -119,11 +119,3 @@ command toggled a second time.
 every write to the field first — here, `resting =` and `stopPlayerResting`
 together name all four sites in seconds. An inline comment that under-counts the
 exits is worse than no comment, because the next reader stops looking after it.
-
-## 2026-10-28 - Document emergency stackable resources bypass contract
-
-**What was found:** `resolvePickupCommand` drops items if `canAddToInventory` returns false. The memory item noted that emergency stackable resources (Medkits and Powercells) must bypass this check because their specific carry limits (`maxCarry`) are enforced during downstream event resolution (`processPickupItemEvent` in `events.ts`). The code previously only allowed `POWERCELL` to bypass, and explicitly claimed medkits "must respect the normal inventory path", which contradicted the memory rule and prevented `maxCarry` enforcement.
-
-**Action:** Updated the comment and the `bypassCheck` logic in `resolvePickupCommand` (`src/engine/systems/simulation/commands.ts`) to include both `POWERCELL` and `MEDKIT`, and documented that their specific carry limits are enforced downstream in `events.ts`.
-
-**Prevention:** Document invisible engine-wide constraints on the specific interface and implementation methods where developers actually read and edit code.
