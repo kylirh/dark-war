@@ -985,10 +985,13 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
       if (url.pathname === "/info") {
         const roomId = sanitizeRoomId(url.searchParams.get("room"));
         const room = rooms.get(roomId);
-        res.writeHead(200, {
+        const headers: Record<string, string> = {
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        });
+        };
+        if (process.env.CORS_ORIGIN) {
+          headers["Access-Control-Allow-Origin"] = process.env.CORS_ORIGIN;
+        }
+        res.writeHead(200, headers);
         res.end(
           JSON.stringify(
             room?.getInfo() ?? {
@@ -1007,10 +1010,13 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
           ...room.getInfo(),
           roomId: id,
         }));
-        res.writeHead(200, {
+        const headers: Record<string, string> = {
           "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        });
+        };
+        if (process.env.CORS_ORIGIN) {
+          headers["Access-Control-Allow-Origin"] = process.env.CORS_ORIGIN;
+        }
+        res.writeHead(200, headers);
         res.end(JSON.stringify(list));
         return;
       }
