@@ -152,22 +152,22 @@ describe("Physics.predictLocalMovement", () => {
   });
 });
 
-describe("Physics.updatePhysics (actor wall sliding)", () => {
-  function actorState(map: TileType[]): GameState {
-    const entities: Entity[] = [];
-    return {
-      entities,
-      entityManager: new EntityManager(entities),
-      effects: [],
-      eventQueue: [],
-      map,
-      mapWidth: W,
-      mapHeight: H,
-      tiles: new FlatTileSource(map, W, H),
-      sim: { nowTick: 0 },
-    } as unknown as GameState;
-  }
+function actorState(map: TileType[]): GameState {
+  const entities: Entity[] = [];
+  return {
+    entities,
+    entityManager: new EntityManager(entities),
+    effects: [],
+    eventQueue: [],
+    map,
+    mapWidth: W,
+    mapHeight: H,
+    tiles: new FlatTileSource(map, W, H),
+    sim: { nowTick: 0 },
+  } as unknown as GameState;
+}
 
+describe("Physics.updatePhysics (actor wall sliding)", () => {
   it("cancels only the inward velocity when an actor runs into a wall", () => {
     const physics = new Physics();
     const map = makeMap();
@@ -214,6 +214,98 @@ describe("Physics.updatePhysics (actor wall sliding)", () => {
 
     expect(monster.velocityX).toBe(0);
     expect(monster.velocityY).toBe(0);
+  });
+});
+
+/**
+ * The bounded-level edge clamp, which `predictLocalMovement` and
+ * `updatePhysics` share through one helper. The clamp distance is the caller's
+ * collision radius, so the two call sites stop an entity at different offsets
+ * from the same border: the prediction path always passes the player radius,
+ * while `updatePhysics` passes a per-kind value. Nothing pinned either the
+ * offset or the velocity cancellation, so a swapped radius or a dropped
+ * velocity reset would leave the whole suite green.
+ */
+describe("Physics.updatePhysics (bounded edge clamp)", () => {
+  // An open map: with no blocking tiles there are no wall colliders, so the
+  // clamp is the only thing that can stop an actor at the border.
+  const openMap = (): TileType[] => new Array(W * H).fill(TileType.FLOOR);
+
+  it("stops a monster at the east border, one monster radius short", () => {
+    const physics = new Physics();
+    const state = actorState(openMap());
+
+    const monster = new MonsterEntity(7, 5, MonsterType.RAT, 1);
+    monster.velocityX = 600;
+    state.entityManager.spawn(monster);
+    physics.rebuildAll(state);
+
+    for (let step = 0; step < 10; step++) {
+      physics.updatePhysics(state, 1 / 60);
+    }
+
+    // maxBoundX = (W - 1) * 32 - MONSTER_RADIUS = 288 - 7
+    expect(monster.worldX).toBe(281);
+    expect(monster.velocityX).toBe(0);
+  });
+
+  it("stops a player one player radius short, a different offset", () => {
+    const physics = new Physics();
+    const state = actorState(openMap());
+
+    const player = new PlayerEntity(7, 5);
+    player.velocityX = 600;
+    state.entityManager.spawn(player);
+    physics.rebuildAll(state);
+
+    for (let step = 0; step < 10; step++) {
+      physics.updatePhysics(state, 1 / 60);
+    }
+
+    // maxBoundX = (W - 1) * 32 - PLAYER_RADIUS = 288 - 8
+    expect(player.worldX).toBe(280);
+    expect(player.velocityX).toBe(0);
+  });
+
+  it("clamps the north-west corner and cancels both components", () => {
+    const physics = new Physics();
+    const state = actorState(openMap());
+
+    const monster = new MonsterEntity(2, 2, MonsterType.RAT, 1);
+    monster.velocityX = -600;
+    monster.velocityY = -600;
+    state.entityManager.spawn(monster);
+    physics.rebuildAll(state);
+
+    for (let step = 0; step < 10; step++) {
+      physics.updatePhysics(state, 1 / 60);
+    }
+
+    // minBound = CELL_CONFIG.w + MONSTER_RADIUS = 32 + 7
+    expect(monster.worldX).toBe(39);
+    expect(monster.worldY).toBe(39);
+    expect(monster.velocityX).toBe(0);
+    expect(monster.velocityY).toBe(0);
+  });
+
+  it("wraps instead of clamping on the toroidal outside world", () => {
+    const physics = new Physics();
+    const state = actorState(openMap());
+    (state as { levelKind?: string }).levelKind = "outside";
+
+    const monster = new MonsterEntity(8, 5, MonsterType.RAT, 1);
+    monster.velocityX = 600;
+    state.entityManager.spawn(monster);
+    physics.rebuildAll(state);
+
+    for (let step = 0; step < 10; step++) {
+      physics.updatePhysics(state, 1 / 60);
+    }
+
+    // Started at 8 * 32 + 16 = 272 and travelled 10 * 600 / 60 = 100px, so it
+    // crossed worldW = W * 32 = 320 and reappeared at 52, still moving.
+    expect(monster.worldX).toBe(52);
+    expect(monster.velocityX).toBe(600);
   });
 });
 
