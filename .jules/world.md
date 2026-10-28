@@ -34,3 +34,11 @@ coverage exists — check that the behaviour you are changing is actually tested
 before treating "all tests pass" as proof the change is safe. Whether Dark War
 should move four-directionally is a design decision for a human and an ADR, not
 a one-line predicate edit.
+
+## 2024-10-28 - fix stale visual neighborhood on local set tile
+
+**What was found:** Local terrain mutation using `setStateTile` only added the exact mutated cell to `state.changedTiles`. However, the underlying `worldPlane.setTile` operation refreshes a 3x3 visual neighborhood, meaning visually relevant metadata for adjacent tiles (like autotile masks and cliffs) silently drifted without replicating to clients.
+
+**Action:** Changed the core `TileSource.setTile` signature to return `void | readonly number[]`. Updated `WorldPlane` to return the complete array of dirtied cells from `visualState.refreshNeighborhood`. Modified `setStateTile` to add all returned indices to `changedTiles`.
+
+**Prevention:** Terrain mutation functions must ensure that the full set of bounded changes reported by `WorldPlane` is tracked for physics and replication.

@@ -141,7 +141,7 @@ export class WorldPlane implements TileSource {
     return this.resolvedTileCache[this.indexFor(x, y)] as TileType;
   }
 
-  setTile(x: number, y: number, tile: TileType): void {
+  setTile(x: number, y: number, tile: TileType): void | readonly number[] {
     if (!this.inBounds(x, y)) return;
     if (!this.writeCell) {
       throw new Error("This WorldPlane does not support scalar tile writes");
@@ -149,7 +149,7 @@ export class WorldPlane implements TileSource {
     const index = this.indexFor(x, y);
     this.writeCell(this.layers, index, tile);
     this.refreshResolvedTile(index);
-    this.visualState?.refreshNeighborhood(x, y);
+    return this.visualState?.refreshNeighborhood(x, y) ?? [index];
   }
 
   passable(x: number, y: number): boolean {
