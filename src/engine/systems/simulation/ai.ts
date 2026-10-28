@@ -82,6 +82,15 @@ const UTILITY_BOT_CLEANUP_SOUNDS = [
  * If (toX, toY) is impassable, navigates to the nearest adjacent passable tile.
  * Returns null when already adjacent or no path exists.
  */
+let sharedBotNextStepParent: Int32Array | null = null;
+function getSharedBotNextStepParent(size: number): Int32Array {
+  if (!sharedBotNextStepParent || sharedBotNextStepParent.length < size) {
+    sharedBotNextStepParent = new Int32Array(size);
+  }
+  sharedBotNextStepParent.fill(-1);
+  return sharedBotNextStepParent;
+}
+
 function botNextStep(
   state: GameState,
   fromX: number,
@@ -120,8 +129,8 @@ function botNextStep(
 
   const startIdx = idxFor(fromX, fromY, w);
   const goalIdx = idxFor(goalX, goalY, w);
-  const parent = new Map<number, number>();
-  parent.set(startIdx, -1);
+  const parent = getSharedBotNextStepParent(w * h);
+  parent[startIdx] = -2; // use -2 as start marker so -1 can mean unvisited
   const queue: number[] = [startIdx];
   let queueHead = 0;
 
@@ -135,11 +144,11 @@ function botNextStep(
         ny = cy + dy;
       if (!inBoundsFor(nx, ny, w, h)) continue;
       const nIdx = idxFor(nx, ny, w);
-      if (parent.has(nIdx)) continue;
+      if (parent[nIdx] !== -1) continue;
       if (!tiles.passable(nx, ny)) continue;
       if (!tiles.canTraverse(cx, cy, nx, ny)) continue;
       if (tiles.getTile(nx, ny) === TileType.HOLE) continue;
-      parent.set(nIdx, cur);
+      parent[nIdx] = cur;
       if (nIdx === goalIdx) {
         found = true;
         break outer;
@@ -152,9 +161,9 @@ function botNextStep(
 
   // Trace back to the first step after start
   let cur = goalIdx;
-  while (parent.get(cur) !== startIdx) {
-    const p = parent.get(cur);
-    if (p === undefined || p === -1) return null;
+  while (parent[cur] !== startIdx) {
+    const p = parent[cur];
+    if (p === undefined || p === -1 || p === -2) return null;
     cur = p;
   }
   return [cur % w, Math.floor(cur / w)];
@@ -203,6 +212,15 @@ function steerTowardGrid(
  * Returns the coordinates of the nearest repair target that is actually
  * reachable (has a traversable path to its neighbor). Omniscient — no FOV check.
  */
+let sharedFindNearestVisited: Uint8Array | null = null;
+function getSharedFindNearestVisited(size: number): Uint8Array {
+  if (!sharedFindNearestVisited || sharedFindNearestVisited.length < size) {
+    sharedFindNearestVisited = new Uint8Array(size);
+  }
+  sharedFindNearestVisited.fill(0);
+  return sharedFindNearestVisited;
+}
+
 function findNearestReachableRepairTarget(
   state: GameState,
   fromX: number,
@@ -225,12 +243,12 @@ function findNearestReachableRepairTarget(
     );
   };
 
-  const visited = new Set<number>();
+  const visited = getSharedFindNearestVisited(w * h);
   const queue: number[] = [];
   let queueHead = 0;
   const startIdx = idxFor(fromX, fromY, w);
   queue.push(startIdx);
-  visited.add(startIdx);
+  visited[startIdx] = 1;
 
   while (queueHead < queue.length) {
     const cur = queue[queueHead++];
@@ -246,8 +264,8 @@ function findNearestReachableRepairTarget(
         ny = cy + dy;
       if (!inBoundsFor(nx, ny, w, h)) continue;
       const nIdx = idxFor(nx, ny, w);
-      if (visited.has(nIdx)) continue;
-      visited.add(nIdx);
+      if (visited[nIdx] !== 0) continue;
+      visited[nIdx] = 1;
 
       if (acceptsTarget(nx, ny) && isRepairable(nIdx)) return [nx, ny];
 
