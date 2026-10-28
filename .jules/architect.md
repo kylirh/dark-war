@@ -33,3 +33,11 @@ cases now fail under the Manhattan edit, verified by mutating
 A log's own count is a snapshot, not a current fact — re-derive it from the
 pull request list before citing it, and mutate the predicate before claiming
 nothing covers it.
+
+## 2026-10-28 - Proposed ADR for Client Action Routing
+
+**What was found:** The `src/client/main.ts` file acts as the central router for all player input and network events, and has grown to over 3000 lines. Currently, almost every user action (movement, waiting, dialogue, attacking, terrain shaping, etc.) contains an inline `if (this.isOnlineMode())` branch to fork behavior between offline (single-player) and online (multiplayer) modes. This coupling makes `main.ts` difficult to test in isolation, and the offline/online logic divergence is prone to drifting when new actions are added and one branch is forgotten or implemented inconsistently.
+
+**Action:** Wrote Proposed ADR 0013 recommending the extraction of an Action Router Interface (e.g., `ClientActionRouter`) with two implementations: `OfflineRouter` and `OnlineRouter`, delegating all intents from `main.ts`.
+
+**Prevention:** When a file acts as a central router for multiple distinct operating modes (like offline single-player and online multiplayer), avoid scattering inline branches for the modes throughout the file. Extract the divergent logic into dedicated classes or interfaces to maintain testability and prevent logic drift.
