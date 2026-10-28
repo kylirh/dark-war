@@ -1164,7 +1164,6 @@ function decideFriendlyPetCommand(
   }
   const enemy = nearestHostileMonster(state, monster, PET_MELEE_RANGE_PX);
   if (enemy) {
-    const name = monster.name ?? "Your pet";
     return {
       id: "",
       tick,
