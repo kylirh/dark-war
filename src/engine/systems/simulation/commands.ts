@@ -1657,9 +1657,12 @@ function resolvePickupCommand(state: GameState, cmd: Command): void {
 
   for (const item of itemsNearby) {
     const worldItem = item as { type: ItemType };
-    // Powercells retain their existing full-pack behavior; medkits are capped
-    // emergency resources and must respect the normal inventory path.
-    const bypassCheck = worldItem.type === ItemType.POWERCELL;
+    // Emergency stackable resources like Powercells and Medkits bypass the standard
+    // canAddToInventory capacity check here. Their specific carry limits (e.g., maxCarry)
+    // are enforced downstream during event resolution in events.ts (processPickupItemEvent).
+    const bypassCheck =
+      worldItem.type === ItemType.POWERCELL ||
+      worldItem.type === ItemType.MEDKIT;
 
     if (!bypassCheck && !canAddToInventory(player, worldItem.type)) {
       continue;
