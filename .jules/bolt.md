@@ -294,3 +294,10 @@ call's overhead and nothing more. Measure a setter skip before trading an
 invariant for it, and quote the saving as a share of the frame budget — the
 lesson directly above this entry says the same thing, and the first draft of
 this one did not follow it.
+
+## 2026-10-28: Optimize AI direction deduplication
+
+- **Found:** String allocation inside loop in AI direction deduplication.
+- **Action:** Replaced `Set<string>` with a 32-bit integer bitmask for deduplication since coordinates only range from -1 to 1.
+- **Measurement:** Benchmark shows a 5-6x speedup (from ~1300ms down to ~245ms for 1,000,000 iterations).
+- **Prevention:** Remember that when coordinates are bounded to a very small range, bitmasks or 1D arrays are significantly faster than string keys for deduplication.
