@@ -452,11 +452,13 @@ export class Physics {
   }
 
   /**
-   * Update physics for all entities
-   * @param state Game state
-   * @param dt Delta time in seconds (already scaled by timeScale * REAL_TIME_SPEED)
+   * Integrate one entity's velocity for this frame and keep it in the world.
+   *
+   * Bounded levels clamp to the map edge and drop the offending velocity
+   * component; the toroidal outside world wraps across the seam instead.
+   * `entityRadius` is the caller's collision radius, which sets how far from
+   * the border the clamp stops the entity.
    */
-
   private applyVelocityAndClamp(
     state: GameState,
     entity: GameEntity,
@@ -494,6 +496,11 @@ export class Physics {
     }
   }
 
+  /**
+   * Update physics for all entities
+   * @param state Game state
+   * @param dt Delta time in seconds (already scaled by timeScale * REAL_TIME_SPEED)
+   */
   public updatePhysics(state: GameState, dt: number): void {
     // Reconcile bodies for entities spawned/despawned since the last frame.
     this.syncEntityBodies(state);

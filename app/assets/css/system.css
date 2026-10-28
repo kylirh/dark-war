@@ -49,6 +49,7 @@
   --disabled: var(--sys-color-darkgrey);
 }
 
+/* TODO: Consider replacing WOFF fonts with TTF fonts */
 @font-face {
   font-family: Chicago;
   src: url("../fonts/chicago-flf.woff") format("woff");
