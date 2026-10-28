@@ -390,41 +390,7 @@ export class Physics {
     entity.prevWorldX = entity.worldX;
     entity.prevWorldY = entity.worldY;
 
-    if (entity.velocityX !== 0 || entity.velocityY !== 0) {
-      const moveScale = this.entitySpeedScale(state, entity);
-      entity.worldX += entity.velocityX * dt * moveScale;
-      entity.worldY += entity.velocityY * dt * moveScale;
-
-      if (state.levelKind === "outside") {
-        // Toroidal world: fall off one edge, reappear on the other.
-        entity.worldX = wrapValue(
-          entity.worldX,
-          state.mapWidth * CELL_CONFIG.w,
-        );
-        entity.worldY = wrapValue(
-          entity.worldY,
-          state.mapHeight * CELL_CONFIG.h,
-        );
-      } else {
-        const minBound = CELL_CONFIG.w + PLAYER_RADIUS;
-        const maxBoundX = (state.mapWidth - 1) * CELL_CONFIG.w - PLAYER_RADIUS;
-        const maxBoundY = (state.mapHeight - 1) * CELL_CONFIG.h - PLAYER_RADIUS;
-        if (entity.worldX < minBound) {
-          entity.worldX = minBound;
-          entity.velocityX = 0;
-        } else if (entity.worldX > maxBoundX) {
-          entity.worldX = maxBoundX;
-          entity.velocityX = 0;
-        }
-        if (entity.worldY < minBound) {
-          entity.worldY = minBound;
-          entity.velocityY = 0;
-        } else if (entity.worldY > maxBoundY) {
-          entity.worldY = maxBoundY;
-          entity.velocityY = 0;
-        }
-      }
-    }
+    this.applyVelocityAndClamp(state, entity, dt, PLAYER_RADIUS);
 
     body.setPosition(entity.worldX, entity.worldY);
     this.system.update();
@@ -490,6 +456,44 @@ export class Physics {
    * @param state Game state
    * @param dt Delta time in seconds (already scaled by timeScale * REAL_TIME_SPEED)
    */
+
+  private applyVelocityAndClamp(
+    state: GameState,
+    entity: GameEntity,
+    dt: number,
+    entityRadius: number,
+  ): void {
+    if (entity.velocityX === 0 && entity.velocityY === 0) return;
+
+    const moveScale = this.entitySpeedScale(state, entity);
+    entity.worldX += entity.velocityX * dt * moveScale;
+    entity.worldY += entity.velocityY * dt * moveScale;
+
+    if (state.levelKind === "outside") {
+      // Toroidal world: wrap entities around the seam instead of clamping.
+      entity.worldX = wrapValue(entity.worldX, state.mapWidth * CELL_CONFIG.w);
+      entity.worldY = wrapValue(entity.worldY, state.mapHeight * CELL_CONFIG.h);
+    } else {
+      const minBound = CELL_CONFIG.w + entityRadius;
+      const maxBoundX = (state.mapWidth - 1) * CELL_CONFIG.w - entityRadius;
+      const maxBoundY = (state.mapHeight - 1) * CELL_CONFIG.h - entityRadius;
+      if (entity.worldX < minBound) {
+        entity.worldX = minBound;
+        entity.velocityX = 0;
+      } else if (entity.worldX > maxBoundX) {
+        entity.worldX = maxBoundX;
+        entity.velocityX = 0;
+      }
+      if (entity.worldY < minBound) {
+        entity.worldY = minBound;
+        entity.velocityY = 0;
+      } else if (entity.worldY > maxBoundY) {
+        entity.worldY = maxBoundY;
+        entity.velocityY = 0;
+      }
+    }
+  }
+
   public updatePhysics(state: GameState, dt: number): void {
     // Reconcile bodies for entities spawned/despawned since the last frame.
     this.syncEntityBodies(state);
@@ -526,52 +530,18 @@ export class Physics {
       entity.prevWorldX = entity.worldX;
       entity.prevWorldY = entity.worldY;
 
+      const entityRadius =
+        entity.kind === EntityKind.PLAYER
+          ? PLAYER_RADIUS
+          : entity.kind === EntityKind.MONSTER
+            ? MONSTER_RADIUS
+            : entity.kind === EntityKind.EXPLOSIVE
+              ? EXPLOSIVE_RADIUS
+              : 8;
+
       // Apply velocity directly (continuous movement, no targets). A slowed
       // player (e.g. spider venom) covers less ground per step.
-      const moveScale = this.entitySpeedScale(state, entity);
-      entity.worldX += entity.velocityX * dt * moveScale;
-      entity.worldY += entity.velocityY * dt * moveScale;
-
-      if (state.levelKind === "outside") {
-        // Toroidal world: wrap entities around the seam instead of clamping.
-        entity.worldX = wrapValue(
-          entity.worldX,
-          state.mapWidth * CELL_CONFIG.w,
-        );
-        entity.worldY = wrapValue(
-          entity.worldY,
-          state.mapHeight * CELL_CONFIG.h,
-        );
-      } else {
-        // Clamp to world bounds to prevent entities escaping the map.
-        // (Bullets are handled in updateBullets and skipped above.)
-        const entityRadius =
-          entity.kind === EntityKind.PLAYER
-            ? PLAYER_RADIUS
-            : entity.kind === EntityKind.MONSTER
-              ? MONSTER_RADIUS
-              : entity.kind === EntityKind.EXPLOSIVE
-                ? EXPLOSIVE_RADIUS
-                : 8;
-        const minBound = CELL_CONFIG.w + entityRadius;
-        const maxBoundX = (state.mapWidth - 1) * CELL_CONFIG.w - entityRadius;
-        const maxBoundY = (state.mapHeight - 1) * CELL_CONFIG.h - entityRadius;
-
-        if (entity.worldX < minBound) {
-          entity.worldX = minBound;
-          entity.velocityX = 0;
-        } else if (entity.worldX > maxBoundX) {
-          entity.worldX = maxBoundX;
-          entity.velocityX = 0;
-        }
-        if (entity.worldY < minBound) {
-          entity.worldY = minBound;
-          entity.velocityY = 0;
-        } else if (entity.worldY > maxBoundY) {
-          entity.worldY = maxBoundY;
-          entity.velocityY = 0;
-        }
-      }
+      this.applyVelocityAndClamp(state, entity, dt, entityRadius);
 
       // Update physics body position
       if (entity.physicsBody) {
