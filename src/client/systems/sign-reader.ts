@@ -24,6 +24,7 @@ export class SignReader {
     this.root.setAttribute("aria-modal", "true");
     this.root.setAttribute("aria-labelledby", "sign-reader-title");
     this.root.setAttribute("aria-describedby", "sign-reader-text");
+    this.root.tabIndex = -1;
     this.root.hidden = true;
 
     this.art = document.createElement("div");

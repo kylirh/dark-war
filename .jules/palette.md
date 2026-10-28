@@ -127,3 +127,11 @@ duplicate reads exactly like a regression.
 **Action:** Added `captureFocusOpener` and `restoreFocus` from `focus-restore.ts` to `character-modal.ts`, capturing the opener element before rendering the modal, and explicitly restoring focus to it on close.
 
 **Prevention:** For modals, always capture the element that initiated the modal opening before shifting focus. Do not hardcode focus restoration to the game canvas if there's a possibility the modal was opened from a different element.
+
+## 2024-10-28 - Fix focus stranding in dialog modals
+
+**What was found:** The `DialoguePanel` and `SignReader` modals were attempting to set focus to their root container elements (`this.root.focus()`), but because those containers did not have a `tabindex`, the focus calls were silently ignored by the browser, stranding keyboard focus on the `<body>`.
+
+**Action:** Added `this.root.tabIndex = -1;` to the constructors of `DialoguePanel` and `SignReader` so their container elements can programmatically receive focus.
+
+**Prevention:** When an interface component relies on programmatically focusing a generic HTML container (like a `<div>`) to manage keyboard interaction, always verify that the container has `tabIndex = -1` set, otherwise the focus will be lost.
