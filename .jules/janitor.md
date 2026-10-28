@@ -122,3 +122,11 @@ Each of the five sites was separately covered before the change: dropping the sl
 **Action:** The three copies differ by exactly one thing — whether the actor separates along positive `overlapV` (it is `response.b`) or negative (it is `response.a`), which also flips which velocity sign counts as inward. Parameterising _that_ (`pushSign: 1 | -1`) collapses all three into one `resolveActorWallOverlap` covering the push, the cancellation and the `setPosition`, with the sign comparison stated once in a module-level `movesIntoWall` predicate.
 
 **Prevention:** When consolidating mirrored blocks, find the single value the mirror turns on and pass that, not the already-resolved conditions. A helper that takes booleans its caller computed has not absorbed the logic, only the control flow — and the test for it is whether the call sites got shorter _and_ the duplicated expressions disappeared. Equivalence here was checked by brute force over 8192 overlap/velocity sign-and-magnitude combinations (including signed zeros) against the three original blocks, 0 mismatches, before touching the call sites.
+
+## 2026-10-28 - Consolidate duplicate physics clamping logic
+
+**What was found:** `predictLocalMovement` and `updatePhysics` in `src/engine/systems/physics.ts` contained repeating logic to update positions based on velocity and clamp it based on torus or physical map edges. This duplication was found by using `jscpd`.
+
+**Action:** Extracted the duplicated boilerplate into a new `applyVelocityAndClamp(state, entity, dt, entityRadius)` helper function inside `src/engine/systems/physics.ts`. It's called in both original sites.
+
+**Prevention:** Run `npx jscpd` proactively to detect block-level duplications, and extract repetitions before it spreads. When writing continuous movement / applying velocity, use a common helper function.
