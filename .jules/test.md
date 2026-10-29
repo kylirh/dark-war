@@ -274,3 +274,50 @@ for implementing that question as if it were decided. The test pins today's
 behaviour so the change is deliberate and visible, not silent; a human answering
 the open question is expected to update it, and should update the ADR and the
 `MAX_COMMANDS_PER_TICK` TSDoc in the same change.
+
+## 2026-10-29 - the ascend half of the deferred transition cancellation
+
+**What was found:** nothing missing in the code. `processDamageEvent` already
+clears `shouldDescend`, `shouldAscend`, `descendTarget` and `pendingPortalId`
+together when a player dies, so a `PLAYER_DEATH` event deferred past the tick's
+event budget cannot leave a transition armed. Only the descend half of that was
+covered by a test.
+
+**Action:** added the ascend twin in
+`src/engine/systems/simulation/death-transition.test.ts` — ascend command
+resolved, lethal damage queued, event queue overflowed, then assert
+`shouldAscend` is false and `pendingPortalId` undefined after the tick.
+
+**It is not redundant with the descend test, and that was checked rather than
+argued.** The four cancellations are one statement block, so the obvious worry
+is that any mutation fails both tests and the new one covers nothing. Removing
+the whole block does fail both. But removing _only_ `state.shouldAscend = false`
+leaves the descend test green and fails just the new one, so it is the sole
+cover for that statement.
+
+**Prevention:** when a test claims to cover a second path through shared code,
+delete one statement rather than the whole block and check that the existing
+test stays green. If every mutation that fails the new test also fails an old
+one, the decision was already covered and there is no oracle. Do not describe
+a covered path as a "missing" clear — this entry's first draft was titled
+"missing pendingPortalId clear" while its own body said the clear was present.
+
+## 2026-10-29 - malformed json on the socket is dropped, not thrown
+
+**What was found:** `handleMessage` wraps `JSON.parse` in a try/catch and
+returns on failure (`multiplayer-client.ts:261-266`), so a malformed frame is
+discarded silently. Nothing covered it, which matters because the server is the
+only normal sender but anything reachable on the socket can send a frame.
+
+**Action:** added a test in `src/net/multiplayer-client.test.ts` that drives the
+registered `message` listener with `"{ invalid_json }"` and asserts no callback
+fires and nothing throws.
+
+**Checked rather than assumed:** removing the try/catch so the parse throws
+fails this test and nothing else, so it really is the only cover for that
+branch.
+
+**Prevention:** a test asserting that nothing happens is vacuous unless you
+confirm it fails when the guard is gone — "no callbacks fired" also passes when
+the listener was never wired up. Delete the guard and watch it go red before
+believing it.

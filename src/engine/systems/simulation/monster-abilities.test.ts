@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { clearMonsters } from "./test-utils";
 import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { CommandType, EntityKind, EventType, MonsterType } from "../../types";
@@ -7,11 +8,6 @@ import { pushEvent } from "./sim-helpers";
 import { processEventQueue } from "./events";
 import { processMonsterAbilities } from "./tick";
 import { resolveCommand } from "./commands";
-
-function clearMonsters(game: Game) {
-  const state = game.getState();
-  state.entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
-}
 
 describe("icky lumps breed", () => {
   beforeEach(() => RNG.reseed(99));
