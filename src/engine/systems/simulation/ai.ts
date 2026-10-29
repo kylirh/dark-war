@@ -77,6 +77,28 @@ const UTILITY_BOT_CLEANUP_SOUNDS = [
 ];
 
 /**
+ * Reused BFS parent buffer, so a search costs no allocation.
+ *
+ * Grows to the largest map seen and is never released. The reset on every
+ * handout is what makes reuse safe: a leftover entry from an earlier search —
+ * or from another `Game` in the same process, since the multiplayer server
+ * runs one per world plane — can never be read as visited. `-1` is unvisited
+ * and `-2` marks the start, so an index of `0` stays usable as a real parent.
+ *
+ * Not reentrant: one search must finish before the next begins. Both callers
+ * are plain synchronous loops, so that holds today — a BFS that came to call
+ * back into another would silently corrupt both.
+ */
+let sharedBotNextStepParent: Int32Array | null = null;
+function getSharedBotNextStepParent(size: number): Int32Array {
+  if (!sharedBotNextStepParent || sharedBotNextStepParent.length < size) {
+    sharedBotNextStepParent = new Int32Array(size);
+  }
+  sharedBotNextStepParent.fill(-1);
+  return sharedBotNextStepParent;
+}
+
+/**
  * BFS to find the next grid step the utility bot should take toward (toX, toY).
  * Ignores FOV — the bot is omniscient.
  * If (toX, toY) is impassable, navigates to the nearest adjacent passable tile.
@@ -120,8 +142,8 @@ function botNextStep(
 
   const startIdx = idxFor(fromX, fromY, w);
   const goalIdx = idxFor(goalX, goalY, w);
-  const parent = new Map<number, number>();
-  parent.set(startIdx, -1);
+  const parent = getSharedBotNextStepParent(w * h);
+  parent[startIdx] = -2; // use -2 as start marker so -1 can mean unvisited
   const queue: number[] = [startIdx];
   let queueHead = 0;
 
@@ -135,11 +157,11 @@ function botNextStep(
         ny = cy + dy;
       if (!inBoundsFor(nx, ny, w, h)) continue;
       const nIdx = idxFor(nx, ny, w);
-      if (parent.has(nIdx)) continue;
+      if (parent[nIdx] !== -1) continue;
       if (!tiles.passable(nx, ny)) continue;
       if (!tiles.canTraverse(cx, cy, nx, ny)) continue;
       if (tiles.getTile(nx, ny) === TileType.HOLE) continue;
-      parent.set(nIdx, cur);
+      parent[nIdx] = cur;
       if (nIdx === goalIdx) {
         found = true;
         break outer;
@@ -152,9 +174,10 @@ function botNextStep(
 
   // Trace back to the first step after start
   let cur = goalIdx;
-  while (parent.get(cur) !== startIdx) {
-    const p = parent.get(cur);
-    if (p === undefined || p === -1) return null;
+  while (parent[cur] !== startIdx) {
+    const p = parent[cur];
+    // -1 is unvisited (no path reached the goal), -2 is the start itself.
+    if (p === -1 || p === -2) return null;
     cur = p;
   }
   return [cur % w, Math.floor(cur / w)];
@@ -198,6 +221,16 @@ function steerTowardGrid(
   return true;
 }
 
+/** Reused BFS visited buffer. Same contract as the parent buffer above. */
+let sharedFindNearestVisited: Uint8Array | null = null;
+function getSharedFindNearestVisited(size: number): Uint8Array {
+  if (!sharedFindNearestVisited || sharedFindNearestVisited.length < size) {
+    sharedFindNearestVisited = new Uint8Array(size);
+  }
+  sharedFindNearestVisited.fill(0);
+  return sharedFindNearestVisited;
+}
+
 /**
  * BFS from the bot's position through passable non-hole tiles.
  * Returns the coordinates of the nearest repair target that is actually
@@ -225,12 +258,12 @@ function findNearestReachableRepairTarget(
     );
   };
 
-  const visited = new Set<number>();
+  const visited = getSharedFindNearestVisited(w * h);
   const queue: number[] = [];
   let queueHead = 0;
   const startIdx = idxFor(fromX, fromY, w);
   queue.push(startIdx);
-  visited.add(startIdx);
+  visited[startIdx] = 1;
 
   while (queueHead < queue.length) {
     const cur = queue[queueHead++];
@@ -246,8 +279,8 @@ function findNearestReachableRepairTarget(
         ny = cy + dy;
       if (!inBoundsFor(nx, ny, w, h)) continue;
       const nIdx = idxFor(nx, ny, w);
-      if (visited.has(nIdx)) continue;
-      visited.add(nIdx);
+      if (visited[nIdx] !== 0) continue;
+      visited[nIdx] = 1;
 
       if (acceptsTarget(nx, ny) && isRepairable(nIdx)) return [nx, ny];
 
@@ -1164,7 +1197,6 @@ function decideFriendlyPetCommand(
   }
   const enemy = nearestHostileMonster(state, monster, PET_MELEE_RANGE_PX);
   if (enemy) {
-    const name = monster.name ?? "Your pet";
     return {
       id: "",
       tick,
@@ -1879,12 +1911,12 @@ function decideMonsterCommand(
   directions.sort((a, b) => b[2] - a[2]);
 
   // Remove duplicate directions
-  const seen = new Set<string>();
+  let seen = 0;
   const uniqueDirections: [number, number][] = [];
   for (const [testX, testY] of directions) {
-    const key = `${testX},${testY}`;
-    if (!seen.has(key)) {
-      seen.add(key);
+    const key = 1 << (testX + 1 + (testY + 1) * 3);
+    if (!(seen & key)) {
+      seen |= key;
       uniqueDirections.push([testX, testY]);
     }
   }
