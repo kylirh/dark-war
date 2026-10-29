@@ -7,7 +7,12 @@
 
 import { AlertQueue, DEFAULT_ALERT_DURATION_MS } from "./alert-queue";
 
-const ALERT_FADE_DURATION_MS = 350;
+/**
+ * How long a dismissing alert keeps its element around for the fade-out.
+ * Exported so tests advance timers by the real value instead of a copy of it,
+ * the way `alert-queue.ts` exports its duration and cap.
+ */
+export const ALERT_FADE_DURATION_MS = 350;
 
 interface AlertElementRecord {
   element: HTMLElement;
