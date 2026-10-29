@@ -127,3 +127,33 @@ duplicate reads exactly like a regression.
 **Action:** Added `captureFocusOpener` and `restoreFocus` from `focus-restore.ts` to `character-modal.ts`, capturing the opener element before rendering the modal, and explicitly restoring focus to it on close.
 
 **Prevention:** For modals, always capture the element that initiated the modal opening before shifting focus. Do not hardcode focus restoration to the game canvas if there's a possibility the modal was opened from a different element.
+
+## 2026-10-29 - CalloutComposer stranded focus on body when it closed
+
+**What was found:** `CalloutComposer.open()` calls `this.input.focus()`, and
+`close()` sets `this.element.hidden = true` without handing focus anywhere. The
+focused input is inside the element being hidden, so the browser drops focus to
+`<body>` and tab order restarts at the top of the page — exactly the failure
+`focus-restore.ts` was written for, and the only one of these overlays that
+restores nothing at all. Reachable from any say/think keypress.
+
+**Action:** adopted `captureFocusOpener()` / `restoreFocus()` in
+`callout-composer.ts` only, gated on `this.element.contains(document.activeElement)`
+so the composer never takes focus it was not holding. `restoreFocus(null)`
+falls back to the canvas, so the no-opener case behaves as before.
+
+**Deliberately left alone:** `dialogue-panel.ts` and `sign-reader.ts`. This
+pull request changed those too, replacing their hardcoded
+`getElementById("game")?.focus()` with the helper. They are not the same case:
+both are opened by the simulation when the player walks up to a sign or an NPC,
+not by a control the player focused, so whether they have a meaningful "opener"
+is a product question. #412 reached that same conclusion and says so in the
+docblock of `modal-focus-contract.test.ts`, which keeps them out of the adopter
+set on purpose. Do not re-propose it as a defect; it needs a human to decide
+what those two should focus on close, and then both the code and that docblock
+change together.
+
+**Prevention:** a dialog that hides a focused control and restores nothing is a
+defect with no product question attached — fix those. A dialog that restores to
+the canvas _on purpose_ is a different thing, and whether the canvas is the
+right target depends on how the dialog is opened.

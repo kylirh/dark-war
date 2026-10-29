@@ -3,6 +3,7 @@
  */
 
 import { MAX_WORLD_CALLOUT_CODEPOINTS } from "../../engine/utils/world-callouts";
+import { captureFocusOpener, restoreFocus } from "./focus-restore";
 
 export type PlayerCalloutKind = "speech" | "thought";
 
@@ -18,6 +19,7 @@ export class CalloutComposer {
   private readonly modeLabel: HTMLElement;
   private readonly liveRegion: HTMLElement;
   private kind: PlayerCalloutKind = "speech";
+  private openerFocus: HTMLElement | null = null;
 
   public constructor(private readonly options: CalloutComposerOptions) {
     const viewport = document.querySelector<HTMLElement>(".viewport");
@@ -85,6 +87,9 @@ export class CalloutComposer {
 
   /** Opens the composer in speech or thought mode and focuses its input. */
   public open(kind: PlayerCalloutKind): void {
+    if (this.element.hidden) {
+      this.openerFocus = captureFocusOpener();
+    }
     this.kind = kind;
     this.modeLabel.textContent = kind === "thought" ? "Think" : "Say";
     this.element.dataset.kind = kind;
@@ -97,8 +102,12 @@ export class CalloutComposer {
   /** Closes the composer and restores keyboard control to the game. */
   public close(): void {
     if (this.element.hidden) return;
+    const ownedFocus = this.element.contains(document.activeElement);
     this.element.hidden = true;
     document.body.classList.remove("world-callout-composing");
+    if (ownedFocus) {
+      restoreFocus(this.openerFocus);
+    }
     this.options.onClose?.();
   }
 
