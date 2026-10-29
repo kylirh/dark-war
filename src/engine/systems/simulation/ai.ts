@@ -77,10 +77,17 @@ const UTILITY_BOT_CLEANUP_SOUNDS = [
 ];
 
 /**
- * BFS to find the next grid step the utility bot should take toward (toX, toY).
- * Ignores FOV — the bot is omniscient.
- * If (toX, toY) is impassable, navigates to the nearest adjacent passable tile.
- * Returns null when already adjacent or no path exists.
+ * Reused BFS parent buffer, so a search costs no allocation.
+ *
+ * Grows to the largest map seen and is never released. The reset on every
+ * handout is what makes reuse safe: a leftover entry from an earlier search —
+ * or from another `Game` in the same process, since the multiplayer server
+ * runs one per world plane — can never be read as visited. `-1` is unvisited
+ * and `-2` marks the start, so an index of `0` stays usable as a real parent.
+ *
+ * Not reentrant: one search must finish before the next begins. Both callers
+ * are plain synchronous loops, so that holds today — a BFS that came to call
+ * back into another would silently corrupt both.
  */
 let sharedBotNextStepParent: Int32Array | null = null;
 function getSharedBotNextStepParent(size: number): Int32Array {
@@ -91,6 +98,12 @@ function getSharedBotNextStepParent(size: number): Int32Array {
   return sharedBotNextStepParent;
 }
 
+/**
+ * BFS to find the next grid step the utility bot should take toward (toX, toY).
+ * Ignores FOV — the bot is omniscient.
+ * If (toX, toY) is impassable, navigates to the nearest adjacent passable tile.
+ * Returns null when already adjacent or no path exists.
+ */
 function botNextStep(
   state: GameState,
   fromX: number,
@@ -163,7 +176,8 @@ function botNextStep(
   let cur = goalIdx;
   while (parent[cur] !== startIdx) {
     const p = parent[cur];
-    if (p === undefined || p === -1 || p === -2) return null;
+    // -1 is unvisited (no path reached the goal), -2 is the start itself.
+    if (p === -1 || p === -2) return null;
     cur = p;
   }
   return [cur % w, Math.floor(cur / w)];
@@ -207,11 +221,7 @@ function steerTowardGrid(
   return true;
 }
 
-/**
- * BFS from the bot's position through passable non-hole tiles.
- * Returns the coordinates of the nearest repair target that is actually
- * reachable (has a traversable path to its neighbor). Omniscient — no FOV check.
- */
+/** Reused BFS visited buffer. Same contract as the parent buffer above. */
 let sharedFindNearestVisited: Uint8Array | null = null;
 function getSharedFindNearestVisited(size: number): Uint8Array {
   if (!sharedFindNearestVisited || sharedFindNearestVisited.length < size) {
@@ -221,6 +231,11 @@ function getSharedFindNearestVisited(size: number): Uint8Array {
   return sharedFindNearestVisited;
 }
 
+/**
+ * BFS from the bot's position through passable non-hole tiles.
+ * Returns the coordinates of the nearest repair target that is actually
+ * reachable (has a traversable path to its neighbor). Omniscient — no FOV check.
+ */
 function findNearestReachableRepairTarget(
   state: GameState,
   fromX: number,
@@ -1897,12 +1912,12 @@ function decideMonsterCommand(
   directions.sort((a, b) => b[2] - a[2]);
 
   // Remove duplicate directions
-  const seen = new Set<string>();
+  let seen = 0;
   const uniqueDirections: [number, number][] = [];
   for (const [testX, testY] of directions) {
-    const key = `${testX},${testY}`;
-    if (!seen.has(key)) {
-      seen.add(key);
+    const key = 1 << (testX + 1 + (testY + 1) * 3);
+    if (!(seen & key)) {
+      seen |= key;
       uniqueDirections.push([testX, testY]);
     }
   }
