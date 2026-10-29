@@ -1,6 +1,5 @@
 /** Accessible reader panel for server-authoritative environmental signs. */
 
-import { captureFocusOpener, restoreFocus } from "./focus-restore";
 import { SignView } from "../../engine/types";
 
 export interface SignReaderHandlers {
@@ -8,7 +7,6 @@ export interface SignReaderHandlers {
 }
 
 export class SignReader {
-  private openerFocus: HTMLElement | null = null;
   private readonly root: HTMLDivElement;
   private readonly art: HTMLDivElement;
   private readonly title: HTMLHeadingElement;
@@ -75,9 +73,6 @@ export class SignReader {
       return;
     }
 
-    if (this.root.hidden) {
-      this.openerFocus = captureFocusOpener();
-    }
     this.root.hidden = false;
     if (view.id === this.renderedId) return;
 
@@ -99,7 +94,7 @@ export class SignReader {
     const ownedFocus = this.root.contains(document.activeElement);
     this.root.hidden = true;
     this.renderedId = "";
-    if (ownedFocus) restoreFocus(this.openerFocus);
+    if (ownedFocus) document.getElementById("game")?.focus();
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
