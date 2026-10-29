@@ -294,3 +294,90 @@ call's overhead and nothing more. Measure a setter skip before trading an
 invariant for it, and quote the saving as a share of the frame budget — the
 lesson directly above this entry says the same thing, and the first draft of
 this one did not follow it.
+
+## 2026-10-29 - O(1) source lookups in the damage and death events
+
+`processDamageEvent` and `processDeathEvent` resolved `data.sourceId` with
+`state.entities.find`, the last two linear id scans left in the event path.
+Both now use `state.entityManager.getById`, which already maintains the index
+(`entity-manager.ts:30`) and which the 2026-09-02 entry above adopted
+everywhere else.
+
+Quote this as a share of the tick budget, not as a ratio, and measure at the
+entity count a floor really has. `Game.reset()` leaves **54 entities at depth
+1, 56 at depth 10**; a firefight with bullets and drops in flight reaches
+roughly 150. One lookup there costs **377 ns by `find` against 11 ns by
+`getById` at 55 entities** (890 ns against 22 ns at 150) — a 33x per-lookup
+saving, but only about **7 us of a 50 ms tick** even at twenty lookups per
+tick, or 0.015%. The 100x figure in the pull request body came from a
+benchmark dense enough that one `find` cost 1.29 ms, which needs on the order
+of a million entities; nothing in the game builds that.
+
+So the case for this is not the measurement. It is two lines, it deletes the
+only remaining O(entity count) worst case in the event path, and it makes the
+file consistent with the rest of the simulation. Do not reach for the
+synthetic ratio to justify the next one — the entry directly above this says
+the same thing and this entry's first draft ignored it.
+
+## 2026-10-29 - Bitmask instead of string keys in the chase-direction dedup
+
+`decideMonsterCommand` deduplicated its candidate directions through a
+`Set<string>` keyed on `` `${testX},${testY}` ``. Every component is in
+`{-1, 0, 1}` — `moveX` / `moveY` come from sign comparisons and the rest from
+`EIGHT_WAY_DIRECTIONS` (`helpers.ts:74`) — so
+`1 << (testX + 1 + (testY + 1) * 3)` indexes bits 0..8 of one integer with no
+collision and no overflow. Push order is untouched, so the direction the
+monster actually picks is unchanged.
+
+The per-call measurement reproduces: **1310 ns with the Set against 156 ns
+with the bitmask** for the real 11-entry input, which matches the pull
+request's 1300 ms / 245 ms over 1,000,000 iterations.
+
+State it as a share of the tick, which the pull request body did not. A
+generated floor carries **28 monsters at depth 1 and 30 at depth 10**. If every
+one of them reached this branch in the same tick the saving is about **35 us of
+a 50 ms tick, or 0.07%**. The allocation side is the better half of the
+argument: 11 short-lived strings per monster per tick is roughly 330 a tick and
+6,600 a second of pure garbage, and it is now zero.
+
+The lesson two entries above — quote the saving against the frame or tick
+budget, not as a ratio on a synthetic loop — applies to every entry after it,
+including this one. Three drafts in a row have needed that correction at review
+time.
+
+## 2026-10-29 - Typed-array visited sets in the two utility-bot BFS loops
+
+`botNextStep` built a `Map<number, number>` of parents and
+`findNearestReachableRepairTarget` a `Set<number>` of visited indices, both
+per call. Each is now a module-scoped typed array, reset on handout.
+
+The worry with a shared buffer is the reset: `fill()` is O(map area) on _every_
+call, including a search that visits eight nodes and stops, where the old `Map`
+cost almost nothing. So that case was measured rather than assumed. On a
+128x96 dungeon (12,288 cells, a 48 KiB memset), per 20,000 calls:
+
+| nodes visited  | Map       | Int32Array | result             |
+| -------------- | --------- | ---------- | ------------------ |
+| 8              | 15.7 ms   | 12.8 ms    | array 1.2x faster  |
+| 40             | 65.7 ms   | 15.8 ms    | array 4.2x faster  |
+| 400            | 603 ms    | 38.4 ms    | array 15.7x faster |
+| 4,000          | 5,615 ms  | 146 ms     | array 38.6x faster |
+| 12,287 (whole) | 24,508 ms | 576 ms     | array 42.6x faster |
+
+The memset never costs more than it saves — it is under a microsecond, while
+even eight `Map` operations are slower. So the win holds across the whole
+range and there is no short-path regression to trade off. That was the one
+thing that could have sunk this change, and it is the thing the pull request
+body did not measure: it benchmarked only the wall-obstacle case, which is the
+favourable end.
+
+Two cautions for the next one of these:
+
+- The buffers are module state inside `src/engine/`, shared by every `Game` in
+  the process — the multiplayer server runs one per world plane. Safe only
+  because each getter resets the whole buffer and because both searches are
+  synchronous start-to-finish. A BFS that called back into another would
+  corrupt both silently. That contract is now written above the declarations;
+  do not quietly widen it.
+- `-1` means unvisited and `-2` marks the start, because index `0` is a legal
+  parent. The original `Map` got this free from `undefined`.
