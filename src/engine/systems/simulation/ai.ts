@@ -1164,7 +1164,6 @@ function decideFriendlyPetCommand(
   }
   const enemy = nearestHostileMonster(state, monster, PET_MELEE_RANGE_PX);
   if (enemy) {
-    const name = monster.name ?? "Your pet";
     return {
       id: "",
       tick,
@@ -1879,12 +1878,12 @@ function decideMonsterCommand(
   directions.sort((a, b) => b[2] - a[2]);
 
   // Remove duplicate directions
-  const seen = new Set<string>();
+  let seen = 0;
   const uniqueDirections: [number, number][] = [];
   for (const [testX, testY] of directions) {
-    const key = `${testX},${testY}`;
-    if (!seen.has(key)) {
-      seen.add(key);
+    const key = 1 << (testX + 1 + (testY + 1) * 3);
+    if (!(seen & key)) {
+      seen |= key;
       uniqueDirections.push([testX, testY]);
     }
   }
