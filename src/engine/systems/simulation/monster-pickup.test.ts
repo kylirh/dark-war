@@ -1,3 +1,4 @@
+import { clearMonsters } from "./test-utils";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
@@ -5,12 +6,6 @@ import { ItemEntity } from "../../entities/item-entity";
 import { EntityKind, ItemType, MonsterType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { processMonsterItemPickups } from "./tick";
-
-function clearMonsters(game: Game) {
-  game
-    .getState()
-    .entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
-}
 
 function spawnMonsterAtPlayer(game: Game, type: MonsterType): MonsterEntity {
   const state = game.getState();

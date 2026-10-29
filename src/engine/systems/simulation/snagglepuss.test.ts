@@ -1,3 +1,4 @@
+import { clearMonsters } from "./test-utils";
 import { describe, it, expect } from "vitest";
 import { Game } from "../../core/game";
 import { Physics } from "../physics";
@@ -22,12 +23,6 @@ import {
   playerHasWonOverSnagglepuss,
   recruitSnagglepuss,
 } from "./snagglepuss-social";
-
-function clearMonsters(game: Game) {
-  game
-    .getState()
-    .entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
-}
 
 describe("snagglepuss", () => {
   it("is won over by feeding cookies nearby (graded, not a coin flip)", () => {

@@ -1,3 +1,4 @@
+import { clearMonsters } from "./test-utils";
 import { afterEach, describe, it, expect, beforeEach, vi } from "vitest";
 import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
@@ -42,12 +43,6 @@ function hasGiantSpiderSound(state: ReturnType<Game["getState"]>): boolean {
   return state.pendingSounds.some((sound) =>
     GIANT_SPIDER_SOUNDS.has(sound.effect),
   );
-}
-
-function clearMonsters(game: Game) {
-  game
-    .getState()
-    .entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
 }
 
 describe("multi-hit creatures", () => {

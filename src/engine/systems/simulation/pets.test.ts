@@ -1,3 +1,4 @@
+import { clearMonsters } from "./test-utils";
 import { afterEach, describe, it, expect, beforeEach, vi } from "vitest";
 import { Game } from "../../core/game";
 import { Physics } from "../physics";
@@ -34,12 +35,6 @@ const DOG_WHIMPER_SOUNDS = new Set<string>([
 
 function hasDogVocal(state: ReturnType<Game["getState"]>): boolean {
   return state.pendingSounds.some((sound) => DOG_VOCALS.has(sound.effect));
-}
-
-function clearMonsters(game: Game) {
-  game
-    .getState()
-    .entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
 }
 
 function setupDogTest(isFriendly = true) {

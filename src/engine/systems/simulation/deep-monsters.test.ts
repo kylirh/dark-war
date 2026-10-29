@@ -1,3 +1,4 @@
+import { clearMonsters } from "./test-utils";
 import { describe, it, expect, beforeEach } from "vitest";
 import { SoundEffect } from "../../content/sound-effects";
 import { Game } from "../../core/game";
@@ -12,12 +13,6 @@ import {
 } from "../../utils/state-tiles";
 import { updateMonsterSteering } from "./ai";
 import { stepSimulationTick } from "./tick";
-
-function clearMonsters(game: Game) {
-  game
-    .getState()
-    .entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
-}
 
 describe("dreadnaught smashes through walls", () => {
   beforeEach(() => RNG.reseed(2));
