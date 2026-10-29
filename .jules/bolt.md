@@ -294,27 +294,3 @@ call's overhead and nothing more. Measure a setter skip before trading an
 invariant for it, and quote the saving as a share of the frame budget — the
 lesson directly above this entry says the same thing, and the first draft of
 this one did not follow it.
-
-## 2026-10-29 - O(1) source lookups in the damage and death events
-
-`processDamageEvent` and `processDeathEvent` resolved `data.sourceId` with
-`state.entities.find`, the last two linear id scans left in the event path.
-Both now use `state.entityManager.getById`, which already maintains the index
-(`entity-manager.ts:30`) and which the 2026-09-02 entry above adopted
-everywhere else.
-
-Quote this as a share of the tick budget, not as a ratio, and measure at the
-entity count a floor really has. `Game.reset()` leaves **54 entities at depth
-1, 56 at depth 10**; a firefight with bullets and drops in flight reaches
-roughly 150. One lookup there costs **377 ns by `find` against 11 ns by
-`getById` at 55 entities** (890 ns against 22 ns at 150) — a 33x per-lookup
-saving, but only about **7 us of a 50 ms tick** even at twenty lookups per
-tick, or 0.015%. The 100x figure in the pull request body came from a
-benchmark dense enough that one `find` cost 1.29 ms, which needs on the order
-of a million entities; nothing in the game builds that.
-
-So the case for this is not the measurement. It is two lines, it deletes the
-only remaining O(entity count) worst case in the event path, and it makes the
-file consistent with the rest of the simulation. Do not reach for the
-synthetic ratio to justify the next one — the entry directly above this says
-the same thing and this entry's first draft ignored it.
