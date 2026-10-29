@@ -1,8 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { AlertManager } from "./alert-manager";
+import { ALERT_FADE_DURATION_MS, AlertManager } from "./alert-manager";
 import { DEFAULT_ALERT_DURATION_MS, MAX_ALERT_MESSAGES } from "./alert-queue";
-
-const ALERT_FADE_DURATION_MS = 350;
 
 class FakeClassList {
   private classes = new Set<string>();
