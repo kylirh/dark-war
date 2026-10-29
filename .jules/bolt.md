@@ -295,9 +295,52 @@ invariant for it, and quote the saving as a share of the frame budget — the
 lesson directly above this entry says the same thing, and the first draft of
 this one did not follow it.
 
-## 2026-10-28: Optimize AI direction deduplication
+## 2026-10-29 - O(1) source lookups in the damage and death events
 
-- **Found:** String allocation inside loop in AI direction deduplication.
-- **Action:** Replaced `Set<string>` with a 32-bit integer bitmask for deduplication since coordinates only range from -1 to 1.
-- **Measurement:** Benchmark shows a 5-6x speedup (from ~1300ms down to ~245ms for 1,000,000 iterations).
-- **Prevention:** Remember that when coordinates are bounded to a very small range, bitmasks or 1D arrays are significantly faster than string keys for deduplication.
+`processDamageEvent` and `processDeathEvent` resolved `data.sourceId` with
+`state.entities.find`, the last two linear id scans left in the event path.
+Both now use `state.entityManager.getById`, which already maintains the index
+(`entity-manager.ts:30`) and which the 2026-09-02 entry above adopted
+everywhere else.
+
+Quote this as a share of the tick budget, not as a ratio, and measure at the
+entity count a floor really has. `Game.reset()` leaves **54 entities at depth
+1, 56 at depth 10**; a firefight with bullets and drops in flight reaches
+roughly 150. One lookup there costs **377 ns by `find` against 11 ns by
+`getById` at 55 entities** (890 ns against 22 ns at 150) — a 33x per-lookup
+saving, but only about **7 us of a 50 ms tick** even at twenty lookups per
+tick, or 0.015%. The 100x figure in the pull request body came from a
+benchmark dense enough that one `find` cost 1.29 ms, which needs on the order
+of a million entities; nothing in the game builds that.
+
+So the case for this is not the measurement. It is two lines, it deletes the
+only remaining O(entity count) worst case in the event path, and it makes the
+file consistent with the rest of the simulation. Do not reach for the
+synthetic ratio to justify the next one — the entry directly above this says
+the same thing and this entry's first draft ignored it.
+
+## 2026-10-29 - Bitmask instead of string keys in the chase-direction dedup
+
+`decideMonsterCommand` deduplicated its candidate directions through a
+`Set<string>` keyed on `` `${testX},${testY}` ``. Every component is in
+`{-1, 0, 1}` — `moveX` / `moveY` come from sign comparisons and the rest from
+`EIGHT_WAY_DIRECTIONS` (`helpers.ts:74`) — so
+`1 << (testX + 1 + (testY + 1) * 3)` indexes bits 0..8 of one integer with no
+collision and no overflow. Push order is untouched, so the direction the
+monster actually picks is unchanged.
+
+The per-call measurement reproduces: **1310 ns with the Set against 156 ns
+with the bitmask** for the real 11-entry input, which matches the pull
+request's 1300 ms / 245 ms over 1,000,000 iterations.
+
+State it as a share of the tick, which the pull request body did not. A
+generated floor carries **28 monsters at depth 1 and 30 at depth 10**. If every
+one of them reached this branch in the same tick the saving is about **35 us of
+a 50 ms tick, or 0.07%**. The allocation side is the better half of the
+argument: 11 short-lived strings per monster per tick is roughly 330 a tick and
+6,600 a second of pure garbage, and it is now zero.
+
+The lesson two entries above — quote the saving against the frame or tick
+budget, not as a ratio on a synthetic loop — applies to every entry after it,
+including this one. Three drafts in a row have needed that correction at review
+time.
