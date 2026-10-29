@@ -301,3 +301,23 @@ test stays green. If every mutation that fails the new test also fails an old
 one, the decision was already covered and there is no oracle. Do not describe
 a covered path as a "missing" clear — this entry's first draft was titled
 "missing pendingPortalId clear" while its own body said the clear was present.
+
+## 2026-10-29 - malformed json on the socket is dropped, not thrown
+
+**What was found:** `handleMessage` wraps `JSON.parse` in a try/catch and
+returns on failure (`multiplayer-client.ts:261-266`), so a malformed frame is
+discarded silently. Nothing covered it, which matters because the server is the
+only normal sender but anything reachable on the socket can send a frame.
+
+**Action:** added a test in `src/net/multiplayer-client.test.ts` that drives the
+registered `message` listener with `"{ invalid_json }"` and asserts no callback
+fires and nothing throws.
+
+**Checked rather than assumed:** removing the try/catch so the parse throws
+fails this test and nothing else, so it really is the only cover for that
+branch.
+
+**Prevention:** a test asserting that nothing happens is vacuous unless you
+confirm it fails when the guard is gone — "no callbacks fired" also passes when
+the listener was never wired up. Delete the guard and watch it go red before
+believing it.
