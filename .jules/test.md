@@ -275,10 +275,29 @@ behaviour so the change is deliberate and visible, not silent; a human answering
 the open question is expected to update it, and should update the ADR and the
 `MAX_COMMANDS_PER_TICK` TSDoc in the same change.
 
-## 2026-10-29 - processDamageEvent missing pendingPortalId clear on death outliving tick
+## 2026-10-29 - the ascend half of the deferred transition cancellation
 
-**What was found:** `processDamageEvent` handles zeroing velocity and cancelling `shouldDescend` / `shouldAscend` when a player dies to prevent movement and transitions when the queued `PLAYER_DEATH` event overflows the tick's event budget. However, while it cleared `shouldAscend`, `shouldDescend` and `descendTarget`, it was correctly clearing `pendingPortalId` but we lacked a test for the 'ascend' variant of this deferred cancellation. The existing test only covered `descend`. Both share the same cancellation logic, but `ascend` wasn't formally verified to also safely abort and clear its state under event queue cascade.
+**What was found:** nothing missing in the code. `processDamageEvent` already
+clears `shouldDescend`, `shouldAscend`, `descendTarget` and `pendingPortalId`
+together when a player dies, so a `PLAYER_DEATH` event deferred past the tick's
+event budget cannot leave a transition armed. Only the descend half of that was
+covered by a test.
 
-**Action:** Added a focused unit test to `src/engine/systems/simulation/death-transition.test.ts` verifying that if a player dies after initiating an ascend command but before the event queue fully drains (queue exceeded limit), `shouldAscend` is correctly cancelled and `pendingPortalId` is cleared.
+**Action:** added the ascend twin in
+`src/engine/systems/simulation/death-transition.test.ts` — ascend command
+resolved, lethal damage queued, event queue overflowed, then assert
+`shouldAscend` is false and `pendingPortalId` undefined after the tick.
 
-**Prevention:** When writing tests for protective guards that cancel transitions (or similar complex state), ensure both halves (e.g. ascend and descend) are explicitly verified to prevent future refactors from accidentally dropping one.
+**It is not redundant with the descend test, and that was checked rather than
+argued.** The four cancellations are one statement block, so the obvious worry
+is that any mutation fails both tests and the new one covers nothing. Removing
+the whole block does fail both. But removing _only_ `state.shouldAscend = false`
+leaves the descend test green and fails just the new one, so it is the sole
+cover for that statement.
+
+**Prevention:** when a test claims to cover a second path through shared code,
+delete one statement rather than the whole block and check that the existing
+test stays green. If every mutation that fails the new test also fails an old
+one, the decision was already covered and there is no oracle. Do not describe
+a covered path as a "missing" clear — this entry's first draft was titled
+"missing pendingPortalId clear" while its own body said the clear was present.

@@ -150,12 +150,12 @@ describe("death during transition", () => {
   });
 
   /**
-   * `triggerPlayerFall` sets `shouldDescend` and queues `HOLE_FALL_DAMAGE` in
-   * the same tick, so the fall itself can be the lethal blow. The transition is
-   * cancelled with every other one: the player dies on the floor they fell
-   * from rather than arriving dead on the one below.
+   * The ascend twin of the test above. Not redundant with it: the four
+   * cancellations in `processDamageEvent` are one block, but removing only
+   * `state.shouldAscend = false` leaves the descend test green and fails just
+   * this one, so this is the sole cover for that statement. `pendingPortalId`
+   * matters here in particular because the ascend resolver is what sets it.
    */
-
   it("cancels a pending ascend when the death event outlives the tick", () => {
     const state = dungeonAtDepthOne().getState();
     const player = state.player;
@@ -188,6 +188,12 @@ describe("death during transition", () => {
     expect(state.pendingPortalId).toBeUndefined();
   });
 
+  /**
+   * `triggerPlayerFall` sets `shouldDescend` and queues `HOLE_FALL_DAMAGE` in
+   * the same tick, so the fall itself can be the lethal blow. The transition is
+   * cancelled with every other one: the player dies on the floor they fell
+   * from rather than arriving dead on the one below.
+   */
   it("cancels the descend when the fall through a hole is itself lethal", () => {
     const game = dungeonAtDepthOne();
     const state = game.getState();
