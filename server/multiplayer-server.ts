@@ -968,6 +968,26 @@ function sanitizePlayerName(name: string | null | undefined): string {
 
 // ─── Server factory ────────────────────────────────────────────────────────────
 
+/**
+ * Response headers for the two unauthenticated informational endpoints.
+ *
+ * No `Access-Control-Allow-Origin` unless `CORS_ORIGIN` is set. These
+ * endpoints need no cross-origin reader in this repository — nothing fetches
+ * them; LAN discovery is UDP — and a wildcard let any page the host happened
+ * to visit read the room ids and lobby player names off a server on their own
+ * network. Set `CORS_ORIGIN` to the exact origin if a web client ever needs
+ * them.
+ */
+function jsonHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (process.env.CORS_ORIGIN) {
+    headers["Access-Control-Allow-Origin"] = process.env.CORS_ORIGIN;
+  }
+  return headers;
+}
+
 interface StartedServer {
   close(): Promise<void>;
   port: number;
@@ -985,10 +1005,7 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
       if (url.pathname === "/info") {
         const roomId = sanitizeRoomId(url.searchParams.get("room"));
         const room = rooms.get(roomId);
-        res.writeHead(200, {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        });
+        res.writeHead(200, jsonHeaders());
         res.end(
           JSON.stringify(
             room?.getInfo() ?? {
@@ -1007,10 +1024,7 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
           ...room.getInfo(),
           roomId: id,
         }));
-        res.writeHead(200, {
-          "Content-Type": "application/json",
-          "Access-Control-Allow-Origin": "*",
-        });
+        res.writeHead(200, jsonHeaders());
         res.end(JSON.stringify(list));
         return;
       }
