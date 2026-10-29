@@ -328,3 +328,123 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-29
+
+**Merged:** thirteen, all Jules. `perf(simulation): look up event source ids
+through the entity index` (#435), `perf(ai): dedupe chase directions with a
+bitmask instead of string keys` (#437), `perf(ai): use typed-array visited sets
+in the utility-bot bfs loops` (#438), `refactor(ai): drop the unused pet name
+local` (#428), `refactor(simulation): share one clearMonsters helper across the
+test suites` (#446), `refactor(simulation): drop the unused game binding from
+the dog tests` (#430), `test(simulation): cover the cancelled ascend when death
+outlives the tick` (#443), `test(client): cover the alert manager dom and timer
+lifecycle` (#433), `test(client): cover the inventory tooltip markup and its
+escaping` (#429), `test(net): cover the unparseable server url path in connect`
+(#436), `test(net): cover the dropped malformed json frame on the socket`
+(#440), `fix(a11y): restore the opener when the callout composer closes` (#444),
+`fix(server): stop advertising the info endpoints to every origin` (#431).
+Eleven needed corrective commits.
+
+**Closed:** six.
+
+- **#432** and **#439** (O(1) player lookup) — duplicates of #435's finding, and
+  neither oracle survives arithmetic. Both replaced `state.players.find`, and
+  `state.players` holds only the connected players; #432 measured a 10,000-entity
+  array and #439 a 5,000-item one. #439 also added `ts-node`.
+- **#445** (visual neighborhood sync) — the mechanism does not exist. See below.
+- **#442** (`jsdom`) and **#434** (`happy-dom`) — one dependency each for one
+  test suite, on the same day, for the same purpose, picking different libraries.
+- **#441** (unused parameter rename) — no oracle; see the tsconfig note below.
+
+**Found in main:** one real gap, in the Phase 2 pull request. #438's shared BFS
+buffers are safe _only_ because each getter resets the whole buffer before
+handing it out, and nothing tested that. Deleting **both** resets left all 937
+tests green: every existing utility-bot test drives one search per buffer, and a
+reused buffer is only stale on its second use. Two bots in one steering pass
+covers it — one test per buffer, each failing on its own mutation and not the
+other's.
+
+**For next time:**
+
+1. **Pin `expectedHeadSha` on every merge. It earned its keep twice today.**
+   Jules re-pushed onto two branches mid-review with trees built from a stale
+   base. On #428 the new commit reverted #435 (merged two minutes earlier). On
+   #444 it would have reverted **nine** merged pull requests — deleting
+   `alert-manager.test.ts`, `inventory-bar.test.ts`, `test-utils.ts`, the
+   ascend test, both multiplayer-client tests, the ai.ts typed arrays and
+   bitmask, the events.ts index lookups, and every learning-log entry. Both
+   merges were refused on the sha and fixed with a restoring commit. A re-push
+   from a stale base looks like an ordinary update, and the pull request title
+   still says "remove unused variable". Re-read the head diff against `main`
+   immediately before merging, not just after pushing.
+
+2. **`noUnusedLocals` and `noUnusedParameters` are both `false`** in
+   `tsconfig.json` (lines 17–18), deliberately. Three pull requests today
+   (#428, #430, #441) justified themselves by a "TypeScript compiler warning"
+   that the build does not emit. The deletions in #428 and #430 were real on
+   their own terms and landed; #441 was only a rename and had nothing left once
+   the premise went. Stop accepting that premise, and stop re-deriving it.
+
+3. **`changedTiles` is a physics-collider queue, not a network channel.** It is
+   absent from `SerializedState` and from all of `src/net/`; its only consumers
+   drain and clear it locally in the same tick (`src/client/main.ts:1602`,
+   `server/multiplayer-server.ts:828`) and pass each index to
+   `Physics.updateTile`, which already re-evaluates the 4 orthogonal wall bodies
+   and the full 3x3 terrain boundaries (`physics.ts:137`). So "clients would not
+   sync the neighbors" is not a defect that can exist, adding the extra indices
+   buys nine redundant `updateTile` calls for identical output, and routing the
+   visual resolver's dirty list into a gameplay queue contradicts
+   `CLAUDE.md`'s "visual state must never drive gameplay". Close #445's shape on
+   sight.
+
+4. **ADR 0002 already owns the jsdom question and is still `Proposed`.**
+   `docs/adr/0002-testability-of-client-layer.md` decides _for_ a DOM test
+   environment and names both `jsdom` and `happy-dom` without choosing. Until a
+   human accepts it, `environment: "node"` stands and a client suite that needs
+   a DOM uses local fakes, as #433 does. Point future proposals at the ADR
+   rather than closing them flat.
+
+5. **Three Bolt entries in a row have quoted a synthetic ratio** instead of a
+   share of the frame or tick budget, which `bolt.md` already asks for: #435
+   ("100x", really 7 us of a 50 ms tick), #437 ("5-6x", really 0.07%), and the
+   texture-cache entry on 2026-10-22. All three were corrected at review time.
+   The measurements are usually _reproducible_ — #437's and #438's both
+   replicated here — they are just reported at the wrong scale.
+
+6. **Measure the unfavourable case, not just the favourable one.** #438 swaps a
+   `Map` for a reused typed array, so the reset is O(map area) on every call and
+   a short search looked like it should regress. It does not — at eight visited
+   nodes the array is still 1.2x faster, because a 48 KiB memset costs under a
+   microsecond. Worth recording because the expectation was wrong: do not reject
+   that shape on the reset cost without measuring it.
+
+7. **The same orphaned-docblock mistake landed three times this week** — the
+   physics consolidation (7331b68), #438, and #443 — each inserting code between
+   a function or test and the comment documenting it. Check what the comment
+   above an insertion point now attaches to.
+
+8. **#377 should be closed as superseded.** #429 creates the same
+   `src/client/systems/inventory-bar.test.ts`, so they are an add/add conflict.
+   #429 covers everything #377 does plus escaping of the label and of each
+   action. This routine may not close #377, since it is not a Jules pull
+   request.
+
+9. **#412's abstention was respected, not overridden.** #444 arrived proposing
+   the `focus-restore` contract for `dialogue-panel.ts` and `sign-reader.ts`;
+   #412's docblock keeps both out of the adopter set on purpose, because the
+   simulation opens them and whether they have a meaningful "opener" is a
+   product question. #444 was narrowed to `callout-composer.ts`, which restored
+   focus to _nothing_ and had no product question attached. The other two still
+   need a human.
+
+10. **Branch deletion is unavailable here, for a new reason.** Not the HTTP 403
+    the 2026-09-30 entry recorded: `git push origin --delete` is now refused by
+    the sandbox's own command classifier before it reaches GitHub, and the
+    `mcp__github__*` toolset has no branch-deletion tool. Pushing commits works
+    fine. One attempt, then move on. Of today's thirteen merges,
+    `delete_branch_on_merge` removed eleven head branches and missed two
+    (`jules-15328383128178721971-6d83fd0d`, `fix-cors-vulnerability-16081715706198338432`),
+    the same intermittent miss recorded for
+    `refactor-simulation-commands-6932021227322539262`. 91 branches remain on
+    origin; clearing them needs a human with push access.
