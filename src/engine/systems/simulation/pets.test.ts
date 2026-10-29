@@ -55,7 +55,7 @@ function setupDogTest(isFriendly = true) {
     dog.ownerId = state.player.id;
   }
 
-  return { game, state, dog };
+  return { state, dog };
 }
 
 describe("befriending a wild dog with a thrown bone", () => {
