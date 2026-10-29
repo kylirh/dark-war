@@ -24,9 +24,12 @@ export function setStateTile(
     ? tileSource.inBounds(x, y)
     : x >= 0 && y >= 0 && x < state.mapWidth && y < state.mapHeight;
   if (!inBounds) return false;
-  tileSource?.setTile(x, y, tile);
+  const dirtied = tileSource?.setTile(x, y, tile);
   const index = x + y * state.mapWidth;
   state.changedTiles?.add(index);
+  if (dirtied && state.changedTiles) {
+    for (const d of dirtied) state.changedTiles.add(d);
+  }
   return true;
 }
 
@@ -51,7 +54,11 @@ export function editStateCell(
   edit: WorldCellLayerEdit,
 ): readonly number[] {
   const dirty = state.worldPlane.editCell(x, y, edit);
-  for (const index of dirty) state.changedTiles?.add(index);
+  if (state.changedTiles) {
+    for (const index of dirty) {
+      state.changedTiles.add(index);
+    }
+  }
   return dirty;
 }
 

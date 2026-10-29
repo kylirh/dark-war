@@ -34,3 +34,14 @@ coverage exists — check that the behaviour you are changing is actually tested
 before treating "all tests pass" as proof the change is safe. Whether Dark War
 should move four-directionally is a design decision for a human and an ADR, not
 a one-line predicate edit.
+## 2024-10-29 - Sync dirtied visual neighborhood tiles in semantic edits
+
+**What was found:** `setStateTile` updates a single tile index in `state.changedTiles`. But, `WorldPlane.setTile` can refresh an entire 3x3 neighborhood of visual presentation tiles via `visuals.refreshNeighborhood(x, y)` which returns an array of dirty indices. `setStateTile` was ignoring the returned value, meaning clients wouldn't correctly sync the visually modified neighbor tiles (e.g., autotiling boundaries that change when a hole or wall is placed). A differential test was written to prove that `setStateTile` does not correctly add these neighborhood changes to `state.changedTiles`.
+
+**Action:**
+1. Modified `TileSource.setTile` to return `void | readonly number[]`.
+2. Modified `WorldPlane.setTile` and `FlatTileSource.setTile` to match the updated interface. `WorldPlane.setTile` now explicitly returns `this.visualState?.refreshNeighborhood(x, y)`.
+3. Updated `setStateTile` to capture the dirtied tile indices returned by `setTile` and add all of them to `state.changedTiles`.
+4. Added a test in `src/engine/utils/state-tiles.test.ts` to enforce this behavior.
+
+**Prevention:** When mutating semantic layers (e.g., `setStateTile`, `editStateCell`), ensure that any returned modified neighbor indices from visual neighborhood updates are explicitly added to `state.changedTiles` to avoid client-server desyncs in visually resolved presentation.

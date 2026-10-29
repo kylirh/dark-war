@@ -73,3 +73,19 @@ describe("state tile mutations", () => {
     expect(visuals!.layers.holeMask[x + (y - 1) * state.mapWidth]).not.toBe(0);
   });
 });
+
+describe("state-tiles mutation sync", () => {
+  it("adds all dirtied neighborhood indices to changedTiles when setting a tile", () => {
+    const game = new Game();
+    game.reset(1);
+    const state = game.getState();
+    const x = state.player.gridX + 1;
+    const y = state.player.gridY;
+
+    state.changedTiles?.clear();
+    setStateTile(state, x, y, TileType.HOLE);
+
+    // visuals.refreshNeighborhood dirties up to 9 tiles
+    expect(state.changedTiles?.size).toBeGreaterThan(1);
+  });
+});
