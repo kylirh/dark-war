@@ -344,3 +344,40 @@ The lesson two entries above — quote the saving against the frame or tick
 budget, not as a ratio on a synthetic loop — applies to every entry after it,
 including this one. Three drafts in a row have needed that correction at review
 time.
+
+## 2026-10-29 - Typed-array visited sets in the two utility-bot BFS loops
+
+`botNextStep` built a `Map<number, number>` of parents and
+`findNearestReachableRepairTarget` a `Set<number>` of visited indices, both
+per call. Each is now a module-scoped typed array, reset on handout.
+
+The worry with a shared buffer is the reset: `fill()` is O(map area) on _every_
+call, including a search that visits eight nodes and stops, where the old `Map`
+cost almost nothing. So that case was measured rather than assumed. On a
+128x96 dungeon (12,288 cells, a 48 KiB memset), per 20,000 calls:
+
+| nodes visited  | Map       | Int32Array | result             |
+| -------------- | --------- | ---------- | ------------------ |
+| 8              | 15.7 ms   | 12.8 ms    | array 1.2x faster  |
+| 40             | 65.7 ms   | 15.8 ms    | array 4.2x faster  |
+| 400            | 603 ms    | 38.4 ms    | array 15.7x faster |
+| 4,000          | 5,615 ms  | 146 ms     | array 38.6x faster |
+| 12,287 (whole) | 24,508 ms | 576 ms     | array 42.6x faster |
+
+The memset never costs more than it saves — it is under a microsecond, while
+even eight `Map` operations are slower. So the win holds across the whole
+range and there is no short-path regression to trade off. That was the one
+thing that could have sunk this change, and it is the thing the pull request
+body did not measure: it benchmarked only the wall-obstacle case, which is the
+favourable end.
+
+Two cautions for the next one of these:
+
+- The buffers are module state inside `src/engine/`, shared by every `Game` in
+  the process — the multiplayer server runs one per world plane. Safe only
+  because each getter resets the whole buffer and because both searches are
+  synchronous start-to-finish. A BFS that called back into another would
+  corrupt both silently. That contract is now written above the declarations;
+  do not quietly widen it.
+- `-1` means unvisited and `-2` marks the start, because index `0` is a legal
+  parent. The original `Map` got this free from `undefined`.
