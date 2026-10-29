@@ -318,3 +318,29 @@ only remaining O(entity count) worst case in the event path, and it makes the
 file consistent with the rest of the simulation. Do not reach for the
 synthetic ratio to justify the next one — the entry directly above this says
 the same thing and this entry's first draft ignored it.
+
+## 2026-10-29 - Bitmask instead of string keys in the chase-direction dedup
+
+`decideMonsterCommand` deduplicated its candidate directions through a
+`Set<string>` keyed on `` `${testX},${testY}` ``. Every component is in
+`{-1, 0, 1}` — `moveX` / `moveY` come from sign comparisons and the rest from
+`EIGHT_WAY_DIRECTIONS` (`helpers.ts:74`) — so
+`1 << (testX + 1 + (testY + 1) * 3)` indexes bits 0..8 of one integer with no
+collision and no overflow. Push order is untouched, so the direction the
+monster actually picks is unchanged.
+
+The per-call measurement reproduces: **1310 ns with the Set against 156 ns
+with the bitmask** for the real 11-entry input, which matches the pull
+request's 1300 ms / 245 ms over 1,000,000 iterations.
+
+State it as a share of the tick, which the pull request body did not. A
+generated floor carries **28 monsters at depth 1 and 30 at depth 10**. If every
+one of them reached this branch in the same tick the saving is about **35 us of
+a 50 ms tick, or 0.07%**. The allocation side is the better half of the
+argument: 11 short-lived strings per monster per tick is roughly 330 a tick and
+6,600 a second of pure garbage, and it is now zero.
+
+The lesson two entries above — quote the saving against the frame or tick
+budget, not as a ratio on a synthetic loop — applies to every entry after it,
+including this one. Three drafts in a row have needed that correction at review
+time.
