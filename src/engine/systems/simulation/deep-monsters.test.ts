@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { clearMonsters } from "./test-utils";
 import { SoundEffect } from "../../content/sound-effects";
 import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { ItemEntity } from "../../entities/item-entity";
-import { EntityKind, MonsterType, ItemType, TileType } from "../../types";
+import { MonsterType, ItemType, TileType } from "../../types";
 import { idxFor } from "../../utils/helpers";
 import { RNG } from "../../utils/rng";
 import {
@@ -12,12 +13,6 @@ import {
 } from "../../utils/state-tiles";
 import { updateMonsterSteering } from "./ai";
 import { stepSimulationTick } from "./tick";
-
-function clearMonsters(game: Game) {
-  game
-    .getState()
-    .entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
-}
 
 describe("dreadnaught smashes through walls", () => {
   beforeEach(() => RNG.reseed(2));
