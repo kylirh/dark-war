@@ -155,6 +155,39 @@ describe("death during transition", () => {
    * cancelled with every other one: the player dies on the floor they fell
    * from rather than arriving dead on the one below.
    */
+
+  it("cancels a pending ascend when the death event outlives the tick", () => {
+    const state = dungeonAtDepthOne().getState();
+    const player = state.player;
+
+    const stairs = state.portals.find((p) => p.id.endsWith("stairs-up"))!;
+    setPositionFromGrid(player, stairs.source.x, stairs.source.y);
+
+    resolveCommand(state, {
+      id: "ascend-cmd",
+      tick: state.sim.nowTick,
+      actorId: player.id,
+      type: CommandType.ASCEND,
+      data: { type: "ASCEND" },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    expect(state.shouldAscend).toBe(true);
+
+    pushLethalDamage(state, player.id);
+    pushFillerEvents(state, 2 * MAX_EVENTS_PER_TICK + 2);
+
+    stepSimulationTick(state);
+
+    expect(player.hp).toBeLessThanOrEqual(0);
+    expect(
+      state.eventQueue.some((event) => event.type === EventType.PLAYER_DEATH),
+    ).toBe(true);
+    expect(state.shouldAscend).toBe(false);
+    expect(state.pendingPortalId).toBeUndefined();
+  });
+
   it("cancels the descend when the fall through a hole is itself lethal", () => {
     const game = dungeonAtDepthOne();
     const state = game.getState();

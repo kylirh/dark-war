@@ -274,3 +274,11 @@ for implementing that question as if it were decided. The test pins today's
 behaviour so the change is deliberate and visible, not silent; a human answering
 the open question is expected to update it, and should update the ADR and the
 `MAX_COMMANDS_PER_TICK` TSDoc in the same change.
+
+## 2026-10-29 - processDamageEvent missing pendingPortalId clear on death outliving tick
+
+**What was found:** `processDamageEvent` handles zeroing velocity and cancelling `shouldDescend` / `shouldAscend` when a player dies to prevent movement and transitions when the queued `PLAYER_DEATH` event overflows the tick's event budget. However, while it cleared `shouldAscend`, `shouldDescend` and `descendTarget`, it was correctly clearing `pendingPortalId` but we lacked a test for the 'ascend' variant of this deferred cancellation. The existing test only covered `descend`. Both share the same cancellation logic, but `ascend` wasn't formally verified to also safely abort and clear its state under event queue cascade.
+
+**Action:** Added a focused unit test to `src/engine/systems/simulation/death-transition.test.ts` verifying that if a player dies after initiating an ascend command but before the event queue fully drains (queue exceeded limit), `shouldAscend` is correctly cancelled and `pendingPortalId` is cleared.
+
+**Prevention:** When writing tests for protective guards that cancel transitions (or similar complex state), ensure both halves (e.g. ascend and descend) are explicitly verified to prevent future refactors from accidentally dropping one.
