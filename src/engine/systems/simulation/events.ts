@@ -310,7 +310,9 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
       data.sourceId &&
       monster.hp > 0
     ) {
-      const attacker = state.entityManager.getById(data.sourceId) as any;
+      const attacker = state.entities.find(
+        (e) => e.id === data.sourceId,
+      ) as any;
       if (attacker) {
         monster.alertLevel = 100;
         monster.lastAttackerId = data.sourceId;
@@ -579,12 +581,12 @@ function processDeathEvent(state: GameState, event: GameEvent): void {
       });
     }
 
-    const sourceEntity = data.sourceId
-      ? state.entityManager.getById(data.sourceId)
-      : null;
     const scoringPlayer =
-      (sourceEntity?.kind === EntityKind.PLAYER
-        ? (sourceEntity as Player)
+      (data.sourceId
+        ? state.entities.find(
+            (entity): entity is Player =>
+              entity.kind === EntityKind.PLAYER && entity.id === data.sourceId,
+          )
         : null) ?? getClosestPlayer(state, monster);
     if (scoringPlayer) {
       scoringPlayer.score += 10;

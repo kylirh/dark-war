@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { clearMonsters } from "./test-utils";
 import { Game } from "../../core/game";
 import { Physics } from "../physics";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { ItemEntity } from "../../entities/item-entity";
 import {
+  EntityKind,
   MonsterType,
   ItemType,
   TileType,
@@ -22,6 +22,12 @@ import {
   playerHasWonOverSnagglepuss,
   recruitSnagglepuss,
 } from "./snagglepuss-social";
+
+function clearMonsters(game: Game) {
+  game
+    .getState()
+    .entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
+}
 
 describe("snagglepuss", () => {
   it("is won over by feeding cookies nearby (graded, not a coin flip)", () => {
