@@ -130,11 +130,3 @@ Each of the five sites was separately covered before the change: dropping the sl
 **Action:** Extracted the duplicated boilerplate into a new `applyVelocityAndClamp(state, entity, dt, entityRadius)` helper function inside `src/engine/systems/physics.ts`. It's called in both original sites.
 
 **Prevention:** Run `npx jscpd` proactively to detect block-level duplications, and extract repetitions before it spreads. When writing continuous movement / applying velocity, use a common helper function.
-
-## 2026-10-29 - consolidate clearMonsters in tests
-
-**What was found:** The `clearMonsters` function was duplicated exactly six times across different test files in `src/engine/systems/simulation/`.
-
-**Action:** Created a new file `src/engine/systems/simulation/test-utils.ts` and moved the `clearMonsters` function into it. Imported this function in the six test files instead of duplicating the logic.
-
-**Prevention:** Future test functions that are identical should be placed in a shared utilities file to avoid duplication and keep test logic centralized.

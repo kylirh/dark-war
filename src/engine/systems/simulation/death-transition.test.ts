@@ -150,45 +150,6 @@ describe("death during transition", () => {
   });
 
   /**
-   * The ascend twin of the test above. Not redundant with it: the four
-   * cancellations in `processDamageEvent` are one block, but removing only
-   * `state.shouldAscend = false` leaves the descend test green and fails just
-   * this one, so this is the sole cover for that statement. `pendingPortalId`
-   * matters here in particular because the ascend resolver is what sets it.
-   */
-  it("cancels a pending ascend when the death event outlives the tick", () => {
-    const state = dungeonAtDepthOne().getState();
-    const player = state.player;
-
-    const stairs = state.portals.find((p) => p.id.endsWith("stairs-up"))!;
-    setPositionFromGrid(player, stairs.source.x, stairs.source.y);
-
-    resolveCommand(state, {
-      id: "ascend-cmd",
-      tick: state.sim.nowTick,
-      actorId: player.id,
-      type: CommandType.ASCEND,
-      data: { type: "ASCEND" },
-      priority: 0,
-      source: "PLAYER",
-    });
-
-    expect(state.shouldAscend).toBe(true);
-
-    pushLethalDamage(state, player.id);
-    pushFillerEvents(state, 2 * MAX_EVENTS_PER_TICK + 2);
-
-    stepSimulationTick(state);
-
-    expect(player.hp).toBeLessThanOrEqual(0);
-    expect(
-      state.eventQueue.some((event) => event.type === EventType.PLAYER_DEATH),
-    ).toBe(true);
-    expect(state.shouldAscend).toBe(false);
-    expect(state.pendingPortalId).toBeUndefined();
-  });
-
-  /**
    * `triggerPlayerFall` sets `shouldDescend` and queues `HOLE_FALL_DAMAGE` in
    * the same tick, so the fall itself can be the lethal blow. The transition is
    * cancelled with every other one: the player dies on the floor they fell

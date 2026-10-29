@@ -1,10 +1,9 @@
 import { afterEach, describe, it, expect, beforeEach, vi } from "vitest";
-import { clearMonsters } from "./test-utils";
 import { Game } from "../../core/game";
 import { Physics } from "../physics";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { BulletEntity } from "../../entities/bullet-entity";
-import { ItemType, MonsterType, TileType } from "../../types";
+import { EntityKind, ItemType, MonsterType, TileType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { stepSimulationTick } from "./tick";
 import { updateMonsterSteering } from "./ai";
@@ -35,6 +34,12 @@ const DOG_WHIMPER_SOUNDS = new Set<string>([
 
 function hasDogVocal(state: ReturnType<Game["getState"]>): boolean {
   return state.pendingSounds.some((sound) => DOG_VOCALS.has(sound.effect));
+}
+
+function clearMonsters(game: Game) {
+  game
+    .getState()
+    .entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
 }
 
 function setupDogTest(isFriendly = true) {

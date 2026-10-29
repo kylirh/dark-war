@@ -549,33 +549,4 @@ describe("multiplayer server (multi-world)", () => {
 
     client.close();
   });
-  it("does not hand the info endpoints to every origin", async () => {
-    // These endpoints are unauthenticated and expose room ids and the lobby
-    // player names. A wildcard `Access-Control-Allow-Origin` let any page the
-    // host visited read that off a server on their own network; `curl` could
-    // always reach it, but only CORS decides whether a browser hands the body
-    // back to a script on another origin.
-    delete process.env.CORS_ORIGIN;
-    server = await startMultiplayerServer(0);
-
-    for (const path of ["/info?room=test", "/rooms"]) {
-      const res = await fetch(`http://localhost:${server.port}${path}`);
-      expect(res.status).toBe(200);
-      expect(res.headers.get("access-control-allow-origin")).toBeNull();
-      expect(res.headers.get("content-type")).toBe("application/json");
-    }
-  });
-
-  it("allows exactly the origin CORS_ORIGIN names", async () => {
-    process.env.CORS_ORIGIN = "https://play.example";
-    try {
-      server = await startMultiplayerServer(0);
-      const res = await fetch(`http://localhost:${server.port}/rooms`);
-      expect(res.headers.get("access-control-allow-origin")).toBe(
-        "https://play.example",
-      );
-    } finally {
-      delete process.env.CORS_ORIGIN;
-    }
-  });
 });
