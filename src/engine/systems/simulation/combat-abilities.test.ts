@@ -1,9 +1,8 @@
-import { clearMonsters } from "./test-utils";
 import { afterEach, describe, it, expect, beforeEach, vi } from "vitest";
+import { clearMonsters } from "./test-utils";
 import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
 import {
-  EntityKind,
   MonsterType,
   ItemType,
   CommandType,

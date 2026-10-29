@@ -1,5 +1,5 @@
-import { clearMonsters } from "./test-utils";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { clearMonsters } from "./test-utils";
 import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
 import { ItemEntity } from "../../entities/item-entity";
