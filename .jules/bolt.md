@@ -294,5 +294,3 @@ call's overhead and nothing more. Measure a setter skip before trading an
 invariant for it, and quote the saving as a share of the frame budget — the
 lesson directly above this entry says the same thing, and the first draft of
 this one did not follow it.
-
-- 2025-02-27: Found an O(N) `.find()` loop over players inside the conversations iteration in `src/engine/systems/simulation/conversation.ts`. Action: pre-populated a `Map<string, Player>` and used `.get()`, changing complexity to O(M+N). Measurement: ~15272ms down to ~130ms for 5000 iterations. Prevention: encourage map lookups for cross-referencing collections instead of nested array loops.

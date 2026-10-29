@@ -159,13 +159,8 @@ export function updateConversationSessions(state: GameState): void {
     }
   }
 
-  const playersById = new Map<string, Player>();
-  for (let i = 0; i < state.players.length; i++) {
-    playersById.set(state.players[i].id, state.players[i]);
-  }
-
   for (const [playerId, session] of Array.from(state.conversations.entries())) {
-    const player = playersById.get(playerId);
+    const player = state.players.find((p) => p.id === playerId);
     const speaker = player
       ? speakerReachable(player, foundSpeakers.get(session.speakerId))
       : null;
