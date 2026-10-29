@@ -127,3 +127,11 @@ duplicate reads exactly like a regression.
 **Action:** Added `captureFocusOpener` and `restoreFocus` from `focus-restore.ts` to `character-modal.ts`, capturing the opener element before rendering the modal, and explicitly restoring focus to it on close.
 
 **Prevention:** For modals, always capture the element that initiated the modal opening before shifting focus. Do not hardcode focus restoration to the game canvas if there's a possibility the modal was opened from a different element.
+
+## $(date -u +"%Y-%m-%d") - Restore focus on CalloutComposer, DialoguePanel, and SignReader close
+
+**What was found:** Keyboard focus was lost or explicitly reset to the game canvas when CalloutComposer, DialoguePanel, or SignReader closed. For DialoguePanel and SignReader, focus restoration was hardcoded to `document.getElementById("game")?.focus();`, and for CalloutComposer, it was not handled at all. This breaks keyboard flow if these UI elements are opened from another interface element (e.g. `GameMenu`).
+
+**Action:** Added the `captureFocusOpener` and `restoreFocus` pattern from `focus-restore.ts` to all three components, capturing the opener before they render and restoring focus to it on close.
+
+**Prevention:** Never hardcode focus restoration to the game canvas or ignore it. For any modal or overlay that takes keyboard focus, always capture the element that initiated it and restore focus to that element on close using the established `focus-restore.ts` contract.

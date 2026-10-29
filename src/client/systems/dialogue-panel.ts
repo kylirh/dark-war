@@ -5,6 +5,7 @@
  * game state; response and leave actions are dispatched through its handlers.
  */
 
+import { captureFocusOpener, restoreFocus } from "./focus-restore";
 import { ConversationView } from "../../engine/types";
 import {
   SPRITE_COORDS,
@@ -22,6 +23,7 @@ export interface DialoguePanelHandlers {
 const PORTRAIT_PX = 112;
 
 export class DialoguePanel {
+  private openerFocus: HTMLElement | null = null;
   private readonly root: HTMLDivElement;
   private readonly portrait: HTMLCanvasElement;
   private readonly nameEl: HTMLDivElement;
@@ -135,6 +137,9 @@ export class DialoguePanel {
       return;
     }
 
+    if (this.root.hidden) {
+      this.openerFocus = captureFocusOpener();
+    }
     this.root.hidden = false;
     if (
       view.revision === this.renderedRevision &&
@@ -201,7 +206,7 @@ export class DialoguePanel {
     this.choiceButtons = [];
     this.selectedChoiceIndex = -1;
     if (ownedFocus) {
-      document.getElementById("game")?.focus();
+      restoreFocus(this.openerFocus);
     }
   }
 
