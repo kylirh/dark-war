@@ -24,13 +24,9 @@ export function setStateTile(
     ? tileSource.inBounds(x, y)
     : x >= 0 && y >= 0 && x < state.mapWidth && y < state.mapHeight;
   if (!inBounds) return false;
-  const dirtied = tileSource?.setTile(x, y, tile);
-  if (Array.isArray(dirtied)) {
-    for (const idx of dirtied) state.changedTiles?.add(idx);
-  } else {
-    const index = x + y * state.mapWidth;
-    state.changedTiles?.add(index);
-  }
+  tileSource?.setTile(x, y, tile);
+  const index = x + y * state.mapWidth;
+  state.changedTiles?.add(index);
   return true;
 }
 
