@@ -30,9 +30,7 @@ describe("processEventQueue", () => {
 
     // After processing, the processed events should be removed (spliced away).
     // The unprocessed events should remain in the queue.
-    expect(state.eventQueue.length).toBe(
-      originalLength - (MAX_EVENTS_PER_TICK + 1),
-    );
+    expect(state.eventQueue.length).toBe(originalLength - MAX_EVENTS_PER_TICK);
   });
 
   // The simulation path must draw every random choice from the seeded RNG,

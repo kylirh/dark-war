@@ -39,8 +39,8 @@ export const MONSTER_ITEM_PICKUP_CHANCE = 0.85; // 85% chance to pick up items w
  * on `state.eventQueue` and the next tick picks it up. A large legitimate
  * cascade plays out over several ticks rather than resolving instantly.
  *
- * The guard reads `if (processed++ > MAX_EVENTS_PER_TICK)`, so the
- * post-increment lets **1001** events through before it trips, not 1000.
+ * The guard reads `if (processed++ >= MAX_EVENTS_PER_TICK)`, so the
+ * post-increment lets **1000** events through before it trips.
  */
 export const MAX_EVENTS_PER_TICK = 1000;
 

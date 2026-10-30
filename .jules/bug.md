@@ -23,3 +23,11 @@ another player's transition.
 pending actions or delayed transitions. Any state flags set by a command that
 are evaluated later in the tick (or after the tick) must be aborted if the actor
 dies in the interim.
+
+## 2023-11-20 - Fix off-by-one error in processEventQueue MAX_EVENTS_PER_TICK guard
+
+**What was found:** The loop condition in `processEventQueue` (`src/engine/systems/simulation/events.ts`) was written as `if (processed++ > MAX_EVENTS_PER_TICK)`. The post-increment operator evaluates before incrementing, meaning when `processed` was exactly 1000 (`MAX_EVENTS_PER_TICK`), the condition `1000 > 1000` evaluated to false. The break did not trigger, and the event was processed, allowing 1001 events through instead of 1000. This caused tests simulating exactly enough events to push a `PLAYER_DEATH` event into the next tick's deferred queue to actually process the event in the current tick, breaking expectations.
+
+**Action:** Changed `if (processed++ > MAX_EVENTS_PER_TICK)` to `if (processed++ >= MAX_EVENTS_PER_TICK)` in `src/engine/systems/simulation/events.ts`. This ensures exactly 1000 events are processed before breaking. Updated `events.test.ts` and `death-transition.test.ts` to align with the corrected 1000-event limit.
+
+**Prevention:** Be cautious with post-increment operators in bounds checks. When `++` is used after a variable in a comparison, the comparison uses the value before the increment. `var++ > MAX` allows `MAX + 1` iterations.

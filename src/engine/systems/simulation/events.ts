@@ -67,7 +67,7 @@ export function processEventQueue(state: GameState): void {
   let head = 0;
 
   while (head < state.eventQueue.length) {
-    if (processed++ > MAX_EVENTS_PER_TICK) {
+    if (processed++ >= MAX_EVENTS_PER_TICK) {
       console.error("Event cascade exceeded max events per tick");
       break;
     }
