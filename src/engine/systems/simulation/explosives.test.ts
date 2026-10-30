@@ -29,6 +29,7 @@ import {
 } from "./explosives";
 import { EXPLOSIVE_CONFIG, SIM_DT_MS } from "./constants";
 import { RNG } from "../../utils/rng";
+import { clearMonsters } from "./test-utils";
 
 describe("explosives simulation", () => {
   let game: Game;
@@ -153,7 +154,7 @@ describe("explosives simulation", () => {
         state.player.worldY = 1000;
 
         // Remove monsters near 100,100
-        state.entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
+        clearMonsters(game);
 
         const mine = new ExplosiveEntity(100, 100, ItemType.LAND_MINE, true);
         state.entityManager.spawn(mine);
@@ -193,7 +194,7 @@ describe("explosives simulation", () => {
         player.worldY = 100;
 
         // Remove other actors to isolate test
-        state.entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
+        clearMonsters(game);
 
         const mine = new ExplosiveEntity(
           100,
@@ -218,7 +219,7 @@ describe("explosives simulation", () => {
         player.worldX = 100;
         player.worldY = 100;
 
-        state.entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
+        clearMonsters(game);
 
         const mine = new ExplosiveEntity(
           100,
@@ -488,7 +489,7 @@ describe("explosives simulation", () => {
       mine: ExplosiveEntity;
     } {
       const state = game.getState();
-      state.entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
+      clearMonsters(game);
       state.player.worldX = 5000;
       state.player.worldY = 5000;
       const mine = new ExplosiveEntity(0, 0, ItemType.LAND_MINE, true);

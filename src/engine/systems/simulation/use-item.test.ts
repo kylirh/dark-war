@@ -21,6 +21,7 @@ import { SoundEffect } from "../../content/sound-effects";
 import { setStateTile } from "../../utils/state-tiles";
 import { selectPlayerWeaponCallout } from "../../content/player-weapon-callouts";
 import { MEDKIT_HEAL_AMOUNT } from "../../content/item-defs";
+import { clearMonsters } from "./test-utils";
 
 function emittingReloadCommandId(
   weapon: WeaponType,
@@ -449,9 +450,7 @@ describe("melee weapon damage tiers", () => {
     game.reset(1);
     const state = game.getState();
     const player = state.player;
-    state.entityManager.destroyWhere(
-      (entity) => entity.kind === EntityKind.MONSTER,
-    );
+    clearMonsters(game);
     player.weapon = WeaponType.MELEE;
     player.facingAngle = 0;
     return { game, state, player };

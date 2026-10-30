@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
-import { CommandType, EntityKind, EventType, MonsterType } from "../../types";
+import { CommandType, EventType, MonsterType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { enqueueCommand } from "./commands";
 import { processEventQueue } from "./events";
@@ -16,13 +16,12 @@ import {
   REST_TIME_SCALE,
 } from "./constants";
 import { stepSimulationTick } from "./tick";
+import { clearMonsters } from "./test-utils";
 
 function emptyGame(mode: "offline" | "online" = "offline"): Game {
   const game = new Game({ mode });
   game.reset(1);
-  game
-    .getState()
-    .entityManager.destroyWhere((entity) => entity.kind === EntityKind.MONSTER);
+  clearMonsters(game);
   return game;
 }
 
