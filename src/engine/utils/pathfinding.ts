@@ -1,14 +1,41 @@
 import { Entity, EntityKind } from "../types";
 import { TileSource } from "../core/tile-source";
-import { idxFor } from "./helpers";
+import { idxFor, EIGHT_WAY_DIRECTIONS } from "./helpers";
 import { wrapDelta, wrapValue } from "./wrap";
 
-const MAX_CELLS = 256 * 256;
-const sharedCameFrom = new Int32Array(MAX_CELLS);
-const sharedDistance = new Int32Array(MAX_CELLS);
-const sharedVisitedOrder = new Int32Array(MAX_CELLS);
-const sharedQueue = new Int32Array(MAX_CELLS);
-const sharedHasMonster = new Uint8Array(MAX_CELLS);
+/**
+ * `EIGHT_WAY_DIRECTIONS` split into two primitive arrays, in the same order.
+ * The search below reads these 8 times per expanded cell, and the array-of-
+ * pairs form costs a pointer chase per read; flattening it is most of the
+ * speedup here. Derived from the shared constant rather than retyped, so the
+ * tie-break order cannot drift away from it.
+ */
+const DIRECTION_DX = Int8Array.from(EIGHT_WAY_DIRECTIONS, (d) => d[0]);
+const DIRECTION_DY = Int8Array.from(EIGHT_WAY_DIRECTIONS, (d) => d[1]);
+
+/**
+ * Scratch buffers for the breadth-first search below, reused across calls so a
+ * search costs no allocation. Safe to share because the search is synchronous
+ * and never reenters: it only reads from `tiles` and `explored` while running.
+ *
+ * They grow to fit the largest level seen and are never shrunk; the levels in
+ * play are 128x96 and 128x72, so this settles at one allocation per process.
+ */
+let sharedCameFrom = new Int32Array(0);
+let sharedDistance = new Int32Array(0);
+let sharedVisitedOrder = new Int32Array(0);
+let sharedQueue = new Int32Array(0);
+let sharedHasMonster = new Uint8Array(0);
+
+/** Grow the scratch buffers to fit a level; they are never shrunk. */
+function ensureSearchCapacity(cellCount: number): void {
+  if (sharedCameFrom.length >= cellCount) return;
+  sharedCameFrom = new Int32Array(cellCount);
+  sharedDistance = new Int32Array(cellCount);
+  sharedVisitedOrder = new Int32Array(cellCount);
+  sharedQueue = new Int32Array(cellCount);
+  sharedHasMonster = new Uint8Array(cellCount);
+}
 
 /**
  * Find a path from start to end using A* pathfinding
@@ -40,7 +67,8 @@ export function findPath(
 
 /**
  * Find a path to the target, or the closest reachable tile if target is blocked/unknown.
- * Memory constraint: uses module-scoped buffers sized up to MAX_CELLS for O(1) allocation.
+ * Uses the shared scratch buffers above, so a search allocates nothing beyond
+ * the returned path.
  */
 export function findPathToClosestReachable(
   startX: number,
@@ -56,12 +84,7 @@ export function findPathToClosestReachable(
   if (!tiles.inBounds(endX, endY)) return null;
 
   const cellCount = width * height;
-
-  if (cellCount > MAX_CELLS) {
-    throw new Error(
-      `Map too large for pathfinding arrays: ${cellCount} cells, max ${MAX_CELLS}`,
-    );
-  }
+  ensureSearchCapacity(cellCount);
 
   sharedCameFrom.fill(-1, 0, cellCount);
   sharedDistance.fill(-1, 0, cellCount);
@@ -98,37 +121,32 @@ export function findPathToClosestReachable(
     const currentX = current % width;
     const currentY = Math.floor(current / width);
 
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if (dx === 0 && dy === 0) continue;
-
-        let nx = currentX + dx;
-        let ny = currentY + dy;
-
-        if (wraps) {
-          nx = wrapValue(nx, width);
-          ny = wrapValue(ny, height);
-        }
-
-        if (!tiles.inBounds(nx, ny)) {
-          continue;
-        }
-
-        const nIdx = idxFor(nx, ny, width);
-        if (sharedDistance[nIdx] !== -1) continue;
-
-        if (!isPassable(nx, ny)) continue;
-        if (!tiles.canTraverse(currentX, currentY, nx, ny, wraps)) continue;
-
-        if (sharedHasMonster[nIdx] === 1 && !(nx === endX && ny === endY)) {
-          continue;
-        }
-
-        sharedDistance[nIdx] = sharedDistance[current] + 1;
-        sharedCameFrom[nIdx] = current;
-        sharedQueue[queueTail++] = nIdx;
-        sharedVisitedOrder[visitedCount++] = nIdx;
+    // DIRECTION_DX/DY are EIGHT_WAY_DIRECTIONS in order, and that order is the
+    // tie-break contract this search publishes (see helpers.ts): it decides
+    // which equal-cost route comes back. Flatten it, do not reorder it.
+    for (let d = 0; d < DIRECTION_DX.length; d++) {
+      const stepX = currentX + DIRECTION_DX[d];
+      const stepY = currentY + DIRECTION_DY[d];
+      const nx = wraps ? wrapValue(stepX, width) : stepX;
+      const ny = wraps ? wrapValue(stepY, height) : stepY;
+      if (!tiles.inBounds(nx, ny) || (nx === currentX && ny === currentY)) {
+        continue;
       }
+
+      const nIdx = idxFor(nx, ny, width);
+      if (sharedDistance[nIdx] !== -1) continue;
+
+      if (!isPassable(nx, ny)) continue;
+      if (!tiles.canTraverse(currentX, currentY, nx, ny, wraps)) continue;
+
+      if (sharedHasMonster[nIdx] === 1 && !(nx === endX && ny === endY)) {
+        continue;
+      }
+
+      sharedDistance[nIdx] = sharedDistance[current] + 1;
+      sharedCameFrom[nIdx] = current;
+      sharedQueue[queueTail++] = nIdx;
+      sharedVisitedOrder[visitedCount++] = nIdx;
     }
   }
 

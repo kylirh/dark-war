@@ -382,10 +382,38 @@ Two cautions for the next one of these:
 - `-1` means unvisited and `-2` marks the start, because index `0` is a legal
   parent. The original `Map` got this free from `undefined`.
 
-## 2026-11-13 - Optimize pathfinding internal data structures
+## 2026-10-30 - Flattening the direction table is the pathfinding win, not the typed arrays
 
-**What was found:** `findPathToClosestReachable` (A* pathfinding and BFS routines) was allocating multiple standard JavaScript arrays per call (e.g. `cameFrom`, `distance`, `visitedOrder`, and `queue`) resulting in O(N) array allocation logic each pathfinding run. In addition, the internal loop tracking monsters built a `Set<number>` iteratively for every pass, adding high object allocation and hash lookup overhead in a hot loop that operates inside the physics frame path.
+**What was found:** `findPathToClosestReachable` allocated four ordinary arrays
+per call (`cameFrom`, `distance`, `visitedOrder`, `queue`) plus a `Set<number>`
+of monster tiles, on a path the click-to-move handler and the AI both run.
 
-**Action:** Replaced object arrays and Set with flat module-scoped typed arrays (`Int32Array` for distances/queue and `Uint8Array` acting as a bitmask for monsters) limited up to 256*256 cells. We also refactored the `EIGHT_WAY_DIRECTIONS` iterator into a primitive nested for loop (`dy` and `dx`) to avoid small array allocation.
+**Action:** Reused module-scoped typed arrays for all five, grown on demand
+rather than capped, and flattened `EIGHT_WAY_DIRECTIONS` into two `Int8Array`s
+derived from the shared constant.
 
-**Measurement:** Benchmarking pathfinding workloads (2,000 iterations over a 128x96 simulated cell layout populated with 50 entities) showed median execution times reduced from ~1,450ms down to ~730ms per test batch, a roughly **2x** performance improvement due to elimination of repetitive internal Set mapping and generic array building per node traversal.
+**Measurement:** 2,000 searches on a 128x96 map with 1,500 scattered walls and
+50 monsters, median of 5 batches after warmup, run with `tsx`:
+`main` 14,846ms, this change 4,309ms — about **3.4x**.
+
+**The part worth remembering:** the first version of this change also replaced
+the `EIGHT_WAY_DIRECTIONS` walk with nested `dy`/`dx` loops, which silently
+reordered neighbour expansion. That order is a published contract
+(`helpers.ts`, above the constant): it decides equal-cost ties, so the search
+returned different routes on **680 of 1296** start/end pairs on a plain open
+8x8 map with no monsters. All 937 tests still passed.
+
+Attributing the speedup needs care, because the reorder and the flattening
+arrived together and the reorder is the one that costs correctness. Measured
+separately: documented order + array-of-pairs is 13,561ms, documented order +
+flattened `Int8Array`s is 4,186ms. The pointer chase through the array-of-pairs
+was the whole cost; the expansion order contributes nothing. Counting
+`passable()` and `canTraverse()` calls confirms it — 32,357 and 10,719 on every
+variant, identical, so the orders do exactly the same work.
+
+**Prevention:** When a hot-loop rewrite changes iteration order, the order is a
+separate change from the speedup and needs its own justification. Measure the
+variants apart before claiming either. For this function, diff the returned
+paths against the previous revision over a few hundred maps; the suite does not
+cover the tie-break, so green means nothing here. `pathfinding.test.ts` now
+pins one discriminating case.
