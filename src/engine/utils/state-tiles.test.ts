@@ -71,5 +71,8 @@ describe("state tile mutations", () => {
     expect(visuals!.lastDirtyIndices.length).toBeLessThanOrEqual(9);
     expect(visuals!.lastDirtyIndices).toContain(x + y * state.mapWidth);
     expect(visuals!.layers.holeMask[x + (y - 1) * state.mapWidth]).not.toBe(0);
+    for (const idx of visuals!.lastDirtyIndices) {
+      expect(state.changedTiles).toContain(idx);
+    }
   });
 });
