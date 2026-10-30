@@ -1,7 +1,14 @@
 import { Entity, EntityKind } from "../types";
 import { TileSource } from "../core/tile-source";
-import { idxFor, EIGHT_WAY_DIRECTIONS } from "./helpers";
+import { idxFor } from "./helpers";
 import { wrapDelta, wrapValue } from "./wrap";
+
+const MAX_CELLS = 256 * 256;
+const sharedCameFrom = new Int32Array(MAX_CELLS);
+const sharedDistance = new Int32Array(MAX_CELLS);
+const sharedVisitedOrder = new Int32Array(MAX_CELLS);
+const sharedQueue = new Int32Array(MAX_CELLS);
+const sharedHasMonster = new Uint8Array(MAX_CELLS);
 
 /**
  * Find a path from start to end using A* pathfinding
@@ -33,6 +40,7 @@ export function findPath(
 
 /**
  * Find a path to the target, or the closest reachable tile if target is blocked/unknown.
+ * Memory constraint: uses module-scoped buffers sized up to MAX_CELLS for O(1) allocation.
  */
 export function findPathToClosestReachable(
   startX: number,
@@ -48,14 +56,22 @@ export function findPathToClosestReachable(
   if (!tiles.inBounds(endX, endY)) return null;
 
   const cellCount = width * height;
-  const cameFrom = new Array<number>(cellCount).fill(-1);
-  const distance = new Array<number>(cellCount).fill(-1);
-  const visitedOrder: number[] = [];
+
+  if (cellCount > MAX_CELLS) {
+    throw new Error(
+      `Map too large for pathfinding arrays: ${cellCount} cells, max ${MAX_CELLS}`,
+    );
+  }
+
+  sharedCameFrom.fill(-1, 0, cellCount);
+  sharedDistance.fill(-1, 0, cellCount);
+  let visitedCount = 0;
 
   const startIdx = idxFor(startX, startY, width);
-  const queue: number[] = [startIdx];
-  distance[startIdx] = 0;
-  visitedOrder.push(startIdx);
+  let queueTail = 0;
+  sharedQueue[queueTail++] = startIdx;
+  sharedDistance[startIdx] = 0;
+  sharedVisitedOrder[visitedCount++] = startIdx;
 
   const isPassable = (x: number, y: number): boolean => {
     if (!tiles.inBounds(x, y)) return false;
@@ -68,59 +84,71 @@ export function findPathToClosestReachable(
     return true;
   };
 
-  const monsterTiles = new Set<number>();
-  for (const e of entities) {
+  sharedHasMonster.fill(0, 0, cellCount);
+  for (let i = 0; i < entities.length; i++) {
+    const e = entities[i];
     if (e.kind === EntityKind.MONSTER) {
-      monsterTiles.add(idxFor(e.gridX, e.gridY, width));
+      sharedHasMonster[idxFor(e.gridX, e.gridY, width)] = 1;
     }
   }
-  const hasMonster = (x: number, y: number): boolean =>
-    monsterTiles.has(idxFor(x, y, width));
 
   let head = 0;
-  while (head < queue.length) {
-    const current = queue[head++];
+  while (head < queueTail) {
+    const current = sharedQueue[head++];
     const currentX = current % width;
     const currentY = Math.floor(current / width);
 
-    for (const [dx, dy] of EIGHT_WAY_DIRECTIONS) {
-      const nx = wraps ? wrapValue(currentX + dx, width) : currentX + dx;
-      const ny = wraps ? wrapValue(currentY + dy, height) : currentY + dy;
-      if (!tiles.inBounds(nx, ny) || (nx === currentX && ny === currentY)) {
-        continue;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+
+        let nx = currentX + dx;
+        let ny = currentY + dy;
+
+        if (wraps) {
+          nx = wrapValue(nx, width);
+          ny = wrapValue(ny, height);
+        }
+
+        if (!tiles.inBounds(nx, ny)) {
+          continue;
+        }
+
+        const nIdx = idxFor(nx, ny, width);
+        if (sharedDistance[nIdx] !== -1) continue;
+
+        if (!isPassable(nx, ny)) continue;
+        if (!tiles.canTraverse(currentX, currentY, nx, ny, wraps)) continue;
+
+        if (sharedHasMonster[nIdx] === 1 && !(nx === endX && ny === endY)) {
+          continue;
+        }
+
+        sharedDistance[nIdx] = sharedDistance[current] + 1;
+        sharedCameFrom[nIdx] = current;
+        sharedQueue[queueTail++] = nIdx;
+        sharedVisitedOrder[visitedCount++] = nIdx;
       }
-
-      const nIdx = idxFor(nx, ny, width);
-      if (distance[nIdx] !== -1) continue;
-
-      if (!isPassable(nx, ny)) continue;
-      if (!tiles.canTraverse(currentX, currentY, nx, ny, wraps)) continue;
-
-      if (hasMonster(nx, ny) && !(nx === endX && ny === endY)) {
-        continue;
-      }
-
-      distance[nIdx] = distance[current] + 1;
-      cameFrom[nIdx] = current;
-      queue.push(nIdx);
-      visitedOrder.push(nIdx);
     }
   }
 
   const targetIdx = idxFor(endX, endY, width);
   let destinationIdx = targetIdx;
-  if (distance[targetIdx] === -1 || !tiles.passable(endX, endY)) {
+  if (sharedDistance[targetIdx] === -1 || !tiles.passable(endX, endY)) {
     let bestIdx = -1;
     let bestDist = Number.POSITIVE_INFINITY;
     let bestSteps = Number.POSITIVE_INFINITY;
 
-    for (const tileIdx of visitedOrder) {
+    for (let i = 0; i < visitedCount; i++) {
+      const tileIdx = sharedVisitedOrder[i];
       const x = tileIdx % width;
       const y = Math.floor(tileIdx / width);
+
       const dx = wraps ? wrapDelta(x, endX, width) : x - endX;
       const dy = wraps ? wrapDelta(y, endY, height) : y - endY;
+
       const distSq = dx * dx + dy * dy;
-      const steps = distance[tileIdx];
+      const steps = sharedDistance[tileIdx];
 
       if (distSq < bestDist || (distSq === bestDist && steps < bestSteps)) {
         bestDist = distSq;
@@ -143,7 +171,7 @@ export function findPathToClosestReachable(
     const y = Math.floor(currentIdx / width);
     path.push([x, y]);
     if (currentIdx === startIdx) break;
-    currentIdx = cameFrom[currentIdx];
+    currentIdx = sharedCameFrom[currentIdx];
   }
 
   if (path.length > 0) {
