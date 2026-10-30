@@ -188,6 +188,32 @@ describe("findPath diagonal movement", () => {
 });
 
 describe("findPathToClosestReachable", () => {
+  // The equal-cost tie-break this search publishes (`helpers.ts`, above
+  // EIGHT_WAY_DIRECTIONS) is the order it expands neighbours in: cardinals
+  // first, then diagonals. On open floor (1,2) -> (3,1) costs two steps either
+  // way, so the route is decided purely by that order — east first, then the
+  // diagonal. Expanding diagonals first instead returns (2,1) as the midpoint.
+  //
+  // Pinned because it is otherwise invisible: reordering the expansion changed
+  // the midpoint on 680 of the 1296 start/end pairs on this very map and left
+  // the whole suite green, which is how it reached review in #448.
+  it("breaks an equal-cost tie by EIGHT_WAY_DIRECTIONS order", () => {
+    const path = findPathToClosestReachable(
+      1,
+      2,
+      3,
+      1,
+      source(),
+      fullyExplored(),
+      [],
+    );
+    expect(path).toEqual([
+      [1, 2],
+      [2, 2],
+      [3, 1],
+    ]);
+  });
+
   it("reaches an open target", () => {
     const path = findPathToClosestReachable(
       1,
