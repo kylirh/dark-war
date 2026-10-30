@@ -328,3 +328,72 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-30
+
+**Merged:** #448 `perf(pathfinding): reuse search buffers and flatten the
+direction table`, after corrective commit `99d1a67`. Real win, wrong
+attribution: it also replaced the `EIGHT_WAY_DIRECTIONS` walk with nested
+`dy`/`dx` loops, silently reordering neighbour expansion. That order is the
+equal-cost tie-break contract stated above the constant in `helpers.ts`, and
+the reorder changed the returned route on **680 of 1296** start/end pairs on a
+plain open 8x8 map with no monsters, with all 937 tests green.
+
+**Closed:**
+
+- **#449** (`processEventQueue` off-by-one, 1001 -> 1000). The 1001 is
+  documented in two places on `main` — `constants.ts:42` and ADR 0009 line 39,
+  the latter inside the option it adopts, both saying "not 1000". No test was
+  failing; the diff edits two passing tests to assert the new number, which is
+  the inverse of Bug's oracle. It also updated the `constants.ts` comment but
+  not ADR 0009, so merging would have left `main` self-contradicting.
+- **#450** (push the visual 3x3 neighborhood into `state.changedTiles`). The
+  oracle — "visual state mismatches between client and server" — cannot happen:
+  `changedTiles` is not in `SerializedState`, appears nowhere under `src/net/`,
+  and is drained and cleared within the tick by both hosts purely to feed
+  `Physics.updateTile`. It also **replaced** `.jules/world.md` instead of
+  appending, deleting the `canTraverse` entry.
+
+**Found in main:** no correctness defect in the 24-hour window. The Phase 2
+pull request finishes the `clearMonsters` consolidation #446 started.
+
+**For next time:**
+
+1. **The pathfinding speedup is the flattened direction table, not the typed
+   arrays and not the expansion order.** Measured apart on 2,000 searches over
+   128x96: documented order + array-of-pairs 13,561ms, documented order +
+   flattened `Int8Array`s 4,186ms, `main` 14,846ms. `passable()` and
+   `canTraverse()` call counts are identical across every variant (32,357 and
+   10,719), so the orders do the same work; the cost was the pointer chase, read
+   8x per expanded cell. If a bot proposes reordering this loop again, it is
+   proposing a behaviour change for no measured gain.
+
+2. **`pathfinding.test.ts` now pins one discriminating tie-break case**
+   (`(1,2) -> (3,1)` on open floor). Before it existed, the whole suite was
+   green on a reorder that changed most routes on the map. The two older order
+   tests in `findPath` happen to use order-insensitive endpoints, so they do
+   not catch it — do not treat them as coverage.
+
+3. **`state.changedTiles` is a physics-collider set, not a sync channel**, and
+   `Physics.updateTile` already re-evaluates the tile plus its 4 neighbours and
+   a 3x3 boundary sweep (`physics.ts:137-164`). One index already reconciles
+   everything a single-tile write can affect. Expect "the neighborhood is not
+   recorded" to come back; it is not a defect. `editStateCell` does push the
+   whole neighborhood, which is redundant for the same reason — the asymmetry
+   is real but resolving it means trimming `editStateCell`, not widening
+   `setStateTile`.
+
+4. **The `MAX_EVENTS_PER_TICK` off-by-one is documented, not an oversight.**
+   `MAX_COMMANDS_PER_TICK` does enforce exactly 1000, so the two siblings
+   genuinely differ by one. If that is ever worth removing, it is a budget
+   decision with ADR 0009 and `constants.ts` updated together, not a bug fix.
+
+5. **Branch deletion is still unavailable**, now for a second reason: the MCP
+   toolset has no branch-deletion tool, and `git push origin --delete` is
+   refused by this environment's command classifier before it reaches GitHub.
+   22 merged branches are deletable and 53 unmerged leftovers from closed pull
+   requests must be left for a human regardless. Do not spend a run retrying.
+
+6. **The commit-msg hook still rejects any uppercase character**, trailers
+   included, so attribution trailers cannot be added to a local commit without
+   failing it. Squash-merge titles set through the API bypass the hook.

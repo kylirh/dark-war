@@ -24,6 +24,7 @@ import { RNG } from "../../utils/rng";
 import { generateAICommands, updateMonsterSteering } from "./ai";
 import { resolveCommand } from "./commands";
 import { processMonsterItemPickups } from "./tick";
+import { clearMonsters } from "./test-utils";
 
 const PRIMARY_WEAPONS = [
   ItemType.PISTOL,
@@ -41,9 +42,7 @@ function createArmedMonster(
   weapon: ItemType,
 ): MonsterEntity {
   const state = game.getState();
-  state.entityManager.destroyWhere(
-    (entity) => entity.kind === EntityKind.MONSTER,
-  );
+  clearMonsters(game);
   const monster = new MonsterEntity(
     state.player.gridX,
     state.player.gridY,

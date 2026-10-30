@@ -29,6 +29,7 @@ import {
   cleanupOldCommands,
   resolveCommand,
 } from "./commands";
+import { clearMonsters } from "./test-utils";
 
 describe("Simulation Commands Management", () => {
   let state: GameState;
@@ -365,7 +366,7 @@ describe("resolveMoveCommand blocker precedence", () => {
     const game = new Game({ mode: "online" });
     game.reset(1);
     const state = game.getState();
-    state.entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
+    clearMonsters(game);
     const actor = state.player;
     // Melee only lands when the selected slot holds a melee weapon or nothing;
     // the starter loadout selects a ranged weapon, which would short-circuit
