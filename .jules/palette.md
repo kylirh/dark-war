@@ -157,3 +157,11 @@ change together.
 defect with no product question attached — fix those. A dialog that restores to
 the canvas _on purpose_ is a different thing, and whether the canvas is the
 right target depends on how the dialog is opened.
+
+## 2024-03-01 - Add tabindex to dialogue panel root
+
+**What was found:** The `DialoguePanel` in `src/client/systems/dialogue-panel.ts` occasionally falls back to focusing its root container when no interactive elements (free text, choice buttons, or next button) are present in the conversation view. However, the root element is a `<div>` and lacked a `tabindex`, meaning programmatic `.focus()` calls on it were a silent no-op, stranding keyboard focus on the document body.
+
+**Action:** Added `this.root.tabIndex = -1;` to `DialoguePanel`'s initialization so the dialog root can receive programmatic focus and maintain a valid interactive path.
+
+**Prevention:** When an interface component falls back to focusing its container to keep focus contained within a modal or panel, ensure that non-interactive containers (like `<div>` or `<section>`) are assigned `tabindex="-1"` so they can legally receive programmatic focus.
