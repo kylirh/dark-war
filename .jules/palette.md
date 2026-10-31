@@ -160,7 +160,7 @@ right target depends on how the dialog is opened.
 
 ## 2024-03-01 - Add tabindex to dialogue panel root
 
-**What was found:** The `DialoguePanel` in `src/client/systems/dialogue-panel.ts` occasionally falls back to focusing its root container when no interactive elements (free text, choice buttons, or next button) are present in the conversation view. However, the root element is a `<div>` and lacked a `tabindex`, meaning programmatic `.focus()` calls on it were a silent no-op, stranding keyboard focus on the document body.
+**What was found:** The `DialoguePanel` in `src/client/systems/dialogue-panel.ts` had a defensive fallback to focus its root container if no interactive elements (free text, choice buttons, or next button) were present in the conversation view. Although the current server logic ensures this state is structurally unreachable (`canContinue` is true when the other options are exhausted), the fallback branch is kept for total coverage. However, the root element is a `<div>` and lacked a `tabindex`, meaning if this defensive path were ever hit, the programmatic `.focus()` call on it would be a silent no-op, stranding keyboard focus on the document body.
 
 **Action:** Added `this.root.tabIndex = -1;` to `DialoguePanel`'s initialization so the dialog root can receive programmatic focus and maintain a valid interactive path.
 

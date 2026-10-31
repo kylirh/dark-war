@@ -52,7 +52,6 @@ export class DialoguePanel {
 
     this.root = document.createElement("div");
     this.root.className = "dialogue-panel";
-    this.root.tabIndex = -1;
     this.root.setAttribute("role", "dialog");
     this.root.setAttribute("aria-modal", "true");
     this.root.setAttribute("aria-labelledby", "dialogue-speaker");
