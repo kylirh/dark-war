@@ -328,3 +328,87 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-31
+
+**Merged:** #453 `test(simulation): cover the stunsonhit slow and its flag and
+chance gates`, after one corrective commit (5a3e397).
+
+The oracle held — `stunsOnHit` (`events.ts:178`) was the one on-hit ability flag
+with no test; its sibling `flags.steals` is covered by "thieves steal and flee"
+in `combat-abilities.test.ts`. But the two submitted cases only varied the
+`RNG.chance(0.5)` half of the condition. Mutating `flags.stunsOnHit &&
+RNG.chance(0.5)` down to `RNG.chance(0.5)` — which lets _every_ monster slow the
+player on hit — left all 8 tests green. Added a wild-dog attacker, which carries
+`flags` (`allyItem`, `cannotCarryItems`) but not `stunsOnHit`, so it reaches the
+same inner branch the spider does and must still fail the flag check. Also fixed
+the learning-log heading, dated `2024-11-20`.
+
+**Closed:** #452 (`tabIndex = -1` on the dialogue panel root). The oracle does
+not hold: the state it fixes cannot occur. `buildConversationView`
+(`conversation.ts:526`) sets `canContinue: !node.allowFreeText && choices.length
+=== 0`, which is exactly the complement of the panel's other three focus
+branches, so `DialoguePanel.update`'s four cases are total and the
+`this.root.focus()` fallback is unreachable. Checked the other routes in: there
+is one caller (`main.ts:1734`), passing `getConversationView()` straight
+through; in online mode that is the server's own `buildConversationView` output,
+and `state-delta.ts:244` replaces `conversation` whole rather than merging
+fields, so the invariant survives the wire. Its `.jules/palette.md` entry was
+also dated `2024-03-01` and asserted the panel "occasionally falls back" to
+focusing its root, which is not true today.
+
+**Found in main:** the 24-hour window was #448
+(`perf(pathfinding): reuse search buffers and flatten the direction table`) plus
+#453. #448 is correct as merged — walked the start-index, monster-mask aliasing,
+queue-overflow and reconstruction paths and found no regression against the
+per-call-allocation version it replaced. What it shipped unpinned is the reuse
+contract of the new module-level buffers, which `pathfinding.ts` asserts in prose
+and nothing enforced. Two of its three per-call resets and its growth check all
+survive the full 941-test suite:
+
+| mutation                                                      | suite      |
+| ------------------------------------------------------------- | ---------- |
+| drop `sharedHasMonster.fill(0, 0, cellCount)`                 | 941 passed |
+| drop `sharedCameFrom.fill(-1, 0, cellCount)`                  | 941 passed |
+| drop `sharedDistance.fill(-1, 0, cellCount)`                  | 12 failed  |
+| `ensureSearchCapacity` never grows after the first allocation | 941 passed |
+| `ensureSearchCapacity` off by one (`>= cellCount - 1`)        | 941 passed |
+
+Phase 2 pull request pins the monster-mask reset and the growth check, in a
+separate test file so the buffers start at zero length regardless of what other
+tests allocate first.
+
+**For next time:**
+
+- **`sharedCameFrom.fill(-1, 0, cellCount)` in `pathfinding.ts` is dead work,
+  not a missing test.** Every cell whose `cameFrom` the reconstruction reads was
+  written during the same search; the one visited cell that never gets a
+  `cameFrom` is `startIdx`, and the loop `break`s on it before reading its
+  parent. So the fill is unobservable, and no test can pin it. It is a
+  cellCount-wide pass per search — ~12k Int32 writes per click-to-move on a
+  128x96 level — in a function whose point is to allocate nothing. Left alone:
+  deleting a defensive reset to save work is unmeasured perf work, and it would
+  make the `break` load-bearing without saying so. Do not file it as uncovered
+  coverage; it is a deliberate non-entry.
+- **When growth regresses, pathfinding near-hangs rather than misroutes.** With
+  the buffers stuck too small, dropped typed-array writes still advance
+  `queueTail`, so the BFS loop reads `undefined` out of `sharedQueue` and
+  spins — the new growth test takes ~110s to fail under that mutation, against
+  1ms passing. If that test ever looks hung, that is the signal, not flakiness.
+- **The off-by-one capacity mutation (`>= cellCount - 1`) is still unpinned**,
+  and deliberately so: catching it needs two maps whose cell counts differ by
+  exactly one, which pins an arithmetic accident rather than a decision. Stop
+  re-reporting it.
+- **Branch deletion is still unavailable, for a new reason.** It is no longer a
+  GitHub 403 — `git push origin --delete` is refused by this environment's own
+  command classifier as a destructive git action, and the `mcp__github__*`
+  toolset has no branch-deletion tool (checked this run). `delete_branch_on_merge`
+  does work: #453's branch was gone from origin immediately after the squash.
+  At least 19 merged branches remain on origin from the most recent page of
+  closed pull requests alone; a human has to remove them.
+- **17 of the 19 open pull requests are unmerged `claude/daily-*` branches from
+  previous runs of this routine**, #331 through #451, one per day. They are not
+  Jules pull requests and Phase 1 leaves them alone, but they are why this log
+  has no entries between 2026-09-30 and today: each run appends its entry inside
+  its own unmerged pull request. Whichever lands first makes every later one a
+  conflicting edit at the end of this file.
