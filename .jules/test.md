@@ -321,3 +321,11 @@ branch.
 confirm it fails when the guard is gone — "no callbacks fired" also passes when
 the listener was never wired up. Delete the guard and watch it go red before
 believing it.
+
+## 2024-11-20 - Add test coverage for stunsOnHit monster ability
+
+**What was found:** The `stunsOnHit` monster flag in `processDamageEvent` was completely uncovered by tests, even though it executes a 50% random chance check and updates the player's `slowUntilTick` simulation property.
+
+**Action:** Added tests in `src/engine/systems/simulation/monster-abilities.test.ts` to assert that monsters with the `stunsOnHit` flag slow the player and send an alert, but only when `RNG.chance()` returns true.
+
+**Prevention:** Future test iterations should look for other monster flags that modify state during combat that may not be covered, specifically those branching on randomness.
