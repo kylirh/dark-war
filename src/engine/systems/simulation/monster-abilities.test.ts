@@ -258,4 +258,46 @@ describe("stunsOnHit slows the player", () => {
     ).toBe(false);
     chance.mockRestore();
   });
+
+  it("leaves the player unslowed when the attacker lacks the flag", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    const initialSlowUntilTick = player.slowUntilTick;
+
+    // A wild dog carries flags, but not stunsOnHit, so it reaches the same
+    // inner branch the spider does and must still fail the flag check.
+    const monster = new MonsterEntity(
+      player.gridX + 1,
+      player.gridY,
+      MonsterType.WILD_DOG,
+      1,
+    );
+    state.entityManager.spawn(monster);
+
+    const chance = vi.spyOn(RNG, "chance").mockReturnValue(true);
+
+    state.eventQueue.push({
+      id: "test-unflagged-attacker",
+      depth: state.depth,
+      type: EventType.DAMAGE,
+      data: {
+        type: "DAMAGE",
+        targetId: player.id,
+        amount: 1,
+        sourceId: monster.id,
+      },
+    });
+
+    processEventQueue(state);
+
+    expect(player.slowUntilTick).toBe(initialSlowUntilTick);
+    expect(
+      state.pendingAlerts.some(
+        (a) => a.message === "Venom slows your movements!",
+      ),
+    ).toBe(false);
+    chance.mockRestore();
+  });
 });

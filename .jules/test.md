@@ -322,10 +322,23 @@ confirm it fails when the guard is gone — "no callbacks fired" also passes whe
 the listener was never wired up. Delete the guard and watch it go red before
 believing it.
 
-## 2024-11-20 - Add test coverage for stunsOnHit monster ability
+## 2026-10-31 - add test coverage for stunsOnHit monster ability
 
-**What was found:** The `stunsOnHit` monster flag in `processDamageEvent` was completely uncovered by tests, even though it executes a 50% random chance check and updates the player's `slowUntilTick` simulation property.
+**What was found:** The `stunsOnHit` monster flag in `processDamageEvent`
+(`events.ts:178`) was completely uncovered by tests, even though it gates a 50%
+random chance check that sets the player's `slowUntilTick` and raises an alert.
+Its sibling branch, `flags.steals`, is covered by "thieves steal and flee" in
+`combat-abilities.test.ts`.
 
-**Action:** Added tests in `src/engine/systems/simulation/monster-abilities.test.ts` to assert that monsters with the `stunsOnHit` flag slow the player and send an alert, but only when `RNG.chance()` returns true.
+**Action:** Added tests in
+`src/engine/systems/simulation/monster-abilities.test.ts` asserting that a
+monster with the `stunsOnHit` flag slows the player and sends an alert, but only
+when `RNG.chance()` returns true, and that an attacker that carries flags
+without `stunsOnHit` (a wild dog) never slows the player even when the chance
+roll succeeds.
 
-**Prevention:** Future test iterations should look for other monster flags that modify state during combat that may not be covered, specifically those branching on randomness.
+**Prevention:** A condition with two inputs needs a case per input. The first
+two tests here only varied the `RNG.chance(0.5)` half: deleting
+`flags.stunsOnHit &&` from the production condition — which would let _every_
+monster slow the player — left all of them green. Mutate each conjunct
+separately, not just the interesting one.
