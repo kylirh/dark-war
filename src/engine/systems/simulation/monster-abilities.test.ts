@@ -178,3 +178,126 @@ describe("flutterbang explodes on death", () => {
     expect(state.effects.some((e) => e.type === "explosion")).toBe(false);
   });
 });
+
+describe("stunsOnHit slows the player", () => {
+  it("applies a slow effect to the player on hit if RNG succeeds", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+
+    const monster = new MonsterEntity(
+      player.gridX + 1,
+      player.gridY,
+      MonsterType.GIANT_SPIDER,
+      1,
+    );
+    state.entityManager.spawn(monster);
+
+    const chance = vi.spyOn(RNG, "chance").mockReturnValue(true);
+
+    state.eventQueue.push({
+      id: "test-stun",
+      depth: state.depth,
+      type: EventType.DAMAGE,
+      data: {
+        type: "DAMAGE",
+        targetId: player.id,
+        amount: 1,
+        sourceId: monster.id,
+      },
+    });
+
+    processEventQueue(state);
+
+    expect(player.slowUntilTick).toBe(state.sim.nowTick + 40);
+    expect(
+      state.pendingAlerts.some(
+        (a) => a.message === "Venom slows your movements!",
+      ),
+    ).toBe(true);
+    chance.mockRestore();
+  });
+
+  it("does not apply a slow effect if RNG fails", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    const initialSlowUntilTick = player.slowUntilTick;
+
+    const monster = new MonsterEntity(
+      player.gridX + 1,
+      player.gridY,
+      MonsterType.GIANT_SPIDER,
+      1,
+    );
+    state.entityManager.spawn(monster);
+
+    const chance = vi.spyOn(RNG, "chance").mockReturnValue(false);
+
+    state.eventQueue.push({
+      id: "test-no-stun",
+      depth: state.depth,
+      type: EventType.DAMAGE,
+      data: {
+        type: "DAMAGE",
+        targetId: player.id,
+        amount: 1,
+        sourceId: monster.id,
+      },
+    });
+
+    processEventQueue(state);
+
+    expect(player.slowUntilTick).toBe(initialSlowUntilTick);
+    expect(
+      state.pendingAlerts.some(
+        (a) => a.message === "Venom slows your movements!",
+      ),
+    ).toBe(false);
+    chance.mockRestore();
+  });
+
+  it("leaves the player unslowed when the attacker lacks the flag", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const player = state.player;
+    const initialSlowUntilTick = player.slowUntilTick;
+
+    // A wild dog carries flags, but not stunsOnHit, so it reaches the same
+    // inner branch the spider does and must still fail the flag check.
+    const monster = new MonsterEntity(
+      player.gridX + 1,
+      player.gridY,
+      MonsterType.WILD_DOG,
+      1,
+    );
+    state.entityManager.spawn(monster);
+
+    const chance = vi.spyOn(RNG, "chance").mockReturnValue(true);
+
+    state.eventQueue.push({
+      id: "test-unflagged-attacker",
+      depth: state.depth,
+      type: EventType.DAMAGE,
+      data: {
+        type: "DAMAGE",
+        targetId: player.id,
+        amount: 1,
+        sourceId: monster.id,
+      },
+    });
+
+    processEventQueue(state);
+
+    expect(player.slowUntilTick).toBe(initialSlowUntilTick);
+    expect(
+      state.pendingAlerts.some(
+        (a) => a.message === "Venom slows your movements!",
+      ),
+    ).toBe(false);
+    chance.mockRestore();
+  });
+});
