@@ -1,11 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { Game } from "../../core/game";
+import { MonsterEntity } from "../../entities/monster-entity";
 import {
   CommandType,
   EventType,
   GameState,
   HOLE_FALL_DAMAGE,
   ItemType,
+  MonsterType,
 } from "../../types";
 import { idxFor, setPositionFromGrid } from "../../utils/helpers";
 import { resolveCommand } from "./commands";
@@ -265,6 +267,40 @@ describe("death stops movement", () => {
     expect(player.hp).toBeLessThanOrEqual(0);
     expect(player.velocityX).toBe(0);
     expect(player.velocityY).toBe(0);
+  });
+
+  it("stops a monster's movement on death from damage when event queue cascades", () => {
+    const state = dungeonAtDepthOne().getState();
+    const monster = new MonsterEntity(10, 10, MonsterType.MUTANT, 1);
+    state.entityManager.spawn(monster);
+
+    monster.velocityX = 100;
+    monster.velocityY = 100;
+
+    for (let i = 0; i < MAX_EVENTS_PER_TICK; i++) {
+      state.eventQueue.push({
+        id: `evt-${i}`,
+        depth: state.depth,
+        type: EventType.MESSAGE,
+        data: { type: "MESSAGE", message: "test event" },
+      });
+    }
+
+    state.eventQueue.push({
+      id: "lethal-dmg",
+      depth: state.depth,
+      type: EventType.DAMAGE,
+      data: { type: "DAMAGE", targetId: monster.id, amount: 100 },
+    });
+
+    processEventQueue(state);
+
+    expect(state.eventQueue.map((event) => event.type)).toEqual([
+      EventType.DEATH,
+    ]);
+    expect(monster.hp).toBeLessThanOrEqual(0);
+    expect(monster.velocityX).toBe(0);
+    expect(monster.velocityY).toBe(0);
   });
 
   it("stops a player's movement on death from damage when event queue cascades", () => {
