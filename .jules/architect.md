@@ -38,6 +38,15 @@ nothing covers it.
 
 **What was found:** `stepSimulationTick` truncates the AI command array to `MAX_COMMANDS_PER_TICK` before running `sortCommandsDeterministically`. As documented in `.jules/test.md` (2026-10-22) and left as an open question in ADR 0009, this means overflow drops the latest-generated commands rather than the lowest-priority ones, making AI behavior under load arbitrary rather than prioritized.
 
-**Action:** Wrote Proposed ADR 0013 formalizing the architectural decision to truncate AI commands after sorting, ensuring the simulation load-sheds lowest-priority commands first.
+**Action:** Wrote Proposed ADR 0013 recommending that AI commands be truncated
+after sorting, so the simulation load-sheds the lowest-priority commands first.
+The ADR recommends; the choice is still ADR 0009's open question and belongs to
+a human.
 
-**Prevention:** When implementing safety limits like max-operations-per-tick, ensure the limits are applied *after* sorting if the elements have explicit priority. Arbitrary load shedding leads to unpredictable bugs.
+**Prevention:** When implementing safety limits like max-operations-per-tick,
+ensure the limits are applied _after_ sorting if the elements have explicit
+priority. Also size the win before writing it up: `generateAICommands` emits
+only two priority values, and `priority: 1` is used solely for ranged fire, so
+reordering the truncation preserves shots over movement and nothing finer. Do
+not describe it as rescuing "critical actions like attacking or healing" —
+melee attack is `priority: 0` and no healing command exists.
