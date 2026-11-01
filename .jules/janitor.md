@@ -138,3 +138,11 @@ Each of the five sites was separately covered before the change: dropping the sl
 **Action:** Created a new file `src/engine/systems/simulation/test-utils.ts` and moved the `clearMonsters` function into it. Imported this function in the six test files instead of duplicating the logic.
 
 **Prevention:** Future test functions that are identical should be placed in a shared utilities file to avoid duplication and keep test logic centralized.
+
+## 2026-11-01 - Deduplicate wait command generation in AI
+
+**What was found:** The `ai.ts` script was manually constructing a WAIT command object at the end of the script instead of reusing the `makeWaitCommand` helper from `sim-helpers.ts` which was already imported and used elsewhere in the file.
+
+**Action:** Replaced the duplicated code block with a single function call to `makeWaitCommand(monster, tick)`.
+
+**Prevention:** Prefer using existing helper functions (like `makeWaitCommand`) rather than manually constructing command objects when a helper already exists and is imported.
