@@ -35,10 +35,10 @@ before treating "all tests pass" as proof the change is safe. Whether Dark War
 should move four-directionally is a design decision for a human and an ADR, not
 a one-line predicate edit.
 
-## 2024-05-18 - Fix missed propagation of visual neighborhood updates when setting a tile
+## 2024-05-18 - Rejected attempt to propagate visual indices to state.changedTiles
 
-**What was found:** `WorldPlane.setTile` correctly refreshes the visual neighborhood (e.g. autotiling) for clients when a semantic tile changes, but it doesn't return the array of modified indices to the caller. This causes `setStateTile` to only capture the direct cell being edited instead of all the changed tiles, leading to visually out-of-sync clients in multiplayer where the deltas don't include those visually-dirty autotiled neighboring cells.
+**What was found:** `editStateCell` currently propagates the visually modified neighbor indices (from `WorldPlane.editCell`) into `state.changedTiles`, while `setStateTile` only records the directly modified index. An attempt was made to "fix" this inconsistency by modifying `WorldPlane.setTile` to return `readonly number[]` and making `setStateTile` propagate those indices similarly to `editStateCell`.
 
-**Action:** Modified `TileSource.setTile` to return `void | readonly number[]`, returned the modified indices from `WorldPlane.setTile`, and updated `setStateTile` in `src/engine/utils/state-tiles.ts` to iterate over these modified indices and add all of them to `state.changedTiles`. Added a test in `src/engine/core/test_world_diff.test.ts` to cover this behavior.
+**Action:** None to the source. The PR was closed. The inconsistency between `editStateCell` and `setStateTile` regarding propagation of visually dirty indices into `state.changedTiles` requires a human decision on the semantics of `changedTiles` (i.e. whether it is strictly for transient topology changes awaiting physics-collider synchronization, as documented, or a general per-cell dirty channel). Furthermore, adding these extra indices to the hot paths (like wall destruction and doors via `setStateTile`) would add 9 redundant `Physics.updateTile` calls per cell edit with no reachable behavioral gain.
 
-**Prevention:** Terrain mutation utilities must consistently capture and add all returned indices to `state.changedTiles` to ensure clients correctly sync visual changes that touch neighboring cells.
+**Prevention:** Do not attempt to modify `setStateTile` or `WorldPlane.setTile` to capture or propagate the visual neighborhood array into `state.changedTiles`. This inconsistency has been noted and left for human architectural review.

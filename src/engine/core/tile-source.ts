@@ -20,7 +20,7 @@ export interface TileSource {
   /** Tile at (x, y); out-of-bounds reads return `TileType.WALL`. */
   getTile(x: number, y: number): TileType;
   /** Set the tile at (x, y); out-of-bounds writes are ignored. */
-  setTile(x: number, y: number, tile: TileType): void | readonly number[];
+  setTile(x: number, y: number, tile: TileType): void;
   /** Whether (x, y) is inside the world. */
   inBounds(x: number, y: number): boolean;
   /** Whether (x, y) is in bounds and not a blocking tile. */
@@ -86,7 +86,7 @@ export class FlatTileSource implements TileSource {
     return this.map[x + y * this.width];
   }
 
-  setTile(x: number, y: number, tile: TileType): void | readonly number[] {
+  setTile(x: number, y: number, tile: TileType): void {
     if (!this.inBounds(x, y)) return;
     this.map[x + y * this.width] = tile;
   }
