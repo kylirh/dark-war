@@ -352,6 +352,8 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     }
 
     if (monster.hp <= 0) {
+      monster.velocityX = 0;
+      monster.velocityY = 0;
       pushEvent(state, {
         type: EventType.DEATH,
         data: {
