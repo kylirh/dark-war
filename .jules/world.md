@@ -34,3 +34,11 @@ coverage exists — check that the behaviour you are changing is actually tested
 before treating "all tests pass" as proof the change is safe. Whether Dark War
 should move four-directionally is a design decision for a human and an ADR, not
 a one-line predicate edit.
+
+## 2024-05-18 - Fix missed propagation of visual neighborhood updates when setting a tile
+
+**What was found:** `WorldPlane.setTile` correctly refreshes the visual neighborhood (e.g. autotiling) for clients when a semantic tile changes, but it doesn't return the array of modified indices to the caller. This causes `setStateTile` to only capture the direct cell being edited instead of all the changed tiles, leading to visually out-of-sync clients in multiplayer where the deltas don't include those visually-dirty autotiled neighboring cells.
+
+**Action:** Modified `TileSource.setTile` to return `void | readonly number[]`, returned the modified indices from `WorldPlane.setTile`, and updated `setStateTile` in `src/engine/utils/state-tiles.ts` to iterate over these modified indices and add all of them to `state.changedTiles`. Added a test in `src/engine/core/test_world_diff.test.ts` to cover this behavior.
+
+**Prevention:** Terrain mutation utilities must consistently capture and add all returned indices to `state.changedTiles` to ensure clients correctly sync visual changes that touch neighboring cells.
