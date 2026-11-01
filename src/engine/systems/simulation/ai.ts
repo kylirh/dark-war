@@ -1937,5 +1937,13 @@ function decideMonsterCommand(
   }
 
   // Wait if can't move anywhere
-  return makeWaitCommand(monster, tick);
+  return {
+    id: crypto.randomUUID(),
+    tick,
+    actorId: monster.id,
+    type: CommandType.WAIT,
+    data: { type: "WAIT" },
+    priority: 0,
+    source: "AI",
+  };
 }
