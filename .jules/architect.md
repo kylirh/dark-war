@@ -33,3 +33,11 @@ cases now fail under the Manhattan edit, verified by mutating
 A log's own count is a snapshot, not a current fact — re-derive it from the
 pull request list before citing it, and mutate the predicate before claiming
 nothing covers it.
+
+## 2026-11-01 - Prioritize AI Command Overflow
+
+**What was found:** `stepSimulationTick` truncates the AI command array to `MAX_COMMANDS_PER_TICK` before running `sortCommandsDeterministically`. As documented in `.jules/test.md` (2026-10-22) and left as an open question in ADR 0009, this means overflow drops the latest-generated commands rather than the lowest-priority ones, making AI behavior under load arbitrary rather than prioritized.
+
+**Action:** Wrote Proposed ADR 0013 formalizing the architectural decision to truncate AI commands after sorting, ensuring the simulation load-sheds lowest-priority commands first.
+
+**Prevention:** When implementing safety limits like max-operations-per-tick, ensure the limits are applied *after* sorting if the elements have explicit priority. Arbitrary load shedding leads to unpredictable bugs.
