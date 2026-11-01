@@ -1,13 +1,13 @@
-import { MonsterEntity } from "../../entities/monster-entity";
-import { MonsterType } from "../../types";
 import { describe, it, expect } from "vitest";
 import { Game } from "../../core/game";
+import { MonsterEntity } from "../../entities/monster-entity";
 import {
   CommandType,
   EventType,
   GameState,
   HOLE_FALL_DAMAGE,
   ItemType,
+  MonsterType,
 } from "../../types";
 import { idxFor, setPositionFromGrid } from "../../utils/helpers";
 import { resolveCommand } from "./commands";
