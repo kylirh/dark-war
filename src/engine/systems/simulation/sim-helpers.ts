@@ -96,6 +96,22 @@ export function stopPlayerResting(state: GameState, player: Player): void {
   state.sim.targetTimeScale = normalTimeScale;
 }
 
+/**
+ * Stop a player who has just reached zero hp and cancel anything the host would
+ * otherwise act on once the tick ends. `processPlayerDeathEvent` repeats this,
+ * but that event is pushed onto the queue and can fall past the tick's event
+ * budget, so every site that drops a player to zero hp must do it eagerly
+ * rather than rely on the death handler running this tick.
+ */
+export function haltDyingPlayer(state: GameState, player: Player): void {
+  player.velocityX = 0;
+  player.velocityY = 0;
+  state.shouldDescend = false;
+  state.shouldAscend = false;
+  state.descendTarget = undefined;
+  state.pendingPortalId = undefined;
+}
+
 export function getClosestPlayer(
   state: GameState,
   source: { worldX: number; worldY: number },

@@ -55,6 +55,7 @@ import {
   getClosestPlayer,
   positiveAmount,
   stopPlayerResting,
+  haltDyingPlayer,
 } from "./sim-helpers";
 import { triggerExplosion } from "./explosives";
 import { addToInventory } from "../../utils/inventory";
@@ -199,17 +200,7 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     });
 
     if (player.hp <= 0) {
-      // Stop movement immediately on death to prevent sliding
-      player.velocityX = 0;
-      player.velocityY = 0;
-
-      // Cancel any pending level transitions immediately when the player dies
-      // so a deferred PLAYER_DEATH event doesn't leave them active.
-      state.shouldDescend = false;
-      state.shouldAscend = false;
-      state.descendTarget = undefined;
-      state.pendingPortalId = undefined;
-
+      haltDyingPlayer(state, player);
       pushEvent(state, {
         type: EventType.PLAYER_DEATH,
         data: { type: "PLAYER_DEATH", playerId: player.id },
