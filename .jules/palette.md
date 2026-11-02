@@ -157,3 +157,11 @@ change together.
 defect with no product question attached — fix those. A dialog that restores to
 the canvas _on purpose_ is a different thing, and whether the canvas is the
 right target depends on how the dialog is opened.
+
+## 2024-11-04 - Set tabindex on dialogue panel for focus
+
+**What was found:** The `DialoguePanel` in `src/client/systems/dialogue-panel.ts` called `this.root.focus()` when the view had no choices and couldn't continue. However, since the root `<div>` did not have a `tabindex`, the programmatic focus was ignored by the browser, leaving keyboard focus stranded on the `body`.
+
+**Action:** Added `this.root.tabIndex = -1;` to the `DialoguePanel` root element.
+
+**Prevention:** Ensure that any non-interactive containers (`div`, `section`, etc.) that need to programmatically receive focus via `.focus()` are assigned a `tabindex` (e.g. `tabIndex = -1`), so they can take focus without stranding it on the document body.
