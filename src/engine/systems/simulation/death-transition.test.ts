@@ -8,6 +8,7 @@ import {
   HOLE_FALL_DAMAGE,
   ItemType,
   MonsterType,
+  Player,
 } from "../../types";
 import { idxFor, setPositionFromGrid } from "../../utils/helpers";
 import { resolveCommand } from "./commands";
@@ -32,6 +33,24 @@ function pushLethalDamage(state: GameState, targetId: string): void {
     depth: state.depth,
     type: EventType.DAMAGE,
     data: { type: "DAMAGE", targetId, amount: 100 },
+  });
+}
+
+/**
+ * Resolve the black pill, the one death path that does not go through a
+ * `DAMAGE` event: it drops hp to zero itself and queues `PLAYER_DEATH`.
+ */
+function eatBlackPill(state: GameState, player: Player): void {
+  player.selectedBarSlot = 0;
+  player.inventorySlots[0] = { type: ItemType.BLACK_PILL };
+  resolveCommand(state, {
+    id: "pill",
+    type: CommandType.USE_ITEM,
+    tick: state.sim.nowTick,
+    source: "PLAYER",
+    actorId: player.id,
+    priority: 0,
+    data: { type: "USE_ITEM", dx: 1, dy: 0 },
   });
 }
 
@@ -152,6 +171,44 @@ describe("death during transition", () => {
   });
 
   /**
+   * The black pill twin of the two tests above. The eager cancellation lives in
+   * `processDamageEvent`, so the pill — which never raises a `DAMAGE` event —
+   * leaves the flags set, and the host consumes them after the tick: the player
+   * descends dead.
+   */
+  it("cancels a pending descend when a black pill death outlives the tick", () => {
+    const state = dungeonAtDepthOne().getState();
+    const player = state.player;
+
+    const stairs = state.portals.find((p) => p.id.endsWith("stairs-down"))!;
+    setPositionFromGrid(player, stairs.source.x, stairs.source.y);
+
+    resolveCommand(state, {
+      id: "descend-cmd",
+      tick: state.sim.nowTick,
+      actorId: player.id,
+      type: CommandType.DESCEND,
+      data: { type: "DESCEND" },
+      priority: 0,
+      source: "PLAYER",
+    });
+
+    expect(state.shouldDescend).toBe(true);
+
+    pushFillerEvents(state, 2 * MAX_EVENTS_PER_TICK + 2);
+    eatBlackPill(state, player);
+
+    stepSimulationTick(state);
+
+    expect(player.hp).toBe(0);
+    expect(
+      state.eventQueue.some((event) => event.type === EventType.PLAYER_DEATH),
+    ).toBe(true);
+    expect(state.shouldDescend).toBe(false);
+    expect(state.pendingPortalId).toBeUndefined();
+  });
+
+  /**
    * The ascend twin of the test above. Not redundant with it: the four
    * cancellations in `processDamageEvent` are one block, but removing only
    * `state.shouldAscend = false` leaves the descend test green and fails just
@@ -234,19 +291,8 @@ describe("death stops movement", () => {
 
     player.velocityX = 100;
     player.velocityY = 100;
-    player.selectedBarSlot = 0;
-    player.inventorySlots[0] = { type: ItemType.BLACK_PILL };
 
-    resolveCommand(state, {
-      id: "pill",
-      type: CommandType.USE_ITEM,
-      tick: state.sim.nowTick,
-      source: "PLAYER",
-      actorId: player.id,
-      priority: 0,
-      data: { type: "USE_ITEM", dx: 1, dy: 0 },
-    });
-
+    eatBlackPill(state, player);
     processEventQueue(state);
 
     expect(player.hp).toBe(0);
@@ -277,21 +323,8 @@ describe("death stops movement", () => {
     monster.velocityX = 100;
     monster.velocityY = 100;
 
-    for (let i = 0; i < MAX_EVENTS_PER_TICK; i++) {
-      state.eventQueue.push({
-        id: `evt-${i}`,
-        depth: state.depth,
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "test event" },
-      });
-    }
-
-    state.eventQueue.push({
-      id: "lethal-dmg",
-      depth: state.depth,
-      type: EventType.DAMAGE,
-      data: { type: "DAMAGE", targetId: monster.id, amount: 100 },
-    });
+    pushFillerEvents(state, MAX_EVENTS_PER_TICK);
+    pushLethalDamage(state, monster.id);
 
     processEventQueue(state);
 
@@ -301,6 +334,33 @@ describe("death stops movement", () => {
     expect(monster.hp).toBeLessThanOrEqual(0);
     expect(monster.velocityX).toBe(0);
     expect(monster.velocityY).toBe(0);
+  });
+
+  /**
+   * The black pill is the other `PLAYER_DEATH` producer, and it reaches zero hp
+   * without a `DAMAGE` event, so nothing on that path does the eager halt that
+   * `processDamageEvent` does. With the queue already past its budget the
+   * `PLAYER_DEATH` handler does not run this tick, and the corpse keeps its
+   * velocity.
+   */
+  it("stops a player's movement on a black pill death that outlives the tick", () => {
+    const state = dungeonAtDepthOne().getState();
+    const player = state.player;
+
+    player.velocityX = 100;
+    player.velocityY = 100;
+
+    pushFillerEvents(state, 2 * MAX_EVENTS_PER_TICK + 2);
+    eatBlackPill(state, player);
+
+    processEventQueue(state);
+
+    expect(player.hp).toBe(0);
+    expect(
+      state.eventQueue.some((event) => event.type === EventType.PLAYER_DEATH),
+    ).toBe(true);
+    expect(player.velocityX).toBe(0);
+    expect(player.velocityY).toBe(0);
   });
 
   it("stops a player's movement on death from damage when event queue cascades", () => {
@@ -314,14 +374,7 @@ describe("death stops movement", () => {
     // this tick, so the PLAYER_DEATH it pushes falls past the limit. Derived
     // from the constant: a hardcoded count would stop hitting the boundary if
     // the limit ever changed, silently reducing this to the test above.
-    for (let i = 0; i < MAX_EVENTS_PER_TICK; i++) {
-      state.eventQueue.push({
-        id: `evt-${i}`,
-        depth: state.depth,
-        type: EventType.MESSAGE,
-        data: { type: "MESSAGE", message: "test event" },
-      });
-    }
+    pushFillerEvents(state, MAX_EVENTS_PER_TICK);
     pushLethalDamage(state, player.id);
 
     processEventQueue(state);

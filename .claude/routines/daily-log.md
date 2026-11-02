@@ -328,3 +328,78 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-11-02
+
+**Merged:** nothing. Zero open Jules pull requests. All 18 open pull requests
+are this routine's own unreviewed Phase 2 branches (`claude/daily-*`, #331
+through #454); none carries a `jules.google.com/task/` footer, so all were left
+completely alone.
+
+**Closed:** nothing. No Jules pull requests existed to triage or de-duplicate.
+
+**Found in main:** one real defect, in the Phase 2 pull request. The 24-hour
+window was #455, #457 and #458, all three sound:
+
+- #455's wait-command dedup is behaviour-preserving — `makeWaitCommand` builds
+  the identical command, `crypto.randomUUID()` id included, and `CommandType.WAIT`
+  no longer appears anywhere in `ai.ts`. The consolidation is complete.
+- #457's oracle holds. Reverting just the two `monster.velocity` lines fails the
+  new test (`expected 100 to be +0`). It is also complete on its own terms:
+  `EventType.DEATH` has exactly one producer, `processDamageEvent`, and
+  `monster.hp` is decremented in exactly one place, so there is no second
+  monster call site to fix.
+- #458's numbers check out. There are exactly three `priority: 1` sites in
+  `ai.ts` (1787, 1805, 1849), all `CommandType.FIRE`, as adr 0013 claims.
+
+The defect is the same root cause as #457 on the _player_ side, at the other
+death path. `processDamageEvent` halts a dying player eagerly — velocity to
+zero, descend/ascend flags and `pendingPortalId` cleared — precisely because the
+`PLAYER_DEATH` event it pushes can fall past the tick's event budget. The black
+pill (`commands.ts`, `ItemType.BLACK_PILL`) is the only other `PLAYER_DEATH`
+producer: it sets `player.hp = 0` directly and does none of that. Reproduced
+offline at depth 1 — with the queue saturated, `hp: 0 vel: 100 100` and
+`shouldDescend: true pendingPortalId: megacorp/floor-1:stairs-down`, so the host
+descends a dead player. Fixed by extracting the eager halt into
+`haltDyingPlayer` in `sim-helpers.ts` and calling it from both producers.
+
+**For next time:**
+
+- **The server is already immune to this class, offline is not.** `Room.tick`
+  (`server/multiplayer-server.ts:838-846`) clears `shouldDescend`/`shouldAscend`
+  every tick and zeroes velocity for every player at `hp <= 0`. Any future
+  "corpse keeps moving" or "dead player transitions" finding is single-player
+  only unless it survives that sweep. Do not report it as a multiplayer bug.
+- **Not acted on, no reproduction yet, worth a human:** the server's hole-fall
+  migration does `player.hp = Math.max(0, player.hp - HOLE_FALL_DAMAGE)`
+  (`multiplayer-server.ts:250`) and pushes no event at all. A player whose fall
+  is lethal reaches zero hp in the destination world with no `PLAYER_DEATH`, so
+  no inventory drop and no "You have died." alert — only the velocity sweep
+  above notices. Whether that should raise a `DAMAGE` event instead is a design
+  question, not something to patch blind.
+- **`death-transition.test.ts` has scaffolding helpers; use them.** It defines
+  `pushLethalDamage`, `pushFillerEvents` and now `eatBlackPill` at the top.
+  #457's monster test re-inlined the first two, and the older player cascade
+  test had re-inlined the filler loop, so there were two hand-rolled copies of
+  the same 1000-event loop in a file with a named helper for it. Folded onto the
+  helpers in this run's pull request.
+- **Believe:** the commit-msg hook
+  (`scripts/validate-commit-message.mjs`) tests `message !== message.toLowerCase()`
+  over the whole message, so no attribution trailer containing a capital letter
+  or a mixed-case url can be committed here. This is confirmed from the script,
+  not inferred. Write commit bodies fully lowercase and put attribution in the
+  pull request body.
+- **The branch-cleanup numbers, computed this run, so a later run need not
+  redo them.** 101 non-`main` branches on origin, no `backup/*`. 18 are heads of
+  the open `claude/daily-*` pull requests. **27 are merged and deletable.** 56
+  never merged — leftovers from closed pull requests, which must never be
+  deleted. So `delete_branch_on_merge` is _not_ catching everything: #455, #457
+  and #458 all merged yesterday and all three head branches survive, as do
+  merged branches back to #329.
+- **Deletion is still blocked, but by a new blocker — recheck it rather than
+  assuming.** Earlier runs recorded HTTP 403 from the remote. This run never
+  reached the remote: the sandbox's own permission classifier refused
+  `git push origin --delete` ("Unverifiable Deletion Scope") on the first
+  attempt. The `mcp__github__*` toolset still has no branch-deletion tool —
+  `create_branch` exists, no delete. One attempt, then list and move on; the 27
+  need a human or a relaxed permission.
