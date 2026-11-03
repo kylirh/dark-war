@@ -5,6 +5,7 @@ import { Game } from "../core/game";
 import { StructureType } from "../core/world-semantics";
 import { TileType } from "../types";
 import {
+  editStateCell,
   getStateDamageAtIndex,
   setStateDamageAtIndex,
   setStateTile,
@@ -71,5 +72,26 @@ describe("state tile mutations", () => {
     expect(visuals!.lastDirtyIndices.length).toBeLessThanOrEqual(9);
     expect(visuals!.lastDirtyIndices).toContain(x + y * state.mapWidth);
     expect(visuals!.layers.holeMask[x + (y - 1) * state.mapWidth]).not.toBe(0);
+  });
+  it("queues every dirty index from a cell edit, not just the edited one", () => {
+    const game = new Game();
+    game.reset(1);
+    const state = game.getState();
+    const x = state.player.gridX + 2;
+    const y = state.player.gridY;
+    const index = x + y * state.mapWidth;
+
+    state.changedTiles?.clear();
+
+    const dirty = editStateCell(state, x, y, { elevation: 3 });
+
+    expect(state.worldPlane.layers.elevation[index]).toBe(3);
+    // Physics collides thin boundaries at non-traversable elevation edges, so
+    // raising one cell changes the boundary it shares with its neighbours too.
+    // Queueing only the edited index would leave those neighbours' colliders
+    // stale, which is why the whole refreshed neighborhood is recorded.
+    expect(dirty.length).toBeGreaterThan(1);
+    expect(dirty).toContain(index);
+    expect(state.changedTiles).toEqual(new Set(dirty));
   });
 });
