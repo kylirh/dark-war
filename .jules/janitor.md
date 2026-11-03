@@ -146,3 +146,11 @@ Each of the five sites was separately covered before the change: dropping the sl
 **Action:** Replaced the duplicated code block with a single function call to `makeWaitCommand(monster, tick)`.
 
 **Prevention:** Prefer using existing helper functions (like `makeWaitCommand`) rather than manually constructing command objects when a helper already exists and is imported.
+
+## 2024-11-04 - Remove unreachable code in dialogue panel focus
+
+**What was found:** In `src/client/systems/dialogue-panel.ts`, the `DialoguePanel` class had an `else` branch (lines 182-184) that called `this.root.focus()`. This branch was intended for when the view had no choices, couldn't continue, and didn't allow free text. However, a view with no choices and no free text always has `canContinue === true` due to the way `ConversationView` is constructed in `src/engine/systems/simulation/conversation.ts`, making this `else` arm mathematically unreachable in production code.
+
+**Action:** Removed the dead code branch entirely and updated the logic to just handle `allowFreeText`, `choices.length > 0`, and `canContinue` as exhaustive cases.
+
+**Prevention:** Before trying to patch a missing attribute or state to make an `else` branch work, prove that the condition governing the branch can actually evaluate to `true` in production usage.
