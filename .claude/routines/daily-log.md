@@ -328,3 +328,94 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-23
+
+**Merged:** #411 `fix(ui): restore focus to opener when character modal closes`
+(squash `7289df5`). The character modal was the last dialog in
+`src/client/systems/` still hardcoding `getElementById("game")?.focus()` on
+close instead of restoring its opener; it now uses the `captureFocusOpener` /
+`restoreFocus` pair that `game-menu.ts`, `intro-story.ts` and `save-slots.ts`
+already use.
+
+The oracle holds, and it is worth recording _why_ rather than re-deriving it:
+`input.ts:66` binds `keydown` on `window` with no active-element guard, so `E`
+opens the modal whatever is focused. `handleOpenInventory` hides the inventory
+bar _before_ opening, so a bar button is never a usable opener — it is already
+unfocusable by capture time. The openers that do reach the new code path are the
+controls the modal leaves alone: `#story-expand-tab` (`styles.css:2060`,
+`display: flex` with a `:focus-visible` ring, so an intended keyboard stop) and
+the three window-chrome buttons in `app/index.html`. `imb-modal-open` has **no
+CSS rule at all** — it is purely a JS flag read by `input.ts` — so it hides
+nothing and those controls stay focusable while the modal is open.
+
+**Fixed before merging:** two corrections, and then the _same_ two again.
+
+- The close comment still read "Matches the restore in dialogue-panel and
+  sign-reader", which the change itself made false — those two still hardcode
+  the canvas. Repointed at the `retro-modal.ts` contract.
+- The `.jules/palette.md` entry was dated `2024-10-24` and claimed focus dropped
+  to the canvas "unconditionally" when it was already gated on `ownedFocus`.
+
+**Closed:** nothing. #411 was the only open Jules pull request, so there was no
+duplicate group to resolve.
+
+**Found in main:** no correctness defect. The window
+(`1a2bf95..7289df5`) is the renderer cache getters plus this merge.
+
+- The renderer `has`-then-`get` collapse is equivalent: all three caches are
+  typed `Map<K, Texture>`, every `set` stores a real texture, and nothing ever
+  deletes from them, so `cached !== undefined` and `has(key)` cannot disagree.
+  #410's entry reached the same conclusion and found no fourth site; this run
+  did not re-sweep.
+- The merged focus wiring is correct on both points the `retro-modal.ts`
+  contract makes: the capture sits _after_ the already-open early return (so
+  re-opening on another tab cannot record a control inside the modal) and
+  _before_ `tabButtons.get(tab)?.focus()` moves focus in. `close()` also
+  restores before `onClose?.()`, so when `handleCharacterModalClose` re-shows
+  the inventory bar the opener is still hidden — `restoreFocus`'s focusability
+  re-check catches it and falls back to the canvas. That ordering looks wrong
+  and is not; do not "fix" it.
+
+What the window left uncovered is the wiring itself, which is what the Phase 2
+pull request adds.
+
+**For next time:**
+
+1. **The Jules re-push is not occasional — budget for it.** #411 reverted the
+   curator's corrections _verbatim_ 90 seconds after they were pushed
+   (`75e5a90` → `b92fa83` restored the wrong date and the false comment), and
+   had to be re-applied as `3d4ae2d`. The 2026-10-22 entry saw the same thing on
+   #408. Re-read `head.sha` immediately before merging, pin `expectedHeadSha`,
+   and after merging diff the squash against the sha you actually reviewed
+   (`git diff 3d4ae2d origin/main` was empty here).
+2. **`dialogue-panel.ts:204` and `sign-reader.ts:97` are deliberately left
+   hardcoding the canvas.** They are opened by the simulation when the player
+   walks up to a sign or an NPC, not by a control the player focused, so whether
+   they have a meaningful "opener" is a product question, not an oversight. The
+   new structural test scopes itself to modules that already call
+   `captureFocusOpener(` precisely so it takes no position on them. Do not
+   report them as a half-finished migration.
+3. **A behavioural test of modal focus is not available here.** `CharacterModal`
+   builds its DOM in the constructor, the Vitest environment is `node`, and
+   jsdom is neither installed nor in `package.json` — and the routine forbids
+   adding a dependency. Source-level structural tests
+   (`dev-entry-parity.test.ts` is the model) are the only option for dialog
+   wiring; that is not a bar being lowered.
+4. **Branch deletion is still HTTP 403.** Attempted once, with a lease, on
+   `jules-3548332226881430514-d5e710ee` (a branch whose content is identical to
+   `main`): `error: RPC failed; HTTP 403`, then "the remote end hung up". Not
+   retried. `delete_branch_on_merge` _does_ work — it removed #411's branch on
+   merge.
+5. **The content check from 2026-10-22 reproduces exactly.** Of the 20 merged
+   pull-request heads still on origin, only
+   `jules-3548332226881430514-d5e710ee` (#370) and
+   `refactor-game-spawns-12314085654796856362` (#398) are content-identical to
+   `main`; the other 18 carry a re-pushed, uncorrected draft and are genuinely
+   unmerged. Do not delete those 18, and do not re-measure this every run — it
+   changes only when the re-push behaviour does.
+6. **13 `claude/daily-*` pull requests are now open** (2026-10-01 through
+   2026-10-22, this run's making 14). None has been reviewed, so each run's log
+   entry lands only in its own branch and `main`'s log still ends at
+   2026-09-30. Whichever lands first makes the rest a trivial append conflict.
+   This is a human backlog, not something a later run should try to clear.
