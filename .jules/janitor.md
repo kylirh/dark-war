@@ -146,3 +146,11 @@ Each of the five sites was separately covered before the change: dropping the sl
 **Action:** Replaced the duplicated code block with a single function call to `makeWaitCommand(monster, tick)`.
 
 **Prevention:** Prefer using existing helper functions (like `makeWaitCommand`) rather than manually constructing command objects when a helper already exists and is imported.
+
+## 2026-11-06 - Consolidate duplicate tile occupancy checks
+
+**What was found:** Checking if a specific grid coordinate is occupied by a monster or player (`state.entities.some(...)`) was manually duplicated across four places in `commands.ts`, `events.ts`, and `tick.ts` with minor variable naming variances (`e`/`entity`, `nx`/`tx`/`tileX`).
+
+**Action:** Created a new `isOccupied(state, tx, ty, excludeId?)` helper in `sim-helpers.ts`. Replaced all four duplicates to use this consolidated function.
+
+**Prevention:** Before writing a manual `state.entities.some(...)` filter to find entities at a location, check `sim-helpers.ts` for existing lookup logic, or extract it if multiple sites perform identical filtering.

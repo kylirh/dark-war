@@ -342,3 +342,18 @@ export function findMeleeTarget(
 
   return best;
 }
+
+export function isOccupied(
+  state: GameState,
+  tx: number,
+  ty: number,
+  excludeId?: string,
+): boolean {
+  return state.entities.some(
+    (e) =>
+      e.id !== excludeId &&
+      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) &&
+      e.gridX === tx &&
+      e.gridY === ty,
+  );
+}
