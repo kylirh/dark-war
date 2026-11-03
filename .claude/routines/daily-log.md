@@ -328,3 +328,78 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-28
+
+**Merged:** #423 `refactor(physics): consolidate clamping and movement velocity
+logic` — extracts the duplicated move-then-clamp/wrap block shared by
+`predictLocalMovement` and `updatePhysics` into `applyVelocityAndClamp`, with the
+collision radius as the one parameter. Corrected on the branch first (see below).
+
+**Closed:** six, which is the whole rest of the open Jules set.
+
+- **#424** (Test) — a single empty commit, zero files changed. Its own rule 2
+  says to stop silently when no oracle is found; it opened a pull request to
+  announce the silence instead.
+- **#426** (Bug, `priority ?? 0` in `sortCommandsDeterministically`) — the test
+  only fails because it builds its input with `undefined as any`.
+  `Command.priority` is a required `number` and all nine production
+  construction sites set it; `commandsByTick` is never serialized, so nothing
+  off the wire or out of a save can omit it.
+- **#425** (World, dirtying the full neighborhood in `setStateTile`) — premise
+  false twice over. `WorldPlane.setTile` already calls `refreshNeighborhood`,
+  and `state.changedTiles` is not a visual set at all: its only two consumers
+  feed `physics.updateTile`, which re-sweeps its own 3x3. The change would have
+  made each tile write do that sweep nine times.
+- **#422** (Scribe) — titled as documentation, actually adds `MEDKIT` to
+  `bypassCheck` in `resolvePickupCommand`, reversing the decision stated in the
+  comment it deleted. Behavior change, no test, out of Scribe's scope.
+- **#421** (Architect, ADR 0013 client action routing) — near-verbatim duplicate
+  of `docs/adr/0001-offline-online-action-routing.md`, same three options and
+  same recommendation. Four of the nine handler names it cites as new evidence
+  do not exist.
+- **#420** (Palette, `tabIndex = -1` on modal roots) — `SignReader` never calls
+  `root.focus()` (it focuses its close button), and `DialoguePanel`'s single
+  call site is unreachable.
+
+**Found in main:** the 24-hour window was exactly #423. One gap worth a test,
+which is this run's pull request: the bounded-level edge clamp had no coverage at
+all, including the `entityRadius` parameter the consolidation had just
+introduced.
+
+**For next time:**
+
+- **The `else { this.root.focus(); }` in `dialogue-panel.ts:183` is dead code.**
+  `canContinue` is defined as `!node.allowFreeText && choices.length === 0`
+  (`conversation.ts:526`), which is the conjunction of the two branch conditions
+  that precede it, so no `ConversationView` can reach the final `else`. This is
+  an objective deletion case for Janitor. It was left alone this run because
+  `dialogue-panel.ts` was outside the 24-hour window. Expect Palette to keep
+  proposing `tabIndex` for it until the branch is gone — #417, #418 and #420 all add the
+  identical `this.root.tabIndex = -1;` to it.
+- **Believe without re-deriving: `updatePhysics` never clamped stationary
+  entities.** It `continue`s on zero velocity (`physics.ts:520`) long before the
+  clamp, so `applyVelocityAndClamp`'s early return is equivalent and no safety
+  net was lost in #423. A test asserting a stationary out-of-bounds entity gets
+  pulled back inside fails on pre-#423 `main` too. That test was written, run,
+  and discarded rather than committed.
+- **The command-priority `NaN` fix keeps coming back.** #426 is the eighth:
+  #388, #390, #402, #414, #415, #416 and #419 are all the same `?? 0` in
+  `sortCommandsDeterministically`, differing only in local variable names
+  (verified by diffing each against `main`). It is unreachable while `priority` is a required `number`. A TSDoc line
+  on `sortCommandsDeterministically` saying so would probably end the cycle, the
+  way #342 was meant to for `canTraverse`.
+- **Check a new ADR against `ls docs/adr/` first.** 0001 and 0002 already cover
+  `main.ts` doing too much. 0001 has been **Proposed** since 2026-09-01; what it
+  needs is a human choosing an option, which is not something another ADR can
+  supply.
+- **Branch deletion is still unavailable, and this run hit a new reason.** It is
+  no longer a GitHub 403: `git push origin --force-with-lease=<branch> :<branch>`
+  is refused locally by the sandbox's destructive-git classifier, and the
+  `mcp__github__*` toolset has no branch-deletion tool. Twenty merged branches
+  are deletable and were left in place; one attempt is enough, do not retry.
+- **The 14 open `claude/daily-*` pull requests are this routine's own Phase 2
+  output**, #331 through #412, none merged. They are not Jules pull requests and
+  are out of triage scope, but each new run adds one and they all touch
+  `.claude/routines/daily-log.md`, so whichever lands first will leave the rest
+  needing a trivial merge of log entries.
