@@ -328,3 +328,97 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-01
+
+**Merged:** #330 `perf(net): replace object.keys traversal in state delta equality`
+and #329 `refactor(test): consolidate duplicate monster pickup and vending setup`.
+Both were corrected on their branches first.
+
+**Closed:** #328 (interrupt rest on non-WAIT command) — the **third** proposal of
+this change after #321 and #325, and the premise is false, not merely
+re-litigated. `REST_TIME_SCALE` is assigned in exactly one place, on the branch
+that sets `player.resting = true`, and every wake path runs `stopPlayerResting`,
+which resets both `timeScale` and `targetTimeScale` synchronously. It cannot leak
+into movement either: `src/client/main.ts:1072` (`predictLocalPlayer`) and
+`src/client/main.ts:1809` (`handleUpdateVelocity`) both zero velocity while
+resting, so no frame applies an 8x scale to a non-zero velocity. Its oracle was
+circular, and the same diff rewrote `commands.test.ts`'s
+`ignores non-WAIT commands when resting` into its own negation — the clearest
+evidence the behaviour is deliberate. Whether an action should cancel rest is a
+product decision.
+
+**Found in main:** no correctness defect. The whole 24-hour window — #326's
+`createBaseState` extraction, `004a188`'s compact entity ordering, `d26f8f3`'s
+world-map and settings fixes, and both of today's merges — checks out. The Phase 2
+pull request is coverage only.
+
+**For next time — things to believe without re-deriving:**
+
+1. **`diffById`'s order check is correct; do not "simplify" it.** It verifies
+   `next == survivors(in base order) ++ new(in next order)`, which is exactly
+   what `applyById` reconstructs when `order` is omitted — surviving keys keep
+   their Map position and new ids append in `upserted` order, which is `next`
+   order. The shared `naturalOrderIndex` across the two loops is load-bearing,
+   and the `&&` short-circuit in the second loop is what keeps the index
+   advancing only for new entities. Seven `it.each` cases cover it.
+
+2. **`nearestDisplayedTile` returns integers despite the fractional
+   `windowCenter`.** For odd `windowSpan` the centre is `x.5`, but the expression
+   reduces to `tile - mapSpan * floor(v / mapSpan)`, so the halves cancel exactly.
+   Do not "fix" it with a `Math.round`.
+
+3. **`#pause-dialog [data-zoom-value]` is deliberately scoped.** `CharacterModal`
+   builds its own zoom buttons with the same `data-zoom-value` attribute and
+   attaches its own click handler (`character-modal.ts:434`), scoping its sync to
+   `this.window`. The unscoped `document.querySelectorAll` that `d26f8f3` replaced
+   made `GameMenu` attach a second handler to the modal's buttons. Widening it
+   back re-introduces double handling.
+
+4. **`for...in` beat `Object.keys` in `shallowJsonEqual` (-38% to -42%), but that
+   is not a general rule** and the result does not transfer. More importantly,
+   **cross-process A/B benchmarking is worthless on this hardware** — single-run
+   `computeStateDelta` medians swing about ±30%, and a naive branch-vs-branch
+   comparison of #330 came out backwards. Put both variants in one process with
+   interleaved rounds.
+
+5. **A merge of `main` into a bot branch needs a hand-written commit message.**
+   `scripts/validate-commit-message.mjs` rejects git's default
+   `Merge remote-tracking branch ...` subject, so `git merge origin/main` fails
+   at the hook and leaves the merge staged but uncommitted. The same hook rejects
+   any uppercase character, so a `Claude-Session:` trailer still cannot be added
+   locally without breaking the URL.
+
+6. **Branch deletion still 403s, and Jules pushes to branches after they
+   close.** One deletion was attempted this run, with a lease, and failed the
+   same way as every previous run: `git push origin --delete` returns HTTP 403.
+   Pushing commits works fine; it is deletion specifically. One attempt is
+   enough — do not retry.
+
+   More useful than the 403: **both bot branches moved after their pull request
+   closed.** `janitor/test-setup-consolidation-...` was merged at 07:21:14 and
+   Jules pushed `f665559` onto it at 07:22:17, which is simply the branch's
+   pre-review state — it would restore the mid-file `Player` import, drop the
+   delegation to `interact`, and drop the return types.
+   `fix-resting-interruption-15824223162374495795` (#328, closed unmerged) got
+   `4f317a9 Revert changes as PR was closed`. Both branches therefore carry
+   commits not in `main` and are **not** deletable under the routine's own
+   fully-merged rule, 403 or no 403. This is the 2026-09-19 hazard again — a bot
+   answering review by pushing over it — and the reason to re-check the diff
+   immediately before merging and to pin the head sha at merge time.
+
+7. **`deserialize`'s field order is load-bearing and was almost untested.** It
+   spreads `createBaseState()` and then overrides the five fields a save carries.
+   Moving that spread below the overrides leaves all 890 tests green while
+   `story`, `effects`, `godMode` and `multiplayer.mode` silently revert to a fresh
+   level's defaults on every load. `sim` was already pinned by `33d61b5`; the
+   Phase 2 pull request pins the first three. `multiplayer.mode` is still
+   uncovered on purpose — see below.
+
+**Needs a human:** `deserialize` takes `multiplayer.mode` from the save
+(`data.multiplayer.mode`), not from the `Game` it is loading into, so an offline
+save loaded into an online `Game` leaves `state.multiplayer.mode === "offline"`
+while `this.multiplayerMode` is `"online"`. That is pre-existing and untouched by
+this window. It is the one remaining field exposed to the spread-ordering hazard,
+and it was left uncovered deliberately: a test pinning it would cement a
+semantic that may well be wrong.
