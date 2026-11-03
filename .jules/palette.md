@@ -157,3 +157,11 @@ change together.
 defect with no product question attached — fix those. A dialog that restores to
 the canvas _on purpose_ is a different thing, and whether the canvas is the
 right target depends on how the dialog is opened.
+
+## 2024-11-03 - Dialogue Panel missing tabIndex
+
+**What was found:** The `DialoguePanel` root element (`div.dialogue-panel`) is programmatically focused when there are no choices or continue options, but it lacked a `tabIndex` attribute. Because non-interactive elements like `<div>` cannot receive focus without a `tabIndex`, the focus call silently failed and focus was dropped to the document body, stranding keyboard and screen reader users.
+
+**Action:** Added `this.root.tabIndex = -1;` to the `DialoguePanel` constructor so it can accept programmatic focus.
+
+**Prevention:** When explicitly calling `.focus()` on a non-interactive element container (like a dialog root), ensure the element has `tabIndex = -1` set so it can successfully receive focus.
