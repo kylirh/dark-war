@@ -328,3 +328,92 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-21
+
+**Merged:** #406 `refactor(client): consolidate duplicated world-to-tile
+conversion` — the inlined coordinate/wrap/bounds block in
+`onCanvasContextMenu` was character-identical to the private
+`cursorTileFromWorld` helper already in the same class. `this.game.getState()`
+returns the live state object (`game.ts:1452`), so the helper's own
+`getState()` call is the same object the caller already holds; the extraction
+is behaviour-identical by reading. Merged as-is, no corrective commits.
+
+**Closed:**
+
+- **#404** (carry empty `simulationSeed`/`levels` in state deltas) — the null
+  sentinel it adds cannot fire. Both fields are **required** on
+  `SerializedState` (`types.ts:917`, `:946`), so neither can be cleared to
+  `undefined`, `?? null` never yields `null`, and the two new
+  `delete (next as any).…` branches are unreachable (and would strip a required
+  field if they ever ran). The pattern it copies is already applied correctly to
+  the three fields that _are_ optional — `conversation`, `activeSign`,
+  `socialFacts` (`state-delta.ts:157-167` / `:244-252`). It also shipped no
+  test, and bumped `PROTOCOL_VERSION` to 16 for a wire change nothing emits.
+- **#405** (default undefined priority to 0 during sort) — `Command.priority`
+  is `priority: number`, required (`types.ts:642`), and every construction site
+  passes a literal. The new test only fails on `main` because it writes
+  `undefined as any`. At least the fourth proposal of this change; see #402,
+  #390, #388.
+
+**Found in main:** no reachable correctness defect in the 24-hour window
+(`8389b7b..76777b1`). The Phase 2 pull request carries one coverage gap:
+
+- `0b3b869` folded five inline item-spawn loops into `spawnItems` calls.
+  Nothing in the suite pinned the resulting order. Verified by swapping the
+  KEYCARD and GRENADE calls on `main`: 99 test files / 890 tests still pass.
+  The existing "rare deterministic offline medkits" test cannot catch it —
+  it compares two same-seed runs of the _same_ code, so a reordering moves both
+  sides identically.
+
+The other thing the window left behind — `a3d1c25`'s second copy of the
+four-line transition-cancel block, in `processDamageEvent` (`events.ts:208`)
+beside `processPlayerDeathEvent`'s (`:1010`) — was written up and then dropped:
+**open #403 already extracts it**, as `cancelPendingTransition` in
+`sim-helpers.ts`, with the contract stated once. Nothing to do here.
+
+**For next time:**
+
+1. **The `undefined` command priority is unreachable.** `Command.priority` is
+   required and every call site passes a literal. Any test that needs
+   `undefined as any` to fail is not an oracle. Closed as #405; previously
+   #402, #390, #388.
+2. **`simulationSeed` and `levels` are required on `SerializedState`.** The
+   clear-to-`undefined` delta bug does not exist for them. Only `conversation`,
+   `activeSign` and `socialFacts` are optional, and all three already carry the
+   null sentinel. This is the fifth state-delta proposal in that family after
+   #307, #297, #314, #322, #309.
+3. **The black pill needs no _third_ cancel site.**
+   `resolveUseItemCommand`'s `BLACK_PILL` case sets `player.hp = 0` and pushes
+   `PLAYER_DEATH` directly, bypassing `processDamageEvent`, which makes
+   `processPlayerDeathEvent`'s copy load-bearing rather than redundant — the
+   point #403 pins. It does not need an eager cancel of its own: the eager one
+   exists for a `PLAYER_DEATH` the event budget defers past the tick, and on
+   this path the event is pushed during command resolution and drained by the
+   same tick's step 4. Reaching it otherwise would need DESCEND and USE_ITEM in
+   one tick, which `enqueueCommand` prevents by replacing an actor's command for
+   a tick in REALTIME mode (`commands.ts:168-176`), and which `resolveCommand`
+   would drop anyway once `hp <= 0` (`:219`). Do not add a third cancel site
+   without a test that reaches it.
+4. **The renderer's packed texture key is sound.** `8e50b95` replaced the
+   `"x,y,w,h"` string with `x + y*2^13 + w*2^26 + h*2^39`. Every input comes
+   from `SPRITE_COORDS`/`SPRITE_FRAMES`: x ≤ 15, y ≤ 20, width/height ≤ 3, all
+   non-negative integers, against a 8192 field limit. No collision is possible;
+   the renderer is not vitest-testable (Pixi import), so this is a reading, not
+   a test.
+5. **ADR 0011 is still Proposed, and is the real fix for the transition
+   flags.** Option 2 (host intents generated at end of tick) makes the
+   warp-a-corpse class correct by construction and would delete both cancel
+   sites. That is an architecture decision for a human; Phase 2 only
+   de-duplicated the cancellation.
+6. **Branch deletion is blocked in this environment**, now for a second
+   reason: `git push origin --delete` (even leased) is refused by the sandbox's
+   destructive-git classifier before it reaches GitHub, and the `mcp__github__*`
+   toolset has no branch-deletion tool. `delete_branch_on_merge` does work —
+   #406's head branch vanished on merge — so only pre-setting leftovers remain.
+   18 merged branches are still on origin and need a human.
+7. **Eleven `claude/daily-*` pull requests are now open** (#331, #337, #340,
+   #345, #352, #362, #367, #377, #380, #396, #403) plus this run's. They are
+   for human review and the routine must not merge them; they are also all
+   touching `.claude/routines/daily-log.md`, so each one after the first needs
+   a trivial merge of log entries.
