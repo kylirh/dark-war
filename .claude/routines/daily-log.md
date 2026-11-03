@@ -328,3 +328,112 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-10-05
+
+**Merged:** three of six Jules pull requests.
+
+- **#347** `refactor(server): consolidate multiplayer world transition logic` —
+  Janitor, merged as-is. `tryDescend` and `tryAscend` had identical bodies apart
+  from the expected tile and the direction string. Verified mechanically rather
+  than by eye: substituting both into one body makes the two functions
+  byte-identical except for Prettier's line wrapping (`STAIRS_DOWN` is longer
+  than `STAIRS_UP`), so the extraction is behaviour-preserving by construction.
+  903 tests before and after.
+- **#348** `fix(a11y): restore focus when the intro story is dismissed` —
+  Palette, corrected first. The oracle holds: `dispose()` removes the overlay
+  while one of its own buttons has focus and restores nothing. But the diff
+  hand-rolled the capture as a bare `document.activeElement`, which is `<body>`
+  whenever nothing specific is focused — and `document.body.contains(body)` is
+  true while `body.focus()` is a no-op, so the `#game` fallback was unreachable
+  in exactly the case the change existed to fix. Rewired to
+  `captureFocusOpener` / `restoreFocus`, which already handle both that and the
+  contained-but-unfocusable case, and which own the canvas id.
+- **#349** `docs(adr): propose removing transition flags from gamestate` —
+  Architect, corrected first. See below; the corrections were substantive.
+
+**Closed:** three.
+
+- **#346** and **#350**, the same change twice (byte-identical production
+  diffs), both on the oracle rather than on duplication. See below.
+- **#351** `fix(world): wrap absolute pathing coordinates over the toroidal
+seam`. The body claims "Added a failing unit test explicitly confirming
+  `canTraverse(4, 4, 5, 4, true)`"; the diff is `world-plane.ts` and
+  `.jules/world.md` and contains no test at all. The branch it adds is also
+  unreachable: of eleven `canTraverse` call sites exactly one passes `wraps`
+  (`pathfinding.ts:97`), and it normalizes both coordinates with `wrapValue`
+  and bounds-checks them before calling, while `currentX`/`currentY` come from
+  a BFS tile index and are in range by construction.
+
+**Found in main:** one uncovered decision, in the Phase 2 pull request.
+
+#347 turned the stairs tile and the migration direction into **call-site
+arguments** of a shared `tryTransition`. That pairing is the only thing stopping
+a player on a down-stair from ascending, and nothing touched it: inverting both
+pairings left all 100 files / 903 tests passing. The server had no transition
+coverage whatsoever. Now covered end-to-end over the websocket harness —
+descend, the wrong-direction refusal, and the return trip — mutation-checked
+four ways.
+
+**For next time:**
+
+- **The `REST_TIME_SCALE` leak still does not exist, and this is now the fifth
+  and sixth proposal** (#321, #325, #335, then #346 and #350 on the same day).
+  Measured this run rather than argued: a discarded non-WAIT command leaves the
+  player **still resting**, so `REST_TIME_SCALE` is the correct scale for the
+  state the game is in. Every `player.resting = false` in
+  `src/engine/systems/simulation/` is inside `stopPlayerResting`, which resets
+  both scales together, and all four callers route through it (`commands.ts:305`,
+  `events.ts:152`, `tick.ts:139`, `:151`). Both pull requests' oracles were
+  circular — #350's test assigns `REST_TIME_SCALE` to both scales by hand and
+  then asserts they changed. Close on sight and cite this entry. The real
+  content of the diff is a pacing decision: a stray keypress would silently
+  cancel rest instead of being ignored.
+- **`.jules/alpha.md` still does not exist on `main`**, which remains the direct
+  cause of the above. #350 would have created it (dated `2024-10-05`, eighteen
+  months off) but was closed. Alpha has nowhere to read its own rejections from.
+- **A branch was force-pushed back to its pre-review state again — third time**
+  (#280, #292, now #348). `fix-introstory-focus-…` was reset to Jules' original
+  within minutes of the merge, discarding the corrective commit. `main` is
+  correct: it was merged with `expectedHeadSha` pinned to the corrected commit
+  and re-verified immediately before merging (remote head equalled my SHA, and
+  no `body.contains` remained). **The SHA pin is what makes this safe** — keep
+  doing it, and keep re-reading the head rather than trusting a green check.
+- **Third ADR in a row with a claim the code contradicts.** #349 promised that
+  moving the transition flags would stop them "polluting the serialized state".
+  None of `shouldDescend` / `shouldAscend` / `descendTarget` / `pendingPortalId`
+  is in `SerializedState` — the 2026-10-02 entry had already established this.
+  It also missed the cost that matters most to its own recommendation:
+  `processHoleFalls` reads `shouldDescend` **inside** the tick (`tick.ts:462`),
+  so an end-of-tick `HostIntent` cannot serve that read and Option 2 keeps a
+  private per-tick marker rather than removing the flag. And the offline host
+  consumes the flags at two sites (`main.ts:1618-1634` and `:2415-2461`), not
+  one. All corrected on the branch, and the correction is appended to
+  `.jules/architect.md` so Architect stops asserting serialization it has not
+  checked.
+- **Believe: the server requires an exact stairs tile, unlike the offline
+  path.** `tryTransition` gates on `TileType.STAIRS_DOWN` / `STAIRS_UP`, while
+  offline `getTransitionPortal` accepts stairs, ladders, cave mouths and doors.
+  The entry plane's cave mouth (62,40) and workshop door (60,60) are therefore
+  not usable in online play. Pre-existing on both sides of #347 and untouched by
+  it, so out of Phase 2 scope — but it is a real behavioural difference between
+  the variants, not an oversight in the new helper.
+- **`migratePlayer`'s `mode` argument is effectively dead for every portal that
+  declares `entry`.** Both stairs portals do, so the `entry` branches win before
+  `mode` is consulted. Pinning `mode` to `"ascend"` passes the new test; pinning
+  it to `"descend"` fails only because branch 3 is checked before branch 4.
+  Covering it needs a portal authored without `entry`, which no content has.
+  Recorded rather than worked around.
+- **The `index.js.map` error in every `npm test` run is pre-existing and
+  harmless** — Vite failing to load a source map for `node_modules/check2d`.
+  Present on `main`, exit code still 0. Not a regression; stop chasing it.
+- **Branch deletion is still unavailable.** `git push origin --delete`, even
+  with `--force-with-lease` against the resolved head, answers `fatal: the
+remote end hung up unexpectedly` / `Everything up-to-date` on every branch,
+  and the `mcp__github__*` toolset has no branch-deletion tool. Pushing commits
+  works fine. One attempt per branch is enough — do not retry. Five merged
+  branches and seven unmerged leftovers are listed in the run summary.
+- `.claude/routines/daily-log.md` is now written by five open pull requests
+  (#331, #337, #340, #345 and this run's). Whichever lands last needs a trivial
+  merge of the entries; earlier entries were not copied in, since that content
+  belongs to pull requests still awaiting review.
