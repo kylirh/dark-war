@@ -1,11 +1,11 @@
 # 0013 - AI Command Overflow Handling
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-11-01
 
 ## Context
 
-ADR 0009 established that deterministic operation counts (`MAX_COMMANDS_PER_TICK`) must bound the simulation work per tick to prevent cascades and desyncs. However, it explicitly left open how command overflow should be handled. Currently, in `src/engine/systems/simulation/tick.ts`, `stepSimulationTick` truncates the `aiCommands` array to `MAX_COMMANDS_PER_TICK` _before_ running `sortCommandsDeterministically`.
+ADR 0009 established that deterministic operation counts (`MAX_COMMANDS_PER_TICK`) must bound the simulation work per tick to prevent cascades and desyncs. However, it explicitly left open how command overflow should be handled. Historically, in `src/engine/systems/simulation/tick.ts`, `stepSimulationTick` truncated the `aiCommands` array to `MAX_COMMANDS_PER_TICK` _before_ running `sortCommandsDeterministically`. This was fixed as part of this ADR's adoption.
 
 The concrete cost is that in dense simulation ticks (e.g., many actors in a firefight), overflow silently drops the latest-generated commands rather than the lowest-priority ones. A `.jules/test.md` entry (2026-10-22) documents this exact behavior, and the doc comment on `MAX_COMMANDS_PER_TICK` in `systems/simulation/constants.ts` records it alongside the limit. ADR 0009 leaves it open as the second of two questions it defers to a human.
 

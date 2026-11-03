@@ -86,6 +86,8 @@ export function stepSimulationTick(state: GameState): void {
   // 2. Generate AI commands based on UPDATED state (after player moved)
   const aiCommands = generateAICommands(state, tick);
 
+  sortCommandsDeterministically(aiCommands);
+
   // Guard against too many AI commands
   if (aiCommands.length > MAX_COMMANDS_PER_TICK) {
     console.error(
@@ -93,8 +95,6 @@ export function stepSimulationTick(state: GameState): void {
     );
     aiCommands.length = MAX_COMMANDS_PER_TICK;
   }
-
-  sortCommandsDeterministically(aiCommands);
 
   // 3. Resolve AI commands
   for (const cmd of aiCommands) {
