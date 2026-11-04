@@ -1,3 +1,4 @@
+import { isTileOccupiedByActor } from "./sim-helpers";
 import {
   GameState,
   EntityKind,
@@ -440,12 +441,7 @@ export function processMonsterAbilities(state: GameState): void {
     if (!state.tiles.canTraverse(lump.gridX, lump.gridY, nx, ny)) {
       continue;
     }
-    const occupied = state.entities.some(
-      (e) =>
-        (e.kind === EntityKind.MONSTER || e.kind === EntityKind.PLAYER) &&
-        e.gridX === nx &&
-        e.gridY === ny,
-    );
+    const occupied = isTileOccupiedByActor(state, nx, ny);
     if (occupied) continue;
 
     state.entityManager.spawn(

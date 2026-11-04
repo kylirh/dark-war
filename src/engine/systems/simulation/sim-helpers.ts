@@ -117,6 +117,21 @@ export function getClosestPlayer(
   return closest;
 }
 
+export function isTileOccupiedByActor(
+  state: GameState,
+  tx: number,
+  ty: number,
+  ignoredActorId?: string,
+): boolean {
+  return state.entities.some(
+    (e) =>
+      e.id !== ignoredActorId &&
+      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) &&
+      e.gridX === tx &&
+      e.gridY === ty,
+  );
+}
+
 function isMonsterMoveCandidateClear(
   state: GameState,
   monster: Monster,
@@ -130,13 +145,7 @@ function isMonsterMoveCandidateClear(
     return false;
   }
 
-  return !state.entities.some(
-    (e) =>
-      e.id !== monster.id &&
-      e.gridX === nx &&
-      e.gridY === ny &&
-      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
-  );
+  return !isTileOccupiedByActor(state, nx, ny, monster.id);
 }
 
 export function chooseIdleWanderDirection(

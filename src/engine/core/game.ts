@@ -45,6 +45,7 @@ import { RNG, RandomNumberGenerator } from "../utils/rng";
 import { dist, setPositionFromGrid, setTileFor } from "../utils/helpers";
 import { addStoryMessage } from "../utils/story";
 import { computeFOV, computeFOVFrom } from "../systems/fov";
+import { isTileOccupiedByActor } from "../systems/simulation/sim-helpers";
 import { GameEntity } from "../entities/game-entity";
 import { SoundEffect } from "../content/sound-effects";
 import { dropPlayerInventoryOnDeath } from "../utils/player-respawn";
@@ -2136,7 +2137,7 @@ export class Game {
       const [x, y] = queue[head++];
       if (
         this.state.tiles.passable(x, y) &&
-        !this.isActorOccupied(x, y, ignoredActorId)
+        !isTileOccupiedByActor(this.state, x, y, ignoredActorId)
       ) {
         return [x, y];
       }
@@ -2147,21 +2148,6 @@ export class Game {
     }
 
     return [preferred[0], preferred[1]];
-  }
-
-  private isActorOccupied(
-    x: number,
-    y: number,
-    ignoredActorId?: string,
-  ): boolean {
-    return this.state.entities.some(
-      (entity) =>
-        entity.id !== ignoredActorId &&
-        (entity.kind === EntityKind.PLAYER ||
-          entity.kind === EntityKind.MONSTER) &&
-        entity.gridX === x &&
-        entity.gridY === y,
-    );
   }
 
   private syncLocalExploredState(): void {

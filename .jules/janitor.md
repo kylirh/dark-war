@@ -146,3 +146,11 @@ Each of the five sites was separately covered before the change: dropping the sl
 **Action:** Replaced the duplicated code block with a single function call to `makeWaitCommand(monster, tick)`.
 
 **Prevention:** Prefer using existing helper functions (like `makeWaitCommand`) rather than manually constructing command objects when a helper already exists and is imported.
+
+## 2026-11-04 - Consolidate actor occupation checks
+
+**What was found:** `state.entities.some(e => (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) && e.gridX === x && e.gridY === y)` or similar existed in `commands.ts` (3 sites), `events.ts` (1 site), `tick.ts` (1 site), `sim-helpers.ts` (1 site), and `game.ts` (1 site).
+
+**Action:** Extracted it into a single `isTileOccupiedByActor(state, tx, ty, ignoredActorId?)` exported from `sim-helpers.ts`. Replaced the identical blocks in all places.
+
+**Prevention:** Run `jscpd` or do manual grep on blocks looking like `state.entities.some` when they have similar conditions, and extract repetitions into a shared utility function.

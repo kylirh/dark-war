@@ -1,3 +1,4 @@
+import { isTileOccupiedByActor } from "./sim-helpers";
 import {
   GameState,
   Command,
@@ -1248,12 +1249,7 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
     return;
   }
 
-  const occupied = state.entities.some(
-    (e) =>
-      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) &&
-      e.gridX === tileX &&
-      e.gridY === tileY,
-  );
+  const occupied = isTileOccupiedByActor(state, tileX, tileY);
   if (occupied) {
     alertMsg(state, "Something's in the way.", player.id);
     return;
@@ -1454,12 +1450,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
         alertMsg(state, "The holowall needs open floor.", player.id);
         return;
       }
-      const occupied = state.entities.some(
-        (e) =>
-          (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) &&
-          e.gridX === tx &&
-          e.gridY === ty,
-      );
+      const occupied = isTileOccupiedByActor(state, tx, ty);
       if (occupied) {
         alertMsg(state, "Something's in the way.", player.id);
         return;
