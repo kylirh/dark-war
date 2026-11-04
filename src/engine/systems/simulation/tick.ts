@@ -41,7 +41,7 @@ import {
   pushEvent,
   positiveAmount,
   stopPlayerResting,
-  isOccupied,
+  isTileOccupiedByActor,
 } from "./sim-helpers";
 import { updateMonsterSteering, generateAICommands } from "./ai";
 import { updateExplosives, updateEffects } from "./explosives";
@@ -441,7 +441,7 @@ export function processMonsterAbilities(state: GameState): void {
     if (!state.tiles.canTraverse(lump.gridX, lump.gridY, nx, ny)) {
       continue;
     }
-    const occupied = isOccupied(state, nx, ny);
+    const occupied = isTileOccupiedByActor(state, nx, ny);
     if (occupied) continue;
 
     state.entityManager.spawn(

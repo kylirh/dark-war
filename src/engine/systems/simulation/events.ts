@@ -55,7 +55,7 @@ import {
   getClosestPlayer,
   positiveAmount,
   stopPlayerResting,
-  isOccupied,
+  isTileOccupiedByActor,
 } from "./sim-helpers";
 import { triggerExplosion } from "./explosives";
 import { addToInventory } from "../../utils/inventory";
@@ -762,7 +762,7 @@ function teleportMonsterNearby(state: GameState, monster: Monster): void {
     if (!state.tiles.passable(nx, ny)) {
       continue;
     }
-    const occupied = isOccupied(state, nx, ny);
+    const occupied = isTileOccupiedByActor(state, nx, ny);
     if (occupied) continue;
     setPositionFromGrid(monster, nx, ny);
     monster.velocityX = 0;

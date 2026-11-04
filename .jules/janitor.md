@@ -147,10 +147,29 @@ Each of the five sites was separately covered before the change: dropping the sl
 
 **Prevention:** Prefer using existing helper functions (like `makeWaitCommand`) rather than manually constructing command objects when a helper already exists and is imported.
 
-## 2026-11-06 - Consolidate duplicate tile occupancy checks
+## 2026-11-03 - Consolidate duplicate actor-occupancy checks
 
-**What was found:** Checking if a specific grid coordinate is occupied by a monster or player (`state.entities.some(...)`) was manually duplicated across four places in `commands.ts`, `events.ts`, and `tick.ts` with minor variable naming variances (`e`/`entity`, `nx`/`tx`/`tileX`).
+**What was found:** "is a player or monster standing on this tile" was written
+out inline six times, as `state.entities.some(...)` or `.find(...)` over the
+same two-kind, two-coordinate predicate: three times in `commands.ts`
+(place block, shape terrain, holowall), once in `events.ts`
+(`teleportMonsterNearby`), once in `tick.ts` (`processMonsterAbilities`), once
+in `sim-helpers.ts` itself (`isMonsterMoveCandidateClear`), and once in
+`ai.ts` (`tryMove`). Only the conjunct order and the variable names differed.
 
-**Action:** Created a new `isOccupied(state, tx, ty, excludeId?)` helper in `sim-helpers.ts`. Replaced all four duplicates to use this consolidated function.
+**Action:** extracted `isTileOccupiedByActor(state, tx, ty, excludeId?)` into
+`sim-helpers.ts` and routed all of them through it. The `excludeId` argument
+exists for `isMonsterMoveCandidateClear`, which must not count the moving
+monster itself; the other five sites pass nothing. `ai.ts`'s `tryMove`
+deliberately still does not exclude the mover — its direction list can contain
+`[0, 0]`, and matching itself there is what makes it reject a move to nowhere.
 
-**Prevention:** Before writing a manual `state.entities.some(...)` filter to find entities at a location, check `sim-helpers.ts` for existing lookup logic, or extract it if multiple sites perform identical filtering.
+**Prevention:** before writing `state.entities.some(...)` against a grid
+coordinate, look in `sim-helpers.ts`. Two of the six duplicates were in files
+that already imported from it, and one was in that file.
+
+**Coverage, measured not assumed:** making the extracted helper always report
+"free" fails exactly one test — `matter-manipulator.test.ts > refuses to place
+a block on an occupied tile`. The other five sites, and the `excludeId` branch,
+are not covered by anything. Consolidating does not improve that; it only means
+one test now guards the shared body instead of one site.

@@ -91,7 +91,7 @@ import {
   hasRestThreat,
   areAllLivingPlayersResting,
   stopPlayerResting,
-  isOccupied,
+  isTileOccupiedByActor,
 } from "./sim-helpers";
 
 // ========================================
@@ -1249,7 +1249,7 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
     return;
   }
 
-  const occupied = isOccupied(state, tileX, tileY);
+  const occupied = isTileOccupiedByActor(state, tileX, tileY);
   if (occupied) {
     alertMsg(state, "Something's in the way.", player.id);
     return;
@@ -1298,7 +1298,7 @@ function resolveShapeTerrainCommand(state: GameState, cmd: Command): void {
     alertMsg(state, "Clear this cell before shaping its terrain.", player.id);
     return;
   }
-  const occupied = isOccupied(state, tileX, tileY);
+  const occupied = isTileOccupiedByActor(state, tileX, tileY);
   if (occupied) {
     alertMsg(state, "Something's in the way.", player.id);
     return;
@@ -1444,7 +1444,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
         alertMsg(state, "The holowall needs open floor.", player.id);
         return;
       }
-      const occupied = isOccupied(state, tx, ty);
+      const occupied = isTileOccupiedByActor(state, tx, ty);
       if (occupied) {
         alertMsg(state, "Something's in the way.", player.id);
         return;
