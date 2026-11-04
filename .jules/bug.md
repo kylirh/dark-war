@@ -31,3 +31,11 @@ dies in the interim.
 **Action:** Modified `processDamageEvent` in `src/engine/systems/simulation/events.ts` to explicitly zero out `monster.velocityX` and `monster.velocityY` as soon as its HP reaches 0, exactly mirroring how the player is handled. Covered by a new test in `death-transition.test.ts`.
 
 **Prevention:** Critical state invalidations upon entity death, such as halting movement and cancelling pending flags, must occur synchronously when HP drops to 0, rather than relying on deferred resolution of `PLAYER_DEATH` or `DEATH` events which might get pushed to subsequent ticks.
+
+## 2025-01-20 - fix(simulation): cancel pending transitions and movement synchronously on black pill death
+
+**What was found:** Using the Black Pill kills the player instantly by setting their `hp` to 0 and appending a `PLAYER_DEATH` event to the event queue. Unlike combat damage (which zeros velocity on the spot), this path allowed the player to keep sliding on the floor and also keep pending level transitions valid until the event queue was processed, potentially carrying over momentum or a pending death to a different floor.
+
+**Action:** Added synchronous zeroing of `player.velocityX` and `player.velocityY`, and synchronous cancellation of pending transitions (`state.shouldDescend`, `state.shouldAscend`, `state.descendTarget`, `state.pendingPortalId`) to the `case ItemType.BLACK_PILL:` execution path, mirroring what `processDamageEvent` does for ordinary lethal hits.
+
+**Prevention:** To prevent this class of problem, whenever a lethal state (`hp = 0`) is applied that defers its death events to the queue, all time-sensitive invalidations (like movement or transitions) must occur synchronously alongside the HP assignment.
