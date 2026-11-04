@@ -50,3 +50,11 @@ only two priority values, and `priority: 1` is used solely for ranged fire, so
 reordering the truncation preserves shots over movement and nothing finer. Do
 not describe it as rescuing "critical actions like attacking or healing" —
 melee attack is `priority: 0` and no healing command exists.
+
+## 2026-11-04 - Synchronous State Invalidation on Entity Death
+
+**What was found:** In the simulation engine, deferring events to prevent processing cascades (via `MAX_EVENTS_PER_TICK`) creates a temporal gap between lethal damage and the actual processing of `DEATH` and `PLAYER_DEATH` events. As documented in `.jules/bug.md` and `.jules/alpha.md`, this gap allowed dead entities to continue moving and initiate level transitions, since velocity was zeroed and routing flags cleared only when the deferred death event finally resolved.
+
+**Action:** Wrote Proposed ADR 0014 formally recommending the status quo logic of maintaining split invalidation. Critical state invalidations (such as canceling pending routing signals and halting movement) must execute synchronously when HP reaches zero, while leaving heavy cleanup and removal for the deferred death event.
+
+**Prevention:** When evaluating death logic or adding state flags that affect world interactions, recognize that death is an asynchronous, two-phase process. Explicitly check if the new state requires synchronous cancellation upon HP zero to avoid temporal gap bugs.
