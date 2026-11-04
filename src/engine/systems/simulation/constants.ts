@@ -55,9 +55,11 @@ export const MAX_EVENTS_PER_TICK = 1000;
  * rebuilds the list from scratch next tick, so no queue holds the remainder:
  * an actor's intent reappears only if the new state regenerates it.
  *
- * Truncation runs **after** `sortCommandsDeterministically`, so the commands
- * that survive are the highest priority. That is deterministic and ensures
- * the engine sheds least critical load first, answering the open question in ADR 0009.
+ * Truncation also runs **before** `sortCommandsDeterministically`, so the
+ * commands that survive are the earliest *generated*, not the highest
+ * priority. That is deterministic — the same inputs drop the same commands on
+ * every machine — but it is not what "safety limit" suggests. ADR 0009 leaves
+ * both the drop-versus-defer choice and the truncation order open for a human.
  */
 export const MAX_COMMANDS_PER_TICK = 1000;
 /** World-speed multiplier while every living player on a plane is resting. */

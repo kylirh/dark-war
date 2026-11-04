@@ -31,11 +31,3 @@ dies in the interim.
 **Action:** Modified `processDamageEvent` in `src/engine/systems/simulation/events.ts` to explicitly zero out `monster.velocityX` and `monster.velocityY` as soon as its HP reaches 0, exactly mirroring how the player is handled. Covered by a new test in `death-transition.test.ts`.
 
 **Prevention:** Critical state invalidations upon entity death, such as halting movement and cancelling pending flags, must occur synchronously when HP drops to 0, rather than relying on deferred resolution of `PLAYER_DEATH` or `DEATH` events which might get pushed to subsequent ticks.
-
-## 2026-11-03 - Truncate AI commands after sorting by priority
-
-**What was found:** When generating AI commands in `stepSimulationTick`, the commands were being truncated to `MAX_COMMANDS_PER_TICK` *before* sorting by priority. This caused overflow to drop the latest-generated commands instead of the lowest-priority ones, meaning a monster's important ranged shot could be dropped while another's wander survived.
-
-**Action:** Modified `stepSimulationTick` in `src/engine/systems/simulation/tick.ts` to sort the commands before truncating, fulfilling the decision in ADR 0013.
-
-**Prevention:** When enforcing operation limits for load-shedding purposes, truncation must occur *after* sorting the commands by priority, so that the simulation sheds the lowest-priority load rather than arbitrary newly-generated actions.
