@@ -328,3 +328,86 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-11-04
+
+**Merged:**
+
+- **#461** `fix(a11y): add tabindex to dialogue panel for programmatic focus` —
+  `DialoguePanel.update()` falls through to `this.root.focus()` for a line with
+  no choices, no continue step and no free text, and the root is a
+  `<div role="dialog">` with no `tabindex`, so the call did nothing. Merged with
+  one corrective commit to `.jules/palette.md`.
+- **#462** `refactor(simulation): consolidate duplicate actor-occupancy checks`
+  — extracts `isTileOccupiedByActor` into `sim-helpers.ts`. Merged after
+  finishing the job on the branch: it had found four of six duplicates, shipped
+  an `excludeId` parameter no call site passed, and named the helper
+  `isOccupied`.
+
+**Closed:**
+
+- **#463** (truncate ai commands after sorting) — the code move is correct, but
+  the pull request also flipped ADR 0013 from **Proposed** to **Accepted**. That
+  decision is ADR 0009's second open question and belongs to a human. Its oracle
+  was also an inverted assertion on the `tick.test.ts` case that exists to pin
+  the status quo until the question is answered, which "fails before, passes
+  after" for any behaviour change. It additionally rewrote the ADR's Context
+  into the past tense, leaving the document contradicting itself, in a directory
+  Architect owns.
+
+**Found in main:** no correctness defect. The 24-hour window was exactly the two
+merges above. The Phase 2 pull request adds the coverage #462 did not have and
+corrects a factual claim I put into its TSDoc during review.
+
+**For next time — believe these without re-deriving:**
+
+1. **`isTileOccupiedByActor`'s `excludeId` is a guard, not load-bearing.**
+   Every caller asks about a _neighbour_ tile:
+   `chooseIdleWanderDirection` draws from `EIGHT_WAY_DIRECTIONS`, which has no
+   zero vector, and `ai.ts:1891` skips `[0, 0]` before any direction reaches
+   `tryMove`. So no mover can be standing on the tile it asks about, and the
+   parameter never changes an answer. The TSDoc said otherwise for a few hours
+   on 2026-11-04 (my error, in the #462 review commit) and is now corrected.
+   Do not "fix" the parameter away on the grounds that it is unused — it is
+   pinned by a test and documented as a guard — and do not re-report the TSDoc.
+
+2. **Mutation-check a consolidation before trusting its green suite.** Forcing
+   the extracted helper to always report "free" failed exactly **one** test out
+   of 942 (`matter-manipulator.test.ts > refuses to place a block on an occupied
+tile`), while all six call sites went through it. "942 tests still pass" is
+   worth almost nothing as evidence about an extracted predicate. The cheap
+   version of this check is two minutes: invert or short-circuit the new helper,
+   run `npx vitest run`, count what fails.
+
+3. **ADR 0013 is still Proposed.** Expect the implementation to be
+   re-proposed. Several closed, unmerged branches are named for this same area
+   — `fix-ai-command-truncation-*` (#379),
+   `fix/bug-ai-command-sort-truncation-*` (#386), plus `fix-tick-command-sort-*`,
+   `fix-sort-commands-priority-*`, `fix-priority-sort-*` and
+   `fix-command-priority-sort-*` (#414-#419); I read the names, not each diff,
+   so treat the count as indicative rather than exact. Until a human sets the
+   ADR to Accepted, close on sight and cite this entry. The change itself is
+   sound: `sortCommandsDeterministically`
+   (`tick.ts:587`) orders by descending priority then `actorId` then `id`, so
+   truncating after the sort keeps the highest-priority commands and stays
+   deterministic.
+
+4. **`playerCommands` has no `MAX_COMMANDS_PER_TICK` guard at all**
+   (`tick.ts:75-77`), unlike `aiCommands`. Noted, not acted on: nothing shows
+   player input reaching the ceiling, and whether it should be bounded is the
+   same open question as the AI side.
+
+5. **Branch deletion is still unavailable, for a new reason.** `git push origin
+--delete` with a lease is refused by this environment's command classifier
+   before it reaches GitHub, and the `mcp__github__*` toolset has no
+   branch-deletion tool. One attempt confirms it; do not retry. 23 merged
+   branches remain on origin.
+
+6. **`node_modules` is absent at session start.** `npx tsc` silently fetched
+   TypeScript 6.0.2 against the repo's pinned 5.9.3 and reported a bogus
+   `TS5107` deprecation error on `tsconfig.json`, which reads exactly like
+   "`main` is red". Run `npm ci` first; CI was green the whole time.
+
+7. **This file's merged copy still ends at 2026-09-30.** Every Phase 2 pull
+   request since adds its own entry and none have merged, so #331 onward all
+   conflict here. Whichever lands first wins and the rest need a trivial merge.
