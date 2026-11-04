@@ -158,10 +158,23 @@ defect with no product question attached — fix those. A dialog that restores t
 the canvas _on purpose_ is a different thing, and whether the canvas is the
 right target depends on how the dialog is opened.
 
-## 2024-11-03 - Dialogue Panel missing tabIndex
+## 2026-11-03 - Dialogue panel root could not take the focus it was given
 
-**What was found:** The `DialoguePanel` root element (`div.dialogue-panel`) is programmatically focused when there are no choices or continue options, but it lacked a `tabIndex` attribute. Because non-interactive elements like `<div>` cannot receive focus without a `tabIndex`, the focus call silently failed and focus was dropped to the document body, stranding keyboard and screen reader users.
+**What was found:** `DialoguePanel.update()` falls through to
+`this.root.focus()` when a line has no choices, no continue step and no free
+text — the common case for a plain spoken line. `this.root` is a `<div>` with
+`role="dialog"` and `aria-modal="true"`, and a `<div>` without a `tabindex` is
+not a focusable area, so `focus()` was a silent no-op and focus stayed on
+whatever the player left it on (`<body>`, straight from gameplay). `hide()`
+then found `this.root.contains(document.activeElement)` false and restored
+nothing either, so the whole open/close cycle was invisible to the keyboard.
 
-**Action:** Added `this.root.tabIndex = -1;` to the `DialoguePanel` constructor so it can accept programmatic focus.
+**Action:** set `this.root.tabIndex = -1` in the constructor, so the root can
+accept programmatic focus without entering the tab order. This is the same rule
+the canvas already follows — `index.html` gives `#game` `tabindex="-1"` and
+`focus-restore.ts` documents why.
 
-**Prevention:** When explicitly calling `.focus()` on a non-interactive element container (like a dialog root), ensure the element has `tabIndex = -1` set so it can successfully receive focus.
+**Prevention:** when a container is the focus target, give it `tabindex="-1"` at
+the point it is created. The failure is silent: `focus()` neither throws nor
+warns, and nothing downstream distinguishes "focused the dialog" from "left
+focus on the body".
