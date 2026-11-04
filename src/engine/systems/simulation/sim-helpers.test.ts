@@ -1,11 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { EntityKind, Monster, TileType } from "../../types";
+import {
+  EntityKind,
+  ItemType,
+  Monster,
+  MonsterType,
+  TileType,
+} from "../../types";
 import { FlatTileSource } from "../../core/tile-source";
 import { Game } from "../../core/game";
+import { ItemEntity } from "../../entities/item-entity";
+import { MonsterEntity } from "../../entities/monster-entity";
+import { clearMonsters } from "./test-utils";
 import {
   directionFromAngle,
   normalizeAngle,
   hasClearLineOfSight,
+  isTileOccupiedByActor,
   positiveAmount,
   canActorAct,
 } from "./sim-helpers";
@@ -126,5 +136,77 @@ describe("hasClearLineOfSight", () => {
         center(1),
       ),
     ).toBe(true);
+  });
+});
+
+/**
+ * `isTileOccupiedByActor` is the single source for "may something stand here"
+ * across six call sites (`commands.ts` x3, `events.ts`, `tick.ts`, `ai.ts`)
+ * plus `isMonsterMoveCandidateClear` in its own module. Before these cases,
+ * forcing it to always report "free" failed exactly one test in the whole
+ * suite — `matter-manipulator.test.ts > refuses to place a block on an
+ * occupied tile` — which left three decisions unguarded: that items and other
+ * non-actors do not count, that both coordinates are compared, and the
+ * `excludeId` branch.
+ *
+ * `excludeId` is reachable but never decisive: every caller asks about a
+ * neighbour tile, so no mover is on the tile it asks about. These cases pin
+ * the semantics rather than observed behaviour, so a future caller that does
+ * test its own tile inherits a defined answer.
+ */
+describe("isTileOccupiedByActor", () => {
+  /** A level with the generated monsters removed, so only the player acts. */
+  function soloWorld(): Game {
+    const game = new Game({ mode: "offline" });
+    game.reset(0);
+    clearMonsters(game);
+    return game;
+  }
+
+  it("reports the player's own tile and neither neighbour", () => {
+    const state = soloWorld().getState();
+    const { gridX, gridY } = state.player;
+
+    expect(isTileOccupiedByActor(state, gridX, gridY)).toBe(true);
+    // Both coordinates matter: a match on one axis alone is not occupancy.
+    expect(isTileOccupiedByActor(state, gridX + 1, gridY)).toBe(false);
+    expect(isTileOccupiedByActor(state, gridX, gridY + 1)).toBe(false);
+  });
+
+  it("reports a monster", () => {
+    const game = soloWorld();
+    const state = game.getState();
+    const x = state.player.gridX + 2;
+    const y = state.player.gridY + 2;
+
+    expect(isTileOccupiedByActor(state, x, y)).toBe(false);
+    state.entityManager.spawn(new MonsterEntity(x, y, MonsterType.WILD_DOG, 1));
+    expect(isTileOccupiedByActor(state, x, y)).toBe(true);
+  });
+
+  it("ignores an item on the tile", () => {
+    const game = soloWorld();
+    const state = game.getState();
+    const x = state.player.gridX + 3;
+    const y = state.player.gridY;
+
+    state.entityManager.spawn(new ItemEntity(x, y, ItemType.MEDKIT));
+    expect(isTileOccupiedByActor(state, x, y)).toBe(false);
+  });
+
+  it("skips the excluded actor without excusing the tile", () => {
+    const game = soloWorld();
+    const state = game.getState();
+    const x = state.player.gridX + 4;
+    const y = state.player.gridY;
+
+    const mover = new MonsterEntity(x, y, MonsterType.WILD_DOG, 1);
+    state.entityManager.spawn(mover);
+    expect(isTileOccupiedByActor(state, x, y, mover.id)).toBe(false);
+
+    // A second actor on the same tile is still reported: the exclusion is one
+    // id, not a blanket pass for the coordinate.
+    state.entityManager.spawn(new MonsterEntity(x, y, MonsterType.WILD_DOG, 1));
+    expect(isTileOccupiedByActor(state, x, y, mover.id)).toBe(true);
   });
 });
