@@ -146,3 +146,30 @@ Each of the five sites was separately covered before the change: dropping the sl
 **Action:** Replaced the duplicated code block with a single function call to `makeWaitCommand(monster, tick)`.
 
 **Prevention:** Prefer using existing helper functions (like `makeWaitCommand`) rather than manually constructing command objects when a helper already exists and is imported.
+
+## 2026-11-03 - Consolidate duplicate actor-occupancy checks
+
+**What was found:** "is a player or monster standing on this tile" was written
+out inline six times, as `state.entities.some(...)` or `.find(...)` over the
+same two-kind, two-coordinate predicate: three times in `commands.ts`
+(place block, shape terrain, holowall), once in `events.ts`
+(`teleportMonsterNearby`), once in `tick.ts` (`processMonsterAbilities`), once
+in `sim-helpers.ts` itself (`isMonsterMoveCandidateClear`), and once in
+`ai.ts` (`tryMove`). Only the conjunct order and the variable names differed.
+
+**Action:** extracted `isTileOccupiedByActor(state, tx, ty, excludeId?)` into
+`sim-helpers.ts` and routed all of them through it. The `excludeId` argument
+exists for `isMonsterMoveCandidateClear`, which must not count the moving
+monster itself; the other five sites pass nothing. `ai.ts`'s `tryMove`
+deliberately still does not exclude the mover — its direction list can contain
+`[0, 0]`, and matching itself there is what makes it reject a move to nowhere.
+
+**Prevention:** before writing `state.entities.some(...)` against a grid
+coordinate, look in `sim-helpers.ts`. Two of the six duplicates were in files
+that already imported from it, and one was in that file.
+
+**Coverage, measured not assumed:** making the extracted helper always report
+"free" fails exactly one test — `matter-manipulator.test.ts > refuses to place
+a block on an occupied tile`. The other five sites, and the `excludeId` branch,
+are not covered by anything. Consolidating does not improve that; it only means
+one test now guards the shared body instead of one site.
