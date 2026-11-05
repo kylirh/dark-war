@@ -117,23 +117,15 @@ export function getClosestPlayer(
   return closest;
 }
 
-/**
- * Whether a player or monster stands on tile `tx`/`ty`.
- *
- * Actors only: items, bullets and explosives are ignored, and so is the tile
- * itself — callers that also need open floor check `state.tiles` separately.
- * `excludeId` skips one actor, which is what an actor asking whether it may
- * step somewhere needs when the candidate tile is its own.
- */
 export function isTileOccupiedByActor(
   state: GameState,
   tx: number,
   ty: number,
-  excludeId?: string,
+  ignoredActorId?: string,
 ): boolean {
   return state.entities.some(
     (e) =>
-      e.id !== excludeId &&
+      e.id !== ignoredActorId &&
       (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) &&
       e.gridX === tx &&
       e.gridY === ty,

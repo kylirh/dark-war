@@ -1,3 +1,4 @@
+import { isTileOccupiedByActor } from "./sim-helpers";
 import {
   GameState,
   Command,
@@ -91,7 +92,6 @@ import {
   hasRestThreat,
   areAllLivingPlayersResting,
   stopPlayerResting,
-  isTileOccupiedByActor,
 } from "./sim-helpers";
 
 // ========================================
@@ -1298,7 +1298,13 @@ function resolveShapeTerrainCommand(state: GameState, cmd: Command): void {
     alertMsg(state, "Clear this cell before shaping its terrain.", player.id);
     return;
   }
-  const occupied = isTileOccupiedByActor(state, tileX, tileY);
+  const occupied = state.entities.some(
+    (entity) =>
+      (entity.kind === EntityKind.PLAYER ||
+        entity.kind === EntityKind.MONSTER) &&
+      entity.gridX === tileX &&
+      entity.gridY === tileY,
+  );
   if (occupied) {
     alertMsg(state, "Something's in the way.", player.id);
     return;

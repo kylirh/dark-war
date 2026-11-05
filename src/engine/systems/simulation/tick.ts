@@ -1,3 +1,4 @@
+import { isTileOccupiedByActor } from "./sim-helpers";
 import {
   GameState,
   EntityKind,
@@ -41,7 +42,6 @@ import {
   pushEvent,
   positiveAmount,
   stopPlayerResting,
-  isTileOccupiedByActor,
 } from "./sim-helpers";
 import { updateMonsterSteering, generateAICommands } from "./ai";
 import { updateExplosives, updateEffects } from "./explosives";
