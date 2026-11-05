@@ -91,8 +91,6 @@ import {
   hasRestThreat,
   areAllLivingPlayersResting,
   stopPlayerResting,
-  isTileOccupiedByActor,
-  haltDyingPlayer,
 } from "./sim-helpers";
 
 // ========================================
@@ -1250,7 +1248,12 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
     return;
   }
 
-  const occupied = isTileOccupiedByActor(state, tileX, tileY);
+  const occupied = state.entities.some(
+    (e) =>
+      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) &&
+      e.gridX === tileX &&
+      e.gridY === tileY,
+  );
   if (occupied) {
     alertMsg(state, "Something's in the way.", player.id);
     return;
@@ -1299,7 +1302,13 @@ function resolveShapeTerrainCommand(state: GameState, cmd: Command): void {
     alertMsg(state, "Clear this cell before shaping its terrain.", player.id);
     return;
   }
-  const occupied = isTileOccupiedByActor(state, tileX, tileY);
+  const occupied = state.entities.some(
+    (entity) =>
+      (entity.kind === EntityKind.PLAYER ||
+        entity.kind === EntityKind.MONSTER) &&
+      entity.gridX === tileX &&
+      entity.gridY === tileY,
+  );
   if (occupied) {
     alertMsg(state, "Something's in the way.", player.id);
     return;
@@ -1374,7 +1383,6 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
     case ItemType.BLACK_PILL: {
       removeFromInventory(player, ItemType.BLACK_PILL);
       player.hp = 0;
-      haltDyingPlayer(state, player);
       alertMsg(
         state,
         "You swallow the black pill. Everything goes dark...",
@@ -1446,7 +1454,12 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
         alertMsg(state, "The holowall needs open floor.", player.id);
         return;
       }
-      const occupied = isTileOccupiedByActor(state, tx, ty);
+      const occupied = state.entities.some(
+        (e) =>
+          (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) &&
+          e.gridX === tx &&
+          e.gridY === ty,
+      );
       if (occupied) {
         alertMsg(state, "Something's in the way.", player.id);
         return;
