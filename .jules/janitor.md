@@ -147,10 +147,59 @@ Each of the five sites was separately covered before the change: dropping the sl
 
 **Prevention:** Prefer using existing helper functions (like `makeWaitCommand`) rather than manually constructing command objects when a helper already exists and is imported.
 
-## 2026-11-04 - Consolidate actor occupation checks
+## 2026-11-03 - Consolidate duplicate actor-occupancy checks
 
-**What was found:** `state.entities.some(e => (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) && e.gridX === x && e.gridY === y)` or similar existed in `commands.ts` (3 sites), `events.ts` (1 site), `tick.ts` (1 site), `sim-helpers.ts` (1 site), and `game.ts` (1 site).
+**What was found:** "is a player or monster standing on this tile" was written
+out inline six times, as `state.entities.some(...)` or `.find(...)` over the
+same two-kind, two-coordinate predicate: three times in `commands.ts`
+(place block, shape terrain, holowall), once in `events.ts`
+(`teleportMonsterNearby`), once in `tick.ts` (`processMonsterAbilities`), once
+in `sim-helpers.ts` itself (`isMonsterMoveCandidateClear`), and once in
+`ai.ts` (`tryMove`). Only the conjunct order and the variable names differed.
 
-**Action:** Extracted it into a single `isTileOccupiedByActor(state, tx, ty, ignoredActorId?)` exported from `sim-helpers.ts`. Replaced the identical blocks in all places.
+**Action:** extracted `isTileOccupiedByActor(state, tx, ty, excludeId?)` into
+`sim-helpers.ts` and routed all of them through it. The `excludeId` argument
+exists for `isMonsterMoveCandidateClear`, which must not count the moving
+monster itself; the other five sites pass nothing. `ai.ts`'s `tryMove`
+deliberately still does not exclude the mover — its direction list can contain
+`[0, 0]`, and matching itself there is what makes it reject a move to nowhere.
 
-**Prevention:** Run `jscpd` or do manual grep on blocks looking like `state.entities.some` when they have similar conditions, and extract repetitions into a shared utility function.
+**Prevention:** before writing `state.entities.some(...)` against a grid
+coordinate, look in `sim-helpers.ts`. Two of the six duplicates were in files
+that already imported from it, and one was in that file.
+
+**Coverage, measured not assumed:** making the extracted helper always report
+"free" fails exactly one test — `matter-manipulator.test.ts > refuses to place
+a block on an occupied tile`. The other five sites, and the `excludeId` branch,
+are not covered by anything. Consolidating does not improve that; it only means
+one test now guards the shared body instead of one site.
+
+## 2026-11-04 - The seventh actor-occupancy duplicate, in `game.ts`
+
+**What was found:** the previous entry counted six inline copies of the
+"is a player or monster standing here" predicate, all inside
+`src/engine/systems/simulation/`. There was a seventh, outside that directory
+and so outside the grep that found the others: `Game.isActorOccupied`, a
+private method in `src/engine/core/game.ts` used only by `findSpawnTile`. It is
+character-for-character the same predicate, exclusion parameter included.
+
+**Action:** deleted it and routed `findSpawnTile` through
+`isTileOccupiedByActor`. Behaviour-preserving: the two bodies were identical,
+including the `some()` short-circuit order.
+
+**What this site teaches about `excludeId`:** here the argument is
+load-bearing, which it is not at any of the six simulation sites. The respawn
+path (`game.ts:1891`) calls `findSpawnTile(this.state.playerStart, playerId)`
+while the dying player entity is still in `state.entities` at its death
+position. If that position is `playerStart`, dropping the exclusion pushes the
+respawn to a neighbouring tile instead. So do not conclude from the simulation
+call sites that the parameter is only a guard.
+
+**Prevention:** the duplicate survived six rounds of grepping because the
+search was scoped to `systems/simulation/`. `src/engine/core/` holds spawn,
+respawn and placement logic that asks the same questions as the simulation
+does; search both.
+
+**Coverage, measured not assumed:** nothing covers this site. Dropping
+`ignoredActorId` from the call — the one argument that changes an answer here —
+still passes 942 of 942 tests.

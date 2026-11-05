@@ -59,6 +59,7 @@ import {
   makeIdleWanderCommand,
   hasClearLineOfSight,
   canActorAct,
+  isTileOccupiedByActor,
 } from "./sim-helpers";
 import { advanceAgentDecisionEpoch, selectAgentGoal } from "./agent-decisions";
 import {
@@ -1869,14 +1870,7 @@ function decideMonsterCommand(
       return false;
     }
 
-    const blocker = state.entities.find(
-      (e) =>
-        e.gridX === nx &&
-        e.gridY === ny &&
-        (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
-    );
-
-    if (blocker) return false;
+    if (isTileOccupiedByActor(state, nx, ny)) return false;
 
     // Move is valid
     return true;

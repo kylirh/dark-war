@@ -1,4 +1,3 @@
-import { isTileOccupiedByActor } from "./sim-helpers";
 import {
   GameState,
   GameEvent,
@@ -56,6 +55,7 @@ import {
   getClosestPlayer,
   positiveAmount,
   stopPlayerResting,
+  isTileOccupiedByActor,
 } from "./sim-helpers";
 import { triggerExplosion } from "./explosives";
 import { addToInventory } from "../../utils/inventory";
