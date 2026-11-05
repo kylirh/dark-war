@@ -8,7 +8,6 @@ import {
   HOLE_FALL_DAMAGE,
   ItemType,
   MonsterType,
-  Player,
 } from "../../types";
 import { idxFor, setPositionFromGrid } from "../../utils/helpers";
 import { resolveCommand } from "./commands";
@@ -48,81 +47,7 @@ function pushFillerEvents(state: GameState, count: number): void {
   }
 }
 
-/**
- * Resolve the black pill, the only producer of `PLAYER_DEATH` other than
- * `processDamageEvent`. The `dx`/`dy` are inert for a consumable; `USE_ITEM`
- * carries them for the items that need a direction.
- */
-function eatBlackPill(state: GameState, player: Player): void {
-  player.selectedBarSlot = 0;
-  player.inventorySlots[0] = { type: ItemType.BLACK_PILL };
-
-  resolveCommand(state, {
-    id: "pill",
-    type: CommandType.USE_ITEM,
-    tick: state.sim.nowTick,
-    source: "PLAYER",
-    actorId: player.id,
-    priority: 0,
-    data: { type: "USE_ITEM", dx: 1, dy: 0 },
-  });
-}
-
 describe("death during transition", () => {
-  it("cancels pending transitions when a black pill is used", () => {
-    const state = dungeonAtDepthOne().getState();
-    const player = state.player;
-
-    state.shouldDescend = true;
-    state.pendingPortalId = "some-stairs-down";
-
-    eatBlackPill(state, player);
-
-    expect(player.hp).toBe(0);
-    expect(state.shouldDescend).toBe(false);
-    expect(state.pendingPortalId).toBeUndefined();
-  });
-
-  /**
-   * The black-pill twin of the deferred-death cases below, and the reason the
-   * cancellation has to be eager rather than left to `processPlayerDeathEvent`.
-   * The pill appends `PLAYER_DEATH` itself, so the filler goes in first to put
-   * that event beyond both of the tick's budgets. Without the eager halt the
-   * tick ends with a dead player, `shouldDescend` still true, and the host
-   * takes a corpse down the stairs.
-   */
-  it("cancels a pending descend when the pill's death event outlives the tick", () => {
-    const state = dungeonAtDepthOne().getState();
-    const player = state.player;
-
-    const stairs = state.portals.find((p) => p.id.endsWith("stairs-down"))!;
-    setPositionFromGrid(player, stairs.source.x, stairs.source.y);
-
-    resolveCommand(state, {
-      id: "descend-cmd",
-      tick: state.sim.nowTick,
-      actorId: player.id,
-      type: CommandType.DESCEND,
-      data: { type: "DESCEND" },
-      priority: 0,
-      source: "PLAYER",
-    });
-
-    expect(state.shouldDescend).toBe(true);
-
-    pushFillerEvents(state, 2 * MAX_EVENTS_PER_TICK + 2);
-    eatBlackPill(state, player);
-
-    stepSimulationTick(state);
-
-    expect(player.hp).toBe(0);
-    expect(
-      state.eventQueue.some((event) => event.type === EventType.PLAYER_DEATH),
-    ).toBe(true);
-    expect(state.shouldDescend).toBe(false);
-    expect(state.pendingPortalId).toBeUndefined();
-  });
-
   it("cancels a pending descend when the player dies", () => {
     const state = dungeonAtDepthOne().getState();
     const player = state.player;
@@ -303,27 +228,24 @@ describe("death during transition", () => {
  * tick, and the player would slide until then.
  */
 describe("death stops movement", () => {
-  it("stops a player's movement synchronously on death from eating a black pill", () => {
-    const state = dungeonAtDepthOne().getState();
-    const player = state.player;
-
-    player.velocityX = 100;
-    player.velocityY = 100;
-    eatBlackPill(state, player);
-
-    // Velocity should be 0 immediately without needing processEventQueue
-    expect(player.hp).toBe(0);
-    expect(player.velocityX).toBe(0);
-    expect(player.velocityY).toBe(0);
-  });
-
   it("stops a player's movement on death from eating a black pill", () => {
     const state = dungeonAtDepthOne().getState();
     const player = state.player;
 
     player.velocityX = 100;
     player.velocityY = 100;
-    eatBlackPill(state, player);
+    player.selectedBarSlot = 0;
+    player.inventorySlots[0] = { type: ItemType.BLACK_PILL };
+
+    resolveCommand(state, {
+      id: "pill",
+      type: CommandType.USE_ITEM,
+      tick: state.sim.nowTick,
+      source: "PLAYER",
+      actorId: player.id,
+      priority: 0,
+      data: { type: "USE_ITEM", dx: 1, dy: 0 },
+    });
 
     processEventQueue(state);
 

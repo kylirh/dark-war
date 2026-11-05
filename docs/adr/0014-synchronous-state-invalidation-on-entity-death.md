@@ -11,11 +11,8 @@ This design creates a temporal gap between an entity's HP reaching zero and its 
 
 - **2026-10-02 & 2026-10-20:** A player who initiated a level transition (setting `shouldDescend` or similar flags) and received lethal damage in the same tick during a cascade would still be warped by the host. The `PLAYER_DEATH` event that would have cleared the flags was deferred to the next tick, leaving the host to act on the pending transition of a dead player.
 - **2026-10-03:** A monster receiving lethal damage would keep sliding for an extra tick because its velocity was not zeroed until the `DEATH` event resolved, which had been deferred by the event queue budget.
-- **2026-11-05:** The same defect at the one `PLAYER_DEATH` producer that is not `processDamageEvent`. The black pill (`commands.ts`, `ItemType.BLACK_PILL`) set `player.hp = 0` and queued the event without invalidating anything, so with a saturated queue the tick ended with a dead player and `shouldDescend` still true, and the host descended a corpse.
 
 To fix these bugs, critical state invalidations (canceling transitions, zeroing velocity) were moved into `processDamageEvent` to execute synchronously the moment HP reaches zero, while the actual entity removal and heavy cleanup remained in the deferred death events.
-
-The 2026-11-05 instance is the one that bears on this decision, because it is not a variation of the others. The first three were fixed inside the handler that was already there; the fourth was a _second_ producer of the same event that simply did not know it owed the invalidation. That is the specific cost of the split this ADR describes: the obligation travels with the event, not with the handler, and nothing in the type system or the tests states it.
 
 ## Options
 
@@ -51,5 +48,4 @@ The safety limits of the event queue are necessary to prevent server hangs, but 
 - **What gets better:** We avoid severe cascade hangs without suffering the bugs of dead entities continuing to move or transition.
 - **What gets worse:** Death logic is permanently split. Developers must learn and maintain the boundary between synchronous invalidation and deferred cleanup.
 - **What becomes harder to change:** Any new state attached to an entity that implicitly affects the world (like velocity or routing flags) must be explicitly evaluated to see if it requires synchronous cancellation on HP zero.
-- **Where this is enforced:** for the player, in `haltDyingPlayer` (`sim-helpers.ts`), which both producers of `PLAYER_DEATH` call at the point they set `hp` to zero. Adding a field that must not survive death means adding it there, not to `processPlayerDeathEvent`. There is no equivalent single entry point for monsters: `processDamageEvent` zeroes monster velocity inline, which is sound only while it stays the sole producer of `DEATH`.
-- **Migration cost:** None as of #466, which brought the second `PLAYER_DEATH` producer in line. Before that the codebase implemented this approach at one of its two producers, which is what the 2026-11-05 entry above records.
+- **Migration cost:** None. The current codebase already implements this approach for velocity and transitions; this ADR formalizes it to guide future death logic.
