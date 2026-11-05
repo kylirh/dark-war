@@ -31,3 +31,11 @@ dies in the interim.
 **Action:** Modified `processDamageEvent` in `src/engine/systems/simulation/events.ts` to explicitly zero out `monster.velocityX` and `monster.velocityY` as soon as its HP reaches 0, exactly mirroring how the player is handled. Covered by a new test in `death-transition.test.ts`.
 
 **Prevention:** Critical state invalidations upon entity death, such as halting movement and cancelling pending flags, must occur synchronously when HP drops to 0, rather than relying on deferred resolution of `PLAYER_DEATH` or `DEATH` events which might get pushed to subsequent ticks.
+
+## 2026-10-04 - Sort AI commands before truncating to preserve highest-priority actions
+
+**What was found:** In the Dark War engine, the simulation generated AI commands and then truncated them to `MAX_COMMANDS_PER_TICK` before sorting them by priority. This meant that if the number of generated commands exceeded the maximum allowed, the simulation would arbitrarily drop the most recently generated commands, regardless of their priority, rather than load-shedding the lowest-priority actions.
+
+**Action:** Modified `stepSimulationTick` in `src/engine/systems/simulation/tick.ts` to call `sortCommandsDeterministically(aiCommands)` before truncating the array to `MAX_COMMANDS_PER_TICK`. The corresponding unit test in `src/engine/systems/simulation/tick.test.ts` was updated to assert that high-priority commands are preserved when truncation occurs.
+
+**Prevention:** When enforcing operation limits such as `MAX_COMMANDS_PER_TICK` for AI commands, truncation must occur *after* the commands have been deterministically sorted by priority (`sortCommandsDeterministically`). This ensures the simulation load-sheds lowest-priority actions rather than arbitrarily dropping recently generated ones.

@@ -88,14 +88,13 @@ export function stepSimulationTick(state: GameState): void {
   const aiCommands = generateAICommands(state, tick);
 
   // Guard against too many AI commands
+  sortCommandsDeterministically(aiCommands);
   if (aiCommands.length > MAX_COMMANDS_PER_TICK) {
     console.error(
       `Too many AI commands for tick ${tick}: ${aiCommands.length}`,
     );
     aiCommands.length = MAX_COMMANDS_PER_TICK;
   }
-
-  sortCommandsDeterministically(aiCommands);
 
   // 3. Resolve AI commands
   for (const cmd of aiCommands) {

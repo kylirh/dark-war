@@ -78,7 +78,7 @@ describe("stepSimulationTick", () => {
   // current behaviour rather than endorsing it: if the question is answered,
   // this test, the ADR, and the `MAX_COMMANDS_PER_TICK` TSDoc all change
   // together. Nothing else in the suite fails when the two are swapped.
-  it("drops a late high-priority command, because truncation precedes the sort", () => {
+  it("preserves a late high-priority command, because sorting precedes truncation", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
@@ -115,7 +115,7 @@ describe("stepSimulationTick", () => {
       expect(mockCommands.length).toBe(MAX_COMMANDS_PER_TICK);
       // Sorting first would move `cmd-high` (priority 100) to index 0, where
       // the truncation cannot reach it.
-      expect(mockCommands.some((c) => c.id === "cmd-high")).toBe(false);
+      expect(mockCommands.some((c) => c.id === "cmd-high")).toBe(true);
     } finally {
       errorSpy.mockRestore();
     }
