@@ -157,3 +157,24 @@ change together.
 defect with no product question attached — fix those. A dialog that restores to
 the canvas _on purpose_ is a different thing, and whether the canvas is the
 right target depends on how the dialog is opened.
+
+## 2026-11-03 - Dialogue panel root could not take the focus it was given
+
+**What was found:** `DialoguePanel.update()` falls through to
+`this.root.focus()` when a line has no choices, no continue step and no free
+text — the common case for a plain spoken line. `this.root` is a `<div>` with
+`role="dialog"` and `aria-modal="true"`, and a `<div>` without a `tabindex` is
+not a focusable area, so `focus()` was a silent no-op and focus stayed on
+whatever the player left it on (`<body>`, straight from gameplay). `hide()`
+then found `this.root.contains(document.activeElement)` false and restored
+nothing either, so the whole open/close cycle was invisible to the keyboard.
+
+**Action:** set `this.root.tabIndex = -1` in the constructor, so the root can
+accept programmatic focus without entering the tab order. This is the same rule
+the canvas already follows — `index.html` gives `#game` `tabindex="-1"` and
+`focus-restore.ts` documents why.
+
+**Prevention:** when a container is the focus target, give it `tabindex="-1"` at
+the point it is created. The failure is silent: `focus()` neither throws nor
+warns, and nothing downstream distinguishes "focused the dialog" from "left
+focus on the body".
