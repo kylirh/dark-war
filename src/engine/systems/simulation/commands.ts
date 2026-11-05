@@ -1383,6 +1383,12 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
     case ItemType.BLACK_PILL: {
       removeFromInventory(player, ItemType.BLACK_PILL);
       player.hp = 0;
+      player.velocityX = 0;
+      player.velocityY = 0;
+      state.shouldDescend = false;
+      state.shouldAscend = false;
+      state.descendTarget = undefined;
+      state.pendingPortalId = undefined;
       alertMsg(
         state,
         "You swallow the black pill. Everything goes dark...",

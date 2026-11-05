@@ -48,6 +48,31 @@ function pushFillerEvents(state: GameState, count: number): void {
 }
 
 describe("death during transition", () => {
+  it("cancels pending transitions when a black pill is used", () => {
+    const state = dungeonAtDepthOne().getState();
+    const player = state.player;
+
+    state.shouldDescend = true;
+    state.pendingPortalId = "some-stairs-down";
+
+    player.selectedBarSlot = 0;
+    player.inventorySlots[0] = { type: ItemType.BLACK_PILL };
+
+    resolveCommand(state, {
+      id: "pill",
+      type: CommandType.USE_ITEM,
+      tick: state.sim.nowTick,
+      source: "PLAYER",
+      actorId: player.id,
+      priority: 0,
+      data: { type: "USE_ITEM", dx: 1, dy: 0 },
+    });
+
+    expect(player.hp).toBe(0);
+    expect(state.shouldDescend).toBe(false);
+    expect(state.pendingPortalId).toBeUndefined();
+  });
+
   it("cancels a pending descend when the player dies", () => {
     const state = dungeonAtDepthOne().getState();
     const player = state.player;
@@ -228,6 +253,31 @@ describe("death during transition", () => {
  * tick, and the player would slide until then.
  */
 describe("death stops movement", () => {
+  it("stops a player's movement synchronously on death from eating a black pill", () => {
+    const state = dungeonAtDepthOne().getState();
+    const player = state.player;
+
+    player.velocityX = 100;
+    player.velocityY = 100;
+    player.selectedBarSlot = 0;
+    player.inventorySlots[0] = { type: ItemType.BLACK_PILL };
+
+    resolveCommand(state, {
+      id: "pill",
+      type: CommandType.USE_ITEM,
+      tick: state.sim.nowTick,
+      source: "PLAYER",
+      actorId: player.id,
+      priority: 0,
+      data: { type: "USE_ITEM", dx: 1, dy: 0 },
+    });
+
+    // Velocity should be 0 immediately without needing processEventQueue
+    expect(player.hp).toBe(0);
+    expect(player.velocityX).toBe(0);
+    expect(player.velocityY).toBe(0);
+  });
+
   it("stops a player's movement on death from eating a black pill", () => {
     const state = dungeonAtDepthOne().getState();
     const player = state.player;
