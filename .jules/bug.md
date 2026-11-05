@@ -31,3 +31,35 @@ dies in the interim.
 **Action:** Modified `processDamageEvent` in `src/engine/systems/simulation/events.ts` to explicitly zero out `monster.velocityX` and `monster.velocityY` as soon as its HP reaches 0, exactly mirroring how the player is handled. Covered by a new test in `death-transition.test.ts`.
 
 **Prevention:** Critical state invalidations upon entity death, such as halting movement and cancelling pending flags, must occur synchronously when HP drops to 0, rather than relying on deferred resolution of `PLAYER_DEATH` or `DEATH` events which might get pushed to subsequent ticks.
+
+## 2026-11-05 - The black pill left a dying player moving and mid-transition
+
+**What was found:** `processDamageEvent` halts a dying player eagerly — zeroing
+velocity and clearing `shouldDescend` / `shouldAscend` / `descendTarget` /
+`pendingPortalId` the moment `hp` reaches 0 — precisely because the
+`PLAYER_DEATH` event it pushes is deferred and `processEventQueue` stops at
+`MAX_EVENTS_PER_TICK`. The black pill (`commands.ts`, `ItemType.BLACK_PILL`) is
+the only other producer of `PLAYER_DEATH`. It set `player.hp = 0` and did none
+of that, so with the queue saturated the tick ended with a dead player,
+`shouldDescend` still true and a live `pendingPortalId` — and the host took the
+corpse down the stairs.
+
+**Action:** extracted the eager halt into `haltDyingPlayer` in `sim-helpers.ts`
+and called it from both producers, rather than copying the six assignments into
+the pill path. Duplicating them is what let the two paths drift in the first
+place, and a third producer would have to remember the list.
+
+**Scope note:** this is single-player only. `Room.tick`
+(`server/multiplayer-server.ts`) already clears both transition flags and zeroes
+velocity for every player at `hp <= 0` every tick, so the server was never
+exposed. Do not report this class as a multiplayer bug.
+
+**Prevention, measured not assumed:** the honest oracle here is a saturated
+queue, not a bare call. The pre-existing test
+`death-transition.test.ts > stops a player's movement on death from eating a
+black pill` calls `processEventQueue` straight after the command, so the
+deferred handler does the work and the test passed throughout the bug's life.
+Asserting synchronously, and separately after
+`pushFillerEvents(2 * MAX_EVENTS_PER_TICK + 2)` plus `stepSimulationTick`, is
+what actually fails before the fix. No-oping `haltDyingPlayer` now fails six
+tests across both producers; before this change the pill path had none.

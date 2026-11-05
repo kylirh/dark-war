@@ -117,6 +117,29 @@ export function getClosestPlayer(
   return closest;
 }
 
+/**
+ * Whether a player or monster stands on tile `tx`/`ty`.
+ *
+ * Actors only: items, bullets and explosives are ignored, and so is the tile
+ * itself — callers that also need open floor check `state.tiles` separately.
+ * `excludeId` skips one actor, which is what an actor asking whether it may
+ * step somewhere needs when the candidate tile is its own.
+ */
+export function isTileOccupiedByActor(
+  state: GameState,
+  tx: number,
+  ty: number,
+  excludeId?: string,
+): boolean {
+  return state.entities.some(
+    (e) =>
+      e.id !== excludeId &&
+      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER) &&
+      e.gridX === tx &&
+      e.gridY === ty,
+  );
+}
+
 function isMonsterMoveCandidateClear(
   state: GameState,
   monster: Monster,
@@ -130,13 +153,7 @@ function isMonsterMoveCandidateClear(
     return false;
   }
 
-  return !state.entities.some(
-    (e) =>
-      e.id !== monster.id &&
-      e.gridX === nx &&
-      e.gridY === ny &&
-      (e.kind === EntityKind.PLAYER || e.kind === EntityKind.MONSTER),
-  );
+  return !isTileOccupiedByActor(state, nx, ny, monster.id);
 }
 
 export function chooseIdleWanderDirection(
@@ -341,4 +358,26 @@ export function findMeleeTarget(
   }
 
   return best;
+}
+
+/**
+ * Invalidate the state a dying player must not carry past this instant.
+ *
+ * `PLAYER_DEATH` is a deferred event, and `processEventQueue` stops at
+ * `MAX_EVENTS_PER_TICK`, so a saturated queue can push it into the next tick.
+ * The host reads `shouldDescend` / `shouldAscend` when the current tick ends,
+ * and physics integrates velocity, so both would act on a corpse in between.
+ * Every producer of `PLAYER_DEATH` must therefore call this at the point it
+ * sets `hp` to zero, not rely on the event.
+ *
+ * Cleanup that can safely wait for the event — inventory drop, alerts, sounds,
+ * respawn — deliberately stays in `processPlayerDeathEvent`.
+ */
+export function haltDyingPlayer(state: GameState, player: Player): void {
+  player.velocityX = 0;
+  player.velocityY = 0;
+  state.shouldDescend = false;
+  state.shouldAscend = false;
+  state.descendTarget = undefined;
+  state.pendingPortalId = undefined;
 }
