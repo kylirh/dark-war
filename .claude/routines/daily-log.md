@@ -328,3 +328,86 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-11-05
+
+**Merged:** #466 `fix(simulation): halt the dying player synchronously on the black
+pill death path`. Its oracle holds — reverting only `commands.ts` and keeping its
+tests fails both. Merged after three corrections on the branch: it inlined the six
+assignments `processDamageEvent` already makes, so I extracted `haltDyingPlayer`
+into `sim-helpers.ts` and routed both producers through it; its two tests asserted
+synchronously but never saturated the event queue, which is the only condition
+under which the defect is reachable, so I added the saturated-queue case; and its
+`.jules/bug.md` entry was dated 2025-01-20.
+
+Note this is the same defect as open #459, which this routine's 2026-11-02 run
+found independently and fixed the same way (`haltDyingPlayer`). #459 is now
+redundant and a human can close it; I left it alone because it is not a Jules
+pull request.
+
+**Closed:**
+
+- **#467** (consolidate actor-occupancy checks) — six of its seven sites had
+  already landed in #462 the previous day. I reduced it to the one genuinely new
+  site and pushed that, then the bot pushed `f31afcf`, which rebuilt the branch
+  from a pre-#461 tree: it reverted #461's `tabIndex` fix, re-inlined the
+  predicate in `ai.ts` and `commands.ts` against #462, and deleted three
+  `.jules` entries — none of it mentioned in the body.
+- **#465** (ADR 0014) — **closed for branch mechanics, not content.** The ADR is
+  sound and was verified and queued to merge. The bot pushed the same
+  pre-#461 revert **three times**, the third within a minute of my restore, and
+  by then it was also reverting #466. Each merge attempt 409'd on
+  `expectedHeadSha`, so nothing bad landed, but the loop will not converge. The
+  reviewed content survives at `950ec031` on
+  `architect-sync-death-invalidation-15507286882526419128`: that commit's tree is
+  `main` plus the ADR and its log entry, nothing else, full check set green.
+  Cherry-pick it to land 0014 as reviewed.
+
+**Found in main:** no correctness defect. The 24-hour window was exactly #466.
+The Phase 2 pull request carries the one cleanup #462 missed — a seventh copy of
+the occupancy predicate in `src/engine/core/game.ts`, outside the
+`systems/simulation/` directory its search covered — plus the half of that site
+which was uncovered.
+
+**For next time:**
+
+1. **The bots are rebuilding branches instead of merging `main`.** This is the
+   headline for whoever tunes them. It cost two pull requests today and buried a
+   valid finding in #467. On a repository that squash-merges several times a day,
+   a bot pull request opened in the morning becomes a revert of everything that
+   landed after it, under a commit message describing only the intended change.
+   **Always diff a bot branch against `main` before merging, even when the body
+   claims a two-line change**, and read the commit list for pushes that arrived
+   after your own review.
+2. **`expectedHeadSha` is what saved this run.** Three separate merge attempts
+   returned `409 Head branch was modified` rather than landing a revert of three
+   merged pull requests. Keep pinning it. A 409 is a success, not an obstacle.
+3. **I got `excludeId` wrong, and the correction matters more than the claim.**
+   I asserted in #467 that the argument is load-bearing at the `game.ts` site
+   because `respawnPlayer` passes the player's own id. It is not.
+   `resetForRespawn` runs first and does
+   `Object.assign(this, new PlayerEntity(0, 0))`, so the player is at grid `0,0`
+   by the time `findSpawnTile` searches — and `0,0` is sealed border, so
+   passability short-circuits before occupancy is consulted. Verified by
+   removing the argument: a player dying on `playerStart` still respawns there.
+   So the 2026-11-04 conclusion extends to all seven sites: **the exclusion is a
+   guard everywhere.** Keep the parameter; stop looking for the site where it
+   matters.
+4. **The lesson behind 3: infer a parameter's effect from the callee's
+   preconditions, not the call site.** The call `findSpawnTile(playerStart,
+playerId)` reads exactly like the exclusion matters. Two lines above it,
+   `resetForRespawn` had already moved the actor being excluded.
+5. **Branch deletion is still blocked, same blocker as 2026-11-04.** The
+   sandbox's own classifier refuses `git push origin --delete` ("Git
+   Destructive") before it reaches GitHub, including with a lease, and the
+   `mcp__github__*` toolset has no branch-deletion tool. One attempt confirms it;
+   do not retry. **`delete_branch_on_merge` is not working either** —
+   #466's head branch survived its own merge today, as #455/#457/#458 did on
+   2026-11-02. 113 branches on origin.
+6. **20 of the 21 open pull requests are this routine's own unreviewed Phase 2
+   branches** (`claude/daily-*`, #331 through #464, plus today's). None carries a
+   Jules footer and none may be merged by this routine, so the backlog only
+   grows. Worth a human deciding whether to review, batch-merge or close them.
+7. **`npm ci` first.** `node_modules` is absent at session start, and `npx tsc`
+   then silently fetches a newer TypeScript than the pinned 5.9.3 and reports a
+   bogus `TS5107` that reads exactly like "`main` is red". Same as 2026-11-04.

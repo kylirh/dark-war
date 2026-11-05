@@ -4,10 +4,13 @@ import {
   EntityKind,
   ItemType,
   Item,
+  MonsterType,
   TileType,
   WeaponType,
   CommandType,
 } from "../types";
+import { MonsterEntity } from "../entities/monster-entity";
+import { setPositionFromGrid } from "../utils/helpers";
 import { RNG } from "../utils/rng";
 import { enqueueCommand } from "../systems/simulation/commands";
 import { stepSimulationTick } from "../systems/simulation/tick";
@@ -635,6 +638,42 @@ describe("Game multiplayer player management", () => {
     const game = new Game({ mode: "offline" });
     game.reset(0);
     expect(game.respawnPlayer()).toBe(false);
+  });
+
+  /**
+   * `respawnPlayer` reaches `findSpawnTile`, which walks outwards from
+   * `playerStart` for a tile that is both passable and free of actors. Only
+   * the passability half was covered: the round-trip test above asserts the
+   * player lands on `playerStart`, which holds whether or not the occupancy
+   * half works at all. This pins the other half, so that "always report the
+   * tile free" stops being an equally valid implementation.
+   *
+   * Note what this test deliberately does *not* claim. `findSpawnTile` takes
+   * an id to exclude and `respawnPlayer` passes the player's own, but that
+   * argument cannot change an answer here: `resetForRespawn` runs first and
+   * does `Object.assign(this, new PlayerEntity(0, 0))`, so by the time the
+   * search runs the player sits at grid `0,0` rather than at its death
+   * position, and `0,0` is sealed border that fails the passability check
+   * before occupancy is ever consulted. The exclusion is a guard, as it is at
+   * the six call sites in `systems/simulation/`.
+   */
+  it("pushes the respawn off the spawn tile when another actor holds it", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(0);
+    const state = game.getState();
+    const player = state.player;
+    const [startX, startY] = state.playerStart;
+
+    const squatter = new MonsterEntity(startX, startY, MonsterType.RAT, 1);
+    state.entityManager.spawn(squatter);
+
+    // Die somewhere else, so the only actor on the spawn tile is the monster.
+    setPositionFromGrid(player, startX + 3, startY + 3);
+    player.hp = 0;
+
+    expect(game.respawnPlayer()).toBe(true);
+    expect([player.gridX, player.gridY]).not.toEqual([startX, startY]);
+    expect(state.tiles.passable(player.gridX, player.gridY)).toBe(true);
   });
 });
 
