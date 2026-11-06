@@ -1197,7 +1197,6 @@ function resolveMineCommand(state: GameState, cmd: Command): void {
   setStateTile(state, tileX, tileY, TileType.FLOOR);
   setStateDamageAtIndex(state, idx, 0);
   state.mapDirty = true;
-  state.changedTiles?.add(idx);
 
   // The mined material drops in-place as a pickup — it is NOT auto-collected.
   if (typeof state.entityManager?.spawn === "function") {
@@ -1260,7 +1259,6 @@ function resolvePlaceBlockCommand(state: GameState, cmd: Command): void {
   setStateTile(state, tileX, tileY, tileType);
   setStateDamageAtIndex(state, idx, 0);
   state.mapDirty = true;
-  state.changedTiles?.add(idx);
 
   consumeItem(player, itemType);
   state.pendingSounds.push({ effect: SoundEffect.REPAIR });

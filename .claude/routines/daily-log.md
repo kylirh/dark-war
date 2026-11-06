@@ -328,3 +328,73 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-11-06
+
+**Merged:** #469 `refactor(events): consolidate the duplicate changedtiles tracking in door events`,
+after three corrections on the branch: it had committed a `commit_msg.txt`
+scratch file to the repo root, its `.jules/janitor.md` entry named
+`processInteractDoorEvent` (no such function) and was dated 2024, and its
+"ran `events.test.ts`, all tests pass" verification proved nothing —
+`processDoorOpenEvent` had no test at all. Added four.
+
+**Closed:**
+
+- **#468** (sort ai commands before truncating) — needs a human. `ADR 0013` is
+  **Status: Proposed** and recommends exactly this; `constants.ts:58-62` says
+  "ADR 0009 leaves both the drop-versus-defer choice and the truncation order
+  open for a human". The PR changed code and flipped one assertion, left the
+  TSDoc describing the opposite of the new behaviour, and left in place the
+  comment at `tick.test.ts:74-80` that says "this pins current behaviour rather
+  than endorsing it: if the question is answered, this test, the ADR, and the
+  `MAX_COMMANDS_PER_TICK` TSDoc all change together". One of the three changed.
+- **#471** (remove `createInitialState`, call `reset(0)` in the constructor) —
+  `reset(0)` is not equivalent, and the suite does not notice (945 tests pass on
+  the branch, same as main). Measured both revisions: the `localPlayerId`
+  constructor option goes from honoured to silently discarded (`reset` does
+  `const localPlayerId = player.id` unconditionally), a constructed `Game` goes
+  from 0 entities to 4, and construction goes from 4.4 ms to 23.9 ms because the
+  constructor now runs `createOutsideLevel()`. The server's `getOrCreateWorld`
+  does `new Game(...)` then `resetToWorld(address)`, so every cave and dungeon
+  depth would generate and discard a depth-0 outside world. Also added
+  `this.state = null as any`.
+
+**Found in main:** one objective duplication, in the Phase 2 pull request. Three
+call sites re-added a tile index to `state.changedTiles` that `setStateTile` had
+already recorded — `processDoorOpenEvent` (the block #469 had just tidied rather
+than deleted), `resolveMineCommand`, and the place-block command. Removed all
+three and pinned the contract where it actually lives.
+
+**For next time:**
+
+1. **`setStateTile` owns `changedTiles` tracking.** Every caller gets the index
+   recorded for free; `setStateDamageAtIndex` documents this explicitly ("Destruction
+   separately calls setStateTile(), which marks the affected collider
+   neighborhood dirty"). `game.ts:477` is _not_ redundant — it iterates
+   `result.dirtyCellIndices` from the terrain-prototype API and never calls
+   `setStateTile`. Do not "consolidate" that one.
+2. **`changedTiles` is always a `Set` on every production path**, despite being
+   optional on the type. All three builders (`createInitialState`, `reset`,
+   `deserialize`) spread `createBaseState`, which initializes it. The lazy
+   `if (!state.changedTiles) state.changedTiles = new Set()` form that used to
+   be in the door handler was the only one in the tree; everything else uses
+   `?.`. Do not reintroduce it.
+3. **Believe: `haltDyingPlayer` (#466) is complete.** Both `PLAYER_DEATH`
+   producers call it — `events.ts:204` and `commands.ts:1377` — and there are
+   only two. The server's hole-fall path (`multiplayer-server.ts:250`) can zero
+   hp without it, but needs nothing: the room clears `shouldDescend`/`shouldAscend`
+   unconditionally every tick and sweeps `velocityX/Y` to zero for any player at
+   hp <= 0. Stop reporting that as a missing call site.
+4. **A multiplayer hole-fall death pushes no `PLAYER_DEATH` at all**, so no
+   inventory drop, death sound or respawn runs on the server path. That is a
+   product decision about multiplayer death, not a defect to patch; left alone
+   deliberately.
+5. **Branch deletion was blocked differently this run.** Previous entries record
+   GitHub returning 403. This run never reached GitHub: the sandbox's own
+   permission classifier refused `git push origin --delete` as a destructive git
+   action. One attempt, then stopped — do not look for a workaround. 22 merged
+   branches were still on origin from the most recent page of closed pull
+   requests alone; a human needs to prune them, or the routine needs a
+   deletion-capable tool.
+6. **`delete_branch_on_merge` is working.** #469's head branch was gone from
+   origin immediately after the squash merge.
