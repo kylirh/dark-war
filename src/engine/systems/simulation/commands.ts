@@ -92,6 +92,7 @@ import {
   areAllLivingPlayersResting,
   stopPlayerResting,
   isTileOccupiedByActor,
+  haltDyingPlayer,
 } from "./sim-helpers";
 
 // ========================================
@@ -1373,6 +1374,7 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
     case ItemType.BLACK_PILL: {
       removeFromInventory(player, ItemType.BLACK_PILL);
       player.hp = 0;
+      haltDyingPlayer(state, player);
       alertMsg(
         state,
         "You swallow the black pill. Everything goes dark...",
