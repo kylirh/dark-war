@@ -789,9 +789,6 @@ function processDoorOpenEvent(state: GameState, event: GameEvent): void {
       worldX: data.x * CELL_CONFIG.w,
       worldY: data.y * CELL_CONFIG.h,
     });
-    // Track tile change for physics update
-    if (!state.changedTiles) state.changedTiles = new Set();
-    state.changedTiles.add(i);
   } else if (tile === TileType.DOOR_OPEN) {
     // Close the door
     setStateTileAtIndex(state, i, TileType.DOOR_CLOSED);
@@ -800,10 +797,13 @@ function processDoorOpenEvent(state: GameState, event: GameEvent): void {
       worldX: data.x * CELL_CONFIG.w,
       worldY: data.y * CELL_CONFIG.h,
     });
-    // Track tile change for physics update
-    if (!state.changedTiles) state.changedTiles = new Set();
-    state.changedTiles.add(i);
+  } else {
+    return;
   }
+
+  // Track tile change for physics update
+  if (!state.changedTiles) state.changedTiles = new Set();
+  state.changedTiles.add(i);
 }
 
 /**

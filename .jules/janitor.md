@@ -173,3 +173,20 @@ that already imported from it, and one was in that file.
 a block on an occupied tile`. The other five sites, and the `excludeId` branch,
 are not covered by anything. Consolidating does not improve that; it only means
 one test now guards the shared body instead of one site.
+
+## 2026-11-05 - Consolidate duplicate changedTiles assignment in events
+
+**What was found:** Duplicate `state.changedTiles.add(i)` boilerplate in `processDoorOpenEvent`'s if-branches, found via `jscpd`.
+
+**Action:** Consolidated the logic by pulling it out to the bottom of the function so it applies correctly for both the `DOOR_OPEN` and `DOOR_CLOSED` states. Used an explicit `return` in an `else` branch to prevent marking untouched tiles as changed.
+
+**Prevention:** Ensure common side effects of state manipulation branches are handled centrally rather than duplicated into multiple conditionals. Check for this class of duplication with `npx jscpd` during PR review.
+
+**Correction during review:** the function is `processDoorOpenEvent`, not
+`processInteractDoorEvent`, and this entry was dated 2024 rather than 2026. More
+importantly, `processDoorOpenEvent` had no test at all, so "ran
+`events.test.ts` and all tests pass" proved nothing about this diff — nothing in
+the suite executed the function. A `processDoorOpenEvent` block was added to
+`events.test.ts` covering the open/close toggle, the locked-door branch, and the
+non-door tile that the new `else { return; }` guards. A cleanup to an uncovered
+function needs the test before the cleanup is reviewable, not after.

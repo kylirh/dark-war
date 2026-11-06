@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { PlayerEntity } from "../../entities/player-entity";
 import { Game } from "../../core/game";
-import { EventType, ItemType } from "../../types";
+import { EventType, ItemType, TileType } from "../../types";
 import { SoundEffect } from "../../content/sound-effects";
 import { RNG } from "../../utils/rng";
+import { idxFor } from "../../utils/helpers";
 import { MAX_EVENTS_PER_TICK } from "./constants";
 import { grantCoreDevice, processEventQueue } from "./events";
 
@@ -105,6 +106,96 @@ describe("processEventQueue", () => {
     processEventQueue(state);
 
     expect(state.story).toEqual(["Repeated event"]);
+  });
+});
+
+// `processDoorOpenEvent` toggles a door and records the tile index on
+// `state.changedTiles`, which is what `Physics.syncEntityBodies` consumes to
+// reconcile the collider for that cell. The tracking used to be copy/pasted
+// into both branches; it now runs once after them, guarded by an
+// `else { return; }` so a non-door tile is not reported as changed. The
+// function had no test before that consolidation, so these pin the behaviour
+// the refactor is required to preserve — the suite was previously green either
+// way.
+describe("processDoorOpenEvent", () => {
+  beforeEach(() => RNG.reseed(1));
+
+  /** Fire a DOOR_OPEN event at a tile and drain the queue. */
+  const toggleDoor = (
+    state: ReturnType<Game["getState"]>,
+    x: number,
+    y: number,
+  ): void => {
+    state.eventQueue.push({
+      id: "evt-door",
+      depth: state.depth,
+      type: EventType.DOOR_OPEN,
+      data: { type: "DOOR_OPEN", x, y },
+    });
+    processEventQueue(state);
+  };
+
+  /** A game whose tile at (x, y) is `tile`, with change tracking cleared. */
+  const gameWithTile = (
+    tile: TileType,
+  ): { state: ReturnType<Game["getState"]>; x: number; y: number } => {
+    const game = new Game({ mode: "offline" });
+    game.reset(1);
+    const state = game.getState();
+    const x = state.player.gridX + 1;
+    const y = state.player.gridY;
+    state.tiles.setTile(x, y, tile);
+    state.changedTiles = new Set<number>();
+    state.pendingSounds.length = 0;
+    return { state, x, y };
+  };
+
+  it("opens a closed door and reports the tile as changed", () => {
+    const { state, x, y } = gameWithTile(TileType.DOOR_CLOSED);
+
+    toggleDoor(state, x, y);
+
+    expect(state.tiles.getTile(x, y)).toBe(TileType.DOOR_OPEN);
+    expect(state.changedTiles?.has(idxFor(x, y, state.mapWidth))).toBe(true);
+    expect(state.pendingSounds.map((sound) => sound.effect)).toContain(
+      SoundEffect.DOOR_OPEN,
+    );
+  });
+
+  it("opens a locked door, sharing the closed-door branch", () => {
+    const { state, x, y } = gameWithTile(TileType.DOOR_LOCKED);
+
+    toggleDoor(state, x, y);
+
+    expect(state.tiles.getTile(x, y)).toBe(TileType.DOOR_OPEN);
+    expect(state.changedTiles?.has(idxFor(x, y, state.mapWidth))).toBe(true);
+  });
+
+  it("closes an open door and reports the tile as changed", () => {
+    const { state, x, y } = gameWithTile(TileType.DOOR_OPEN);
+
+    toggleDoor(state, x, y);
+
+    expect(state.tiles.getTile(x, y)).toBe(TileType.DOOR_CLOSED);
+    expect(state.changedTiles?.has(idxFor(x, y, state.mapWidth))).toBe(true);
+    expect(state.pendingSounds.map((sound) => sound.effect)).toContain(
+      SoundEffect.DOOR_CLOSE,
+    );
+  });
+
+  // The assertion the consolidation actually needs: with the tracking hoisted
+  // out of the branches, a tile that is not a door must still be left out of
+  // `changedTiles`. Dropping the `else { return; }` would queue a pointless
+  // collider rebuild for every stray DOOR_OPEN event and this is the only
+  // thing that would notice.
+  it("leaves a non-door tile untouched and unreported", () => {
+    const { state, x, y } = gameWithTile(TileType.FLOOR);
+
+    toggleDoor(state, x, y);
+
+    expect(state.tiles.getTile(x, y)).toBe(TileType.FLOOR);
+    expect(state.changedTiles?.has(idxFor(x, y, state.mapWidth))).toBe(false);
+    expect(state.pendingSounds).toHaveLength(0);
   });
 });
 
