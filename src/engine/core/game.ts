@@ -150,7 +150,8 @@ export class Game {
   constructor(options?: { mode?: MultiplayerMode; localPlayerId?: string }) {
     this.multiplayerMode = options?.mode ?? "offline";
     this.localPlayerId = options?.localPlayerId;
-    this.state = this.createInitialState();
+    this.state = null as any; // Temporary to allow reset() to work
+    this.reset(0);
   }
 
   /**
@@ -213,69 +214,6 @@ export class Game {
       pendingSounds: [],
       pendingAlerts: [],
       pendingCallouts: [],
-    };
-  }
-
-  /**
-   * Create initial game state
-   */
-  private createInitialState(): GameState {
-    const player = new PlayerEntity(0, 0);
-    const localPlayerId = this.localPlayerId ?? player.id;
-    this.localPlayerId = localPlayerId;
-    const explored = new Set<number>();
-    const visibilityByPlayer = new Map<string, Set<number>>([
-      [localPlayerId, new Set<number>()],
-    ]);
-    const exploredByPlayer = new Map<string, Set<number>>([
-      [localPlayerId, explored],
-    ]);
-
-    const entities: Entity[] = [];
-    const initialMap: TileType[] = new Array(MAP_WIDTH * MAP_HEIGHT).fill(
-      TileType.WALL,
-    );
-    const worldPlane = createWorldPlaneFromTiles(
-      initialMap,
-      MAP_WIDTH,
-      MAP_HEIGHT,
-    );
-    const initialAddress = worldAddressForDepth(0);
-
-    return {
-      depth: 0,
-      simulationSeed: createSimulationSeed(),
-      worldSpaceId: initialAddress.spaceId,
-      worldPlaneId: initialAddress.planeId,
-      levelKind: "outside",
-      mapWidth: MAP_WIDTH,
-      mapHeight: MAP_HEIGHT,
-      floorVariant: 0,
-      wallSet: "concrete",
-      mapDirty: false,
-      tiles: worldPlane,
-      worldPlane,
-      portals: createProgressionPortals(initialAddress, 0, [0, 0], null),
-      signs: [],
-      activeSignViews: new Map(),
-      consumedSpawnMarkers: new Set(),
-      visible: new Set(),
-      explored,
-      accessible: new Set(),
-      enhancedVision: false,
-      visibilityByPlayer,
-      exploredByPlayer,
-      entities,
-      entityManager: new EntityManager(entities),
-      relationships: new RelationshipGraph(),
-      conversations: new Map(),
-      playerSocialFacts: new Map(),
-      players: [player],
-      player,
-      stairsDown: [0, 0],
-      stairsUp: null,
-      playerStart: [player.gridX, player.gridY],
-      ...this.createBaseState(localPlayerId),
     };
   }
 

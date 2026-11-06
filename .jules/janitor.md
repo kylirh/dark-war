@@ -173,3 +173,11 @@ that already imported from it, and one was in that file.
 a block on an occupied tile`. The other five sites, and the `excludeId` branch,
 are not covered by anything. Consolidating does not improve that; it only means
 one test now guards the shared body instead of one site.
+
+## 2024-10-23 - Consolidate duplicate state initialization
+
+**What was found:** `src/engine/core/game.ts` contained a large block of duplicated state initialization code between the `createInitialState` method and the `reset` method.
+
+**Action:** Removed `createInitialState` completely and used `this.reset(0)` in the constructor to accomplish the exact same setup. Also set `this.state = null as any;` right before calling `this.reset(0)` to satisfy TypeScript constraints around initializing properties before calling methods.
+
+**Prevention:** When adding initialization logic that mirrors a `reset` function, structure the class so that the constructor can just call the `reset` method instead of duplicating the logic in a separate `createInitialState` method.
