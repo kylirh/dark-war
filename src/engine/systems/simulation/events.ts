@@ -797,13 +797,10 @@ function processDoorOpenEvent(state: GameState, event: GameEvent): void {
       worldX: data.x * CELL_CONFIG.w,
       worldY: data.y * CELL_CONFIG.h,
     });
-  } else {
-    return;
   }
-
-  // Track tile change for physics update
-  if (!state.changedTiles) state.changedTiles = new Set();
-  state.changedTiles.add(i);
+  // The physics invalidation for `i` is not tracked here: `setStateTileAtIndex`
+  // routes through `setStateTile`, which records the index on
+  // `state.changedTiles` itself. See `state-tiles.ts`.
 }
 
 /**
