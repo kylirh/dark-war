@@ -1,11 +1,64 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { PlayerEntity } from "../../entities/player-entity";
 import { Game } from "../../core/game";
-import { EventType, ItemType } from "../../types";
+import { EventType, ItemType, TileType } from "../../types";
 import { SoundEffect } from "../../content/sound-effects";
 import { RNG } from "../../utils/rng";
 import { MAX_EVENTS_PER_TICK } from "./constants";
 import { grantCoreDevice, processEventQueue } from "./events";
+
+describe("processDoorOpenEvent", () => {
+  it("toggles closed/locked doors open, open doors closed, and leaves other tiles untouched", () => {
+    const game = new Game({ mode: "offline" });
+    const state = game.getState();
+    const x = 5;
+    const y = 5;
+    const tileIdx = x + y * state.mapWidth;
+
+    state.tiles.setTile(x, y, TileType.DOOR_CLOSED);
+
+    state.eventQueue.push({
+      id: "door-open-test",
+      depth: state.depth,
+      type: EventType.DOOR_OPEN,
+      data: { type: "DOOR_OPEN", x, y, sourceId: "player" as string } as any,
+    });
+
+    processEventQueue(state);
+
+    expect(state.tiles.getTile(x, y)).toBe(TileType.DOOR_OPEN);
+    expect(state.changedTiles?.has(tileIdx)).toBe(true);
+
+    state.changedTiles = new Set();
+
+    state.eventQueue.push({
+      id: "door-close-test",
+      depth: state.depth,
+      type: EventType.DOOR_OPEN,
+      data: { type: "DOOR_OPEN", x, y, sourceId: "player" as string } as any,
+    });
+
+    processEventQueue(state);
+
+    expect(state.tiles.getTile(x, y)).toBe(TileType.DOOR_CLOSED);
+    expect(state.changedTiles?.has(tileIdx)).toBe(true);
+
+    state.changedTiles = new Set();
+    state.tiles.setTile(x, y, TileType.FLOOR);
+
+    state.eventQueue.push({
+      id: "door-miss-test",
+      depth: state.depth,
+      type: EventType.DOOR_OPEN,
+      data: { type: "DOOR_OPEN", x, y, sourceId: "player" as string } as any,
+    });
+
+    processEventQueue(state);
+
+    expect(state.tiles.getTile(x, y)).toBe(TileType.FLOOR);
+    expect(state.changedTiles?.has(tileIdx)).toBe(false);
+  });
+});
 
 describe("processEventQueue", () => {
   it("halts execution and splices the queue when MAX_EVENTS_PER_TICK is exceeded", () => {

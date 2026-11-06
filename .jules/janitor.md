@@ -173,3 +173,11 @@ that already imported from it, and one was in that file.
 a block on an occupied tile`. The other five sites, and the `excludeId` branch,
 are not covered by anything. Consolidating does not improve that; it only means
 one test now guards the shared body instead of one site.
+
+## 2026-11-06 - Consolidate duplicate changedTiles assignment in events
+
+**What was found:** Duplicate `state.changedTiles.add(i)` boilerplate in `processDoorOpenEvent`'s if-branches, found via `jscpd`.
+
+**Action:** Consolidated the logic by pulling it out to the bottom of the function so it applies correctly for both the `DOOR_OPEN` and `DOOR_CLOSED` states. Used an explicit `return` in an `else` branch to prevent marking untouched tiles as changed. Also added a `processDoorOpenEvent` test suite since it lacked coverage.
+
+**Prevention:** Ensure common side effects of state manipulation branches are handled centrally rather than duplicated into multiple conditionals. Check for this class of duplication with `npx jscpd` during PR review, and always make sure that tests cover newly refactored paths.

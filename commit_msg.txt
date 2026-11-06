@@ -1,0 +1,21 @@
+chore(events): consolidate duplicate changedtiles assignment
+
+consolidated duplicated logic for adding a tile index to state.changedtiles
+in processdoorevent. the previous code duplicated the exact
+same block of tracking logic for both opening and closing a door.
+
+oracle:
+found code duplication in src/engine/systems/simulation/events.ts using npx jscpd src/ server/ electron/ app/.
+the lines \`if (!state.changedtiles) state.changedtiles = new set(); state.changedtiles.add(i);\`
+were duplicated identically across the open and close branches.
+
+root cause and change:
+the exact same tracking logic was copy/pasted in two branch blocks instead of placed at the end of the conditionally executed behavior. moved this logic after the if/else-if statement so that it executes exactly once, serving both conditions. added a fallback \`else { return; }\` to correctly abort execution if the door tile is neither open, closed, or locked (to prevent tracking tiles that weren't changed). added a test to ensure non-door tiles don't get changed.
+
+verification:
+ran \`npx jscpd src/engine/systems/simulation/events.ts\` and verified 0 clones found.
+ran \`npm run format\`
+ran \`npx vitest run src/engine/systems/simulation/events.test.ts\` and verified all tests pass.
+
+excluded:
+did not adjust unrelated logic or format any files other than events.ts.
