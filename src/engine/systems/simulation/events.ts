@@ -203,6 +203,12 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     if (player.hp <= 0) {
       haltDyingPlayer(state, player);
 
+      // Cancel any pending level transitions to prevent warping a corpse
+      state.shouldDescend = false;
+      state.shouldAscend = false;
+      state.descendTarget = undefined;
+      state.pendingPortalId = undefined;
+
       pushEvent(state, {
         type: EventType.PLAYER_DEATH,
         data: { type: "PLAYER_DEATH", playerId: player.id },
