@@ -24,11 +24,3 @@ adding a new rule.
 **Prevention:** An invariant enforced only from an event handler holds only as
 far as the event queue's budget. When death must cancel something, cancel it at
 the point HP crosses zero, not in the queued `PLAYER_DEATH` consequence.
-
-## 2026-11-07 - Cancel pending transitions on death immediately
-
-**What was found:** The flags for pending transitions (`shouldDescend`, `shouldAscend`, etc.) were cleared only when the `PLAYER_DEATH` event was processed in the queue. If a player was killed and there were too many events in the queue, the transition flags would remain set while the `PLAYER_DEATH` event was pushed to the next tick. The corpse would then warp through the portal at the end of the tick.
-
-**Action:** Cleared the transition flags (`shouldDescend`, `shouldAscend`, `descendTarget`, `pendingPortalId`) immediately in `processDamageEvent` the moment the player's HP reaches 0, to match the behavior of zeroing velocity that is already there.
-
-**Prevention:** When death must cancel something like a level transition, cancel it at the point HP crosses zero, not in the queued `PLAYER_DEATH` consequence, because the event queue has a budget limit per tick and deferred processing can leave the game in an invalid state.
