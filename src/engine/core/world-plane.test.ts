@@ -233,3 +233,15 @@ describe("WorldPlane.canTraverse diagonal contract", () => {
     expect(plane.canTraverse(1, 1, 2, 2)).toBe(false);
   });
 });
+
+
+describe("WorldPlane.canTraverse wrapping", () => {
+  it("rejects wrapping traversal for non-neighbour cells", () => {
+    const layers = createWorldPlaneLayers(5, 5);
+    layers.ground.fill(GROUND_GRASS);
+    const plane = new WorldPlane(5, 5, layers, resolveTestCell);
+    // 0 and 2 have distance 2 in a 5-width map.
+    // Wrap correctly considers distance, avoiding turning it into max(3)
+    expect(plane.canTraverse(0, 0, 2, 0, true)).toBe(false);
+  });
+});

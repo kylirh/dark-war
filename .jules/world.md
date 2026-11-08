@@ -34,3 +34,11 @@ coverage exists — check that the behaviour you are changing is actually tested
 before treating "all tests pass" as proof the change is safe. Whether Dark War
 should move four-directionally is a design decision for a human and an ADR, not
 a one-line predicate edit.
+
+## 2026-11-08 - Fix toroidal wrapping condition in canTraverse
+
+**What was found:** `WorldPlane.canTraverse` was using `> 1` to check if distance should wrap across a boundary, meaning any distance of 2 was incorrectly treated as wrapping, altering its effective distance.
+
+**Action:** Changed the wrap condition to check `> this.width / 2` and `> this.height / 2`, ensuring it properly tests for distance across the seam in a toroidal map.
+
+**Prevention:** When resolving toroidal distance across wrapping bounds, remember that the cutoff for considering wrapped distance is half the map size, not 1.
