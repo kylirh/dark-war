@@ -50,10 +50,3 @@ only two priority values, and `priority: 1` is used solely for ranged fire, so
 reordering the truncation preserves shots over movement and nothing finer. Do
 not describe it as rescuing "critical actions like attacking or healing" —
 melee attack is `priority: 0` and no healing command exists.
-## 2026-11-07 - Proposed ADR for src/client/main.ts Responsibilities
-
-**What was found:** The `src/client/main.ts` file acts as the application's root composition element but has expanded to over 3450 lines, absorbing numerous disparate responsibilities (input handling, DOM manipulation, multi-platform app lifecycles, and direct execution of game logic). As suggested by the prompt "whether `src/client/main.ts` is doing too much", this file forms a god-class bottleneck.
-
-**Action:** Wrote Proposed ADR 0014 highlighting the problem with the monolithic `src/client/main.ts` and presenting structural options to partition the presentation/system orchestration logic from the core application loop.
-
-**Prevention:** Monitor the file size and complexity of application entry points. An entry point should orchestrate systems rather than defining complex behaviors inline.
