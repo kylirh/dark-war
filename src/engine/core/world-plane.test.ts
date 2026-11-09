@@ -48,6 +48,96 @@ describe("createWorldPlaneLayers", () => {
 });
 
 describe("WorldPlane", () => {
+
+  it("rejects traversal when distance is exactly half the map width, not treating it as a wrap", () => {
+    const layers = createWorldPlaneLayers(4, 4);
+    layers.ground.fill(GROUND_GRASS);
+
+    // We override resolveTraversal to spy on the dx and dy passed!
+    let observedDeltaX = -999;
+    let observedDeltaY = -999;
+    const resolver = (layers: any, fromIdx: number, toIdx: number, dx: number, dy: number) => {
+      observedDeltaX = dx;
+      observedDeltaY = dy;
+      return true;
+    };
+    const plane = new WorldPlane(4, 4, layers, resolveTestCell, undefined, resolver);
+
+    // Width is 4. from=0, to=2. deltaX=2.
+    // > 1 wraps this to -2!
+    // Since max(|-2|) is 2, it fails the max===1 check and returns false BEFORE calling resolver.
+    expect(plane.canTraverse(0, 0, 2, 0, true)).toBe(false);
+    expect(observedDeltaX).toBe(-999);
+  });
+
+
+  it("rejects traversal when distance is exactly half the map width, not treating it as a wrap", () => {
+    const layers = createWorldPlaneLayers(4, 4);
+    layers.ground.fill(GROUND_GRASS);
+
+    // We override resolveTraversal to spy on the dx and dy passed!
+    let observedDeltaX = -999;
+    let observedDeltaY = -999;
+    const resolver = (layers: any, fromIdx: number, toIdx: number, dx: number, dy: number) => {
+      observedDeltaX = dx;
+      observedDeltaY = dy;
+      return true;
+    };
+    const plane = new WorldPlane(4, 4, layers, resolveTestCell, undefined, resolver);
+
+    // Width is 4. from=0, to=2. deltaX=2.
+    // > 1 wraps this to -2!
+    // Since max(|-2|) is 2, it fails the max===1 check and returns false BEFORE calling resolver.
+    expect(plane.canTraverse(0, 0, 2, 0, true)).toBe(false);
+    expect(observedDeltaX).toBe(-999);
+  });
+
+  it("rejects traversal when distance is exactly half the map width, not treating it as a wrap", () => {
+    const layers = createWorldPlaneLayers(4, 4);
+    layers.ground.fill(GROUND_GRASS);
+
+    // We override resolveTraversal to spy on the dx and dy passed!
+    let observedDeltaX = -999;
+    let observedDeltaY = -999;
+    const resolver = (
+      layers: any,
+      fromIdx: number,
+      toIdx: number,
+      dx: number,
+      dy: number,
+    ) => {
+      observedDeltaX = dx;
+      observedDeltaY = dy;
+      return true;
+    };
+    const plane = new WorldPlane(
+      4,
+      4,
+      layers,
+      resolveTestCell,
+      undefined,
+      resolver,
+    );
+
+    // Width is 4. from=0, to=2. deltaX=2.
+    // > 1 wraps this to -2!
+    // Since max(|-2|) is 2, it fails the max===1 check and returns false BEFORE calling resolver.
+    expect(plane.canTraverse(0, 0, 2, 0, true)).toBe(false);
+    expect(observedDeltaX).toBe(-999);
+  });
+
+  it("wraps coordinate delta correctly across toroidal seam without corrupting distant non-adjacent steps", () => {
+    const layers = createWorldPlaneLayers(5, 5);
+    layers.ground.fill(GROUND_GRASS);
+
+    // An intentional backdoor resolver to spy on internal dx when we force max to 1
+    // Actually we cannot force max to 1 if dx is 2!
+
+    const plane = new WorldPlane(5, 5, layers, resolveTestCell);
+    expect(plane.canTraverse(0, 0, 4, 0, true)).toBe(true);
+    expect(plane.canTraverse(0, 0, 2, 0, true)).toBe(false);
+  });
+
   it("allocates aligned typed-array layers", () => {
     const layers = createWorldPlaneLayers(5, 4);
     expect(layers.ground).toBeInstanceOf(Uint16Array);
@@ -233,3 +323,24 @@ describe("WorldPlane.canTraverse diagonal contract", () => {
     expect(plane.canTraverse(1, 1, 2, 2)).toBe(false);
   });
 });
+
+  it("rejects traversal when distance is exactly half the map width, not treating it as a wrap", () => {
+    const layers = createWorldPlaneLayers(4, 4);
+    layers.ground.fill(GROUND_GRASS);
+
+    // We override resolveTraversal to spy on the dx and dy passed!
+    let observedDeltaX = -999;
+    let observedDeltaY = -999;
+    const resolver = (layers: any, fromIdx: number, toIdx: number, dx: number, dy: number) => {
+      observedDeltaX = dx;
+      observedDeltaY = dy;
+      return true;
+    };
+    const plane = new WorldPlane(4, 4, layers, resolveTestCell, undefined, resolver);
+
+    // Width is 4. from=0, to=2. deltaX=2.
+    // > 1 wraps this to -2!
+    // Since max(|-2|) is 2, it fails the max===1 check and returns false BEFORE calling resolver.
+    expect(plane.canTraverse(0, 0, 2, 0, true)).toBe(false);
+    expect(observedDeltaX).toBe(-999);
+  });
