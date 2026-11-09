@@ -63,35 +63,3 @@ Asserting synchronously, and separately after
 `pushFillerEvents(2 * MAX_EVENTS_PER_TICK + 2)` plus `stepSimulationTick`, is
 what actually fails before the fix. No-oping `haltDyingPlayer` now fails six
 tests across both producers; before this change the pill path had none.
-
-## 2026-11-09 - Fix toroidal wrapping coordinate delta threshold
-
-**What was found:** In `WorldPlane.canTraverse`, the threshold for wrapping the coordinate delta across a toroidal seam was hardcoded as `Math.abs(delta) > 1`. While this successfully wrapped adjacent cells (e.g. from 0 to width-1), it also incorrectly wrapped non-adjacent cells with a distance of 2 (e.g. from 0 to 2) on small maps. Though they were still rejected later by the `Math.max` Chebyshev distance check, the delta was incorrectly wrapped to a negative value before being evaluated, which is logically unsound.
-
-**Action:** Modified the wrap conditions in `src/engine/core/world-plane.ts` to use `this.width / 2` and `this.height / 2` as the thresholds, aligning with the actual toroidal math. Proved with a failing test on main that distances exactly half the map width are no longer incorrectly wrapped before being rejected.
-
-**Prevention:** When calculating toroidal wrapping distances, the threshold for wrapping the coordinate delta must be half the map size (`> width / 2` or `> height / 2`), not `> 1`.
-
-## 2026-11-06 - Fix toroidal wrapping coordinate delta threshold
-
-**What was found:** In `WorldPlane.canTraverse`, the threshold for wrapping the coordinate delta across a toroidal seam was hardcoded as `Math.abs(delta) > 1`. While this successfully wrapped adjacent cells (e.g. from 0 to width-1), it also incorrectly wrapped non-adjacent cells with a distance of 2 (e.g. from 0 to 2) on small maps. Though they were still rejected later by the `Math.max` Chebyshev distance check, the delta was incorrectly wrapped to a negative value before being evaluated, which is logically unsound.
-
-**Action:** Modified the wrap conditions in `src/engine/core/world-plane.ts` to use `this.width / 2` and `this.height / 2` as the thresholds, aligning with the actual toroidal math. Proved with a failing test on main that distances exactly half the map width are no longer incorrectly wrapped before being rejected.
-
-**Prevention:** When calculating toroidal wrapping distances, the threshold for wrapping the coordinate delta must be half the map size (`> width / 2` or `> height / 2`), not `> 1`.
-
-## 2026-11-06 - Fix toroidal wrapping coordinate delta threshold
-
-**What was found:** In `WorldPlane.canTraverse`, the threshold for wrapping the coordinate delta across a toroidal seam was hardcoded as `Math.abs(delta) > 1`. While this successfully wrapped adjacent cells (e.g. from 0 to width-1), it also incorrectly wrapped non-adjacent cells with a distance of 2 (e.g. from 0 to 2) on small maps. Though they were still rejected later by the `Math.max` Chebyshev distance check, the delta was incorrectly wrapped to a negative value before being evaluated, which is logically unsound.
-
-**Action:** Modified the wrap conditions in `src/engine/core/world-plane.ts` to use `this.width / 2` and `this.height / 2` as the thresholds, aligning with the actual toroidal math. Proved with a failing test on main that distances exactly half the map width are no longer incorrectly wrapped before being rejected.
-
-**Prevention:** When calculating toroidal wrapping distances, the threshold for wrapping the coordinate delta must be half the map size (`> width / 2` or `> height / 2`), not `> 1`.
-
-## 2026-11-06 - Fix toroidal wrapping coordinate delta threshold
-
-**What was found:** In `WorldPlane.canTraverse`, the threshold for wrapping the coordinate delta across a toroidal seam was hardcoded as `Math.abs(delta) > 1`. While this successfully wrapped adjacent cells (e.g. from 0 to width-1), it also incorrectly wrapped non-adjacent cells with a distance of 2 (e.g. from 0 to 2) on small maps. Though they were still rejected later by the `Math.max` Chebyshev distance check, the delta was incorrectly wrapped to a negative value before being evaluated, which is logically unsound.
-
-**Action:** Modified the wrap conditions in `src/engine/core/world-plane.ts` to use `this.width / 2` and `this.height / 2` as the thresholds, aligning with the actual toroidal math. Proved with a failing test on main that distances exactly half the map width are no longer incorrectly wrapped before being rejected.
-
-**Prevention:** When calculating toroidal wrapping distances, the threshold for wrapping the coordinate delta must be half the map size (`> width / 2` or `> height / 2`), not `> 1`.

@@ -177,8 +177,8 @@ export class WorldPlane implements TileSource {
     let deltaX = toX - fromX;
     let deltaY = toY - fromY;
     if (wraps) {
-      if (Math.abs(deltaX) > this.width / 2) deltaX -= Math.sign(deltaX) * this.width;
-      if (Math.abs(deltaY) > this.height / 2) deltaY -= Math.sign(deltaY) * this.height;
+      if (Math.abs(deltaX) > 1) deltaX -= Math.sign(deltaX) * this.width;
+      if (Math.abs(deltaY) > 1) deltaY -= Math.sign(deltaY) * this.height;
     }
     if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) !== 1) return false;
     const fromIndex = this.indexFor(fromX, fromY);
