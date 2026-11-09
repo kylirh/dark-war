@@ -50,3 +50,11 @@ only two priority values, and `priority: 1` is used solely for ranged fire, so
 reordering the truncation preserves shots over movement and nothing finer. Do
 not describe it as rescuing "critical actions like attacking or healing" —
 melee attack is `priority: 0` and no healing command exists.
+
+## 2026-11-09 - Synchronous death state invalidation
+
+**What was found:** The `.jules/bug.md` log records a recurring bug class where entities with `0` HP continue to move or execute level transitions because the `DEATH` and `PLAYER_DEATH` events can be deferred to the next tick by the `MAX_EVENTS_PER_TICK` limit. This forces all sources of lethal damage to synchronously call `haltDyingPlayer` or zero velocities by convention, a rule that was repeatedly forgotten (e.g., the black pill bug on 2026-11-05).
+
+**Action:** Wrote Proposed ADR 0014 recommending the removal of death events from the deferrable event queue in favor of a synchronous `processDeaths(state)` phase at the end of the simulation tick.
+
+**Prevention:** When a deferred event system creates temporal gaps that allow invalid state to be acted upon, do not patch it by forcing callers to duplicate state invalidation synchronously. Move the invalidation into a structural phase that guarantees correctness.
