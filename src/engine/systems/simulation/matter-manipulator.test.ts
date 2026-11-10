@@ -153,6 +153,39 @@ describe("Matter Manipulator", () => {
     expect(state.mapDirty).toBe(true);
   });
 
+  // Mining and building used to re-add the edited index to `state.changedTiles`
+  // after calling `setStateTile`, which already records it (see
+  // `state-tiles.test.ts`, "records the edited index on changedTiles"). The
+  // redundant adds were removed; these pin the tracking the hosts actually
+  // consume, so relying on the canonical helper stays checked. Both
+  // `main.ts` and the multiplayer server drain `changedTiles` into
+  // `physics.updateTile`, so a lost index means a stale collider on a tile
+  // whose passability just changed.
+  it("records the mined tile on changedTiles for the physics sweep", () => {
+    const { game, state } = setupMatterManipulatorTest();
+    const { tileX, tileY } = wallBesidePlayer(game);
+    const index = state.worldPlane.indexFor(tileX, tileY);
+    state.changedTiles!.clear();
+
+    mine(game, tileX, tileY);
+
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.FLOOR);
+    expect(state.changedTiles).toContain(index);
+  });
+
+  it("records the placed tile on changedTiles for the physics sweep", () => {
+    const { game, state, tileX, tileY } = setupMatterManipulatorTest();
+    state.player.itemCounts[ItemType.WALL_BLOCK] = 1;
+    setStateTile(state, tileX, tileY, TileType.FLOOR);
+    const index = state.worldPlane.indexFor(tileX, tileY);
+    state.changedTiles!.clear();
+
+    place(game, tileX, tileY, ItemType.WALL_BLOCK);
+
+    expect(tileAt(game, tileX, tileY)).toBe(TileType.WALL);
+    expect(state.changedTiles).toContain(index);
+  });
+
   it("places a holowall item as an indestructible holowall tile", () => {
     const { game, state, tileX, tileY } = setupMatterManipulatorTest();
     state.player.itemCounts[ItemType.HOLOWALL] = 1;
