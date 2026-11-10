@@ -63,3 +63,11 @@ Asserting synchronously, and separately after
 `pushFillerEvents(2 * MAX_EVENTS_PER_TICK + 2)` plus `stepSimulationTick`, is
 what actually fails before the fix. No-oping `haltDyingPlayer` now fails six
 tests across both producers; before this change the pill path had none.
+
+## 2026-11-01 - fix(simulation): sort ai commands before truncating to preserve high priority intents
+
+**What was found:** The logic that truncates generated AI commands to \`MAX_COMMANDS_PER_TICK\` in \`stepSimulationTick\` was running _before_ the array was sorted deterministically (by priority and id). This meant that in a simulation tick with heavy load (e.g. many actors in a firefight), when overflow occurred, the latest-generated commands were dropped rather than the lowest-priority ones, violating ADR 0013 (which resolves ADR 0009).
+
+**Action:** Swapped the execution order in \`src/engine/systems/simulation/tick.ts\` so that \`sortCommandsDeterministically(aiCommands)\` is called _before_ checking the length and truncating it to \`MAX_COMMANDS_PER_TICK\`. Also updated the test in \`tick.test.ts\` to verify that a late high-priority command is preserved, and updated the TSDoc in \`constants.ts\` to accurately reflect this behavior.
+
+**Prevention:** AI commands must always be sorted prior to load shedding (truncation) so that overflow results in the loss of low-priority intents rather than randomly dropping actions based on their generation sequence.

@@ -55,11 +55,9 @@ export const MAX_EVENTS_PER_TICK = 1000;
  * rebuilds the list from scratch next tick, so no queue holds the remainder:
  * an actor's intent reappears only if the new state regenerates it.
  *
- * Truncation also runs **before** `sortCommandsDeterministically`, so the
- * commands that survive are the earliest *generated*, not the highest
- * priority. That is deterministic — the same inputs drop the same commands on
- * every machine — but it is not what "safety limit" suggests. ADR 0009 leaves
- * both the drop-versus-defer choice and the truncation order open for a human.
+ * Truncation runs **after** `sortCommandsDeterministically`, ensuring that
+ * when overflow occurs, the simulation drops the lowest-priority intents
+ * rather than the latest-generated ones (ADR 0013).
  */
 export const MAX_COMMANDS_PER_TICK = 1000;
 /** World-speed multiplier while every living player on a plane is resting. */
