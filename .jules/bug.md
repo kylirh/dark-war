@@ -64,10 +64,10 @@ Asserting synchronously, and separately after
 what actually fails before the fix. No-oping `haltDyingPlayer` now fails six
 tests across both producers; before this change the pill path had none.
 
-## 2026-11-01 - fix(simulation): sort ai commands before truncating to preserve high priority intents
+## 2026-11-01 - fix(simulation): halt entity movement synchronously on lethal hit
 
-**What was found:** The logic that truncates generated AI commands to \`MAX_COMMANDS_PER_TICK\` in \`stepSimulationTick\` was running _before_ the array was sorted deterministically (by priority and id). This meant that in a simulation tick with heavy load (e.g. many actors in a firefight), when overflow occurred, the latest-generated commands were dropped rather than the lowest-priority ones, violating ADR 0013 (which resolves ADR 0009).
+**What was found:** In the Dark War simulation engine, `MAX_EVENTS_PER_TICK` bounds event processing to prevent runaway loops. When a massive event cascade fills the queue, lethal damage processed in the current tick might result in a `PLAYER_DEATH` or `DEATH` event that is deferred to the next tick. The target entity would visibly slide through the world for an extra tick, as velocity zeroing previously occurred during the death event handler rather than at the moment of lethality. `death-transition.test.ts` contained cases identifying this failure condition but they were previously skipped or not addressing the root cause appropriately for players and monsters.
 
-**Action:** Swapped the execution order in \`src/engine/systems/simulation/tick.ts\` so that \`sortCommandsDeterministically(aiCommands)\` is called _before_ checking the length and truncating it to \`MAX_COMMANDS_PER_TICK\`. Also updated the test in \`tick.test.ts\` to verify that a late high-priority command is preserved, and updated the TSDoc in \`constants.ts\` to accurately reflect this behavior.
+**Action:** Updated `processDamageEvent` in `src/engine/systems/simulation/events.ts`. When `player.hp <= 0` or `monster.hp <= 0`, their velocity is synchronously set to 0 before the `DEATH` or `PLAYER_DEATH` event is queued, ensuring they stop immediately regardless of queue backpressure.
 
-**Prevention:** AI commands must always be sorted prior to load shedding (truncation) so that overflow results in the loss of low-priority intents rather than randomly dropping actions based on their generation sequence.
+**Prevention:** Always synchronously invalidate state (like halting movement or canceling transitions) that requires immediacy when health drops to zero, rather than relying on a potentially deferred event cascade.

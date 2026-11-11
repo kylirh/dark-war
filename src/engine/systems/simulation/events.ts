@@ -201,6 +201,8 @@ function processDamageEvent(state: GameState, event: GameEvent): void {
     });
 
     if (player.hp <= 0) {
+      player.velocityX = 0;
+      player.velocityY = 0;
       haltDyingPlayer(state, player);
 
       pushEvent(state, {
