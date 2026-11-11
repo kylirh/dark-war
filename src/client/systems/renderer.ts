@@ -947,18 +947,18 @@ export class Renderer {
     const originalWidth = texture.orig.width;
     const originalHeight = texture.orig.height;
     if (
-      frame.renderWidth === originalWidth &&
-      frame.renderHeight === originalHeight
+      frame.renderWidth !== originalWidth ||
+      frame.renderHeight !== originalHeight
     ) {
-      sprite.scale.set(1);
-    } else {
       sprite.scale.set(
         frame.renderWidth / originalWidth,
         frame.renderHeight / originalHeight,
       );
     }
 
-    sprite.anchor.set(frame.anchorX, frame.anchorY);
+    if (frame.anchorX !== 0 || frame.anchorY !== 0) {
+      sprite.anchor.set(frame.anchorX, frame.anchorY);
+    }
 
     return sprite;
   }
@@ -974,12 +974,6 @@ export class Renderer {
     if (!sprite) return new Sprite(texture);
 
     sprite.texture = texture;
-    sprite.scale.set(1);
-    sprite.anchor.set(0, 0);
-    sprite.rotation = 0;
-    sprite.alpha = 1;
-    sprite.tint = 0xffffff;
-    sprite.zIndex = 0;
     return sprite;
   }
 
@@ -995,8 +989,6 @@ export class Renderer {
     if (!g) return new Graphics();
 
     g.clear();
-    g.alpha = 1;
-    g.zIndex = 0;
     return g;
   }
 
@@ -2384,8 +2376,16 @@ export class Renderer {
     const children = container.removeChildren();
     for (const child of children) {
       if (child instanceof Sprite) {
+        child.scale.set(1);
+        child.anchor.set(0, 0);
+        child.rotation = 0;
+        child.alpha = 1;
+        child.tint = 0xffffff;
+        child.zIndex = 0;
         this.spritePool.push(child);
       } else if (child instanceof Graphics) {
+        child.alpha = 1;
+        child.zIndex = 0;
         this.graphicsPool.push(child);
       } else {
         child.destroy({ children: true, context: true });

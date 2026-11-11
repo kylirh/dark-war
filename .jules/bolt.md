@@ -417,3 +417,11 @@ variants apart before claiming either. For this function, diff the returned
 paths against the previous revision over a few hundred maps; the suite does not
 cover the tie-break, so green means nothing here. `pathfinding.test.ts` now
 pins one discriminating case.
+
+## 2024-05-24 - perf(renderer): remove redundant sprite property setters per frame
+
+**What was found:** The rendering loop (`src/client/systems/renderer.ts`) was unconditionally setting default properties (`scale`, `anchor`, `rotation`, `alpha`, `tint`, `zIndex`) on pooled Pixi.js objects during acquisition (`acquireSprite` and `acquireGraphics`), and unconditionally resetting them again in `createSpriteFromFrame`. Since these objects are requested per frame thousands of times, the redundant setters created unneeded transform recalculation overhead.
+
+**Action:** Moved the property resets for `Sprite` and `Graphics` from the pool acquisition functions (`acquireSprite` and `acquireGraphics`) to the pool release loop (`destroyFrameChildren`). Changed `createSpriteFromFrame` to only call `scale.set()` and `anchor.set()` when the requested frame geometry actually differs from the Pixi defaults (scale 1, anchor 0).
+
+**Prevention:** When reusing objects from a pool in a tight rendering loop, reset their properties conditionally or during cleanup rather than doing it unconditionally multiple times per frame during object acquisition and initialization.
