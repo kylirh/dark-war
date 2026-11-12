@@ -328,3 +328,70 @@ Corrected on the branch before merging (see below).
    branches are deletable and could not be removed; 56 unmerged leftovers from
    closed pull requests must be left for a human either way. One attempt is
    enough to confirm — do not retry.
+
+## 2026-11-12
+
+**Merged:** #481 `perf(renderer): reset pooled sprites on release instead of on acquisition`.
+It was the only open Jules pull request; the other 22 open ones are unreviewed
+`claude/daily-*` pull requests from earlier runs and were left alone. No
+duplicate group this run.
+
+The change moves the `Sprite`/`Graphics` resets out of `acquireSprite` /
+`acquireGraphics` into `destroyFrameChildren`, so a handed-out object is already
+at Pixi's defaults and `createSpriteFromFrame` can skip the `scale`/`anchor`
+writes when the frame matches them. Merged on the mechanism, not on the body's
+number — see below.
+
+**Closed:** nothing.
+
+**Corrected before merging:**
+
+- Both acquisition doc comments still named acquisition as the reset point and
+  told a future editor to add new property resets there, where they would never
+  run. Repointed at the release loop, and the sole-push-site invariant that
+  `createSpriteFromFrame` now depends on is recorded at `destroyFrameChildren`.
+- The learning-log entry was dated **2024-05-24**, over two years off.
+- The body claimed "a 20% reduction (~198ms to ~160ms)". That is the share of a
+  standalone property-write loop. Re-measured on pixi 8.14.0 under node 22 with
+  2500 pooled sprites over 300 frames, 7 interleaved rounds, medians: **25-40 us
+  of a 16.67 ms frame, 0.15-0.24%**, best case all-flat tiles. Real, reproducible,
+  and about a hundred times smaller than the headline implies.
+
+**Found in main:** no correctness defect. The 24-hour window was exactly #481.
+The Phase 2 pull request adds the missing structural coverage instead: the
+perf change made "release is the only reset point" load-bearing, and the Pixi
+render path has **zero** test coverage, so a second pool push site or a dropped
+reset would ship a visible glitch with a green suite. Pinned the way
+`engine-purity.test.ts` pins its invariant. Verified by mutation: a second
+`spritePool.push`, a dropped `child.anchor.set(0, 0)`, and a dropped graphics
+`child.alpha = 1` each fail exactly one of the three tests.
+
+**For next time:**
+
+1. **`snagglepuss.test.ts > occasionally mutters while within hearing distance`
+   is flaky, and it is not the only thing at risk.** `RNG` is
+   `new RandomNumberGenerator()` with no seed (`rng.ts:91`), so it is seeded from
+   `Date.now()` and **every suite run uses a different seed**. That test loops up
+   to 500 ticks waiting for a probabilistic mutter. Observed **1 failure in 6
+   full-suite runs** on 2026-11-12; 20/20 passing in isolation on clean `main`,
+   which is why it stays invisible. It is unrelated to anything merged that day
+   and was deliberately not fixed. Do not treat a one-off red here as your
+   change's fault, and do not count a single green full-suite run as proof of
+   determinism anywhere that consumes the global RNG.
+2. **The renderer has no test coverage at all** — no test imported
+   `renderer.ts` before this run. Standing up a Pixi/WebGL harness is an
+   architecture decision, not a curation one; the structural pattern is the
+   cheap substitute and is what Phase 2 used.
+3. **`child.alpha = 1` in the graphics branch of `destroyFrameChildren` is a
+   no-op today.** The renderer writes `zIndex` on pooled `Graphics` and never
+   `alpha` (checked every `.alpha =` site). It was left in deliberately as the
+   pool's safety net, and the new test pins it. Do not "remove the dead write" —
+   that trades a free line for a silent leak the first time someone sets a
+   graphics alpha.
+4. **Branch deletion is blocked in this environment for a new reason.** It is no
+   longer a GitHub 403: `git push origin --delete` is refused up front by the
+   sandbox's destructive-action policy, and the `mcp__github__*` toolset still
+   has no branch-deletion tool. 23 merged branches are deletable and 78 unmerged
+   leftovers must be left for a human either way. One attempt is enough.
+5. `delete_branch_on_merge` worked: #481's head branch was gone from origin
+   immediately after the squash.
