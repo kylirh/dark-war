@@ -418,10 +418,53 @@ paths against the previous revision over a few hundred maps; the suite does not
 cover the tie-break, so green means nothing here. `pathfinding.test.ts` now
 pins one discriminating case.
 
-## 2024-05-24 - perf(renderer): remove redundant sprite property setters per frame
+## 2026-11-11 - perf(renderer): remove redundant sprite property setters per frame
 
-**What was found:** The rendering loop (`src/client/systems/renderer.ts`) was unconditionally setting default properties (`scale`, `anchor`, `rotation`, `alpha`, `tint`, `zIndex`) on pooled Pixi.js objects during acquisition (`acquireSprite` and `acquireGraphics`), and unconditionally resetting them again in `createSpriteFromFrame`. Since these objects are requested per frame thousands of times, the redundant setters created unneeded transform recalculation overhead.
+**What was found:** Pooled display objects were reset twice on the way into a
+frame. `acquireSprite` set `scale`, `anchor`, `rotation`, `alpha`, `tint` and
+`zIndex` on every handout, and `createSpriteFromFrame` then wrote `scale` and
+`anchor` again unconditionally — for a ground tile, both writes restored the
+same Pixi defaults the acquisition had just restored.
 
-**Action:** Moved the property resets for `Sprite` and `Graphics` from the pool acquisition functions (`acquireSprite` and `acquireGraphics`) to the pool release loop (`destroyFrameChildren`). Changed `createSpriteFromFrame` to only call `scale.set()` and `anchor.set()` when the requested frame geometry actually differs from the Pixi defaults (scale 1, anchor 0).
+**Action:** Moved the `Sprite` and `Graphics` resets out of `acquireSprite` /
+`acquireGraphics` and into the release loop in `destroyFrameChildren`, which is
+the only site that pushes into either pool. A handed-out object is therefore
+already at Pixi's defaults, so `createSpriteFromFrame` now writes `scale` only
+when the frame geometry differs from the texture's `orig` size, and `anchor`
+only when the frame anchor is not (0, 0). Net effect per sprite: 8 property
+writes become 6 for a flat ground tile (`flatSprite`, anchor (0, 0)) and 7 for a
+billboard (anchor (0.5, 1)).
 
-**Prevention:** When reusing objects from a pool in a tight rendering loop, reset their properties conditionally or during cleanup rather than doing it unconditionally multiple times per frame during object acquisition and initialization.
+**Measurement — state it against the frame budget, not as a ratio.** The pull
+request body claimed "a 20% reduction (~198ms to ~160ms)" from a standalone loop.
+The direction is real and reproduces, but that figure is the share of an
+isolated property-write loop, which is not a number anyone has seen. Re-measured
+in review on pixi 8.14.0 under node 22, modelling the real pattern (pool 2500
+sprites, acquire and configure all of them, release all of them, once per
+simulated frame; 300 frames per sample, 7 interleaved rounds, medians):
+
+| frame mix                   | old       | new       | saving        |
+| --------------------------- | --------- | --------- | ------------- |
+| all flat (anchor 0,0)       | 0.2113 ms | 0.1718 ms | 39.5 us/frame |
+| 80% flat / 20% billboard    | 0.2151 ms | 0.1902 ms | 24.9 us/frame |
+| all billboard (anchor .5,1) | 0.2329 ms | 0.2029 ms | 29.9 us/frame |
+
+So **roughly 25-40 us of a 16.67 ms frame, or 0.15-0.24%**, at a sprite count
+higher than a real window usually reaches. That is the honest size of this win.
+It was kept because it is strictly less work per sprite in the hottest loop in
+the client and costs nothing to read, not because of the 20%.
+
+**Prevention:** Two things, and the first is the one that keeps recurring.
+
+1. A pooled object's reset point is a contract, not a detail. Moving it to
+   release is only safe while `destroyFrameChildren` remains the sole push site
+   for both pools, and `createSpriteFromFrame` now silently depends on that.
+   The doc comments on `acquireSprite` and `acquireGraphics` still described
+   acquisition as the reset point after this change and had to be corrected in
+   review; a stale comment there is worse than the 25 us is good, because it is
+   the only thing telling the next editor where a new property reset belongs.
+2. Quote the saving as a share of the frame or tick budget. This log has made
+   that correction at review time on the 2026-09-02, 2026-09-14 and 2026-10-29
+   entries, the last of which said in as many words that it "applies to every
+   entry after it". It applied to this one too, and was not followed. A ratio on
+   a synthetic loop is not the oracle; a number a player could feel is.

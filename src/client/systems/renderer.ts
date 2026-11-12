@@ -964,10 +964,13 @@ export class Renderer {
   }
 
   /**
-   * Take a sprite from the per-frame pool, or make one, reset to Pixi's
-   * defaults for every property this renderer ever mutates. Recycled sprites
-   * carry the previous frame's state, so resetting in one place keeps the
-   * three acquisition sites from drifting apart.
+   * Take a sprite from the per-frame pool, or make one. Pooled sprites were
+   * already reset to Pixi's defaults by `destroyFrameChildren` when they were
+   * released, and a freshly constructed one starts at those defaults, so a
+   * sprite handed out here always reads as scale 1, anchor (0, 0), rotation 0,
+   * alpha 1, tint white, zIndex 0. Callers rely on that to skip writes that
+   * would be no-ops. Anything new that mutates a pooled sprite must be reset
+   * in `destroyFrameChildren`, or it leaks across frames.
    */
   private acquireSprite(texture: Texture): Sprite {
     const sprite = this.spritePool.pop();
@@ -978,11 +981,11 @@ export class Renderer {
   }
 
   /**
-   * Take a graphics object from the per-frame pool, or make one, reset to
-   * Pixi's defaults for every property this renderer ever mutates. `clear()`
-   * drops the previous frame's path instructions; `alpha` and `zIndex` are the
-   * only other properties written at the acquisition sites. Anything new that
-   * mutates a pooled graphics belongs here too, or it leaks across frames.
+   * Take a graphics object from the per-frame pool, or make one. `clear()`
+   * drops the previous frame's path instructions. `alpha` and `zIndex` are the
+   * only other properties this renderer writes on a graphics, and
+   * `destroyFrameChildren` restores both on release. Anything new that mutates
+   * a pooled graphics must be reset there, or it leaks across frames.
    */
   private acquireGraphics(): Graphics {
     const g = this.graphicsPool.pop();
@@ -2371,7 +2374,16 @@ export class Renderer {
     }
   }
 
-  /** Release transient display objects allocated for the previous frame. */
+  /**
+   * Release transient display objects allocated for the previous frame.
+   *
+   * This is the single point at which pooled objects re-enter the pools, and
+   * therefore the single point at which they are reset to Pixi's defaults.
+   * Resetting on release rather than on acquisition lets `acquireSprite` and
+   * `createSpriteFromFrame` treat a handed-out object as already default and
+   * skip the writes that would be no-ops; that only holds while this stays the
+   * only `spritePool`/`graphicsPool` push site.
+   */
   private destroyFrameChildren(container: Container): void {
     const children = container.removeChildren();
     for (const child of children) {
