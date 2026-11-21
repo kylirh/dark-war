@@ -10,6 +10,7 @@ import { MonsterEntity } from "../../entities/monster-entity";
 import { EntityKind, ItemType, MonsterType } from "../../types";
 import { RNG } from "../../utils/rng";
 import { generateAICommands, updateMonsterSteering } from "./ai";
+import { clearMonsters } from "./test-utils";
 
 describe("utility bot sounds", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -18,9 +19,7 @@ describe("utility bot sounds", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
-    state.entityManager.destroyWhere(
-      (entity) => entity.kind === EntityKind.MONSTER,
-    );
+    clearMonsters(game);
 
     const bot = new MonsterEntity(
       state.player.gridX,

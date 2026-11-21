@@ -1,12 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
-import { EntityKind, MonsterType, TileType, CELL_CONFIG } from "../../types";
+import { MonsterType, TileType, CELL_CONFIG } from "../../types";
 import { RNG } from "../../utils/rng";
 import { setStateTile } from "../../utils/state-tiles";
 import { MONSTER_DEFS } from "../../content/monster-defs";
 import { MONSTER_SPEED } from "./constants";
 import { updateMonsterSteering } from "./ai";
+import { clearMonsters } from "./test-utils";
 
 // Spawn one monster `tiles` cells east of the player on a carved-clear row (so
 // line of sight is guaranteed), run a single steering pass, and return the
@@ -14,9 +15,7 @@ import { updateMonsterSteering } from "./ai";
 function chaseSpeed(type: MonsterType, tiles = 3): number {
   const game = new Game({ mode: "offline" });
   game.reset(1);
-  game
-    .getState()
-    .entityManager.destroyWhere((e) => e.kind === EntityKind.MONSTER);
+  clearMonsters(game);
   const state = game.getState();
   RNG.reseed(7);
 

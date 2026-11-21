@@ -3,7 +3,6 @@ import { Game } from "../../core/game";
 import { MonsterEntity } from "../../entities/monster-entity";
 import {
   CommandType,
-  EntityKind,
   EventType,
   GameState,
   MonsterType,
@@ -23,13 +22,12 @@ import {
   REST_TIME_SCALE,
 } from "./constants";
 import { stepSimulationTick } from "./tick";
+import { clearMonsters } from "./test-utils";
 
 function emptyGame(mode: "offline" | "online" = "offline"): Game {
   const game = new Game({ mode });
   game.reset(1);
-  game
-    .getState()
-    .entityManager.destroyWhere((entity) => entity.kind === EntityKind.MONSTER);
+  clearMonsters(game);
   return game;
 }
 
