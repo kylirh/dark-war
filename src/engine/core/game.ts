@@ -1,3 +1,5 @@
+import { stairBoundaryFor, prepareFallLanding } from "./vertical-layout";
+import { applyFallLandingDamage } from "../systems/simulation/falling";
 import { holeDestinationFor, resolveWorldLanding } from "./world-transition";
 import { isDebug } from "../utils/debug";
 
@@ -26,7 +28,6 @@ import {
 import { createOutsideLevel, OUTSIDE_CAVE_MOUTH } from "./outside-level";
 import { EntityManager } from "./entity-manager";
 import { TileSource } from "./tile-source";
-import { createSimulationSeed } from "../utils/deterministic-roll";
 import { deepCloneSerializable } from "../utils/deep-clone";
 import { RelationshipGraph } from "./relationship-graph";
 import {
@@ -141,6 +142,7 @@ export class Game {
   private levels = new Map<string, LevelSnapshot>();
   private multiplayerMode: MultiplayerMode;
   private localPlayerId?: string;
+  private worldSeed: number;
   /** The last sign view received by an online client. */
   private lastSignView?: SignView;
   /** Items that fell through holes, awaiting deposit onto a deeper level. */
@@ -149,7 +151,13 @@ export class Game {
     Array<{ type: ItemType; amount?: number; heal?: number }>
   >();
 
-  constructor(options?: { mode?: MultiplayerMode; localPlayerId?: string }) {
+  /** Supply a shared world seed for deterministic generation across server planes. */
+  constructor(options?: {
+    mode?: MultiplayerMode;
+    localPlayerId?: string;
+    worldSeed?: number;
+  }) {
+    this.worldSeed = options?.worldSeed ?? RNG.int(0x40000000);
     this.multiplayerMode = options?.mode ?? "offline";
     this.localPlayerId = options?.localPlayerId;
     this.state = this.createInitialState();
@@ -246,7 +254,7 @@ export class Game {
 
     return {
       depth: 0,
-      simulationSeed: createSimulationSeed(),
+      simulationSeed: this.worldSeed,
       worldSpaceId: initialAddress.spaceId,
       worldPlaneId: initialAddress.planeId,
       levelKind: "outside",
@@ -310,7 +318,7 @@ export class Game {
 
     this.state = {
       depth,
-      simulationSeed: createSimulationSeed(),
+      simulationSeed: this.worldSeed,
       worldSpaceId: address.spaceId,
       worldPlaneId: address.planeId,
       levelKind: depth === 0 ? "outside" : "dungeon",
@@ -649,12 +657,16 @@ export class Game {
   /**
    * Attach a pre-existing player entity (carried over from another world) at a
    * grid position, restoring this player's exploration on this level and giving it a new body.
+   * Exact landings preserve validated fall coordinates, including open shafts.
    */
   public attachExistingPlayer(
     player: Player,
     position: [number, number],
+    exactLanding: boolean = false,
   ): void {
-    const [spawnX, spawnY] = this.findSpawnTile(position);
+    const [spawnX, spawnY] = exactLanding
+      ? position
+      : this.findSpawnTile(position);
     setPositionFromGrid(player, spawnX, spawnY);
     player.resting = false;
     player.restNextHealTick = undefined;
@@ -931,12 +943,26 @@ export class Game {
     stairsUp: [number, number];
     worldPlane: WorldPlane;
   } {
-    const seed = RNG.int(0x40000000);
+    const seed = (this.worldSeed ^ Math.imul(depth, 0x85ebca6b)) >>> 0;
     const d = generateDungeon(
       DUNGEON_WIDTH,
       DUNGEON_HEIGHT,
       depth,
       new RandomNumberGenerator(seed),
+      {
+        upstairs: stairBoundaryFor(
+          this.worldSeed,
+          depth - 1,
+          DUNGEON_WIDTH,
+          DUNGEON_HEIGHT,
+        ),
+        downstairs: stairBoundaryFor(
+          this.worldSeed,
+          depth,
+          DUNGEON_WIDTH,
+          DUNGEON_HEIGHT,
+        ),
+      },
     );
     setTileFor(d.map, d.start[0], d.start[1], d.width, TileType.STAIRS_UP);
     const worldPlane = createWorldPlaneFromTiles(
@@ -1302,15 +1328,28 @@ export class Game {
         });
     const existingLevel = this.levels.get(worldAddressKey(destination));
     const snapshot = existingLevel ?? this.buildWorld(destination);
-    const landingPosition = this.resolveLevelLanding(snapshot, destination);
+    const landingPosition = fallPosition
+      ? prepareFallLanding(
+          snapshot.worldPlane,
+          fallPosition,
+          snapshot.stairsUp ?? snapshot.stairsDown,
+        )
+        ? fallPosition
+        : null
+      : this.resolveLevelLanding(snapshot, destination);
     if (!landingPosition) return;
-    const followingBots = this.pluckNearbyUtilityBots();
+    const followingBots = fallPosition ? [] : this.pluckNearbyUtilityBots();
     this.saveCurrentLevelSnapshot();
     this.injectPendingDrops(snapshot, snapshot.depth);
 
     this.applyLevelSnapshot(snapshot, landingPosition);
     this.state.pendingPortalId = undefined;
     this.state.descendTarget = undefined;
+    if (fallPosition) {
+      this.state.player.fallDistance =
+        (this.state.player.fallDistance ?? 0) + 1;
+      applyFallLandingDamage(this.state, this.state.player);
+    }
 
     for (const bot of followingBots) {
       setPositionFromGrid(bot, landingPosition[0], landingPosition[1]);
@@ -1550,6 +1589,7 @@ export class Game {
     if (!data.plane) {
       throw new Error("Invalid save: missing world plane");
     }
+    this.worldSeed = data.simulationSeed;
     // The active conversation view is per-player transient presentation state.
     this.lastConversationView = data.conversation;
     this.lastSignView =

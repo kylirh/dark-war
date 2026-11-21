@@ -122,7 +122,7 @@ function position(state: SerializedState): [number, number] {
 }
 
 describe("authoritative world transitions", () => {
-  it("pairs a hole beside downstairs with upstairs and moves only the falling player", async () => {
+  it("falls vertically beside downstairs and moves only the falling player", async () => {
     const host = await start();
     const guest = await join("Guest");
     const surface = worlds.get("outside/surface")!;
@@ -143,7 +143,7 @@ describe("authoritative world transitions", () => {
     setStateTile(floor.getState(), x - 1, y, TileType.HOLE);
     setPositionFromGrid(player, x - 1, y);
     const landed = await inWorld(host, "megacorp/floor-2");
-    expect(position(landed)).toEqual(landed.stairsUp);
+    expect(position(landed)).toEqual([x - 1, y]);
     expect(landed.player.id).toBe(player.id);
     expect(landed.player.hp).toBe(50 - HOLE_FALL_DAMAGE);
     expect(landed.player.itemCounts[ItemType.COIN]).toBe(7);
@@ -220,7 +220,7 @@ it("honors an authored hole destination in the authoritative host", async () => 
   const source = worlds.get("outside/surface")!;
   const current = await snapshot(host);
   const player = source.getPlayerById(current.player.id)!;
-  const [x, y] = [player.gridX + 2, player.gridY];
+  const [x, y] = [10, 10];
   source.getState().portals.push({
     id: "grotto-hole",
     kind: "hole",
@@ -230,7 +230,7 @@ it("honors an authored hole destination in the authoritative host", async () => 
   setStateTile(source.getState(), x, y, TileType.HOLE);
   setPositionFromGrid(player, x, y);
   const landed = await inWorld(host, "caves/park-grotto");
-  expect(position(landed)).toEqual(landed.stairsUp);
+  expect(position(landed)).toEqual([x, y]);
   expect(landed.player.hp).toBe(current.player.hp - HOLE_FALL_DAMAGE);
 });
 
@@ -252,4 +252,66 @@ it("does not detach a player when no destination landing is available", async ()
   expect(unchanged.worldSpaceId).toBe("outside");
   expect(source.getPlayerById(player.id)).toBe(player);
   expect(worlds.get("megacorp/floor-1")!.getState().players).toHaveLength(0);
+});
+
+it("continues a vertical shaft without damage until the compounded final impact", async () => {
+  const point: [number, number] = [50, 50];
+  configureWorld = (game, address): void => {
+    if (address.planeId === "floor-2")
+      setStateTile(game.getState(), ...point, TileType.HOLE);
+    if (address.planeId === "floor-3")
+      setStateTile(game.getState(), ...point, TileType.FLOOR);
+  };
+  const host = await start();
+  await travel(
+    host,
+    worlds.get("outside/surface")!,
+    "outside/surface:stairs-down",
+    "DESCEND",
+  );
+  const game = worlds.get("megacorp/floor-1")!;
+  const initial = await snapshot(host);
+  const player = game.getPlayerById(initial.player.id)!;
+  player.hp = 100;
+  const trace: SerializedState[] = [];
+  host.on("message", (raw: RawData): void => {
+    const message = JSON.parse(raw.toString()) as {
+      type: string;
+      state?: SerializedState;
+    };
+    if (message.type === "state_full" && message.state)
+      trace.push(message.state);
+  });
+  setStateTile(game.getState(), ...point, TileType.HOLE);
+  setPositionFromGrid(player, ...point);
+  const landed = await inWorld(host, "megacorp/floor-3");
+  const shaft = trace.find((state) => state.worldPlaneId === "floor-2")!;
+  expect(shaft).toBeDefined();
+  expect(position(shaft)).toEqual(point);
+  expect(shaft.player.hp).toBe(100);
+  expect(shaft.player.fallDistance).toBe(1);
+  expect(position(landed)).toEqual(point);
+  expect(landed.player.hp).toBe(100 - 4 * HOLE_FALL_DAMAGE);
+  expect(landed.player.fallDistance).toBeUndefined();
+  expect(landed.stairsUp).toEqual(
+    worlds.get("megacorp/floor-2")!.getState().stairsDown,
+  );
+});
+
+it("places lethal impact and death drops on the lower floor", async () => {
+  const host = await start();
+  const game = worlds.get("outside/surface")!;
+  const initial = await snapshot(host);
+  const player = game.getPlayerById(initial.player.id)!;
+  player.hp = HOLE_FALL_DAMAGE;
+  const point: [number, number] = [20, 40];
+  setStateTile(game.getState(), ...point, TileType.HOLE);
+  setPositionFromGrid(player, ...point);
+  const landed = await inWorld(host, "megacorp/floor-1");
+  expect(position(landed)).toEqual(point);
+  expect(landed.player.hp).toBe(0);
+  for (let i = 0; i < 10 && !player.inventoryDroppedOnDeath; i++)
+    await snapshot(host);
+  expect(player.inventoryDroppedOnDeath).toBe(true);
+  expect(game.getPlayerById(player.id)).toBeUndefined();
 });

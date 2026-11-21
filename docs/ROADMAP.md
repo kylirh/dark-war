@@ -293,3 +293,12 @@ Game transitions, authoritative multiplayer migration, and regression coverage.
 Status: COMPLETE; validated with shared-policy, offline save/load, and real
 WebSocket server regression tests. Routine maintenance in the same branch includes prior-run
 Claude PRs in daily curation without allowing same-run self-merging.
+
+## Vertical-world correction — 2026-11-21
+
+`main` replaces the stairs-based hole landing assumption
+with the owner's coordinate-aligned design: seeded matching stair anchors,
+exact vertical landings with connected excavation, continuous stacked-hole
+falls, destination impact damage, and persisted quadratic fall distance.
+Status: COMPLETE; seeded generation, save/load, offline shaft, authoritative
+multiplayer, and destination-death regression tests pass. Protocol version 16.

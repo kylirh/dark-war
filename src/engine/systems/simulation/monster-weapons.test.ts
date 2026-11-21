@@ -1,3 +1,4 @@
+import { setStateTile } from "../../utils/state-tiles";
 /**
  * Integration coverage for adaptive monster weapon selection and firing.
  */
@@ -13,6 +14,7 @@ import {
   EntityKind,
   ItemType,
   MonsterType,
+  TileType,
   WeaponType,
 } from "../../types";
 import { weaponTypeForItem } from "../../utils/inventory";
@@ -118,6 +120,14 @@ describe("adaptive monster AI", () => {
       MonsterType.ZYTH,
       ItemType.LASER_PISTOL,
     );
+    for (let dx = 0; dx <= 8; dx++) {
+      setStateTile(
+        state,
+        state.player.gridX + dx,
+        state.player.gridY,
+        TileType.FLOOR,
+      );
+    }
     monster.worldX = state.player.worldX + 5 * 32;
     monster.laserCharge = 0;
     const powerCell = new ItemEntity(

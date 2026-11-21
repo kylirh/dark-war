@@ -30,6 +30,9 @@ export class PlayerEntity extends GameEntity {
   /** Maximum health points */
   public hpMax: number;
 
+  /** Persisted distance of an unbroken fall through stacked holes. */
+  public fallDistance?: number;
+
   /** Whether the player is currently resting and recovering health */
   public resting: boolean;
 
@@ -183,6 +186,7 @@ export class PlayerEntity extends GameEntity {
     this.ctdmEnabled = false;
     this.matterManipulatorActive = false;
     this.inventoryDroppedOnDeath = false;
+    this.fallDistance = undefined;
 
     const addCoreDevice = (type: ItemType): void => {
       if (this.inventorySlots.some((slot) => slot.type === type)) return;

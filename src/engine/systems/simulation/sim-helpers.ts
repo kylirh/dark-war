@@ -238,7 +238,11 @@ export function canActorAct(
 
   // Dead check
   if (entity.kind === EntityKind.PLAYER) {
-    if ((entity as Player).hp <= 0) return false;
+    if (
+      (entity as Player).hp <= 0 ||
+      ((entity as Player).fallDistance ?? 0) > 0
+    )
+      return false;
   }
   if (entity.kind === EntityKind.MONSTER) {
     if ((entity as Monster).hp <= 0) return false;

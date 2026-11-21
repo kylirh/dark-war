@@ -12,7 +12,7 @@
  * shape the client sends and the server validates, so changing a member is
  * a wire-format change and needs a PROTOCOL_VERSION bump.
  */
-export const PROTOCOL_VERSION = 15;
+export const PROTOCOL_VERSION = 16;
 
 export type NetworkAction =
   | {

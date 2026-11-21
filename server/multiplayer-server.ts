@@ -2,7 +2,9 @@ import {
   holeDestinationFor,
   resolveWorldLanding,
 } from "../src/engine/core/world-transition";
-import { applyHoleFallDamage } from "./hole-fall";
+import { applyFallLandingDamage } from "../src/engine/systems/simulation/falling";
+import { prepareFallLanding } from "../src/engine/core/vertical-layout";
+import { RNG } from "../src/engine/utils/rng";
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { RawData, WebSocket, WebSocketServer } from "ws";
 import { Game } from "../src/engine/core/game";
@@ -157,6 +159,7 @@ class RoomSession {
   private readonly closeRoom: (roomId: string) => void;
   private tickHandle: NodeJS.Timeout | null = null;
   private phase: RoomPhase = "lobby";
+  private readonly worldSeed = RNG.int(0x40000000);
   private hostPlayerId: string | null = null;
 
   constructor(id: string, closeRoom: (roomId: string) => void) {
@@ -178,7 +181,7 @@ class RoomSession {
     const existing = this.worlds.get(key);
     if (existing) return existing;
 
-    const game = new Game({ mode: "online" });
+    const game = new Game({ mode: "online", worldSeed: this.worldSeed });
     game.resetToWorld(address);
     const placeholderId = game.getState().player?.id;
     if (placeholderId) game.removeNetworkPlayer(placeholderId);
@@ -217,38 +220,50 @@ class RoomSession {
     const toDepth = depthForWorldAddress(destination) ?? from.depth;
     const to = this.getOrCreateWorld(destination, toDepth);
     const toState = to.game.getState();
-    const position = resolveWorldLanding(
-      {
-        tiles: toState.tiles,
-        stairsUp: toState.stairsUp,
-        stairsDown: toState.stairsDown,
-        start: toState.playerStart,
-        wraps: toState.levelKind === "outside",
-      },
-      destination,
-      [fallingPlayer.gridX, fallingPlayer.gridY],
-      (x, y) =>
-        toState.entities.some(
-          (entity) =>
-            entity.id !== playerId &&
-            (entity.kind === EntityKind.MONSTER ||
-              entity.kind === EntityKind.PLAYER) &&
-            entity.gridX === x &&
-            entity.gridY === y,
-        ),
-    );
+    const verticalPosition: [number, number] = [
+      fallingPlayer.gridX,
+      fallingPlayer.gridY,
+    ];
+    const position =
+      mode === "hole"
+        ? prepareFallLanding(
+            toState.worldPlane,
+            verticalPosition,
+            toState.stairsUp ?? toState.playerStart,
+          )
+          ? verticalPosition
+          : null
+        : resolveWorldLanding(
+            {
+              tiles: toState.tiles,
+              stairsUp: toState.stairsUp,
+              stairsDown: toState.stairsDown,
+              start: toState.playerStart,
+              wraps: toState.levelKind === "outside",
+            },
+            destination,
+            [fallingPlayer.gridX, fallingPlayer.gridY],
+            (x, y) =>
+              toState.entities.some(
+                (entity) =>
+                  entity.id !== playerId &&
+                  (entity.kind === EntityKind.MONSTER ||
+                    entity.kind === EntityKind.PLAYER) &&
+                  entity.gridX === x &&
+                  entity.gridY === y,
+              ),
+          );
     if (!position) return;
-    if (
-      mode === "hole" &&
-      !applyHoleFallDamage(from.game.getState(), fallingPlayer)
-    )
-      return;
     const player = from.game.detachPlayer(playerId);
     if (!player) return;
     from.players.delete(playerId);
     from.physics.rebuildAll(from.game.getState());
 
-    to.game.attachExistingPlayer(player, position);
+    to.game.attachExistingPlayer(player, position, mode === "hole");
+    if (mode === "hole") {
+      player.fallDistance = (player.fallDistance ?? 0) + 1;
+      applyFallLandingDamage(toState, player);
+    }
     to.players.add(playerId);
     this.playerLocation.set(playerId, worldAddressKey(to.address));
     to.physics.rebuildAll(toState);
@@ -479,7 +494,7 @@ class RoomSession {
   private applyVelocity(playerId: string, vx: number, vy: number): void {
     const world = this.worldOfPlayer(playerId);
     const player = world?.game.getPlayerById(playerId);
-    if (!player || player.hp <= 0) return;
+    if (!player || player.hp <= 0 || (player.fallDistance ?? 0) > 0) return;
     if (player.resting) {
       player.velocityX = 0;
       player.velocityY = 0;
@@ -509,7 +524,7 @@ class RoomSession {
     if (!world) return;
     const state = world.game.getState();
     const player = world.game.getPlayerById(playerId);
-    if (!player || player.hp <= 0) return;
+    if (!player || player.hp <= 0 || (player.fallDistance ?? 0) > 0) return;
     if (
       state.conversations.has(playerId) &&
       action.type !== "DIALOGUE_CHOICE" &&
@@ -767,15 +782,17 @@ class RoomSession {
   }
 
   /** After a world steps, drop any player standing on a hole to the next depth. */
-  private handleHoleFalls(world: LevelWorld): void {
+  private handleHoleFalls(world: LevelWorld, processed: Set<string>): void {
     const state = world.game.getState();
     for (const playerId of [...world.players]) {
+      if (processed.has(playerId)) continue;
       const player = world.game.getPlayerById(playerId);
       if (
         !player ||
         state.tiles.getTile(player.gridX, player.gridY) !== TileType.HOLE
       )
         continue;
+      processed.add(playerId);
       this.migratePlayer(
         playerId,
         holeDestinationFor(state, [player.gridX, player.gridY]),
@@ -794,8 +811,9 @@ class RoomSession {
       if (world.players.size > 0) this.stepWorld(world);
     }
     // Resolve hole falls after stepping (migrates players between worlds).
+    const fallingPlayers = new Set<string>();
     for (const world of [...this.worlds.values()]) {
-      if (world.players.size > 0) this.handleHoleFalls(world);
+      if (world.players.size > 0) this.handleHoleFalls(world, fallingPlayers);
     }
     this.broadcastState();
   }

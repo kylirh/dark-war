@@ -21,6 +21,7 @@ import {
   ItemType,
   MonsterType,
   Monster,
+  Player,
   EventType,
   CELL_CONFIG,
   MAP_WIDTH,
@@ -465,6 +466,13 @@ export class Physics {
     dt: number,
     entityRadius: number,
   ): void {
+    if (
+      entity.kind === EntityKind.PLAYER &&
+      ((entity as Player).fallDistance ?? 0) > 0
+    ) {
+      entity.velocityX = 0;
+      entity.velocityY = 0;
+    }
     if (entity.velocityX === 0 && entity.velocityY === 0) return;
 
     const moveScale = this.entitySpeedScale(state, entity);

@@ -1,3 +1,4 @@
+import { SURFACE_STAIRS_DOWN } from "./vertical-layout";
 import {
   DungeonData,
   ItemType,
@@ -63,7 +64,7 @@ export function createOutsideLevel(): OutsideLevelData {
   const map: TileType[] = new Array(WIDTH * HEIGHT).fill(TileType.GRASS);
   const wallSet: WallSet = "concrete";
   const start: [number, number] = [12, 58];
-  const stairsDown: [number, number] = [16, 44];
+  const stairsDown: [number, number] = [...SURFACE_STAIRS_DOWN];
 
   fillRect(map, 0, 0, WIDTH, HEIGHT, TileType.WEEDS);
 
