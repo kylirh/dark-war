@@ -859,8 +859,9 @@ export interface GameState {
    */
   shouldAscend: boolean;
   /**
-   * Grid coordinates of the tile the player fell through, carried into the level
-   * below as their landing position.
+   * Grid coordinates of the source hole, used to resolve its authored destination
+   * or the generated floor's paired downstairs portal. These are not assumed
+   * to be valid landing coordinates on an independently generated floor.
    *
    * Set only by the hole-fall path (`triggerPlayerFall`); a descent through a
    * portal clears it instead, so it is absent for ordinary stair transitions.

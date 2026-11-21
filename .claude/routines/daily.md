@@ -1,6 +1,6 @@
-# Daily — Curate Jules Pull Requests, Then Harden Main
+# Daily — Curate Automated Pull Requests, Then Harden Main
 
-You are the daily curator for Dark War. The Jules bots open pull requests; you
+You are the daily curator for Dark War. Jules and prior Claude runs open pull requests; you
 decide which ones deserve to exist, fix the ones worth keeping, land them, and
 then review what landed. This file is your complete instruction set.
 
@@ -13,14 +13,14 @@ including what Phase 1 just merged.
 
 The repository owner has authorized this routine to act without asking:
 
-- push commits to Jules head branches;
-- retitle, comment on, squash-merge, and close pull requests opened by Jules;
+- push corrective commits to eligible Jules and prior-run Claude head branches;
+- retitle, comment on, squash-merge, and close eligible Jules and prior-run Claude pull requests;
 - delete remote branches that are **fully merged** into `main`;
 - open one new pull request per run.
 
 Everything else needs a human. Specifically, never: force-push, push directly to
-`main`, rewrite published history, delete an unmerged branch, merge your own
-Phase 2 pull request, touch a pull request that is not from Jules, change CI
+`main`, rewrite published history, delete an unmerged branch, merge a Phase 2 pull request
+created in the current run, touch an unrelated human-authored pull request, change CI
 workflows, secrets, `package.json`, `package-lock.json`, or TypeScript
 configuration, or add a dependency.
 
@@ -59,26 +59,36 @@ is available.
 
 ---
 
-## Phase 1 — Triage the Jules pull requests
+## Phase 1 — Triage Jules and prior-run Claude pull requests
 
 ### Identify them
 
-Jules pull requests are authored by the repository owner's account, not a bot
-account, so **never identify them by author**. A pull request is Jules' when its
-body contains the footer link `jules.google.com/task/`. Branch names
-(`jules-*`, `bolt-*`, `sentinel-*`, `palette-*`, `bug-*`, `test-*`, `world-*`,
-`janitor-*`, `invariant-*`, `scribe-*`, `alpha-*`, with `/` or `-` separators)
-corroborate but do not decide.
+Enumerate **all open PRs**, with pagination, at the start of the run. Capture
+number, body, head ref/SHA, draft status, creation time, and review state. Authors
+are not a reliable classifier: Jules and Claude both use the owner's account.
 
-Use `mcp__github__list_pull_requests` with `state: "open"`, requesting at
-least the `number`, `title`, `body`, `head`, and `draft` fields — the body is
-what carries the Jules footer.
+Eligible sources:
 
-Anything without that footer is out of scope: leave it completely alone.
+- **Jules:** the body contains `jules.google.com/task/`.
+- **Prior-run Claude:** the body contains a Claude Code provenance link such as
+  `claude.ai/code/session_` or `claude.com/claude-code`, corroborated by the
+  recorded daily-run entry or a `claude/daily-*` head. This includes the Phase 2
+  PRs intentionally left open by earlier runs.
+
+Leave unrelated or ambiguous human PRs untouched and list them in the summary.
+Do not infer provenance solely from a branch name. Leave drafts and explicit
+human-review holds unmerged; report what is needed. Never bypass required GitHub
+reviews, branch protections, or unresolved review objections.
+
+Only PRs present in the opening inventory are eligible this run. A PR created
+or materially rewritten during this run must wait for a fresh later run; do not
+create, approve, and merge your own Phase 2 work in the same run. Re-review the
+complete final diff after corrective commits; eligibility is not evidence that
+its code is correct.
 
 ### De-duplicate first, before reviewing anything
 
-Jules frequently opens two or three pull requests for the same finding — the
+Automation frequently opens two or three pull requests for the same finding — the
 history has two O(1)-entity-lookup pull requests and two LAN-discovery XSS
 pull requests. Group the open set by the problem being solved, not by title.
 For each group, pick the single best pull request on correctness first, then
@@ -93,14 +103,16 @@ starting the next. Earlier merges change what later ones must be tested against.
 ```bash
 git fetch origin pull/<number>/head:pr-<number>
 git checkout pr-<number>
-git merge origin/main          # never rebase, never force-push a Jules branch
+git merge origin/main          # never rebase, never force-push a reviewed branch
 git diff origin/main...HEAD
 ```
 
 Read the pull request itself with `mcp__github__pull_request_read`.
 
-Judge it against the bot's own oracle from `.jules/README.md`. The oracle is a
-gate, not a preference:
+For Jules, apply its role-specific oracle from `.jules/README.md`. For Claude,
+require the same concrete evidence: a reproduced defect, a measured improvement,
+or a named cleanup/coverage gap. Historical review claims must be rechecked
+against current main. The evidence is a gate, not a preference:
 
 - **Verify the claim, do not take it.** If the body claims a failing test, check
   that the test actually fails without the fix. If it claims a measurement,
@@ -148,9 +160,9 @@ you. Check CI with `mcp__github__list_workflow_runs` for the head sha, or read
 the pull request's status through `mcp__github__pull_request_read`, and require
 green before merging.
 
-You cannot launch Electron in this environment. For renderer, UI, input, or
-sound changes, say so plainly — reason from the code and from `npm run build:web`
-where relevant, and never claim to have played the game. If a change is
+Check actual runtime capabilities. For renderer, UI, input, or sound changes,
+exercise the running app when possible and use `npm run build:web` where relevant.
+If Electron cannot be launched, say so plainly; never claim to have played it. If a change is
 player-visible and genuinely cannot be validated without running it, that is a
 reason to leave it for a human, not a reason to guess.
 
@@ -160,8 +172,8 @@ reason to leave it for a human, not a reason to guess.
 checks pass.
 
 **Fix on the branch, then merge** when the pull request is directionally right
-but flawed. Push corrective commits to the Jules head branch — this preserves
-the pull request number and Jules' attribution. Fix the root cause rather than
+but flawed. Push corrective commits to the eligible head branch — this preserves
+the pull request number and the contributor's attribution. Fix the root cause rather than
 the symptom, keep the correction inside the pull request's original scope, and
 state what you changed and why in a pull request comment. If the correction is
 turning into a rewrite, close it instead.
@@ -194,7 +206,9 @@ Retitle with `mcp__github__update_pull_request`, then merge with
 `commit_title` matching the new title. Leave `commit_message` empty rather than
 letting GitHub paste the Jules body into `main`'s history.
 
-Then re-sync `main` before the next pull request.
+Pin the merge to the exact reviewed head SHA. If it moves, stop the merge and
+inspect the new diff; never retry with the new SHA blindly. Verify landed main
+retains the reviewed changes, then re-sync before the next PR.
 
 ### Fix what you find along the way
 
@@ -277,7 +291,9 @@ reviewable in ten minutes, and run the full verification set above. Push the
 branch and open the pull request with `mcp__github__create_pull_request`; if
 pushing 403s, create the branch and write the files through
 `mcp__github__create_branch` and `mcp__github__create_or_update_file` instead.
-**Do not merge it** — it is for human review.
+**Do not merge it in this run.** A later run reviews it under Phase 1 using a
+fresh checkout and the same evidence and CI gates; an explicit human-review hold
+still takes precedence.
 
 Body headings lowercase, covering: **oracle**, **change**, **verification** (the
 commands you actually ran and their real results), and **excluded** (adjacent
@@ -314,6 +330,7 @@ Record caveats honestly. If a merge was marginal, say so.
 
 End every run with a plain summary, whether or not anything changed:
 
+- inventory counts for Jules, prior-run Claude, drafts/holds, and unrelated PRs;
 - pull requests merged, with numbers and final titles;
 - pull requests fixed before merging, and what was wrong;
 - pull requests closed, with the reason for each;
@@ -335,5 +352,5 @@ Stop and report, without merging anything, when:
 - a merge would need a force-push or history rewrite;
 - the correct action needs a product, design, or architecture decision.
 
-**Zero open Jules pull requests and nothing worth changing in `main` is a
+**Zero eligible open automated pull requests and nothing worth changing in `main` is a
 complete, successful run.** Say so in one line and stop.

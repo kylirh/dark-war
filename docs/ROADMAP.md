@@ -269,12 +269,13 @@ files without coordination. Before starting:
 
 ### Handoff ledger
 
-| Milestones  | Branch/owner | Scope                                            | Status | Notes                                      |
-| ----------- | ------------ | ------------------------------------------------ | ------ | ------------------------------------------ |
-| M0–M8       | `main`       | Complete terrain/world foundation program        | done   | Tests, docs, and authoring sources         |
-| Product     | `main`       | Speech, living-world, browser, and gameplay work | done   | Integrated and reviewed through 2026-09-30 |
-| Maintenance | `main`       | November repository audit and branch cleanup     | done   | See dated repository audit                 |
-| Next        | unassigned   | Ordinary game content and product expansion      | open   | Build on the completed foundations         |
+| Milestones  | Branch/owner | Scope                                                           | Status | Notes                                              |
+| ----------- | ------------ | --------------------------------------------------------------- | ------ | -------------------------------------------------- |
+| M0–M8       | `main`       | Complete terrain/world foundation program                       | done   | Tests, docs, and authoring sources                 |
+| Product     | `main`       | Speech, living-world, browser, and gameplay work                | done   | Integrated and reviewed through 2026-09-30         |
+| Maintenance | `main`       | November repository audit and branch cleanup                    | done   | See dated repository audit                         |
+| Reliability | `main`       | Issues #22/#21: shared safe landings and transition regressions | done   | Offline saves and authoritative WebSocket coverage |
+| Next        | unassigned   | Ordinary game content and product expansion                     | open   | Build on the completed foundations                 |
 
 ## Repository maintenance — 2026-11-21
 
@@ -284,3 +285,11 @@ fixes concrete runtime defects, and retires reviewed stale branches. See
 for decisions, PR dispositions, recovery location, and validation. Existing
 GitHub product issues remain the implementation backlog; cleanup does not
 reclassify unbuilt Alpha features as complete.
+
+## Transition reliability — issues #22 and #21
+
+`main` contains shared portal landing resolution, offline
+Game transitions, authoritative multiplayer migration, and regression coverage.
+Status: COMPLETE; validated with shared-policy, offline save/load, and real
+WebSocket server regression tests. Routine maintenance in the same branch includes prior-run
+Claude PRs in daily curation without allowing same-run self-merging.

@@ -1,3 +1,4 @@
+import { holeDestinationFor, resolveWorldLanding } from "./world-transition";
 import { isDebug } from "../utils/debug";
 
 import {
@@ -636,9 +637,8 @@ export class Game {
     this.state.entityManager.destroy(playerId);
     endConversation(this.state, playerId);
     this.state.activeSignViews.delete(playerId);
-    this.state.playerSocialFacts.delete(playerId);
     this.accessibilityCache.delete(playerId);
-    this.state.exploredByPlayer.delete(playerId);
+    // Durable discovery and social facts stay on the sleeping plane for return visits.
     this.state.visibilityByPlayer.delete(playerId);
     if (this.state.player?.id === playerId) {
       this.state.player = this.state.players[0] ?? this.state.player;
@@ -648,7 +648,7 @@ export class Game {
 
   /**
    * Attach a pre-existing player entity (carried over from another world) at a
-   * grid position, giving it a fresh fog-of-war on this level and a new body.
+   * grid position, restoring this player's exploration on this level and giving it a new body.
    */
   public attachExistingPlayer(
     player: Player,
@@ -664,7 +664,9 @@ export class Game {
     player.physicsBody = undefined;
     this.state.players.push(player);
     this.state.entityManager.spawn(player);
-    this.state.exploredByPlayer.set(player.id, new Set<number>());
+    if (!this.state.exploredByPlayer.has(player.id)) {
+      this.state.exploredByPlayer.set(player.id, new Set<number>());
+    }
     this.state.visibilityByPlayer.set(player.id, new Set<number>());
     this.updateFOVForPlayer(player.id);
   }
@@ -1292,38 +1294,19 @@ export class Game {
           (candidate) => candidate.id === this.state.pendingPortalId,
         )
       : undefined;
-    const destination: WorldPortalDestination = portal?.destination ?? {
-      ...worldAddressForDepth(this.state.depth + 1),
-      entry: "stairs-up",
-    };
-    const followingBots = this.pluckNearbyUtilityBots();
-
-    this.saveCurrentLevelSnapshot();
-
+    const destination: WorldPortalDestination = fallPosition
+      ? holeDestinationFor(this.state, fallPosition)
+      : (portal?.destination ?? {
+          ...worldAddressForDepth(this.state.depth + 1),
+          entry: "stairs-up",
+        });
     const existingLevel = this.levels.get(worldAddressKey(destination));
     const snapshot = existingLevel ?? this.buildWorld(destination);
-    // Deposit anything that fell through a hole onto this depth.
+    const landingPosition = this.resolveLevelLanding(snapshot, destination);
+    if (!landingPosition) return;
+    const followingBots = this.pluckNearbyUtilityBots();
+    this.saveCurrentLevelSnapshot();
     this.injectPendingDrops(snapshot, snapshot.depth);
-
-    // If falling through a hole, land at nearest passable tile to fall position
-    // Otherwise, land at stairs (normal stair descent)
-    let landingPosition: [number, number];
-    if (
-      typeof destination.x === "number" &&
-      typeof destination.y === "number"
-    ) {
-      landingPosition = [destination.x, destination.y];
-    } else if (fallPosition || destination.entry === "same") {
-      const nearestTile = this.findNearestPassableTile(
-        snapshot.worldPlane,
-        fallPosition ?? [this.state.player.gridX, this.state.player.gridY],
-      );
-      landingPosition = nearestTile ?? snapshot.stairsUp ?? snapshot.stairsDown;
-    } else if (destination.entry === "stairs-down") {
-      landingPosition = snapshot.stairsDown;
-    } else {
-      landingPosition = snapshot.stairsUp ?? snapshot.stairsDown;
-    }
 
     this.applyLevelSnapshot(snapshot, landingPosition);
     this.state.pendingPortalId = undefined;
@@ -1367,17 +1350,11 @@ export class Game {
     const snapshot = this.levels.get(worldAddressKey(destination));
     if (!snapshot) return;
 
+    const landingPosition = this.resolveLevelLanding(snapshot, destination);
+    if (!landingPosition) return;
     const followingBots = this.pluckNearbyUtilityBots();
     this.saveCurrentLevelSnapshot();
 
-    const landingPosition: [number, number] =
-      typeof destination.x === "number" && typeof destination.y === "number"
-        ? [destination.x, destination.y]
-        : destination.entry === "stairs-up"
-          ? (snapshot.stairsUp ?? snapshot.stairsDown)
-          : destination.entry === "same"
-            ? [this.state.player.gridX, this.state.player.gridY]
-            : snapshot.stairsDown;
     this.applyLevelSnapshot(snapshot, landingPosition);
     this.state.pendingPortalId = undefined;
 
@@ -1396,53 +1373,30 @@ export class Game {
     );
   }
 
-  private findNearestPassableTile(
-    source: TileSource,
-    target: [number, number],
+  /** Resolve a snapshot landing before mutating the current world's occupants. */
+  private resolveLevelLanding(
+    snapshot: LevelSnapshot,
+    destination: WorldPortalDestination,
   ): [number, number] | null {
-    const { width, height } = source;
-    const [startX, startY] = target;
-    if (
-      startX >= 0 &&
-      startY >= 0 &&
-      startX < width &&
-      startY < height &&
-      source.passable(startX, startY)
-    ) {
-      return [startX, startY];
-    }
-
-    const visited = new Array(width * height).fill(false);
-    const queue: [number, number][] = [];
-    const enqueue = (x: number, y: number) => {
-      if (x < 0 || y < 0 || x >= width || y >= height) return;
-      const index = x + y * width;
-      if (visited[index]) return;
-      visited[index] = true;
-      queue.push([x, y]);
-    };
-
-    enqueue(
-      Math.min(Math.max(startX, 0), width - 1),
-      Math.min(Math.max(startY, 0), height - 1),
+    return resolveWorldLanding(
+      {
+        tiles: snapshot.worldPlane,
+        stairsUp: snapshot.stairsUp,
+        stairsDown: snapshot.stairsDown,
+        start: snapshot.stairsUp ?? snapshot.stairsDown,
+        wraps: snapshot.levelKind === "outside",
+      },
+      destination,
+      [this.state.player.gridX, this.state.player.gridY],
+      (x, y) =>
+        snapshot.entities.some(
+          (entity) =>
+            (entity.kind === EntityKind.MONSTER ||
+              entity.kind === EntityKind.PLAYER) &&
+            entity.gridX === x &&
+            entity.gridY === y,
+        ),
     );
-
-    let head = 0;
-    while (head < queue.length) {
-      const [x, y] = queue[head++];
-      if (x >= 0 && y >= 0 && x < width && y < height) {
-        if (source.passable(x, y)) {
-          return [x, y];
-        }
-      }
-
-      enqueue(x + 1, y);
-      enqueue(x - 1, y);
-      enqueue(x, y + 1);
-      enqueue(x, y - 1);
-    }
-
-    return null;
   }
 
   /**

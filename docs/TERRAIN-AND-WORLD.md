@@ -65,6 +65,22 @@ surface, MegaCorp floors, and `caves/park-grotto` are independently generated
 planes. The grotto cave mouth is the first non-depth portal and proves reversible
 offline and multiplayer travel without adding a global z-axis.
 
+### Transition and landing policy
+
+Generated floors are independently laid out: matching grid coordinates do not
+imply matching places. Ordinary hole falls use the source floor's downward
+progression portal and its destination entry policy (normally `stairs-up`). An
+authored `hole` portal at the source cell takes precedence and may specify a
+different plane, explicit coordinates, or an intentional `same` entry.
+
+`core/world-transition.ts` resolves the same metadata offline and on the
+server. A blocked, occupied, or hole landing triggers a deterministic nearest
+safe-cell search, with wrapped neighbors only on outside planes. An entirely
+blocked destination refuses transfer before detaching players or companions.
+Fall damage still occurs once; a lethal fall leaves the dead player on the
+source plane. Per-player exploration and durable social facts remain on sleeping
+server planes so returning players retain their own history.
+
 ### Cells are compositional and stored as structures of arrays
 
 A single `TileType` cannot represent grass under a tree, water under a bridge,
