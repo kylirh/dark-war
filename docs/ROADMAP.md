@@ -269,11 +269,12 @@ files without coordination. Before starting:
 
 ### Handoff ledger
 
-| Milestones | Branch/owner | Scope                                            | Status | Notes                                      |
-| ---------- | ------------ | ------------------------------------------------ | ------ | ------------------------------------------ |
-| M0–M8      | `main`       | Complete terrain/world foundation program        | done   | Tests, docs, and authoring sources         |
-| Product    | `main`       | Speech, living-world, browser, and gameplay work | done   | Integrated and reviewed through 2026-09-30 |
-| Next       | unassigned   | Ordinary game content and product expansion      | open   | Build on the completed foundations         |
+| Milestones  | Branch/owner | Scope                                            | Status | Notes                                      |
+| ----------- | ------------ | ------------------------------------------------ | ------ | ------------------------------------------ |
+| M0–M8       | `main`       | Complete terrain/world foundation program        | done   | Tests, docs, and authoring sources         |
+| Product     | `main`       | Speech, living-world, browser, and gameplay work | done   | Integrated and reviewed through 2026-09-30 |
+| Maintenance | `main`       | November repository audit and branch cleanup     | done   | See dated repository audit                 |
+| Next        | unassigned   | Ordinary game content and product expansion      | open   | Build on the completed foundations         |
 
 ## Repository maintenance — 2026-11-21
 

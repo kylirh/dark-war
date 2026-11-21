@@ -4,7 +4,7 @@
 
 Reviewed the 113 commits reachable from `main` since September 15, 2026
 (105 non-merge commits), the resulting production changes, all 23 open pull
-requests, all 125 non-main remote branches, the proposed ADRs, historical review
+requests, all 124 non-main remote branches, the proposed ADRs, historical review
 logs, and the open GitHub product backlog. Starting main: `2e4aaf7c`.
 
 Before cleanup, all refs were preserved in a verified Git bundle at
@@ -137,3 +137,16 @@ push causes refusal rather than loss of unreviewed work.
 - The real-Pixi test import exposes an upstream `check2d` missing-source-map
   warning in Vite. Tests pass; no production dependency files were patched to
   conceal it.
+
+## Final repository state
+
+The reviewed integration landed at `d7b121ce`. GitHub confirmed all 15 retained
+PRs as merged and the other eight as closed. Fifteen source branches were
+removed automatically on merge; 109 remaining reviewed heads were deleted in
+one atomic push with exact-SHA leases. Only `main` remains locally and remotely,
+with one worktree, a clean working tree, and no stashes.
+
+[CI](https://github.com/kylirh/dark-war/actions/runs/44940255551) and
+[web deployment](https://github.com/kylirh/dark-war/actions/runs/44940255629)
+both completed successfully for the integration commit. The external archive
+records every retired branch and its disposition.
