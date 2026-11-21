@@ -22,18 +22,22 @@ function fallBesideDownstairs(game: Game): void {
 describe("offline world transitions", () => {
   beforeEach(() => RNG.reseed(17));
 
-  it("lands a fall beside downstairs at the next floor's upstairs", () => {
+  it("lands directly beneath a hole beside downstairs", () => {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const hp = game.getState().player.hp;
     const id = game.getState().player.id;
+    const source = [
+      game.getState().stairsDown[0] - 1,
+      game.getState().stairsDown[1],
+    ];
     fallBesideDownstairs(game);
     const state = game.getState();
     expect([state.worldSpaceId, state.worldPlaneId]).toEqual([
       "megacorp",
       "floor-2",
     ]);
-    expect([state.player.gridX, state.player.gridY]).toEqual(state.stairsUp);
+    expect([state.player.gridX, state.player.gridY]).toEqual(source);
     expect(state.tiles.passable(state.player.gridX, state.player.gridY)).toBe(
       true,
     );
@@ -54,11 +58,15 @@ it("preserves a cached landing and source exploration across save/load and a ret
   game.getState().explored.add(42);
   const restored = new Game({ mode: "offline" });
   restored.deserialize(JSON.parse(JSON.stringify(game.serialize())));
+  const source = [
+    restored.getState().stairsDown[0] - 1,
+    restored.getState().stairsDown[1],
+  ];
   fallBesideDownstairs(restored);
   expect([
     restored.getState().player.gridX,
     restored.getState().player.gridY,
-  ]).toEqual([entry[0] + 1, entry[1]]);
+  ]).toEqual(source);
   restored.ascend();
   expect(restored.getState().depth).toBe(1);
   expect(restored.getState().explored.has(42)).toBe(true);
@@ -110,7 +118,8 @@ it("honors an authored hole portal instead of forcing the next progression depth
   const game = new Game({ mode: "offline" });
   game.reset(0);
   const state = game.getState();
-  const [x, y] = [state.player.gridX, state.player.gridY];
+  const [x, y] = [10, 10];
+  setPositionFromGrid(state.player, x, y);
   state.portals.push({
     id: "grotto-hole",
     kind: "hole",
@@ -126,7 +135,7 @@ it("honors an authored hole portal instead of forcing the next progression depth
     "caves",
     "park-grotto",
   ]);
-  expect([state.player.gridX, state.player.gridY]).toEqual(state.stairsUp);
+  expect([state.player.gridX, state.player.gridY]).toEqual([x, y]);
 });
 
 it("keeps the source world intact when the destination has no safe tile", () => {
@@ -145,4 +154,40 @@ it("keeps the source world intact when the destination has no safe tile", () => 
   expect(state.depth).toBe(1);
   expect([state.player.gridX, state.player.gridY]).toEqual(entry);
   expect(state.entities.map((entity) => entity.id)).toEqual(ids);
+});
+
+it("continues through a stacked hole and preserves fall distance across save/load", () => {
+  const game = new Game({ worldSeed: 17 });
+  game.reset(1);
+  const point: [number, number] = [50, 50];
+  game.descend();
+  setStateTile(game.getState(), ...point, TileType.HOLE);
+  game.descend();
+  setStateTile(game.getState(), ...point, TileType.FLOOR);
+  game.ascend();
+  game.ascend();
+  const source = game.getState();
+  source.entityManager.destroyWhere((entity) => entity.id !== source.player.id);
+  source.player.hp = 100;
+  setStateTile(source, ...point, TileType.HOLE);
+  setPositionFromGrid(source.player, ...point);
+  stepSimulationTick(source);
+  expect(source.player.hp).toBe(100);
+  game.descend();
+  expect(source.depth).toBe(2);
+  expect([source.player.gridX, source.player.gridY]).toEqual(point);
+  expect(source.player.hp).toBe(100);
+  expect(source.player.fallDistance).toBe(1);
+  const restored = new Game();
+  restored.deserialize(JSON.parse(JSON.stringify(game.serialize())));
+  const shaft = restored.getState();
+  shaft.shouldDescend = false;
+  shaft.entityManager.destroyWhere((entity) => entity.id !== shaft.player.id);
+  stepSimulationTick(shaft);
+  expect(shaft.shouldDescend).toBe(true);
+  restored.descend();
+  expect(shaft.depth).toBe(3);
+  expect([shaft.player.gridX, shaft.player.gridY]).toEqual(point);
+  expect(shaft.player.hp).toBe(100 - 4 * HOLE_FALL_DAMAGE);
+  expect(shaft.player.fallDistance).toBeUndefined();
 });

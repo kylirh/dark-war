@@ -486,14 +486,17 @@ function processHoleFalls(state: GameState): void {
   const online = state.multiplayer?.mode === "online";
 
   const players = getAlivePlayers(state);
-  if (holeCreated && !online) {
+  if (!online) {
     for (const player of players) {
       const playerTileIndex = idxFor(
         player.gridX,
         player.gridY,
         state.mapWidth,
       );
-      if (holeCreatedTiles?.has(playerTileIndex)) {
+      if (
+        holeCreatedTiles?.has(playerTileIndex) ||
+        state.tiles.getTile(player.gridX, player.gridY) === TileType.HOLE
+      ) {
         triggerPlayerFall(state, player);
         break;
       }
@@ -566,15 +569,6 @@ function triggerPlayerFall(state: GameState, player: Player): void {
 
   emitPlayerAlert(state, "You fall through the floor!", {
     audiencePlayerIds: [player.id],
-  });
-
-  pushEvent(state, {
-    type: EventType.DAMAGE,
-    data: {
-      type: "DAMAGE",
-      targetId: player.id,
-      amount: HOLE_FALL_DAMAGE,
-    },
   });
 }
 

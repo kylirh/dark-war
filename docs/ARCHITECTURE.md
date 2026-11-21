@@ -109,7 +109,10 @@ The superseded scalar runtime fields have been deleted. Protocol version 11 adds
 the current actor components, private conversation/social state, relationship
 edges, persisted decision state, and consumed spawn-marker ledgers.
 Protocol version 12 adds explicit death-screen respawn requests and current-plane
-death inventory drops.
+death inventory drops. Version 16 adds persisted multi-floor fall distance.
+The persisted simulation seed also seeds the shared vertical world layout:
+consecutive progression floors align their stairs, and hole falls retain exact
+coordinates, accumulating quadratic damage until solid-ground impact.
 
 Destructive hand-tool behavior is capability-specific: ordinary melee affects
 actors only, the Pickaxe damages ordinary wall and floor cells over repeated

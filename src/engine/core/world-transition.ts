@@ -3,13 +3,12 @@ import { GameState, TileType } from "../types";
 import { TileSource } from "./tile-source";
 import { wrapValue } from "../utils/wrap";
 import {
-  depthForWorldAddress,
   portalAt,
   WorldPortalDestination,
   worldAddressForDepth,
 } from "./world-space";
 
-/** Authored holes own their destination; generated floors pair falls with stairs. */
+/** Ordinary holes descend vertically; authored holes can select another plane. */
 export function holeDestinationFor(
   state: Pick<
     GameState,
@@ -20,17 +19,7 @@ export function holeDestinationFor(
   const address = { spaceId: state.worldSpaceId, planeId: state.worldPlaneId };
   const hole = portalAt(state.portals, address, ...position, ["hole"]);
   if (hole) return hole.destination;
-  const downstairs = portalAt(state.portals, address, ...state.stairsDown, [
-    "stairs",
-    "ladder",
-  ]);
-  if (
-    downstairs &&
-    depthForWorldAddress(downstairs.destination) === state.depth + 1
-  ) {
-    return downstairs.destination;
-  }
-  return { ...worldAddressForDepth(state.depth + 1), entry: "stairs-up" };
+  return { ...worldAddressForDepth(state.depth + 1), entry: "same" };
 }
 
 export interface LandingWorld {

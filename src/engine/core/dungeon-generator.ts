@@ -50,6 +50,7 @@ export function generateDungeon(
   height: number,
   _depth: number,
   rng: RandomNumberGenerator,
+  anchors?: { upstairs: [number, number]; downstairs: [number, number] },
 ): GeneratedDungeon {
   const map = new Array<TileType>(width * height).fill(TileType.WALL);
   const set = (x: number, y: number, tile: TileType): void => {
@@ -115,7 +116,7 @@ export function generateDungeon(
   }
 
   // ── 5. Start + far-away down-stairs ────────────────────────────────────────
-  const start = centers[0];
+  const start = anchors?.upstairs ?? centers[0];
   let stairsRoom = 0;
   let bestDist = -1;
   for (let i = 1; i < centers.length; i++) {
@@ -125,7 +126,18 @@ export function generateDungeon(
       stairsRoom = i;
     }
   }
-  const stairsDown = centers[stairsRoom] ?? start;
+  const stairsDown = anchors?.downstairs ?? centers[stairsRoom] ?? start;
+  if (anchors) {
+    for (const point of [start, stairsDown]) {
+      const nearest = centers.reduce((best, center) =>
+        manhattan(center, point) < manhattan(best, point) ? center : best,
+      );
+      carveCorridor(set, get, point, nearest, rng);
+      for (let dy = -3; dy <= 3; dy++)
+        for (let dx = -3; dx <= 3; dx++)
+          set(point[0] + dx, point[1] + dy, TileType.FLOOR);
+    }
+  }
   set(start[0], start[1], TileType.FLOOR);
   set(stairsDown[0], stairsDown[1], TileType.STAIRS_DOWN);
 

@@ -265,13 +265,8 @@ describe("death during transition", () => {
     expect(state.pendingPortalId).toBeUndefined();
   });
 
-  /**
-   * `triggerPlayerFall` sets `shouldDescend` and queues `HOLE_FALL_DAMAGE` in
-   * the same tick, so the fall itself can be the lethal blow. The transition is
-   * cancelled with every other one: the player dies on the floor they fell
-   * from rather than arriving dead on the one below.
-   */
-  it("cancels the descend when the fall through a hole is itself lethal", () => {
+  /** Departure is harmless; lethal impact and inventory drops occur below. */
+  it("applies lethal fall damage only after arriving on the lower floor", () => {
     const game = dungeonAtDepthOne();
     const state = game.getState();
     const player = state.player;
@@ -283,9 +278,14 @@ describe("death during transition", () => {
 
     stepSimulationTick(state);
 
-    expect(player.hp).toBeLessThanOrEqual(0);
+    expect(player.hp).toBe(HOLE_FALL_DAMAGE);
+    expect(state.shouldDescend).toBe(true);
+    game.descend();
+    expect(state.depth).toBe(2);
+    expect(player.hp).toBe(0);
     expect(state.shouldDescend).toBe(false);
-    expect(state.descendTarget).toBeUndefined();
+    processEventQueue(state);
+    expect(player.inventoryDroppedOnDeath).toBe(true);
   });
 });
 

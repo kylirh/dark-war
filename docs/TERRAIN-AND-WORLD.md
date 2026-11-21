@@ -67,19 +67,30 @@ offline and multiplayer travel without adding a global z-axis.
 
 ### Transition and landing policy
 
-Generated floors are independently laid out: matching grid coordinates do not
-imply matching places. Ordinary hole falls use the source floor's downward
-progression portal and its destination entry policy (normally `stairs-up`). An
-authored `hole` portal at the source cell takes precedence and may specify a
-different plane, explicit coordinates, or an intentional `same` entry.
+The progression stack shares one persisted world seed. Each floor's downstairs
+is seeded randomly; the next floor's upstairs uses that exact coordinate.
+Generation excavates stair rooms and connects them to the room/corridor network.
+The fixed surface entrance at (16, 44) is floor one's upstairs. Anchors and
+layouts are independent of visit order, online/offline mode, and save/load.
 
-`core/world-transition.ts` resolves the same metadata offline and on the
-server. A blocked, occupied, or hole landing triggers a deterministic nearest
-safe-cell search, with wrapped neighbors only on outside planes. An entirely
-blocked destination refuses transfer before detaching players or companions.
-Fall damage still occurs once; a lethal fall leaves the dead player on the
-source plane. Per-player exploration and durable social facts remain on sleeping
-server planes so returning players retain their own history.
+Hole falls retain the player's exact (x, y) on the plane below. Authored hole
+portals may select another plane, but do not teleport a falling player to its
+stairs. If the landing cell is solid, `core/vertical-layout.ts` excavates it and
+connects it to the entry's accessible region; it does not move the player to a
+nearby floor cell. A hole at the landing coordinate remains a hole and continues
+the fall. Ordinary non-fall portal transitions retain metadata-based safe landing.
+
+`Player.fallDistance` persists the number of floors crossed in an unbroken fall.
+No damage is taken in the open shaft. On solid ground, impact deals
+`HOLE_FALL_DAMAGE * fallDistance²`: 3 HP for one floor, 12 for two, 27 for three.
+The counter then clears; a later separate fall starts at one floor. Movement
+and actions cannot interrupt an in-progress fall. Both hosts cross at most one
+plane per player per simulation tick, regardless of which planes are cached.
+Lethal damage and death drops occur on the destination plane. Per-player
+exploration and durable social facts remain on sleeping server planes.
+
+Protocol version 16 carries the persisted fall state. Start a new game for the
+new aligned layout; pre-change worlds and clients have no compatibility contract.
 
 ### Cells are compositional and stored as structures of arrays
 

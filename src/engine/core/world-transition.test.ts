@@ -91,7 +91,7 @@ describe("world landing", () => {
 
 describe("hole destinations", () => {
   it.each(["stairs", "ladder"] as const)(
-    "uses the %s portal rather than assuming aligned floor coordinates",
+    "falls vertically beside a %s portal",
     (kind) => {
       const address = { spaceId: "megacorp", planeId: "floor-1" };
       const portals = createProgressionPortals(
@@ -111,7 +111,7 @@ describe("hole destinations", () => {
           },
           [9, 10],
         ),
-      ).toEqual(portals[0].destination);
+      ).toEqual({ spaceId: "megacorp", planeId: "floor-2", entry: "same" });
     },
   );
 

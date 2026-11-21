@@ -412,6 +412,8 @@ export interface Player extends BaseEntity {
   panicChargeMax: number;
   /** Runtime/save guard preventing duplicate death inventory drops. */
   inventoryDroppedOnDeath?: boolean;
+  /** Floors crossed in the current unbroken fall; cleared on solid-ground impact. */
+  fallDistance?: number;
   /** While `sim.nowTick < slowUntilTick`, the player moves at reduced speed. */
   slowUntilTick?: number;
   /** Cosmetic reload/recharge quips are suppressed until this simulation tick. */
@@ -859,9 +861,9 @@ export interface GameState {
    */
   shouldAscend: boolean;
   /**
-   * Grid coordinates of the source hole, used to resolve its authored destination
-   * or the generated floor's paired downstairs portal. These are not assumed
-   * to be valid landing coordinates on an independently generated floor.
+   * Grid coordinates of the source hole and exact vertical landing on the lower
+   * plane. Solid landing terrain is excavated and connected rather than
+   * relocating the player to stairs. Damage is applied after solid-ground impact.
    *
    * Set only by the hole-fall path (`triggerPlayerFall`); a descent through a
    * portal clears it instead, so it is absent for ordinary stair transitions.
