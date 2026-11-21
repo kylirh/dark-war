@@ -122,8 +122,16 @@ export function getClosestPlayer(
  *
  * Actors only: items, bullets and explosives are ignored, and so is the tile
  * itself — callers that also need open floor check `state.tiles` separately.
- * `excludeId` skips one actor, which is what an actor asking whether it may
- * step somewhere needs when the candidate tile is its own.
+ * Dead actors still count, which is what all six call sites did before this
+ * was extracted.
+ *
+ * `excludeId` skips one actor. No caller currently needs it to get the right
+ * answer: both move-candidate paths only ever ask about a neighbour tile
+ * (`chooseIdleWanderDirection` draws from `EIGHT_WAY_DIRECTIONS`, and
+ * `ai.ts`'s scoring loop skips `[0, 0]` before `tryMove` runs), so a mover is
+ * never on the tile it is asking about. It is kept as the guard the extracted
+ * code already carried, and is pinned by a test, so a future caller that does
+ * test its own tile gets a defined answer instead of a surprise.
  */
 export function isTileOccupiedByActor(
   state: GameState,

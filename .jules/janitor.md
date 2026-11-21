@@ -158,11 +158,18 @@ in `sim-helpers.ts` itself (`isMonsterMoveCandidateClear`), and once in
 `ai.ts` (`tryMove`). Only the conjunct order and the variable names differed.
 
 **Action:** extracted `isTileOccupiedByActor(state, tx, ty, excludeId?)` into
-`sim-helpers.ts` and routed all of them through it. The `excludeId` argument
-exists for `isMonsterMoveCandidateClear`, which must not count the moving
-monster itself; the other five sites pass nothing. `ai.ts`'s `tryMove`
-deliberately still does not exclude the mover — its direction list can contain
-`[0, 0]`, and matching itself there is what makes it reject a move to nowhere.
+`sim-helpers.ts` and routed all of them through it. `isMonsterMoveCandidateClear`
+passes the moving monster's id, carrying over the guard it already had; the
+other five sites pass nothing.
+
+**Correction (2026-11-04):** the first version of that paragraph, and the
+helper's TSDoc, claimed `ai.ts`'s `tryMove` omits the exclusion because its
+direction list can contain `[0, 0]`. That is wrong — `ai.ts:1891` skips
+`[0, 0]` before any direction reaches `tryMove`. Neither move-candidate path
+can ask about the mover's own tile (`chooseIdleWanderDirection` draws from
+`EIGHT_WAY_DIRECTIONS`, which has no zero vector), so `excludeId` never changes
+an answer anywhere in the tree today. It is a guard, not load-bearing, and the
+TSDoc now says so.
 
 **Prevention:** before writing `state.entities.some(...)` against a grid
 coordinate, look in `sim-helpers.ts`. Two of the six duplicates were in files
