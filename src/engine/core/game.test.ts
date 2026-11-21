@@ -824,3 +824,40 @@ describe("state.players stays in sync with state.entities", () => {
     expect(game.getState().entities.some((e) => e.id === "p-two")).toBe(false);
   });
 });
+
+/** Runtime authority belongs to the receiving game, rather than save metadata. */
+describe("load authority", () => {
+  it.each(["offline", "online"] as const)(
+    "keeps the receiving %s mode",
+    (mode) => {
+      const source = new Game({
+        mode: mode === "offline" ? "online" : "offline",
+      });
+      source.reset(1);
+      const restored = new Game({ mode });
+      restored.deserialize(source.serialize());
+      expect(restored.getState().multiplayer.mode).toBe(mode);
+    },
+  );
+
+  it("clears a failed ascent intent without removing nearby companions", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(2);
+    const state = game.getState();
+    const bot = new MonsterEntity(
+      state.player.gridX + 1,
+      state.player.gridY,
+      MonsterType.UTILITY_BOT,
+      2,
+    );
+    state.entityManager.spawn(bot);
+    state.pendingPortalId = state.portals.find((portal) =>
+      portal.id.endsWith("stairs-up"),
+    )!.id;
+    const ids = state.entities.map((entity) => entity.id);
+    game.ascend();
+    expect(game.getState()).toBe(state);
+    expect(state.entities.map((entity) => entity.id)).toEqual(ids);
+    expect(state.pendingPortalId).toBeUndefined();
+  });
+});

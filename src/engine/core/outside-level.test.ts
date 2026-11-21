@@ -25,12 +25,13 @@ function reachable(
       [0, 1],
       [0, -1],
     ] as const) {
-      const nextX = x + dx;
-      const nextY = y + dy;
-      if (!plane.inBounds(nextX, nextY)) continue;
+      let nextX = x + dx;
+      let nextY = y + dy;
+      nextX = nextX < 0 ? plane.width - 1 : nextX >= plane.width ? 0 : nextX;
+      nextY = nextY < 0 ? plane.height - 1 : nextY >= plane.height ? 0 : nextY;
       const index = plane.indexFor(nextX, nextY);
       if (visited.has(index)) continue;
-      if (!plane.canTraverse(x, y, nextX, nextY)) continue;
+      if (!plane.canTraverse(x, y, nextX, nextY, true)) continue;
       visited.add(index);
       queue.push([nextX, nextY]);
     }

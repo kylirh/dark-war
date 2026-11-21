@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { beforeEach, describe, it, expect } from "vitest";
 import { clearMonsters } from "./test-utils";
 import { Game } from "../../core/game";
 import { Physics } from "../physics";
@@ -24,6 +24,7 @@ import {
 } from "./snagglepuss-social";
 
 describe("snagglepuss", () => {
+  beforeEach(() => RNG.reseed(7));
   it("is won over by feeding cookies nearby (graded, not a coin flip)", () => {
     const game = new Game({ mode: "offline" });
     game.reset(2);
@@ -124,7 +125,10 @@ describe("snagglepuss", () => {
     state.entityManager.spawn(snagg);
     for (
       let attempt = 0;
-      attempt < 500 && state.pendingSounds.length === 0;
+      attempt < 500 &&
+      !state.pendingSounds.some(
+        (sound) => sound.effect === SoundEffect.SNAGGLEPUSS_MUTTER,
+      );
       attempt++
     ) {
       stepSimulationTick(state);

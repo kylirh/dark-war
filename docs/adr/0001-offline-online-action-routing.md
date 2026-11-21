@@ -1,7 +1,14 @@
 # 0001 - Offline and Online Action Routing
 
-**Status:** Proposed
+**Status:** Rejected
 **Date:** 2026-09-01
+
+## Resolution — 2026-11-21
+
+Keep explicit offline/online routing for now. File size alone does not justify a router rewrite; extract a shared action only when a concrete parity defect or new tool mode requires it. Offline CTDM and online authority remain distinct.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

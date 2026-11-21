@@ -1,7 +1,14 @@
 # 0014 - Synchronous Death State Invalidation
 
-**Status:** Proposed
+**Status:** Rejected; narrower safeguard implemented
 **Date:** 2026-11-09
+
+## Resolution — 2026-11-21
+
+Keep attribution-aware death events and their bounded side effects. A final tick-boundary pass halts zero-HP actors and cancels dead-player transitions even if a future lethal mechanic omits eager invalidation. Existing eager producer-side invalidation remains necessary within the tick. Online lethal hole falls queue normal player death in the source plane and do not migrate a corpse. Do not move loot RNG, kill attribution, and explosion causality into a full synchronous death sweep.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

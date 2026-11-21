@@ -199,6 +199,11 @@ work and no material regression from the current fixed scene.
 
 ## Acceptance checklist
 
+Historical M1 checklist: M0–M8 are complete in `docs/ROADMAP.md`. The remaining
+unchecked visual judgments are production art QA, tracked by issues #44, #50,
+and #61; they are not unassigned foundation implementation tasks. Cave travel
+is implemented and tested in production. Resolver choices are recorded below.
+
 - [ ] Elevation reads without UI explanation.
 - [ ] Inner and outer cliff corners are unambiguous.
 - [x] Tall cliffs have constant-bounded rendering cost.
@@ -206,9 +211,9 @@ work and no material regression from the current fixed scene.
       the selected blob/mixed-Wang shoreline family.
 - [x] Trees retain ground underneath them.
 - [x] Raising/lowering repairs nearby visuals without a full-map pass.
-- [ ] Cave entry moves between planes without simultaneous plane rendering.
+- [x] Cave entry moves between planes without simultaneous plane rendering.
 - [ ] The scene satisfies the review checklist in `docs/ART-DIRECTION.md`.
-- [ ] Resolver-family decisions are recorded below.
+- [x] Resolver-family decisions are recorded below.
 
 ## Resolver decisions
 

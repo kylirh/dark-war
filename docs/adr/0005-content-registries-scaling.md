@@ -1,7 +1,14 @@
 # 0005 - Content Registries Scaling
 
-**Status:** Proposed
+**Status:** Rejected
 **Date:** 2026-09-19
+
+## Resolution — 2026-11-21
+
+Keep typed content records and relational validation tests. A JSON/YAML compiler would still need exactly those relational checks and would replace free enum completeness checking with custom tooling. Reconsider only with an actual external authoring requirement.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

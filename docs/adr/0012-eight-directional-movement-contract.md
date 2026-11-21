@@ -1,7 +1,14 @@
 # 0012 - Eight-Directional Movement Contract
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-10-15
+
+## Resolution — 2026-11-21
+
+Keep eight-way Chebyshev adjacency for continuous movement, AI, and click-to-move. Diagonal movement is intentional; narrowing to four directions is a gameplay regression. Existing traversal and pathfinding tests are the contract.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

@@ -1,7 +1,14 @@
 # 0013 - AI Command Overflow Handling
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-11-01
+
+## Resolution — 2026-11-21
+
+Sort current AI intents by descending priority and stable actor/id tie-breaks, then discard overflow. Do not defer stale AI intents. Implementation, budget documentation, and regression coverage change together in this audit.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

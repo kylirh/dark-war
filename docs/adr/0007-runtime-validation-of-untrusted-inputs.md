@@ -1,7 +1,14 @@
 # 0007 - Runtime Validation of Untrusted Inputs
 
-**Status:** Proposed
+**Status:** Accepted with amendment
 **Date:** 2026-09-21
+
+## Resolution — 2026-11-21
+
+Choose Option 2: shared, dependency-free boundary guards. Network actions now validate member fields in src/net/protocol.ts with a compile-time exhaustive validator table. LAN discovery and save parsers retain their existing boundary-specific validation. A schema dependency does not make validation unskippable; actual call-site routing and adversarial tests do.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

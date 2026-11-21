@@ -274,3 +274,12 @@ files without coordination. Before starting:
 | M0–M8      | `main`       | Complete terrain/world foundation program        | done   | Tests, docs, and authoring sources         |
 | Product    | `main`       | Speech, living-world, browser, and gameplay work | done   | Integrated and reviewed through 2026-09-30 |
 | Next       | unassigned   | Ordinary game content and product expansion      | open   | Build on the completed foundations         |
+
+## Repository maintenance — 2026-11-21
+
+The November audit resolves ADR 0001–0014, integrates useful daily-review PRs,
+fixes concrete runtime defects, and retires reviewed stale branches. See
+[`reviews/2026-11-21-repository-audit.md`](reviews/2026-11-21-repository-audit.md)
+for decisions, PR dispositions, recovery location, and validation. Existing
+GitHub product issues remain the implementation backlog; cleanup does not
+reclassify unbuilt Alpha features as complete.

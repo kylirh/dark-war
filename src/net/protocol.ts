@@ -48,3 +48,58 @@ export type NetworkAction =
     }
   | { type: "DIALOGUE_LEAVE"; expectedRevision: number }
   | { type: "TOGGLE_GOD_MODE" };
+
+/** Validate action fields before an untrusted payload reaches a handler. */
+export function isNetworkAction(value: unknown): value is NetworkAction {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const action = value as Record<string, unknown>;
+  const finite = (key: string): boolean =>
+    typeof action[key] === "number" && Number.isFinite(action[key]);
+  const optionalFinite = (key: string): boolean =>
+    action[key] === undefined || finite(key);
+  const revision = (): boolean =>
+    finite("expectedRevision") &&
+    Number.isSafeInteger(action.expectedRevision) &&
+    (action.expectedRevision as number) >= 0;
+  const validators = {
+    FIRE: (): boolean =>
+      finite("dx") &&
+      finite("dy") &&
+      optionalFinite("facingAngle") &&
+      optionalFinite("targetWorldX") &&
+      optionalFinite("targetWorldY"),
+    USE_ITEM: (): boolean =>
+      finite("dx") &&
+      finite("dy") &&
+      optionalFinite("facingAngle") &&
+      optionalFinite("targetWorldX") &&
+      optionalFinite("targetWorldY"),
+    INTERACT: (): boolean => finite("dx") && finite("dy"),
+    SIGN_CLOSE: (): boolean => true,
+    PICKUP: (): boolean => true,
+    RELOAD: (): boolean => true,
+    WAIT: (): boolean => true,
+    DESCEND: (): boolean => true,
+    ASCEND: (): boolean => true,
+    SHAPE_TERRAIN: (): boolean =>
+      Number.isSafeInteger(action.tileX) &&
+      Number.isSafeInteger(action.tileY) &&
+      (action.delta === -1 || action.delta === 1),
+    SPEAK: (): boolean =>
+      (action.kind === "speech" || action.kind === "thought") &&
+      typeof action.text === "string",
+    DIALOGUE_CHOICE: (): boolean =>
+      typeof action.choiceId === "string" &&
+      (action.freeText === undefined || typeof action.freeText === "string") &&
+      revision(),
+    DIALOGUE_LEAVE: revision,
+    TOGGLE_GOD_MODE: (): boolean => true,
+  } satisfies Record<NetworkAction["type"], () => boolean>;
+  return (
+    typeof action.type === "string" &&
+    Object.prototype.hasOwnProperty.call(validators, action.type) &&
+    validators[action.type as NetworkAction["type"]]()
+  );
+}

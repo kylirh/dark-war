@@ -1,7 +1,14 @@
 # 0008 - Centralized Modal Focus Management
 
-**Status:** Proposed
+**Status:** Rejected
 **Date:** 2026-09-22
+
+## Resolution — 2026-11-21
+
+Keep the existing focus helpers and caller-owned stacking policy. Do not move restore-on-hide into RetroModal without a shared stack, and do not add another opt-in wrapper that leaves the same adoption gap. Existing focus restoration verifies that focus actually landed; the historical reference to open PR #285 is superseded by its September integration.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

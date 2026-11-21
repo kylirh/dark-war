@@ -355,7 +355,7 @@ describe("death stops movement", () => {
     monster.velocityX = 100;
     monster.velocityY = 100;
 
-    for (let i = 0; i < MAX_EVENTS_PER_TICK; i++) {
+    for (let i = 0; i < MAX_EVENTS_PER_TICK - 1; i++) {
       state.eventQueue.push({
         id: `evt-${i}`,
         depth: state.depth,
@@ -392,7 +392,7 @@ describe("death stops movement", () => {
     // this tick, so the PLAYER_DEATH it pushes falls past the limit. Derived
     // from the constant: a hardcoded count would stop hitting the boundary if
     // the limit ever changed, silently reducing this to the test above.
-    for (let i = 0; i < MAX_EVENTS_PER_TICK; i++) {
+    for (let i = 0; i < MAX_EVENTS_PER_TICK - 1; i++) {
       state.eventQueue.push({
         id: `evt-${i}`,
         depth: state.depth,
@@ -414,4 +414,18 @@ describe("death stops movement", () => {
     expect(player.velocityX).toBe(0);
     expect(player.velocityY).toBe(0);
   });
+});
+
+it("halts an already dead player at the tick boundary even without a death event", () => {
+  const game = new Game({ mode: "offline" });
+  game.reset(1);
+  const state = game.getState();
+  state.player.hp = 0;
+  state.player.velocityX = 200;
+  state.shouldAscend = true;
+  state.pendingPortalId = "stale";
+  stepSimulationTick(state);
+  expect(state.player.velocityX).toBe(0);
+  expect(state.shouldAscend).toBe(false);
+  expect(state.pendingPortalId).toBeUndefined();
 });

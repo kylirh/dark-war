@@ -1,7 +1,14 @@
 # 0002 - Testability of Client Layer
 
-**Status:** Proposed
+**Status:** Accepted with scope
 **Date:** 2026-09-05
+
+## Resolution — 2026-11-21
+
+Test actual client behavior in Node where possible, including real Pixi display objects without GPU initialization. Use a per-file DOM environment when a concrete DOM regression requires one; do not switch every client test globally or replace behavior tests with source-string assertions. No new DOM dependency is required by this audit.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

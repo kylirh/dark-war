@@ -1,7 +1,14 @@
 # 0003 - GameState Ownership and Coupling
 
-**Status:** Proposed
+**Status:** Rejected
 **Date:** 2026-09-08
+
+## Resolution — 2026-11-21
+
+Retain GameState and EntityManager lifecycle ownership. Do not replace the engine context with repositories or delete invariant tests: encapsulation does not prove serialization or physics correctness. Strengthen the existing boundary when a demonstrated defect requires it.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

@@ -1209,7 +1209,7 @@ class DarkWar {
   ): ReturnType<Game["getState"]> {
     const state = this.game.getState();
 
-    if (options.resumeTime ?? true) {
+    if ((options.resumeTime ?? true) && !state.player.resting) {
       state.sim.targetTimeScale = REAL_TIME_SCALE;
     }
 

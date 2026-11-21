@@ -1,7 +1,14 @@
 # 0011 - Engine-to-Host Transition Signals
 
-**Status:** Proposed
+**Status:** Rejected
 **Date:** 2026-10-05
+
+## Resolution — 2026-11-21
+
+Retain the transient offline transition flags. Clear pending portal identity on failed ascent as well as success, and avoid detaching companions before a missing destination is detected. The server continues to own individual player migration. Returning a new host-intent protocol is unnecessary for these fixes.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

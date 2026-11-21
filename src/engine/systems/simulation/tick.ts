@@ -42,6 +42,7 @@ import {
   positiveAmount,
   stopPlayerResting,
   isTileOccupiedByActor,
+  haltDyingPlayer,
 } from "./sim-helpers";
 import { updateMonsterSteering, generateAICommands } from "./ai";
 import { updateExplosives, updateEffects } from "./explosives";
@@ -87,15 +88,15 @@ export function stepSimulationTick(state: GameState): void {
   // 2. Generate AI commands based on UPDATED state (after player moved)
   const aiCommands = generateAICommands(state, tick);
 
-  // Guard against too many AI commands
+  sortCommandsDeterministically(aiCommands);
+
+  // Discard the lowest-priority current intents under overload.
   if (aiCommands.length > MAX_COMMANDS_PER_TICK) {
     console.error(
       `Too many AI commands for tick ${tick}: ${aiCommands.length}`,
     );
     aiCommands.length = MAX_COMMANDS_PER_TICK;
   }
-
-  sortCommandsDeterministically(aiCommands);
 
   // 3. Resolve AI commands
   for (const cmd of aiCommands) {
@@ -116,6 +117,20 @@ export function stepSimulationTick(state: GameState): void {
   processHoleFalls(state);
   processEventQueue(state);
   updateConversationSessions(state);
+
+  // Death effects may be deferred, but physics and host transitions must never
+  // act on a corpse, including deaths introduced by future mechanics.
+  for (const entity of state.entities) {
+    if (entity.kind === EntityKind.PLAYER && (entity as Player).hp <= 0) {
+      haltDyingPlayer(state, entity as Player);
+    } else if (
+      entity.kind === EntityKind.MONSTER &&
+      (entity as Monster).hp <= 0
+    ) {
+      entity.velocityX = 0;
+      entity.velocityY = 0;
+    }
+  }
 
   // 5. Cleanup and increment
   clearCommandsForTick(state, tick);

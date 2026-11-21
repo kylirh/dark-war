@@ -1,3 +1,4 @@
+import { applyHoleFallDamage } from "./hole-fall";
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { RawData, WebSocket, WebSocketServer } from "ws";
 import { Game } from "../src/engine/core/game";
@@ -8,13 +9,16 @@ import {
   REST_TIME_SCALE,
   SIM_DT_MS,
 } from "../src/engine/systems/simulation/constants";
-import { NetworkAction, PROTOCOL_VERSION } from "../src/net/protocol";
+import {
+  isNetworkAction,
+  NetworkAction,
+  PROTOCOL_VERSION,
+} from "../src/net/protocol";
 import { computeStateDelta, requiresKeyframe } from "../src/net/state-delta";
 import { Sound } from "../src/client/systems/sound";
 import {
   CommandType,
   EntityKind,
-  HOLE_FALL_DAMAGE,
   INVENTORY_BAR_SIZE,
   ONLINE_TIME_SCALE,
   SerializedState,
@@ -105,26 +109,6 @@ function toCardinalStep(value: unknown): number | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function isNetworkAction(value: unknown): value is NetworkAction {
-  if (!isRecord(value) || typeof value.type !== "string") return false;
-  return (
-    value.type === "FIRE" ||
-    value.type === "USE_ITEM" ||
-    value.type === "INTERACT" ||
-    value.type === "SIGN_CLOSE" ||
-    value.type === "PICKUP" ||
-    value.type === "RELOAD" ||
-    value.type === "WAIT" ||
-    value.type === "DESCEND" ||
-    value.type === "ASCEND" ||
-    value.type === "SHAPE_TERRAIN" ||
-    value.type === "SPEAK" ||
-    value.type === "DIALOGUE_CHOICE" ||
-    value.type === "DIALOGUE_LEAVE" ||
-    value.type === "TOGGLE_GOD_MODE"
-  );
 }
 
 function isIncomingMessage(value: unknown): value is IncomingMessage2 {
@@ -224,6 +208,13 @@ class RoomSession {
   ): void {
     const from = this.worldOfPlayer(playerId);
     if (!from) return;
+    const fallingPlayer = from.game.getPlayerById(playerId);
+    if (!fallingPlayer || fallingPlayer.hp <= 0) return;
+    if (
+      mode === "hole" &&
+      !applyHoleFallDamage(from.game.getState(), fallingPlayer)
+    )
+      return;
     const player = from.game.detachPlayer(playerId);
     if (!player) return;
     from.players.delete(playerId);
@@ -247,7 +238,6 @@ class RoomSession {
     } else {
       position = toState.playerStart;
     }
-    if (mode === "hole") player.hp = Math.max(0, player.hp - HOLE_FALL_DAMAGE);
 
     to.game.attachExistingPlayer(player, position);
     to.players.add(playerId);

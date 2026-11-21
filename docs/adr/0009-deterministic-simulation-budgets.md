@@ -1,7 +1,14 @@
 # 0009 - Deterministic Simulation Budgets
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-09-25
+
+## Resolution — 2026-11-21
+
+Keep deterministic operation counts. Events defer after exactly 1000 events per drain, with two explicit drains per simulation tick. AI intents are sorted before dropping overflow; they are regenerated next tick rather than replayed stale. Player commands remain lossless for their scheduled tick; network admission/rate limiting is a separate boundary concern, not silent command truncation.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

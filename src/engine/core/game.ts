@@ -1355,6 +1355,7 @@ export class Game {
           (candidate) => candidate.id === this.state.pendingPortalId,
         )
       : undefined;
+    this.state.pendingPortalId = undefined;
     if (!portal && this.state.depth <= 0) return;
     const destination: WorldPortalDestination = portal?.destination ?? {
       ...worldAddressForDepth(this.state.depth - 1),
@@ -1363,14 +1364,11 @@ export class Game {
     const previousDepth =
       depthForWorldAddress(destination) ?? Math.max(0, this.state.depth - 1);
 
-    const followingBots = this.pluckNearbyUtilityBots();
-
-    this.saveCurrentLevelSnapshot();
-
     const snapshot = this.levels.get(worldAddressKey(destination));
-    if (!snapshot) {
-      return;
-    }
+    if (!snapshot) return;
+
+    const followingBots = this.pluckNearbyUtilityBots();
+    this.saveCurrentLevelSnapshot();
 
     const landingPosition: [number, number] =
       typeof destination.x === "number" && typeof destination.y === "number"
@@ -1685,7 +1683,7 @@ export class Game {
       options: { fov: true, godMode: data.godMode },
       effects: data.effects,
       multiplayer: {
-        mode: data.multiplayer.mode,
+        mode: this.multiplayerMode,
         localPlayerId,
       },
       sim: {

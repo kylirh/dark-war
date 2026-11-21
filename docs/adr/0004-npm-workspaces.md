@@ -1,7 +1,14 @@
 # 0004 - NPM Workspaces for Build Variants
 
-**Status:** Proposed
+**Status:** Rejected
 **Date:** 2026-09-15
+
+## Resolution — 2026-11-21
+
+Keep the documented source-root package boundaries. npm workspaces alone do not prevent transitive imports or runtime globals, so the purity test remains necessary. There is no current build-variant requirement justifying a repository move.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

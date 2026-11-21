@@ -1,7 +1,14 @@
 # 0006 - Automated State Delta Generation
 
-**Status:** Proposed
+**Status:** Rejected
 **Date:** 2026-09-20
+
+## Resolution — 2026-11-21
+
+Keep the specialized delta codec and exhaustive serialized-field coverage guard added during September. Generated deltas would introduce another schema and compiler without eliminating the need to test ordering, optional-field clearing, and JSON-wire round trips.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

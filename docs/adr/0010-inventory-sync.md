@@ -1,7 +1,14 @@
 # 0010 - Inventory Sync Boundaries
 
-**Status:** Proposed
+**Status:** Accepted with amendment
 **Date:** 2026-09-27
+
+## Resolution — 2026-11-21
+
+Use the existing consumeItem helper as the canonical counted-item deduction boundary. Keep slots and counts flat for persistence and networking; do not introduce an InventoryManager class solely to wrap this helper. Exact-spend and over-spend behavior is regression-tested.
+
+This resolution supersedes the original recommendation and open questions below,
+which are retained as the historical proposal. See the November repository audit.
 
 ## Context
 

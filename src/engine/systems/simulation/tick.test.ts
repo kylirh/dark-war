@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import {
   MAGNET_COLLECT_RADIUS,
   MAGNET_PULL_PX,
@@ -34,6 +34,7 @@ vi.mock("./ai", async (importOriginal) => {
 });
 
 describe("stepSimulationTick", () => {
+  beforeEach(() => RNG.reseed(7));
   /**
    * One tick with `generateAICommands` stubbed to return `commands`, and
    * `console.error` collected rather than printed. The overflow guard
@@ -110,13 +111,8 @@ describe("stepSimulationTick", () => {
     expect(commands.length).toBe(MAX_COMMANDS_PER_TICK);
   });
 
-  // Overflow drops the latest-generated commands, not the least important
-  // ones, because the truncation runs before the sort. ADR 0009 records that
-  // order as open question 2 and leaves it to a human, so this pins current
-  // behaviour rather than endorsing it: if the question is answered, this
-  // test, the ADR, and the `MAX_COMMANDS_PER_TICK` TSDoc all change together.
-  // Nothing else in the suite fails when the two are swapped.
-  it("drops a late high-priority command, because truncation precedes the sort", () => {
+  // Overflow keeps current high-priority intents rather than stale deferred work.
+  it("preserves a late high-priority command when shedding overflow", () => {
     const tick = 10;
     const commands = Array.from({ length: MAX_COMMANDS_PER_TICK }, (_, i) =>
       waitCommand(`cmd-low-${i}`, `m${i}`, tick, 0),
@@ -128,9 +124,8 @@ describe("stepSimulationTick", () => {
     // The length check keeps the second assertion honest: without it, a guard
     // that dropped the whole array would pass.
     expect(commands.length).toBe(MAX_COMMANDS_PER_TICK);
-    // Sorting first would move `cmd-high` (priority 100) to index 0, where
-    // the truncation cannot reach it.
-    expect(commands.some((c) => c.id === "cmd-high")).toBe(false);
+    expect(commands[0].id).toBe("cmd-high");
+    expect(commands.some((c) => c.id === "cmd-high")).toBe(true);
   });
 
   it("leaves aiCommands alone when they are within the limit", () => {

@@ -39,8 +39,8 @@ export const MONSTER_ITEM_PICKUP_CHANCE = 0.85; // 85% chance to pick up items w
  * on `state.eventQueue` and the next tick picks it up. A large legitimate
  * cascade plays out over several ticks rather than resolving instantly.
  *
- * The guard reads `if (processed++ > MAX_EVENTS_PER_TICK)`, so the
- * post-increment lets **1001** events through before it trips, not 1000.
+ * Each drain processes at most MAX_EVENTS_PER_TICK events. The tick has two
+ * explicit drains, so the total tick allowance is twice this ceiling.
  */
 export const MAX_EVENTS_PER_TICK = 1000;
 
@@ -55,11 +55,8 @@ export const MAX_EVENTS_PER_TICK = 1000;
  * rebuilds the list from scratch next tick, so no queue holds the remainder:
  * an actor's intent reappears only if the new state regenerates it.
  *
- * Truncation also runs **before** `sortCommandsDeterministically`, so the
- * commands that survive are the earliest *generated*, not the highest
- * priority. That is deterministic — the same inputs drop the same commands on
- * every machine — but it is not what "safety limit" suggests. ADR 0009 leaves
- * both the drop-versus-defer choice and the truncation order open for a human.
+ * Commands are sorted deterministically before truncation, preserving the
+ * highest priorities and stable actor/id tie-breaks. See ADR 0013.
  */
 export const MAX_COMMANDS_PER_TICK = 1000;
 /** World-speed multiplier while every living player on a plane is resting. */
