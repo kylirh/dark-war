@@ -10,6 +10,8 @@ import { MAX_COMMANDS_PER_TICK } from "./constants";
 import * as ai from "./ai";
 import {
   CELL_CONFIG,
+  type Command,
+  CommandType,
   type GameState,
   type Item,
   ItemType,
@@ -32,117 +34,114 @@ vi.mock("./ai", async (importOriginal) => {
 });
 
 describe("stepSimulationTick", () => {
-  it("truncates aiCommands when they exceed MAX_COMMANDS_PER_TICK", () => {
+  /**
+   * One tick with `generateAICommands` stubbed to return `commands`, and
+   * `console.error` collected rather than printed. The overflow guard
+   * truncates the array it is handed in place
+   * (`aiCommands.length = MAX_COMMANDS_PER_TICK`), so each case below asserts
+   * on the array it passed in; a future non-mutating rewrite of the guard
+   * would need those assertions updated.
+   */
+  function runTickWithAICommands(
+    commands: Command[],
+    tick: number,
+  ): { errors: string[] } {
     const game = new Game({ mode: "offline" });
     game.reset(1);
     const state = game.getState();
-    const tick = 10;
     state.sim.nowTick = tick;
 
-    const overflow = 5;
-    const mockCommands: any[] = [];
-    for (let i = 0; i < MAX_COMMANDS_PER_TICK + overflow; i++) {
-      mockCommands.push({
-        id: `cmd-${i}`,
-        type: "WAIT",
-        actorId: `m${i}`,
-        tick,
+    vi.mocked(ai.generateAICommands).mockReturnValue(commands);
+    const errors: string[] = [];
+    const errorSpy = vi
+      .spyOn(console, "error")
+      .mockImplementation((...args: unknown[]) => {
+        errors.push(args.map(String).join(" "));
       });
-    }
-
-    (ai.generateAICommands as any).mockReturnValue(mockCommands);
-    // The guard logs the pre-truncation count. Spying both asserts that it
-    // fired and keeps the expected error off the suite's stderr.
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
     try {
       stepSimulationTick(state);
-
-      // The guard is observable in two ways, and both matter. The log is what
-      // an operator sees when AI generation runs away.
-      expect(errorSpy).toHaveBeenCalledWith(
-        `Too many AI commands for tick ${tick}: ${MAX_COMMANDS_PER_TICK + overflow}`,
-      );
-      // The cap itself. Note this asserts on the caller's array because the
-      // guard truncates in place (`aiCommands.length = MAX_COMMANDS_PER_TICK`);
-      // a future non-mutating rewrite would need this assertion updated.
-      expect(mockCommands.length).toBe(MAX_COMMANDS_PER_TICK);
     } finally {
       errorSpy.mockRestore();
     }
+
+    return { errors };
+  }
+
+  /**
+   * A well-formed AI `WAIT` command. Spelled out rather than cast through
+   * `any` because `Command.priority` is required and every production call
+   * site assigns it, so a partial literal would model a state the engine
+   * cannot reach.
+   */
+  function waitCommand(
+    id: string,
+    actorId: string,
+    tick: number,
+    priority: number,
+  ): Command {
+    return {
+      id,
+      tick,
+      actorId,
+      type: CommandType.WAIT,
+      data: { type: "WAIT" },
+      priority,
+      source: "AI",
+    };
+  }
+
+  it("truncates aiCommands when they exceed MAX_COMMANDS_PER_TICK", () => {
+    const tick = 10;
+    const overflow = 5;
+    const commands = Array.from(
+      { length: MAX_COMMANDS_PER_TICK + overflow },
+      (_, i) => waitCommand(`cmd-${i}`, `m${i}`, tick, 0),
+    );
+
+    const { errors } = runTickWithAICommands(commands, tick);
+
+    // The guard is observable in two ways, and both matter. The log is what
+    // an operator sees when AI generation runs away.
+    expect(errors).toContain(
+      `Too many AI commands for tick ${tick}: ${MAX_COMMANDS_PER_TICK + overflow}`,
+    );
+    // The cap itself.
+    expect(commands.length).toBe(MAX_COMMANDS_PER_TICK);
   });
 
   // Overflow drops the latest-generated commands, not the least important
-  // ones, because the truncation above runs before the sort. ADR 0009 records
-  // that order as open question 2 and leaves it to a human, so this pins
-  // current behaviour rather than endorsing it: if the question is answered,
-  // this test, the ADR, and the `MAX_COMMANDS_PER_TICK` TSDoc all change
-  // together. Nothing else in the suite fails when the two are swapped.
+  // ones, because the truncation runs before the sort. ADR 0009 records that
+  // order as open question 2 and leaves it to a human, so this pins current
+  // behaviour rather than endorsing it: if the question is answered, this
+  // test, the ADR, and the `MAX_COMMANDS_PER_TICK` TSDoc all change together.
+  // Nothing else in the suite fails when the two are swapped.
   it("drops a late high-priority command, because truncation precedes the sort", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
     const tick = 10;
-    state.sim.nowTick = tick;
+    const commands = Array.from({ length: MAX_COMMANDS_PER_TICK }, (_, i) =>
+      waitCommand(`cmd-low-${i}`, `m${i}`, tick, 0),
+    );
+    commands.push(waitCommand("cmd-high", "m-high", tick, 100));
 
-    const mockCommands: any[] = [];
-    for (let i = 0; i < MAX_COMMANDS_PER_TICK; i++) {
-      mockCommands.push({
-        id: `cmd-low-${i}`,
-        type: "WAIT",
-        actorId: `m${i}`,
-        tick,
-        priority: 0,
-      });
-    }
-    mockCommands.push({
-      id: "cmd-high",
-      type: "WAIT",
-      actorId: "m-high",
-      tick,
-      priority: 100,
-    });
+    runTickWithAICommands(commands, tick);
 
-    (ai.generateAICommands as any).mockReturnValue(mockCommands);
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-    try {
-      stepSimulationTick(state);
-
-      // As in the test above, this asserts on the caller's array because the
-      // guard truncates in place. The length check keeps the second assertion
-      // honest: without it, a guard that dropped the whole array would pass.
-      expect(mockCommands.length).toBe(MAX_COMMANDS_PER_TICK);
-      // Sorting first would move `cmd-high` (priority 100) to index 0, where
-      // the truncation cannot reach it.
-      expect(mockCommands.some((c) => c.id === "cmd-high")).toBe(false);
-    } finally {
-      errorSpy.mockRestore();
-    }
+    // The length check keeps the second assertion honest: without it, a guard
+    // that dropped the whole array would pass.
+    expect(commands.length).toBe(MAX_COMMANDS_PER_TICK);
+    // Sorting first would move `cmd-high` (priority 100) to index 0, where
+    // the truncation cannot reach it.
+    expect(commands.some((c) => c.id === "cmd-high")).toBe(false);
   });
 
   it("leaves aiCommands alone when they are within the limit", () => {
-    const game = new Game({ mode: "offline" });
-    game.reset(1);
-    const state = game.getState();
     const tick = 11;
-    state.sim.nowTick = tick;
+    const commands = [waitCommand("cmd-0", "m0", tick, 0)];
 
-    const mockCommands: any[] = [
-      { id: "cmd-0", type: "WAIT", actorId: "m0", tick },
-    ];
-    (ai.generateAICommands as any).mockReturnValue(mockCommands);
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { errors } = runTickWithAICommands(commands, tick);
 
-    try {
-      stepSimulationTick(state);
-
-      // Without this, a guard that truncated unconditionally would still pass.
-      expect(errorSpy).not.toHaveBeenCalled();
-      expect(mockCommands.length).toBe(1);
-    } finally {
-      errorSpy.mockRestore();
-    }
+    // Without this, a guard that truncated unconditionally would still pass.
+    expect(errors).toEqual([]);
+    expect(commands.length).toBe(1);
   });
 
   describe("processMagneticPickup", () => {
