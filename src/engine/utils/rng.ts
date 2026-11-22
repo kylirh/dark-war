@@ -11,6 +11,12 @@
  * `src/client/` precisely so they never consume this deterministic stream.
  */
 export class RandomNumberGenerator {
+  /**
+   * Outputs discarded when a generator is seeded. SFC32 seeds only its first
+   * state word here, and needs a short run before the other three diffuse it.
+   */
+  private static readonly WARMUP_DRAWS = 12;
+
   private seed: number;
   private rand: () => number;
 
@@ -29,7 +35,7 @@ export class RandomNumberGenerator {
     let c = 0xb5297a4d;
     let d = 0x1b56c4e9;
 
-    return function (): number {
+    const next = function (): number {
       a |= 0;
       b |= 0;
       c |= 0;
@@ -42,6 +48,14 @@ export class RandomNumberGenerator {
       c = (c + t) | 0;
       return (t >>> 0) / 4294967296;
     };
+
+    // Only `a` carries the seed, so without a warm-up the first outputs are
+    // dominated by the seed's high bits: draws 0-2 of a fresh generator are
+    // identical for every nearby seed. Callers that take only one or two draws
+    // (seeded per-boundary anchors, keyed rolls) would get the same value for
+    // every world. Discard the standard sfc32 warm-up before handing it over.
+    for (let i = 0; i < RandomNumberGenerator.WARMUP_DRAWS; i++) next();
+    return next;
   }
 
   /**

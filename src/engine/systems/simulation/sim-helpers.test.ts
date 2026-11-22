@@ -41,6 +41,39 @@ describe("canActorAct", () => {
     monster.hp = 0;
     expect(canActorAct(game.getState(), monster.id, 0)).toBe(false);
   });
+
+  // A hole fall spans one plane per tick, and `fallDistance` stays set while the
+  // player is still in an open shaft. Nothing may resolve for them in that
+  // window: the authoritative host gates velocity and actions on the same field.
+  it("returns false for a player still falling through a shaft", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(0);
+
+    const player = game.getState().players[0];
+    expect(canActorAct(game.getState(), player.id, 0)).toBe(true);
+
+    player.fallDistance = 1;
+    expect(canActorAct(game.getState(), player.id, 0)).toBe(false);
+
+    player.fallDistance = 3;
+    expect(canActorAct(game.getState(), player.id, 0)).toBe(false);
+  });
+
+  it("lets a player act again once a landing clears the fall", () => {
+    const game = new Game({ mode: "offline" });
+    game.reset(0);
+
+    const player = game.getState().players[0];
+    player.fallDistance = 2;
+    expect(canActorAct(game.getState(), player.id, 0)).toBe(false);
+
+    player.fallDistance = undefined;
+    expect(canActorAct(game.getState(), player.id, 0)).toBe(true);
+
+    // A zero reads as "not falling", the same as an absent field.
+    player.fallDistance = 0;
+    expect(canActorAct(game.getState(), player.id, 0)).toBe(true);
+  });
 });
 
 describe("positiveAmount", () => {
