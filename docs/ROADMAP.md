@@ -269,14 +269,15 @@ files without coordination. Before starting:
 
 ### Handoff ledger
 
-| Milestones  | Branch/owner | Scope                                                                | Status | Notes                                                       |
-| ----------- | ------------ | -------------------------------------------------------------------- | ------ | ----------------------------------------------------------- |
-| M0–M8       | `main`       | Complete terrain/world foundation program                            | done   | Tests, docs, and authoring sources                          |
-| Product     | `main`       | Speech, living-world, browser, and gameplay work                     | done   | Integrated and reviewed through 2026-09-30                  |
-| Maintenance | `main`       | November repository audit and branch cleanup                         | done   | See dated repository audit                                  |
-| Reliability | `main`       | Issues #22/#21: shared safe landings and transition regressions      | done   | Offline saves and authoritative WebSocket coverage          |
-| Controls    | `main`       | Complete keyboard bindings and extensible slash development commands | done   | Client/server type checks, full suite, build, browser smoke |
-| Next        | unassigned   | Ordinary game content and product expansion                          | open   | Build on the completed foundations                          |
+| Milestones  | Branch/owner | Scope                                                                          | Status      | Notes                                                       |
+| ----------- | ------------ | ------------------------------------------------------------------------------ | ----------- | ----------------------------------------------------------- |
+| M0–M8       | `main`       | Complete terrain/world foundation program                                      | done        | Tests, docs, and authoring sources                          |
+| Product     | `main`       | Speech, living-world, browser, and gameplay work                               | done        | Integrated and reviewed through 2026-09-30                  |
+| Maintenance | `main`       | November repository audit and branch cleanup                                   | done        | See dated repository audit                                  |
+| Reliability | `main`       | Issues #22/#21: shared safe landings and transition regressions                | done        | Offline saves and authoritative WebSocket coverage          |
+| Controls    | `main`       | Complete keyboard bindings and extensible slash development commands           | done        | Client/server type checks, full suite, build, browser smoke |
+| Farming     | `main`       | Issues #67/#68. Engine, client, sprite atlas, and multiplayer room persistence | implemented | Engine, asset and room checkpoint tests passed              |
+| Next        | unassigned   | Ordinary game content and product expansion                                    | open        | Build on the completed foundations                          |
 
 ## Repository maintenance — 2026-11-21
 

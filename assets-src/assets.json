@@ -7,7 +7,7 @@
       "runtimePath": "assets/img/sprites.png",
       "tileWidth": 32,
       "tileHeight": 32,
-      "generator": ["node", "tools/gen-spritesheet.mjs"]
+      "generator": ["node", "tools/gen-spritesheet.mjs", "--farming-only"]
     }
   ],
   "asepriteSources": [

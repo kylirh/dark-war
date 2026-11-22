@@ -122,6 +122,38 @@ export const ITEM_DEFS: Record<ItemType, ItemDef> = {
     category: "weapon-melee",
     findable: true,
   },
+  [ItemType.HOE]: { name: "Garden Hoe", category: "utility", findable: true },
+  [ItemType.WATERING_CAN]: {
+    name: "Watering Can",
+    category: "utility",
+    findable: true,
+  },
+  [ItemType.CORN_SEED]: {
+    name: "Corn Seeds",
+    category: "utility",
+    stackable: true,
+    findable: true,
+  },
+  [ItemType.POTATO_SEED]: {
+    name: "Seed Potatoes",
+    category: "utility",
+    stackable: true,
+    findable: true,
+  },
+  [ItemType.CORN]: {
+    name: "Corn",
+    category: "consumable",
+    stackable: true,
+    consumable: true,
+    healAmount: 5,
+  },
+  [ItemType.POTATO]: {
+    name: "Potato",
+    category: "consumable",
+    stackable: true,
+    consumable: true,
+    healAmount: 7,
+  },
   [ItemType.PICKAXE]: {
     name: "Pickaxe",
     category: "weapon-melee",

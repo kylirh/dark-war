@@ -47,6 +47,13 @@ import {
   selectPlayerWeaponCallout,
 } from "../../content/player-weapon-callouts";
 import { emitWorldTextCallout } from "../../utils/world-callouts";
+import {
+  clearCropWithPickaxe,
+  harvestCrop,
+  refillWateringCan,
+  removeCrop,
+  useFarmItem,
+} from "./farming";
 import { emitPlayerAlert } from "../../utils/player-alerts";
 import { findReadableSign } from "./signs";
 import { BulletEntity } from "../../entities/bullet-entity";
@@ -279,6 +286,13 @@ export function resolveCommand(state: GameState, cmd: Command): void {
     case CommandType.PLACE_BLOCK:
       resolvePlaceBlockCommand(state, cmd);
       break;
+    case CommandType.HARVEST: {
+      const actor = state.entityManager.getById(cmd.actorId);
+      if (actor?.kind === EntityKind.PLAYER && cmd.data.type === "HARVEST") {
+        harvestCrop(state, actor as Player, cmd.data.tileX, cmd.data.tileY);
+      }
+      break;
+    }
     case CommandType.SHAPE_TERRAIN:
       resolveShapeTerrainCommand(state, cmd);
       break;
@@ -626,6 +640,7 @@ function resolveFireCommand(state: GameState, cmd: Command): void {
             const dy = Math.round(Math.sin(angle));
             const targetX = player.gridX + dx;
             const targetY = player.gridY + dy;
+            if (clearCropWithPickaxe(state, player, targetX, targetY)) return;
             const targetTile = state.tiles.getTile(targetX, targetY);
             if (targetTile === TileType.HOLOWALL) {
               alertMsg(
@@ -1172,6 +1187,7 @@ function resolveMineCommand(state: GameState, cmd: Command): void {
     return;
   }
 
+  if (removeCrop(state, tileX, tileY)) return;
   const tile = state.tiles.getTile(tileX, tileY);
   const structure = state.worldPlane.layers.structure[
     state.worldPlane.indexFor(tileX, tileY)
@@ -1332,7 +1348,57 @@ function resolveUseItemCommand(state: GameState, cmd: Command): void {
   const player = actor as Player;
   const active = player.inventorySlots[player.selectedBarSlot]?.type ?? null;
 
+  if (cmd.data.type !== "USE_ITEM") return;
+  const tileX = Math.floor(
+    (cmd.data.targetWorldX ?? player.worldX) / CELL_CONFIG.w,
+  );
+  const tileY = Math.floor(
+    (cmd.data.targetWorldY ?? player.worldY) / CELL_CONFIG.h,
+  );
+  if (
+    active === ItemType.PICKAXE &&
+    clearCropWithPickaxe(state, player, tileX, tileY)
+  )
+    return;
+
   switch (active) {
+    case ItemType.MATTER_MANIPULATOR:
+      if (
+        state.multiplayer.mode === "online" &&
+        player.hasMatterManipulator &&
+        withinManipulatorReach(player, tileX, tileY) &&
+        removeCrop(state, tileX, tileY)
+      )
+        return;
+      alertMsg(state, "Aim at a nearby crop to clear it.", player.id);
+      return;
+    case ItemType.HOE:
+    case ItemType.WATERING_CAN:
+    case ItemType.CORN_SEED:
+    case ItemType.POTATO_SEED:
+      useFarmItem(state, player, active, tileX, tileY);
+      return;
+    case ItemType.CORN:
+    case ItemType.POTATO: {
+      if (!(player.itemCounts[active] ?? 0)) return;
+      if (player.hp >= player.hpMax) {
+        alertMsg(state, "You're already at full health.", player.id);
+        return;
+      }
+      const healed = Math.min(
+        player.hpMax - player.hp,
+        ITEM_DEFS[active].healAmount ?? 0,
+      );
+      player.hp += healed;
+      consumeItem(player, active);
+      state.pendingSounds.push({ effect: SoundEffect.EAT_1 });
+      alertMsg(
+        state,
+        `You eat ${itemName(active).toLowerCase()}. +${healed} HP`,
+        player.id,
+      );
+      return;
+    }
     case ItemType.MEDKIT: {
       if ((player.itemCounts[ItemType.MEDKIT] ?? 0) <= 0) {
         alertMsg(state, "No medkits left.", player.id);
@@ -1529,6 +1595,11 @@ function resolveReloadCommand(state: GameState, cmd: Command): void {
 
   const player = actor as Player;
   const active = player.inventorySlots[player.selectedBarSlot]?.type ?? null;
+
+  if (active === ItemType.WATERING_CAN) {
+    refillWateringCan(state, player);
+    return;
+  }
 
   // Laser pistol: reload with a power cell.
   if (active === ItemType.LASER_PISTOL || player.weapon === WeaponType.LASER) {

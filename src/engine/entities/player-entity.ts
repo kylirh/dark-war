@@ -67,6 +67,7 @@ export class PlayerEntity extends GameEntity {
   public weapon: WeaponType;
 
   /** Inventory slots (36 total: 0–11 = hot bar, 12–35 = extended) */
+  public wateringCanWater?: number;
   public inventorySlots: InventorySlot[];
 
   /** Index (0–11) of the selected hot-bar slot */
@@ -157,6 +158,16 @@ export class PlayerEntity extends GameEntity {
     this.selectedBarSlot = 0;
   }
 
+  /** Equip the surface gardening kit on a new game or multiplayer join. */
+  public equipGardeningKit(): void {
+    this.inventorySlots[4] = { type: ItemType.HOE };
+    this.inventorySlots[5] = { type: ItemType.WATERING_CAN };
+    this.inventorySlots[6] = { type: ItemType.CORN_SEED };
+    this.inventorySlots[7] = { type: ItemType.POTATO_SEED };
+    this.itemCounts[ItemType.CORN_SEED] = 3;
+    this.itemCounts[ItemType.POTATO_SEED] = 3;
+  }
+
   /**
    * Reset death-lost equipment and resources while preserving progression
    * qualities and the two non-droppable core devices.
@@ -187,6 +198,7 @@ export class PlayerEntity extends GameEntity {
     this.matterManipulatorActive = false;
     this.inventoryDroppedOnDeath = false;
     this.fallDistance = undefined;
+    this.wateringCanWater = undefined;
 
     const addCoreDevice = (type: ItemType): void => {
       if (this.inventorySlots.some((slot) => slot.type === type)) return;

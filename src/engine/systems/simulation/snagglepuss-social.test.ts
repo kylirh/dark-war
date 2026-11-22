@@ -42,7 +42,8 @@ describe("Snagglepuss social behavior", () => {
   it("lies about stolen loot, bargains atomically, and remembers the decision", () => {
     const { game, state, snagglepuss } = setup();
     const player = state.player;
-    player.itemCounts[ItemType.BONE] = 1;
+    // Make the bone the only count-backed item eligible for theft.
+    player.itemCounts = { [ItemType.BONE]: 1 };
     player.inventorySlots[1] = { type: ItemType.BONE };
 
     pushEvent(state, {

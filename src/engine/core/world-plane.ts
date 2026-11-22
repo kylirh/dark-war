@@ -3,7 +3,7 @@
  * two-dimensional world plane.
  */
 
-import { TileType } from "../types";
+import { FarmPlot, TileType } from "../types";
 import { TileSource } from "./tile-source";
 import type { WorldVisualState } from "../systems/terrain/world-visual-resolver";
 
@@ -72,6 +72,8 @@ export function createWorldPlaneLayers(
 
 /** A compositional plane that also satisfies current TileSource consumers. */
 export class WorldPlane implements TileSource {
+  readonly plots = new Map<number, FarmPlot>();
+  farmSubsecondTicks = 0;
   private readonly resolvedTileCache: Uint16Array;
   private readonly resolvedFlagCache: Uint8Array;
   private semanticRevisionValue = 0;

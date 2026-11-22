@@ -37,7 +37,9 @@ app.setAppUserModelId(packageJson.build?.appId || "com.kylir.darkwar");
 
 // ─── Singletons ─────────────────────────────────────────────────────────────────
 
-const serverManager = new ServerManager();
+const serverManager = new ServerManager(
+  path.join(app.getPath("userData"), "rooms"),
+);
 const discoveryManager = new DiscoveryManager();
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────

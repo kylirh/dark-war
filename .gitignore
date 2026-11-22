@@ -32,3 +32,5 @@ app/server-bundle.js
 
 # Web variant build output
 apps/web/dist/
+
+.dark-war-room-saves/

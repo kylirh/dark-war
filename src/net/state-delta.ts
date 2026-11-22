@@ -34,6 +34,8 @@ export interface WorldPlaneDelta {
   fixture?: Array<[number, number]>;
   elevation?: Array<[number, number]>;
   damage?: Array<[number, number]>;
+  plots?: NonNullable<SerializedWorldPlane["plots"]>;
+  farmSubsecondTicks?: number;
 }
 
 export interface StateDelta {
@@ -337,6 +339,14 @@ function diffWorldPlane(
       changed = true;
     }
   }
+  if (base.farmSubsecondTicks !== next.farmSubsecondTicks) {
+    delta.farmSubsecondTicks = next.farmSubsecondTicks ?? 0;
+    changed = true;
+  }
+  if (!shallowJsonEqual(base.plots ?? [], next.plots ?? [])) {
+    delta.plots = next.plots ?? [];
+    changed = true;
+  }
   return changed ? delta : undefined;
 }
 
@@ -345,6 +355,9 @@ function applyWorldPlaneDelta(
   delta: WorldPlaneDelta,
 ): SerializedWorldPlane {
   const next: SerializedWorldPlane = { ...base };
+  if (delta.farmSubsecondTicks !== undefined)
+    next.farmSubsecondTicks = delta.farmSubsecondTicks || undefined;
+  if (delta.plots) next.plots = delta.plots.length ? delta.plots : undefined;
   for (const key of WORLD_PLANE_LAYER_KEYS) {
     const changes = delta[key];
     if (!changes || changes.length === 0) continue;

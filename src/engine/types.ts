@@ -92,6 +92,12 @@ export enum ItemType {
   GYROJET_SHOTGUN = "gyrojet-shotgun",
   MACRO_METAL_SWORD = "macro-metal-sword",
   VIBRA_SWORD = "vibra-sword",
+  HOE = "hoe",
+  WATERING_CAN = "watering_can",
+  CORN_SEED = "corn_seed",
+  POTATO_SEED = "potato_seed",
+  CORN = "corn",
+  POTATO = "potato",
   PICKAXE = "pickaxe",
   MACROMETAL_JACKET = "macrometal-jacket",
   PANIC_BUTTON = "panic-button",
@@ -347,6 +353,10 @@ export const INVENTORY_TOTAL_SLOTS =
  * tests. The set is derived from this array, so the two cannot drift.
  */
 export const STACKABLE_ITEMS: ItemType[] = [
+  ItemType.CORN_SEED,
+  ItemType.POTATO_SEED,
+  ItemType.CORN,
+  ItemType.POTATO,
   ItemType.AMMO,
   ItemType.GRENADE,
   ItemType.LAND_MINE,
@@ -401,6 +411,7 @@ export interface Player extends BaseEntity {
   inventorySlots: InventorySlot[];
   selectedBarSlot: number;
   /** Counts for miscellaneous stackable items (coins, bones, rocks, ...). */
+  wateringCanWater?: number;
   itemCounts: Partial<Record<ItemType, number>>;
   /** Flat damage reduction from armor (e.g. macrometal jacket). */
   armor: number;
@@ -527,7 +538,7 @@ export interface Explosive extends BaseEntity {
 
 export interface Effect {
   id: string;
-  type: "explosion" | "spark" | "hit_flash" | "laser_beam";
+  type: "explosion" | "spark" | "hit_flash" | "laser_beam" | "water_splash";
   worldX: number;
   worldY: number;
   ageTicks: number;
@@ -628,6 +639,7 @@ export enum CommandType {
   /** Matter Manipulator: place a wall block from the inventory at a tile. */
   PLACE_BLOCK = "PLACE_BLOCK",
   /** Matter Manipulator: raise or lower one semantic terrain cell. */
+  HARVEST = "HARVEST",
   SHAPE_TERRAIN = "SHAPE_TERRAIN",
   /** Pick a dialogue choice (or submit free text) in the active conversation. */
   DIALOGUE_CHOICE = "DIALOGUE_CHOICE",
@@ -672,6 +684,7 @@ export type CommandData =
     }
   | { type: "MINE"; tileX: number; tileY: number }
   | { type: "PLACE_BLOCK"; tileX: number; tileY: number; itemType: ItemType }
+  | { type: "HARVEST"; tileX: number; tileY: number }
   | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 }
   | {
       type: "DIALOGUE_CHOICE";
@@ -983,7 +996,23 @@ export interface SerializedLevelState {
   enhancedVision: boolean;
 }
 
+export type CropKind = "corn" | "potato";
+
+/** Sparse cultivated soil and crop state, independent of visual frames. */
+export interface FarmPlot {
+  wetSeconds: number;
+  crop?: {
+    kind: CropKind;
+    stage: "seed" | "seedling" | "small" | "medium" | "full" | "ripe" | "dead";
+    growthSeconds: number;
+    drySeconds: number;
+    harvests: number;
+  };
+}
+
 export interface SerializedWorldPlane {
+  plots?: Array<[number, FarmPlot]>;
+  farmSubsecondTicks?: number;
   width: number;
   height: number;
   ground: number[];

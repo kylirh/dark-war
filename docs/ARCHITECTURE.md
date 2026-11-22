@@ -120,6 +120,20 @@ hits, and the Matter Manipulator restores its full fixture/block mining and
 placement behavior—including holowall removal and placement—without converting
 floor cells into holes.
 
+## Cultivation
+
+Cultivated soil is sparse semantic state on its owning `WorldPlane`. Each plot
+stores moisture and an optional crop with growth stage, dry time, and harvest
+count. The authoritative simulation advances the plane's cultivation clock only
+while that plane ticks. A ripe crop waits indefinitely for harvest. The first
+crop set has standard quality and returns ordinary inventory items for consumption
+and future recipes.
+
+Protocol version 17 carries sparse plot state and the cultivation clock in plane
+snapshots and deltas. The authoritative host checkpoints farmed rooms with the
+existing world serialization, flushing during play and on close. A reopened room
+restores the worlds and starts new player sessions.
+
 ## Actors, relationships, and conversation
 
 Social actors remain ordinary entities with optional orthogonal `social`,

@@ -1,10 +1,10 @@
 {
   "columns": 16,
   "image": "../../app/assets/img/sprites.png",
-  "imageheight": 1376,
+  "imageheight": 1440,
   "imagewidth": 512,
   "name": "dark-war-semantic-palette",
-  "tilecount": 688,
+  "tilecount": 720,
   "tileheight": 32,
   "tilewidth": 32,
   "tiles": [

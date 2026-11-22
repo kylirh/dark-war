@@ -1,3 +1,4 @@
+import { getWaterTarget } from "../../engine/systems/simulation/farming";
 import {
   WebGLRenderer,
   Container,
@@ -1724,6 +1725,36 @@ export class Renderer {
           renderDepthTile("prototype_flowers");
         }
 
+        const plot = state.worldPlane.plots.get(tileIndex);
+        if (plot) {
+          renderGround(plot.wetSeconds > 0 ? "farm_wet" : "farm_dry");
+          if (plot.crop)
+            renderDepthTile(`farm_${plot.crop.kind}_${plot.crop.stage}`);
+        }
+        if (
+          isVisible &&
+          !this.mmOverlay?.active &&
+          state.player.inventorySlots[state.player.selectedBarSlot]?.type ===
+            ItemType.WATERING_CAN &&
+          (plot || isProductionWater)
+        ) {
+          const target = getWaterTarget(
+            state,
+            state.player,
+            tileIndex % state.mapWidth,
+            Math.floor(tileIndex / state.mapWidth),
+          );
+          if (target === "pour" || target === "refill" || target === "empty") {
+            const outline = this.acquireGraphics();
+            outline.rect(screenX + 1, screenY + 1, 30, 30).stroke({
+              width: 1,
+              color: target === "empty" ? 0xffc578 : 0x76f8dc,
+              alpha: 0.85,
+            });
+            this.mapContainer.addChild(outline);
+          }
+        }
+
         if (
           isProductionWater &&
           productionStructure !== StructureType.BRIDGE_HORIZONTAL
@@ -2148,7 +2179,55 @@ export class Renderer {
         offsetY + this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
       const sortY = this.wrapImage(effect.worldY, camCenterY, worldH, wraps);
 
-      if (effect.type === "laser_beam") {
+      if (effect.type === "water_splash") {
+        const progress = effect.ageTicks / effect.durationTicks;
+        const splash = this.acquireGraphics();
+        for (let i = 0; i < 7; i++) {
+          const angle = (i * Math.PI * 2) / 7;
+          const radius = 4 + progress * 10;
+          splash.rect(
+            Math.round(screenX + Math.cos(angle) * radius),
+            Math.round(
+              screenY +
+                Math.sin(angle) * radius -
+                Math.sin(progress * Math.PI) * 9,
+            ),
+            2,
+            3,
+          );
+        }
+        splash.fill({ color: 0x91efed, alpha: 1 - progress });
+        splash.zIndex = sortY + 17;
+        this.entityContainer.addChild(splash);
+        const actor = state.entityManager.getById(effect.entityId ?? "");
+        const canFrame = this.resolveFrameForKey(ItemType.WATERING_CAN);
+        if (actor && canFrame) {
+          const actorX = this.wrapImage(
+            actor.worldX,
+            camCenterX,
+            worldW,
+            wraps,
+          );
+          const actorY = this.wrapImage(
+            actor.worldY,
+            camCenterY,
+            worldH,
+            wraps,
+          );
+          const facing = screenX >= offsetX + actorX ? 1 : -1;
+          const can = this.createSpriteFromFrame(
+            canFrame,
+            offsetX + actorX + facing * 12,
+            offsetY + actorY + 8,
+          );
+          if (can) {
+            can.scale.set(-facing * 0.6, 0.6);
+            can.rotation = facing * Math.sin(progress * Math.PI) * 0.55;
+            can.zIndex = actorY + 10;
+            this.entityContainer.addChild(can);
+          }
+        }
+      } else if (effect.type === "laser_beam") {
         renderLaserPath(
           effect.beamPoints ?? [],
           Math.max(0, 1 - effect.ageTicks / effect.durationTicks),

@@ -91,6 +91,7 @@ export enum SoundEffect {
   PLAYER_HIT_3 = "grunt-3",
   PLAYER_HIT_4 = "grunt-4",
   PLAYER_HIT_5 = "grunt-5",
+  SPLASH = "splash",
   RELOAD = "reload",
   MONSTER_DEATH_1 = "death-1",
   MONSTER_DEATH_2 = "death-2",

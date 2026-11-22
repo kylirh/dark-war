@@ -163,6 +163,30 @@ design and [`docs/ROADMAP.md`](docs/ROADMAP.md) for the completed milestones and
 future handoffs. Dark War is unreleased; old saves, worlds, and multiplayer
 protocol versions are intentionally unsupported.
 
+## Farming
+
+New surface games start with a hoe, a twelve-pour watering can, corn seeds, and
+seed potatoes in hotbar slots 5–8. Select the hoe and left-click nearby level
+grass or dirt. Select a seed and left-click the empty tilled plot to plant it.
+
+With the watering can selected, outlined plots within six tiles can be watered
+with a left click. Stand next to a shore and click adjacent water or press your
+Reload binding (R by default) to refill. Watered soil darkens. Each pour keeps a
+plot wet for 20 active simulation seconds, and growing plants wilt after 40
+consecutive dry seconds. Offline pauses and inactive planes freeze farming time.
+
+Right-click a crop to walk up and harvest it when ripe. Ripe crops wait for you.
+Corn and potatoes each yield three harvests, with a chance of returning a seed
+each time. Select produce and left-click to eat it for health. Clear living or
+dead plants with the hoe, pickaxe, or Matter Manipulator.
+
+Single-player saves retain farm plots and growth. Multiplayer hosts checkpoint
+farmed rooms and resume them under the same room name. Headless hosts can set
+`DARK_WAR_ROOM_SAVES` to select the checkpoint directory (default
+`.dark-war-room-saves` in the working directory). LAN hosts use the app's user
+data directory. To regenerate only the cultivation sprites, run
+`node tools/gen-spritesheet.mjs --farming-only`.
+
 ## Project Structure
 
 ```

@@ -1,12 +1,12 @@
 {
   "columns": 16,
   "image": "../../app/assets/img/sprites.png",
-  "imageheight": 1376,
+  "imageheight": 1440,
   "imagewidth": 512,
   "margin": 0,
   "name": "dark-war-terrain",
   "spacing": 0,
-  "tilecount": 688,
+  "tilecount": 720,
   "tileheight": 32,
   "tiles": [
     {

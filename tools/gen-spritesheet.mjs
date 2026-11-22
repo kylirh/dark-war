@@ -38,7 +38,7 @@ const OUT = join(HERE, "..", "app", "assets", "img", "sprites.png");
 
 const TILE = 32;
 const COLS = 16;
-const OUT_ROWS = 43;
+const OUT_ROWS = 45;
 const environmentBoard = decodePNG(readFileSync(ENVIRONMENT_BOARD));
 const characterBoard = decodePNG(readFileSync(CHARACTER_BOARD));
 const supplementalBoard = decodePNG(readFileSync(SUPPLEMENTAL_BOARD));
@@ -1750,6 +1750,162 @@ drawProductionCell(10, 5, supplementalBoard, 3, 3, { padding: 5 });
 drawProductionCell(13, 5, supplementalBoard, 4, 3, { padding: 5 });
 drawProductionCell(1, 6, supplementalBoard, 5, 3, { padding: 1 });
 
+// Original cultivation sprites. Warm clay, cool leaf shadows, upper-left light.
+{
+  const leafShadow = [27, 83, 76];
+  const leaf = [62, 143, 84];
+  const leafLight = [149, 200, 101];
+  const honey = [245, 190, 80];
+  const cream = [255, 224, 145];
+  const ochre = [182, 105, 66];
+  const clay = [119, 69, 74];
+  const teal = [48, 146, 155];
+  const mint = [145, 220, 205];
+  const blue = [39, 88, 119];
+  const cropFrame = (index) => frame(index % 16, 43 + Math.floor(index / 16));
+  const potato = (c, x, y, radius) => {
+    c.ellipse(x + 1, y + 1, radius, radius - 2, clay);
+    c.ellipse(x, y, radius, radius - 2, ochre);
+    c.ellipse(x - 1, y - 1, radius - 2, radius - 3, honey);
+    c.rect(x - 2, y - 2, 3, 1, cream);
+    c.put(x + 2, y + 1, clay);
+  };
+  const ear = (c, x, y) => {
+    c.thickLine(x + 2, y - 3, x - 2, y + 5, ochre, 3);
+    c.thickLine(x + 1, y - 4, x - 2, y + 2, honey, 2);
+    c.line(x - 1, y, x + 1, y - 4, cream);
+    c.thickLine(x - 4, y - 1, x - 3, y + 6, leaf, 1);
+    c.thickLine(x + 3, y + 2, x - 3, y + 6, leafShadow, 1);
+  };
+
+  const hoe = cropFrame(0);
+  hoe.thickLine(7, 26, 22, 8, clay, 2);
+  hoe.line(7, 24, 21, 7, honey);
+  hoe.thickLine(18, 7, 25, 12, blue, 2);
+  hoe.line(19, 5, 26, 10, mint);
+  hoe.thickLine(25, 11, 23, 15, teal, 2);
+
+  const can = cropFrame(1);
+  // The open handle is drawn as a segmented arc to preserve transparency.
+  can.thickLine(20, 8, 25, 8, teal, 1);
+  can.thickLine(25, 8, 27, 11, mint, 1);
+  can.thickLine(27, 11, 26, 17, teal, 1);
+  can.thickLine(26, 17, 22, 20, blue, 1);
+  can.thickLine(12, 21, 5, 14, blue, 2);
+  can.thickLine(12, 19, 5, 12, teal, 1);
+  can.rect(3, 9, 4, 6, mint);
+  can.ellipse(17, 23, 8, 4, blue);
+  can.rect(9, 12, 17, 11, teal);
+  can.ellipse(17, 12, 8, 4, mint);
+  can.ellipse(17, 12, 5, 2, blue);
+  can.rect(11, 16, 4, 6, mint);
+  can.rect(19, 19, 5, 3, honey);
+
+  const cornSeeds = cropFrame(2);
+  for (const [x, y] of [
+    [12, 12],
+    [21, 15],
+    [15, 22],
+  ]) {
+    cornSeeds.ellipse(x, y, 3, 4, ochre);
+    cornSeeds.ellipse(x - 1, y - 1, 2, 3, honey);
+    cornSeeds.put(x - 1, y - 2, cream);
+  }
+  const seedPotatoes = cropFrame(3);
+  potato(seedPotatoes, 12, 16, 5);
+  potato(seedPotatoes, 22, 22, 5);
+  seedPotatoes.line(11, 13, 9, 9, leaf);
+  seedPotatoes.rect(8, 9, 3, 2, leafLight);
+  seedPotatoes.line(22, 19, 24, 16, leafLight);
+  const corn = cropFrame(4);
+  corn.thickLine(12, 23, 20, 8, ochre, 4);
+  corn.thickLine(12, 21, 20, 7, honey, 3);
+  for (let y = 9; y < 19; y += 3) {
+    const x = 18 - Math.floor((y - 9) / 2);
+    corn.rect(x - 1, y, 3, 1, cream);
+  }
+  corn.thickLine(8, 17, 10, 24, leaf, 2);
+  corn.thickLine(18, 18, 10, 25, leafShadow, 2);
+  corn.line(10, 22, 15, 18, leafLight);
+  const potatoes = cropFrame(5);
+  potato(potatoes, 12, 14, 7);
+  potato(potatoes, 21, 21, 8);
+
+  for (const wet of [false, true]) {
+    const soil = cropFrame(wet ? 7 : 6);
+    soil.ellipse(15, 17, 15, 14, wet ? [62, 50, 68] : clay);
+    soil.ellipse(15, 15, 14, 12, wet ? [85, 65, 76] : [162, 94, 74]);
+    for (const [x, y, length] of [
+      [6, 8, 17],
+      [3, 14, 23],
+      [4, 20, 23],
+      [8, 26, 15],
+    ]) {
+      soil.rect(x + 1, y + 1, length, 2, wet ? [58, 49, 66] : clay);
+      soil.rect(x, y, length - 3, 1, wet ? [115, 88, 91] : [202, 129, 88]);
+    }
+    if (wet) {
+      soil.rect(8, 13, 4, 1, [127, 158, 158]);
+      soil.rect(19, 23, 3, 1, [103, 128, 139]);
+    }
+  }
+
+  for (const isCorn of [true, false]) {
+    for (let stage = 0; stage < 7; stage++) {
+      const c = cropFrame((isCorn ? 8 : 15) + stage);
+      if (stage === 0) {
+        if (isCorn) {
+          c.ellipse(14, 23, 2, 2, honey);
+          c.ellipse(19, 25, 2, 1, ochre);
+        } else {
+          potato(c, 16, 24, 4);
+        }
+        continue;
+      }
+      if (stage === 6) {
+        c.thickLine(16, 26, 13, 13, clay, 1);
+        c.line(15, 24, 23, 19, ochre);
+        c.line(12, 16, 8, 19, ochre);
+        c.rect(7, 19, 4, 2, honey);
+        c.rect(22, 19, 4, 2, ochre);
+        if (isCorn) c.line(13, 14, 10, 9, honey);
+        else c.ellipse(19, 24, 5, 2, clay);
+        continue;
+      }
+      c.ellipse(16, 26, 6 + stage, 2, [49, 54, 62, 120]);
+      if (isCorn) {
+        const top = [0, 22, 17, 12, 6, 6][stage];
+        c.thickLine(16, 26, 16, top, leafShadow, 1);
+        c.line(15, 25, 15, top, leafLight);
+        c.thickLine(15, 24, 11 - stage, 23 - stage, leaf, 1);
+        if (stage > 1) c.thickLine(16, 22, 17 + stage * 2, 20 - stage, leaf, 1);
+        if (stage > 2)
+          c.thickLine(16, 16, 18 - stage * 2, 13 - stage, leafLight, 1);
+        if (stage >= 4) c.rect(14, 4, 3, 4, honey);
+        if (stage === 5) ear(c, 21, 14);
+      } else {
+        const top = [0, 22, 19, 16, 13, 13][stage];
+        const spread = 2 + stage;
+        c.thickLine(16, 26, 16, top, leafShadow, 1);
+        c.ellipse(15 - spread, top + 3, spread - 1, 3, leaf);
+        c.ellipse(16 + spread, top + 5, spread, 3, leafShadow);
+        c.ellipse(16 + spread, top + 4, spread - 1, 2, leaf);
+        c.ellipse(15, top, spread - 1, 3, leafLight);
+        if (stage >= 3) {
+          c.ellipse(12, top + 8, 4, 2, leafShadow);
+          c.ellipse(20, top + 9, 4, 2, leaf);
+        }
+        if (stage === 5) {
+          c.ellipse(11, 15, 2, 2, [226, 171, 218]);
+          c.put(11, 15, cream);
+          potato(c, 21, 24, 5);
+          potato(c, 11, 25, 4);
+        }
+      }
+    }
+  }
+}
+
 for (let i = 0; i < data.length; i += 4) {
   if (data[i + 3] === 0) continue;
   const replacement = LEGACY_TO_CURRENT.get(
@@ -1761,5 +1917,15 @@ for (let i = 0; i < data.length; i += 4) {
   data[i + 2] = replacement[2];
 }
 
+// The existing atlas also contains reviewed manual edits. Refresh only
+// the cultivation rows when iterating on this set.
+if (process.argv.includes("--farming-only")) {
+  const existing = decodePNG(readFileSync(OUT));
+  if (existing.width !== W || existing.height < 43 * TILE) {
+    throw new Error("Unexpected base sprite atlas size");
+  }
+  const baseBytes = W * 43 * TILE * 4;
+  data.set(existing.data.subarray(0, baseBytes));
+}
 writeFileSync(OUT, encodePNG(W, H, data));
 console.log(`spritesheet: ${W}x${H}, generated 2.5D atlas -> ${OUT}`);

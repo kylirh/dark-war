@@ -5,6 +5,8 @@ import {
 import { applyFallLandingDamage } from "../src/engine/systems/simulation/falling";
 import { prepareFallLanding } from "../src/engine/core/vertical-layout";
 import { RNG } from "../src/engine/utils/rng";
+import { join } from "node:path";
+import { loadRoomCheckpoint, saveRoomCheckpoint } from "./room-checkpoint";
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { RawData, WebSocket, WebSocketServer } from "ws";
 import { Game } from "../src/engine/core/game";
@@ -151,7 +153,7 @@ class LevelWorld {
 
 // ─── Room session ──────────────────────────────────────────────────────────────
 
-class RoomSession {
+export class RoomSession {
   private readonly id: string;
   private readonly worlds = new Map<string, LevelWorld>();
   private readonly playerLocation = new Map<string, string>();
@@ -159,14 +161,65 @@ class RoomSession {
   private readonly closeRoom: (roomId: string) => void;
   private tickHandle: NodeJS.Timeout | null = null;
   private phase: RoomPhase = "lobby";
-  private readonly worldSeed = RNG.int(0x40000000);
+  private readonly worldSeed: number;
+  private checkpointed = false;
+  private nextCheckpointAt = 0;
   private hostPlayerId: string | null = null;
 
-  constructor(id: string, closeRoom: (roomId: string) => void) {
+  constructor(
+    id: string,
+    closeRoom: (roomId: string) => void,
+    private readonly saveDirectory?: string,
+  ) {
     this.id = id;
     this.closeRoom = closeRoom;
+    const saved = saveDirectory
+      ? loadRoomCheckpoint(saveDirectory, id)
+      : undefined;
+    this.worldSeed = saved?.seed ?? RNG.int(0x40000000);
+    this.checkpointed = saved !== undefined;
+    for (const state of saved?.worlds ?? []) {
+      const address = {
+        spaceId: state.worldSpaceId,
+        planeId: state.worldPlaneId,
+      };
+      const world = this.getOrCreateWorld(address, state.depth);
+      const start = world.game.getState().playerStart;
+      world.game.deserialize(state);
+      world.game.getState().playerStart = start;
+      for (const player of [...world.game.getState().players]) {
+        world.game.removeNetworkPlayer(player.id);
+      }
+      world.physics.rebuildAll(world.game.getState());
+    }
     // Pre-create the entry world (the outside city, depth 0).
     this.getOrCreateDepthWorld(0);
+  }
+
+  /** Flush worlds once the room has started farming. Empty planes are included. */
+  public checkpoint(): void {
+    if (
+      !this.saveDirectory ||
+      (!this.checkpointed &&
+        ![...this.worlds.values()].some(
+          (world) => world.game.getState().worldPlane.plots.size > 0,
+        ))
+    )
+      return;
+    try {
+      saveRoomCheckpoint(this.saveDirectory, this.id, {
+        seed: this.worldSeed,
+        worlds: [...this.worlds.values()].map(({ game }) => {
+          const state = game.serialize();
+          // The serializer requires a player to hydrate. Use a temporary
+          // fallback when a saved plane is unoccupied.
+          return { ...state, players: [state.player] };
+        }),
+      });
+      this.checkpointed = true;
+    } catch (error) {
+      console.error(`[dark-war-server] Could not save room ${this.id}`, error);
+    }
   }
 
   // ── Private: world management ────────────────────────────────────────────────
@@ -369,6 +422,7 @@ class RoomSession {
         clearInterval(this.tickHandle);
         this.tickHandle = null;
       }
+      this.checkpoint();
       this.closeRoom(this.id);
       return;
     }
@@ -653,6 +707,18 @@ class RoomSession {
       return;
     }
 
+    if (action.type === "HARVEST") {
+      enqueueCommand(state, {
+        tick,
+        actorId: playerId,
+        type: CommandType.HARVEST,
+        data: action,
+        priority: 0,
+        source: "PLAYER",
+      });
+      return;
+    }
+
     if (action.type === "SHAPE_TERRAIN") {
       const tileX = toFiniteNumber(action.tileX);
       const tileY = toFiniteNumber(action.tileY);
@@ -737,6 +803,7 @@ class RoomSession {
     this.getOrCreateDepthWorld(0).game.addStory("New game started.");
     for (const playerId of clientIds) this.addPlayerToWorld(playerId, 0);
 
+    this.checkpoint();
     for (const client of this.clients.values()) client.needsKeyframe = true;
     this.broadcastState();
   }
@@ -814,6 +881,10 @@ class RoomSession {
     const fallingPlayers = new Set<string>();
     for (const world of [...this.worlds.values()]) {
       if (world.players.size > 0) this.handleHoleFalls(world, fallingPlayers);
+    }
+    if (this.saveDirectory && Date.now() >= this.nextCheckpointAt) {
+      this.nextCheckpointAt = Date.now() + 2000;
+      this.checkpoint();
     }
     this.broadcastState();
   }
@@ -1015,7 +1086,10 @@ interface StartedServer {
   port: number;
 }
 
-export function startMultiplayerServer(port: number): Promise<StartedServer> {
+export function startMultiplayerServer(
+  port: number,
+  saveDirectory?: string,
+): Promise<StartedServer> {
   Sound.setEnabled(false);
 
   const rooms = new Map<string, RoomSession>();
@@ -1065,9 +1139,17 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
 
     let room = rooms.get(roomId);
     if (!room) {
-      room = new RoomSession(roomId, (closedRoomId) =>
-        rooms.delete(closedRoomId),
-      );
+      try {
+        room = new RoomSession(
+          roomId,
+          (closedRoomId) => rooms.delete(closedRoomId),
+          saveDirectory,
+        );
+      } catch (error) {
+        console.error(`[dark-war-server] Could not load room ${roomId}`, error);
+        socket.close(1011, "Room checkpoint failed to load");
+        return;
+      }
       rooms.set(roomId, room);
     }
 
@@ -1093,6 +1175,7 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
         port: actualPort,
         close(): Promise<void> {
           return new Promise((res) => {
+            for (const room of rooms.values()) room.checkpoint();
             for (const client of wss.clients) client.terminate();
             wss.close(() => httpServer.close(() => res()));
           });
@@ -1106,7 +1189,16 @@ export function startMultiplayerServer(port: number): Promise<StartedServer> {
 
 if (require.main === module) {
   const port = parsePort(process.argv.slice(2));
-  startMultiplayerServer(port)
+  const saveDirectory =
+    process.env.DARK_WAR_ROOM_SAVES ??
+    join(process.cwd(), ".dark-war-room-saves");
+  const started = startMultiplayerServer(port, saveDirectory);
+  const shutdown = (): void => {
+    void started.then((server) => server.close()).then(() => process.exit(0));
+  };
+  process.once("SIGTERM", shutdown);
+  process.once("SIGINT", shutdown);
+  started
     .then(() => {
       console.log(`[dark-war-server] Ready on port ${port}`);
     })
@@ -1122,7 +1214,7 @@ if (require.main === module) {
       msg !== null &&
       (msg as Record<string, unknown>).type === "shutdown"
     ) {
-      process.exit(0);
+      shutdown();
     }
   });
 }

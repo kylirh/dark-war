@@ -39,7 +39,8 @@ function getLocalIps() {
 // ─── Server Process Manager ─────────────────────────────────────────────────────
 
 class ServerManager {
-  constructor() {
+  constructor(saveDirectory) {
+    this._saveDirectory = saveDirectory;
     this._child = null;
     this._port = null;
     this._onExit = null;
@@ -72,7 +73,11 @@ class ServerManager {
 
       const child = fork(bundlePath, [`--port=${port}`], {
         silent: true,
-        env: { ...process.env, PORT: String(port) },
+        env: {
+          ...process.env,
+          PORT: String(port),
+          DARK_WAR_ROOM_SAVES: this._saveDirectory,
+        },
       });
 
       this._child = child;

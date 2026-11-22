@@ -1,3 +1,7 @@
+import {
+  getWaterTarget,
+  inCropReach,
+} from "../engine/systems/simulation/farming";
 import { CommandPrompt } from "./systems/command-prompt";
 import { DevelopmentCommands } from "./systems/development-commands";
 import { FrameProfiler } from "./systems/frame-profiler";
@@ -330,6 +334,7 @@ class DarkWar {
   private autoMovePath: [number, number][] | null = null;
   private autoMovePathIndex: number = 0;
   private autoMoveDoorTarget: { gridX: number; gridY: number } | null = null;
+  private autoMoveHarvestTarget: { gridX: number; gridY: number } | null = null;
   private autoMovePickupTarget: { gridX: number; gridY: number } | null = null;
   private autoMoveHoleTarget: { gridX: number; gridY: number } | null = null;
   private autoMoveStairsTarget: {
@@ -1370,6 +1375,14 @@ class DarkWar {
 
     const tileType = state.tiles.getTile(tileX, tileY);
 
+    const hasCrop = Boolean(
+      state.worldPlane.plots.get(idxFor(tileX, tileY, state.mapWidth))?.crop,
+    );
+    if (hasCrop && inCropReach(state, state.player, tileX, tileY)) {
+      this.handleHarvest(tileX, tileY);
+      return;
+    }
+
     const isHole = tileType === TileType.HOLE;
     const isStairsDown = tileType === TileType.STAIRS_DOWN;
     const isStairsUp = tileType === TileType.STAIRS_UP;
@@ -1436,6 +1449,9 @@ class DarkWar {
       // Store path for auto-movement; index starts at 1 to skip current position
       this.autoMovePath = path;
       this.autoMovePathIndex = 1;
+      this.autoMoveHarvestTarget = hasCrop
+        ? { gridX: tileX, gridY: tileY }
+        : null;
       this.autoMoveDoorTarget = isDoor ? { gridX: tileX, gridY: tileY } : null;
       this.autoMovePickupTarget =
         !this.autoMoveStairsTarget && shouldPickupOnArrive
@@ -1690,6 +1706,30 @@ class DarkWar {
     this.syncDialoguePanel();
     this.syncSignReader();
     this.updateMatterManipulator();
+    const { player } = this.game.getState();
+    if (this.gameCanvas && !this.mmCursorApplied) {
+      let cursor = "pointer";
+      if (
+        player.inventorySlots[player.selectedBarSlot]?.type ===
+        ItemType.WATERING_CAN
+      ) {
+        const world = this.mouseTracker.getWorldPosition();
+        const tile = this.cursorTileFromWorld(world.x, world.y);
+        const target = tile
+          ? getWaterTarget(this.game.getState(), player, tile.tileX, tile.tileY)
+          : "blocked";
+        cursor =
+          target === "refill"
+            ? "copy"
+            : target === "pour"
+              ? "crosshair"
+              : target === "empty"
+                ? "no-drop"
+                : "not-allowed";
+      }
+      if (this.gameCanvas.style.cursor !== cursor)
+        this.gameCanvas.style.cursor = cursor;
+    }
     this.worldCalloutManager.setWorld(state.worldSpaceId, state.worldPlaneId);
     this.renderer.render(
       state,
@@ -1871,6 +1911,7 @@ class DarkWar {
   }
 
   private clearAutoMoveTargets(): void {
+    this.autoMoveHarvestTarget = null;
     this.autoMoveDoorTarget = null;
     this.autoMovePickupTarget = null;
     this.autoMoveHoleTarget = null;
@@ -1952,10 +1993,13 @@ class DarkWar {
         this.autoMovePathIndex >= this.autoMovePath.length
       ) {
         const doorTarget = this.autoMoveDoorTarget;
+        const harvestTarget = this.autoMoveHarvestTarget;
         const pickupTarget = this.autoMovePickupTarget;
         const holeTarget = this.autoMoveHoleTarget;
         const stairsTarget = this.autoMoveStairsTarget;
         this.clearAutoMoveTargets();
+        if (harvestTarget)
+          this.handleHarvest(harvestTarget.gridX, harvestTarget.gridY);
         this.autoMovePath = null;
         let queuedHoleJump = false;
 
@@ -2336,9 +2380,14 @@ class DarkWar {
     });
   }
 
-  /**
-   * Handle pickup items
-   */
+  private handleHarvest(tileX: number, tileY: number): void {
+    if (this.isLocalPlayerDead()) return;
+    const action = { type: "HARVEST", tileX, tileY } as const;
+    if (this.isOnlineMode()) this.dispatchOnlineAction(action);
+    else this.runOfflinePlayerCommand(CommandType.HARVEST, action);
+  }
+
+  /** Pick up items at the player's location. */
   private handlePickup(): void {
     // Don't allow actions if player is dead
     if (this.isLocalPlayerDead()) {
@@ -2730,7 +2779,8 @@ class DarkWar {
 
     const t = state.tiles.getTile(tile.tileX, tile.tileY);
     // Skip non-minable terrain silently to avoid log spam while dragging.
-    if (minedItemForTile(t) === null) return;
+    if (minedItemForTile(t) === null && !state.worldPlane.plots.get(idx)?.crop)
+      return;
 
     this.cancelAutoMove();
     this.runOfflinePlayerCommand(CommandType.MINE, {

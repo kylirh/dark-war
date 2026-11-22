@@ -12,7 +12,7 @@
  * shape the client sends and the server validates, so changing a member is
  * a wire-format change and needs a PROTOCOL_VERSION bump.
  */
-export const PROTOCOL_VERSION = 16;
+export const PROTOCOL_VERSION = 17;
 
 export type NetworkAction =
   | {
@@ -38,6 +38,7 @@ export type NetworkAction =
   | { type: "WAIT" }
   | { type: "DESCEND" }
   | { type: "ASCEND" }
+  | { type: "HARVEST"; tileX: number; tileY: number }
   | { type: "SHAPE_TERRAIN"; tileX: number; tileY: number; delta: -1 | 1 }
   | { type: "SPEAK"; kind: "speech" | "thought"; text: string }
   | {
@@ -83,6 +84,8 @@ export function isNetworkAction(value: unknown): value is NetworkAction {
     WAIT: (): boolean => true,
     DESCEND: (): boolean => true,
     ASCEND: (): boolean => true,
+    HARVEST: (): boolean =>
+      Number.isSafeInteger(action.tileX) && Number.isSafeInteger(action.tileY),
     SHAPE_TERRAIN: (): boolean =>
       Number.isSafeInteger(action.tileX) &&
       Number.isSafeInteger(action.tileY) &&

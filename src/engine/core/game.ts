@@ -303,6 +303,7 @@ export class Game {
     const dungeon = outside ?? dungeonLevel!;
 
     const player = new PlayerEntity(dungeon.start[0], dungeon.start[1]);
+    if (depth === 0) player.equipGardeningKit();
     const localPlayerId = player.id;
     this.localPlayerId = localPlayerId;
     const explored = new Set<number>();
@@ -617,6 +618,7 @@ export class Game {
     const [spawnX, spawnY] = this.findSpawnTile(reference);
 
     const player = new PlayerEntity(spawnX, spawnY);
+    if (this.state.depth === 0) player.equipGardeningKit();
     player.id = playerId;
     player.nextActTick = this.state.sim.nowTick;
 

@@ -230,6 +230,13 @@ export function serializeWorldPlane(plane: WorldPlane): SerializedWorldPlane {
     fixture: Array.from(plane.layers.fixture),
     elevation: Array.from(plane.layers.elevation),
     damage: Array.from(plane.layers.damage),
+    farmSubsecondTicks: plane.farmSubsecondTicks || undefined,
+    plots: plane.plots.size
+      ? Array.from(plane.plots, ([index, plot]) => [
+          index,
+          { ...plot, crop: plot.crop && { ...plot.crop } },
+        ])
+      : undefined,
   };
 }
 
@@ -283,6 +290,12 @@ export function deserializeWorldPlane(
     },
     resolveSemanticTraversal,
   );
+  plane.farmSubsecondTicks = data.farmSubsecondTicks ?? 0;
+  for (const [index, plot] of data.plots ?? [])
+    plane.plots.set(
+      index,
+      plot.crop ? { ...plot, crop: { ...plot.crop } } : { ...plot },
+    );
   attachProductionVisuals(plane, visualOptions);
   return plane;
 }

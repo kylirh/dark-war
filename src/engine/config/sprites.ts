@@ -79,6 +79,29 @@ export function holeAutotileCoordinate(mask: number): SpriteCoordinate {
  * Row 3: Items
  */
 export const SPRITE_COORDS: Record<string, SpriteCoordinate> = {
+  hoe: { x: 0, y: 43 },
+  watering_can: { x: 1, y: 43 },
+  corn_seed: { x: 2, y: 43 },
+  potato_seed: { x: 3, y: 43 },
+  corn: { x: 4, y: 43 },
+  potato: { x: 5, y: 43 },
+  farm_dry: { x: 6, y: 43 },
+  farm_wet: { x: 7, y: 43 },
+  farm_corn_seed: { x: 8, y: 43 },
+  farm_corn_seedling: { x: 9, y: 43 },
+  farm_corn_small: { x: 10, y: 43 },
+  farm_corn_medium: { x: 11, y: 43 },
+  farm_corn_full: { x: 12, y: 43 },
+  farm_corn_ripe: { x: 13, y: 43 },
+  farm_corn_dead: { x: 14, y: 43 },
+  farm_potato_seed: { x: 15, y: 43 },
+  farm_potato_seedling: { x: 0, y: 44 },
+  farm_potato_small: { x: 1, y: 44 },
+  farm_potato_medium: { x: 2, y: 44 },
+  farm_potato_full: { x: 3, y: 44 },
+  farm_potato_ripe: { x: 4, y: 44 },
+  farm_potato_dead: { x: 5, y: 44 },
+
   // ========================================
   // Row 0 - Tiles
   // ========================================
@@ -291,6 +314,8 @@ const flatSprite = {
 };
 
 export const SPRITE_FRAMES: Record<string, Partial<SpriteFrame>> = {
+  farm_dry: flatSprite,
+  farm_wet: flatSprite,
   [TileType.FLOOR]: flatSprite,
   [TileType.HOLE]: flatSprite,
   [TileType.ASPHALT]: flatSprite,

@@ -11,6 +11,7 @@ import {
   EventType,
   Command,
 } from "../../types";
+import { tickFarming } from "./farming";
 import { idxFor } from "../../utils/helpers";
 import { RNG } from "../../utils/rng";
 import { wrapDelta } from "../../utils/wrap";
@@ -140,6 +141,7 @@ export function stepSimulationTick(state: GameState): void {
     cleanupOldCommands(state, tick);
   }
 
+  tickFarming(state);
   state.sim.nowTick++;
 }
 

@@ -7,6 +7,7 @@ import {
   STACKABLE_ITEMS_SET,
   WeaponType,
 } from "../types";
+import { WATERING_CAN_CAPACITY } from "../content/crop-defs";
 import { itemName } from "../content/item-defs";
 
 /** Map an item to the WeaponType it equips (MELEE for non-weapons/melee gear). */
@@ -113,6 +114,8 @@ export function getSlotDisplayCount(
   const slot = player.inventorySlots[slotIndex];
   if (!slot?.type) return null;
   switch (slot.type) {
+    case ItemType.WATERING_CAN:
+      return player.wateringCanWater ?? WATERING_CAN_CAPACITY;
     case ItemType.PISTOL:
       return player.ammo;
     case ItemType.AMMO:
