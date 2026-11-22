@@ -3294,3 +3294,54 @@ body {
     font-size: 14px;
   }
 }
+
+/* Development commands own focus while the world remains visible. */
+.development-command-prompt {
+  position: fixed;
+  z-index: 10000;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  width: min(760px, calc(100vw - 40px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 20px;
+  border: 2px solid #8cd5bc;
+  border-radius: 10px;
+  color: #f0f7ef;
+  background: #203b39;
+  box-shadow: 0 8px 40px #172a3270;
+  font:
+    15px/1.5 system-ui,
+    sans-serif;
+}
+.development-command-prompt[hidden] {
+  display: none;
+}
+.development-command-prompt h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.development-command-prompt pre {
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 14px/1.6 monospace;
+}
+.development-command-prompt input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px;
+  margin-bottom: 10px;
+  color: #f0f7ef;
+  background: #142e30;
+  border: 1px solid #8cd5bc;
+  font: 16px monospace;
+}
+.development-command-prompt button {
+  padding: 6px 18px;
+  margin-right: 8px;
+  cursor: pointer;
+}

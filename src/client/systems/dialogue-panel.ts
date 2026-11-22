@@ -1,3 +1,8 @@
+import {
+  matchesBinding,
+  KeyBindingAction,
+  slotBindingLabel,
+} from "./preferences";
 /**
  * Accessible conversation panel for server-authoritative dialogue views.
  *
@@ -158,7 +163,7 @@ export class DialoguePanel {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "dialogue-choice";
-      button.textContent = `${index + 1}. ${choice.label}`;
+      button.textContent = `${slotBindingLabel(index)}. ${choice.label}`;
       button.addEventListener("click", () =>
         this.handlers?.onChoice(choice.id, this.renderedRevision),
       );
@@ -210,21 +215,24 @@ export class DialoguePanel {
     if (this.root.hidden) return;
 
     event.stopImmediatePropagation();
-    if (event.key === "Escape") {
+    if (matchesBinding(event, "gameMenu")) {
       event.preventDefault();
       this.handlers?.onLeave(this.renderedRevision);
       return;
     }
 
     if (event.target === this.input) {
+      if (matchesBinding(event, "confirm")) {
+        event.preventDefault();
+        this.nextButton.click();
+      } else if (event.key === "Enter") event.preventDefault();
       return;
     }
 
-    const key = event.key.toLowerCase();
     const previous =
-      key === "arrowup" || key === "arrowleft" || key === "w" || key === "a";
+      matchesBinding(event, "menuUp") || matchesBinding(event, "menuLeft");
     const next =
-      key === "arrowdown" || key === "arrowright" || key === "s" || key === "d";
+      matchesBinding(event, "menuDown") || matchesBinding(event, "menuRight");
     if ((previous || next) && this.choiceButtons.length > 0) {
       event.preventDefault();
       const delta = previous ? -1 : 1;
@@ -235,8 +243,11 @@ export class DialoguePanel {
       return;
     }
 
-    if (/^[1-9]$/.test(key)) {
-      const index = Number(key) - 1;
+    const choiceIndex = Array.from({ length: 9 }, (_, index) => index).find(
+      (index) => matchesBinding(event, `slot${index + 1}` as KeyBindingAction),
+    );
+    if (choiceIndex !== undefined) {
+      const index = choiceIndex;
       const button = this.choiceButtons[index];
       if (button) {
         event.preventDefault();
@@ -245,7 +256,7 @@ export class DialoguePanel {
       return;
     }
 
-    if (key === "enter" || key === " ") {
+    if (matchesBinding(event, "confirm")) {
       const active = document.activeElement;
       if (active instanceof HTMLButtonElement && this.root.contains(active)) {
         event.preventDefault();

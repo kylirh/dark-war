@@ -1,3 +1,4 @@
+import { matchesBinding } from "./preferences";
 /**
  * Slot-based saved game storage and picker UI.
  */
@@ -407,24 +408,22 @@ export class SaveSlotDialog {
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
-    if (event.key === "Escape") {
+    if (matchesBinding(event, "gameMenu")) {
       event.preventDefault();
       event.stopPropagation();
       this.close();
       return;
     }
 
-    const key = event.key.toLowerCase();
-    const delta =
-      key === "arrowright" || key === "d"
-        ? 1
-        : key === "arrowleft" || key === "a"
-          ? -1
-          : key === "arrowdown" || key === "s"
-            ? 2
-            : key === "arrowup" || key === "w"
-              ? -2
-              : 0;
+    const delta = matchesBinding(event, "menuRight")
+      ? 1
+      : matchesBinding(event, "menuLeft")
+        ? -1
+        : matchesBinding(event, "menuDown")
+          ? 2
+          : matchesBinding(event, "menuUp")
+            ? -2
+            : 0;
 
     if (delta !== 0) {
       event.preventDefault();
@@ -432,7 +431,13 @@ export class SaveSlotDialog {
       return;
     }
 
-    if (key === "delete" || key === "backspace") {
+    if (matchesBinding(event, "confirm")) {
+      event.preventDefault();
+      void this.activateSlot(this.selectedSlot);
+      return;
+    }
+
+    if (matchesBinding(event, "deleteSave")) {
       const slot = this.slots.find(
         (candidate) => candidate.slot === this.selectedSlot,
       );

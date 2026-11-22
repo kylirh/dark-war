@@ -290,17 +290,14 @@ function createMenu() {
       submenu: [
         {
           label: "New Game",
-          accelerator: "CmdOrCtrl+N",
           click: () => sendToCommandWindow("game:new"),
         },
         {
           label: "Save",
-          accelerator: "CmdOrCtrl+S",
           click: () => sendToCommandWindow("game:save"),
         },
         {
           label: "Load",
-          accelerator: "CmdOrCtrl+O",
           click: () => sendToCommandWindow("game:load"),
         },
         { type: "separator" },
@@ -328,17 +325,12 @@ function createMenu() {
     {
       label: "View",
       submenu: [
-        { role: "reload" },
-        { role: "forceReload" },
-        { role: "toggleDevTools" },
-        { type: "separator" },
         { role: "resetZoom" },
         { role: "zoomIn" },
         { role: "zoomOut" },
         { type: "separator" },
         {
           label: "Toggle Full Screen",
-          accelerator: "Ctrl+Command+F",
           click: () => {
             const win = BrowserWindow.getFocusedWindow() ?? mainWindow;
             if (win) toggleWindowFullscreen(win);

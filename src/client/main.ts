@@ -1,3 +1,6 @@
+import { CommandPrompt } from "./systems/command-prompt";
+import { DevelopmentCommands } from "./systems/development-commands";
+import { FrameProfiler } from "./systems/frame-profiler";
 import { Game } from "../engine/core/game";
 import { GameLoop } from "../engine/core/game-loop";
 import { isDebug, setDebug, toggleDebug } from "../engine/utils/debug";
@@ -305,6 +308,8 @@ class DarkWar {
   private ui: UI;
   private dialoguePanel: DialoguePanel;
   private signReader: SignReader;
+  private commandPrompt: CommandPrompt;
+  private readonly frameProfiler = new FrameProfiler();
   private readonly dialogueHandlers: DialoguePanelHandlers = {
     onChoice: (choiceId, expectedRevision) =>
       this.sendDialogueChoice(choiceId, undefined, expectedRevision),
@@ -554,6 +559,10 @@ class DarkWar {
     this.ui = new UI();
     this.dialoguePanel = new DialoguePanel();
     this.signReader = new SignReader();
+    this.commandPrompt = new CommandPrompt(
+      this.createDevelopmentCommands(),
+      () => this.inputHandler?.resetKeys(),
+    );
     if (isDebug()) console.timeEnd("Create UI");
 
     this.inventoryBar = new InventoryBar();
@@ -565,8 +574,6 @@ class DarkWar {
     this.characterModal = new CharacterModal({
       preferences: this.preferences,
       onPreferencesChange: (prefs) => this.handlePreferencesChange(prefs),
-      onToggleGodMode: () => this.handleToggleGodMode(),
-      onToggleFOV: () => this.handleToggleFOV(),
       // Multiplayer from within an active game session is not supported;
       // players must start multiplayer from the main menu.
     });
@@ -613,8 +620,6 @@ class DarkWar {
       onSave: () => this.handleSave(),
       onLoad: () => this.handleLoad(),
       onQuit: () => this.handleQuit(),
-      onToggleFOV: () => this.handleToggleFOV(),
-      onToggleGodMode: () => this.handleToggleGodMode(),
     });
     this.saveSlotDialog = new SaveSlotDialog({
       onOpenChange: (isOpen) => this.handleModalStateChange(isOpen),
@@ -635,14 +640,11 @@ class DarkWar {
       onPickup: () => this.handlePickup(),
       onWait: () => this.handleWait(),
       onReload: () => this.handleReload(),
-      onToggleFOV: () => this.handleToggleFOV(),
       onToggleCTDM: () => this.handleToggleCTDM(),
       onToggleMatterManipulator: () => this.handleToggleMatterManipulator(),
-      onToggleGodMode: () => this.handleToggleGodMode(),
       onPrototypeLower: () => this.handlePrototypeElevationEdit("lower"),
       onPrototypeRaise: () => this.handlePrototypeElevationEdit("raise"),
-      onPrototypeToggleTransitions: () =>
-        this.handlePrototypeTransitionToggle(),
+      onOpenCommandPrompt: () => this.openCommandPrompt(),
       onResumePause: (reason) => this.game.resumeFromPause(reason),
       onNewGame: () => this.handleNewGame(),
       onSave: () => this.handleSave(),
@@ -796,11 +798,8 @@ class DarkWar {
     this.applyPreferences();
     // Both settings surfaces must use the latest preferences before editing.
     this.characterModal.setPreferences(this.preferences);
+    this.inventoryBar.setPreferences(this.preferences);
     this.gameMenu.setPreferences(this.preferences);
-
-    if (this.preferences.devTools) {
-      console.info("Dark War preferences updated.", this.preferences);
-    }
   }
 
   private applyPreferences(applyScale: boolean = true): void {
@@ -811,10 +810,6 @@ class DarkWar {
     if (applyScale && this.renderer) {
       this.setScale(this.preferences.zoom);
     }
-
-    window.native
-      ?.setDevToolsEnabled(this.preferences.devTools)
-      .catch(() => {});
   }
 
   private handleModalStateChange(hasOpenModal: boolean): void {
@@ -1681,6 +1676,7 @@ class DarkWar {
    * Render game at variable framerate with interpolation (called by GameLoop)
    */
   private render(): void {
+    this.frameProfiler.frame(performance.now());
     const state = this.game.getState();
     const isDead = this.isLocalPlayerDead();
 
@@ -1722,6 +1718,7 @@ class DarkWar {
 
   private isDialogueActive(): boolean {
     return (
+      this.commandPrompt?.isOpen() === true ||
       this.game.getConversationView() !== undefined ||
       this.dialoguePanel?.isOpen() === true ||
       this.game.getSignView() !== undefined ||
@@ -2457,14 +2454,98 @@ class DarkWar {
     }
   }
 
-  /**
-   * Handle FOV toggle
-   */
-  private handleToggleFOV(): void {
-    if (!this.preferences.devTools) {
-      return;
-    }
-    this.game.toggleFOV();
+  /** Open commands after stopping all continuous world actions. */
+  private openCommandPrompt(): void {
+    if (this.characterModal.isOpen()) return;
+    this.cancelAutoMove();
+    this.inputHandler.resetKeys();
+    this.mmMouseDown = false;
+    this.mmLastMinedIdx = null;
+    if (this.isOnlineMode()) this.setOnlineMoveIntent(0, 0);
+    this.commandPrompt.open();
+  }
+
+  /** Register commands here; help, completion and validation use this metadata. */
+  private createDevelopmentCommands(): DevelopmentCommands {
+    const switches = ["on", "off", "toggle"];
+    const enabled = (argument: string, current: boolean): boolean =>
+      argument === "toggle" ? !current : argument === "on";
+    return new DevelopmentCommands([
+      {
+        name: "godmode",
+        arguments: switches,
+        defaultArgument: "toggle",
+        description:
+          "Enable or disable invulnerability (server-authoritative online).",
+        run: (argument) => {
+          const current = this.game.getState().options.godMode;
+          const target = enabled(argument, current);
+          if (target === current)
+            return `God mode is already ${target ? "on" : "off"}.`;
+          this.handleToggleGodMode();
+          return this.isOnlineMode()
+            ? `Requested god mode ${target ? "on" : "off"}; awaiting server confirmation.`
+            : `God mode ${target ? "on" : "off"}.`;
+        },
+      },
+      {
+        name: "fog",
+        arguments: switches,
+        defaultArgument: "toggle",
+        description: "Toggle fog of war; off reveals the level. Offline only.",
+        run: (argument) => {
+          if (this.isOnlineMode())
+            return "Fog is controlled by the multiplayer server; /fog is available offline only.";
+          const current = this.game.getState().options.fov;
+          const target = enabled(argument, current);
+          if (target !== current) this.game.toggleFOV();
+          return `Fog of war ${target ? "on" : "off"}.`;
+        },
+      },
+      {
+        name: "debug",
+        arguments: switches,
+        defaultArgument: "toggle",
+        description: "Enable verbose diagnostic logging.",
+        run: (argument) => {
+          setDebug(enabled(argument, isDebug()));
+          return `Debug logging ${isDebug() ? "on" : "off"}.`;
+        },
+      },
+      {
+        name: "console",
+        arguments: ["open", "close"],
+        defaultArgument: "open",
+        description: "Open or close Electron developer tools.",
+        run: async (argument) => {
+          if (!window.native?.setDevToolsEnabled)
+            return "The in-app developer console is available in Electron. In a browser, open Developer Tools from the browser menu.";
+          const success = await window.native.setDevToolsEnabled(
+            argument === "open",
+          );
+          if (!success)
+            return "The developer console could not be changed for this window.";
+          return `Developer console ${argument === "open" ? "opened" : "closed"}.`;
+        },
+      },
+      {
+        name: "profile",
+        arguments: ["start", "stop", "status"],
+        description: "Measure frame intervals (mean, p95 and average FPS).",
+        run: (argument) => this.frameProfiler.command(argument),
+      },
+      {
+        name: "transitions",
+        arguments: ["toggle"],
+        defaultArgument: "toggle",
+        description:
+          "Switch terrain transition comparison in the terrain prototype.",
+        run: () =>
+          this.handlePrototypeTransitionToggle()
+            ? "Terrain transition comparison toggled."
+            : "This command requires the offline terrain prototype (npm run dev:terrain).",
+      },
+    ]);
   }
 
   /** Raise/lower the terrain below the active cursor. */
@@ -2517,10 +2598,6 @@ class DarkWar {
    * Handle God Mode toggle
    */
   private handleToggleGodMode(): void {
-    if (!this.preferences.devTools) {
-      return;
-    }
-
     if (this.isOnlineMode()) {
       this.dispatchOnlineAction({ type: "TOGGLE_GOD_MODE" });
       return;
@@ -2958,6 +3035,7 @@ class DarkWar {
     this.gameMenu.dispose();
     this.dialoguePanel.dispose();
     this.signReader.dispose();
+    this.commandPrompt.dispose();
     this.inputHandler.dispose();
     this.mouseTracker.destroy();
     this.worldMap.dispose();
@@ -3293,9 +3371,6 @@ class MainMenuApp implements DarkWarApplication {
     Sound.setVolume(this.preferences.sfxVolume);
     Music.setVolume(this.preferences.musicVolume);
     document.documentElement.dataset.theme = this.preferences.theme;
-    window.native
-      ?.setDevToolsEnabled(this.preferences.devTools)
-      .catch(() => {});
   }
 
   private async refreshContinueEnabled(): Promise<void> {

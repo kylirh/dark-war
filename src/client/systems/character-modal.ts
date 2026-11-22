@@ -1,3 +1,4 @@
+import { slotBindingLabel } from "./preferences";
 import { captureFocusOpener, restoreFocus } from "./focus-restore";
 import {
   INVENTORY_BAR_SIZE,
@@ -9,7 +10,6 @@ import { SPRITE_COORDS, SPRITE_SIZE } from "../../engine/config/sprites";
 import {
   getSlotActions,
   getSlotDisplayCount,
-  getSlotKeyLabel,
   getSlotLabel,
   swapInventorySlots,
 } from "../../engine/utils/inventory";
@@ -21,6 +21,8 @@ import {
   quantizeVolumePercent,
   UserPreferences,
   keyCodeToLabel,
+  bindingFromEvent,
+  matchesBinding,
 } from "./preferences";
 import { Music } from "./music";
 import { Sound } from "./sound";
@@ -41,8 +43,6 @@ type GameView = "main" | "multiplayer" | "host" | "browse" | "join" | "lobby";
 export interface CharacterModalOptions {
   preferences: UserPreferences;
   onPreferencesChange: (prefs: UserPreferences) => void;
-  onToggleGodMode?: () => void;
-  onToggleFOV?: () => void;
   onMultiplayerHost?: (gameName: string, playerName: string) => void;
   onMultiplayerJoin?: (ip: string, port: number, playerName: string) => void;
   onMultiplayerStartGame?: () => void;
@@ -283,7 +283,7 @@ export class CharacterModal {
     const keyLabel = document.createElement("span");
     keyLabel.className = "char-inv-key";
     keyLabel.textContent =
-      index < INVENTORY_BAR_SIZE ? getSlotKeyLabel(index) : "";
+      index < INVENTORY_BAR_SIZE ? slotBindingLabel(index) : "";
 
     const icon = document.createElement("canvas");
     icon.className = "char-inv-icon";
@@ -449,46 +449,6 @@ export class CharacterModal {
     appearStack.appendChild(zoomRow);
     mainView.appendChild(appearStack);
 
-    // ── Dev Tools ──────────────────────────────────────────────────────────────
-    mainView.appendChild(this.buildSectionHeading("Developer"));
-    const devCheckRow = document.createElement("label");
-    devCheckRow.className = "imb-checkbox-row";
-    const devCheckInput = document.createElement("input");
-    devCheckInput.type = "checkbox";
-    devCheckInput.className = "imb-checkbox-input";
-    devCheckInput.id = "char-dev-tools-toggle";
-    devCheckInput.addEventListener("change", () => {
-      this.updatePreferences({ devTools: devCheckInput.checked });
-      this.syncDevToolsControls();
-    });
-    const devCheckBox = document.createElement("span");
-    devCheckBox.className = "imb-checkbox-box";
-    devCheckBox.setAttribute("aria-hidden", "true");
-    const devCheckLabel = document.createElement("span");
-    devCheckLabel.textContent = "Dev Tools";
-    devCheckRow.appendChild(devCheckInput);
-    devCheckRow.appendChild(devCheckBox);
-    devCheckRow.appendChild(devCheckLabel);
-
-    const devPanel = document.createElement("div");
-    devPanel.className = "char-dev-tools-panel";
-    devPanel.dataset.devPanel = "true";
-    const godModeBtn = document.createElement("button");
-    godModeBtn.type = "button";
-    godModeBtn.className = "imb-btn";
-    godModeBtn.textContent = "Toggle God Mode";
-    godModeBtn.addEventListener("click", () => this._opts.onToggleGodMode?.());
-    const fovBtn = document.createElement("button");
-    fovBtn.type = "button";
-    fovBtn.className = "imb-btn";
-    fovBtn.textContent = "Toggle FOV";
-    fovBtn.addEventListener("click", () => this._opts.onToggleFOV?.());
-    devPanel.appendChild(godModeBtn);
-    devPanel.appendChild(fovBtn);
-
-    mainView.appendChild(devCheckRow);
-    mainView.appendChild(devPanel);
-
     // ── Keybindings button ─────────────────────────────────────────────────────
     mainView.appendChild(this.buildSectionHeading("Controls"));
     const kbBtn = document.createElement("button");
@@ -525,7 +485,6 @@ export class CharacterModal {
     for (const def of KEY_BINDING_DEFINITIONS) {
       const row = document.createElement("div");
       row.className = "imb-keybinding-row";
-      if (def.devOnly) row.classList.add("dev-only");
       row.dataset.keybindingRow = def.action;
       const actionLabel = document.createElement("span");
       actionLabel.textContent = def.label;
@@ -534,7 +493,8 @@ export class CharacterModal {
       keyBtn.className = "imb-keybinding-button";
       keyBtn.dataset.keybindingAction = def.action;
       keyBtn.addEventListener("click", () => {
-        this.listeningForKey = def.action;
+        this.listeningForKey =
+          this.listeningForKey === def.action ? null : def.action;
         this.syncKeybindingControls();
       });
       row.appendChild(actionLabel);
@@ -1166,15 +1126,16 @@ export class CharacterModal {
     if (this.listeningForKey) {
       e.preventDefault();
       e.stopPropagation();
-      if (e.key !== "Escape")
-        this.assignKeyBinding(this.listeningForKey, e.code);
+      const binding = bindingFromEvent(e);
+      if (!binding) return;
+      this.assignKeyBinding(this.listeningForKey, binding);
       this.listeningForKey = null;
       this.syncKeybindingControls();
       return;
     }
 
     // Escape navigation
-    if (e.key === "Escape") {
+    if (matchesBinding(e, "gameMenu", this.preferences)) {
       e.preventDefault();
       if (this._grabbedItemType !== null) {
         this.cancelGrab();
@@ -1198,16 +1159,37 @@ export class CharacterModal {
       return;
     }
 
+    if (
+      e.target instanceof HTMLElement &&
+      (e.target.matches("input, textarea, select") ||
+        e.target.isContentEditable)
+    )
+      return;
+    for (const [action, callback] of [
+      ["save", this.onSave],
+      ["load", this.onLoad],
+      ["newGame", this.onNewGame],
+    ] as const) {
+      if (matchesBinding(e, action, this.preferences)) {
+        e.preventDefault();
+        if (!e.repeat) callback?.();
+        return;
+      }
+    }
+
     // Tab switching
-    if (e.key === "1" && e.altKey) {
+    if (matchesBinding(e, "inventoryTab", this.preferences)) {
+      e.preventDefault();
       this.switchTab("inventory");
       return;
     }
-    if (e.key === "2" && e.altKey) {
+    if (matchesBinding(e, "settingsTab", this.preferences)) {
+      e.preventDefault();
       this.switchTab("settings");
       return;
     }
-    if (e.key === "3" && e.altKey) {
+    if (matchesBinding(e, "gameTab", this.preferences)) {
+      e.preventDefault();
       this.switchTab("game");
       return;
     }
@@ -1311,7 +1293,6 @@ export class CharacterModal {
   private syncSettingsControls(): void {
     this.syncSoundLabels();
     this.syncAppearanceControls();
-    this.syncDevToolsControls();
   }
 
   private syncSoundLabels(): void {
@@ -1344,37 +1325,7 @@ export class CharacterModal {
       });
   }
 
-  private syncDevToolsControls(): void {
-    const toggle = this.window.querySelector<HTMLInputElement>(
-      "#char-dev-tools-toggle",
-    );
-    if (toggle) toggle.checked = this.preferences.devTools;
-    this.window
-      .querySelectorAll<HTMLElement>("[data-dev-panel]")
-      .forEach((el) =>
-        el.classList.toggle("hidden", !this.preferences.devTools),
-      );
-    this.window
-      .querySelectorAll<HTMLElement>(".dev-only")
-      .forEach((el) =>
-        el.classList.toggle("hidden", !this.preferences.devTools),
-      );
-  }
-
   private syncKeybindingControls(): void {
-    this.window
-      .querySelectorAll<HTMLElement>(".imb-keybinding-row")
-      .forEach((row) => {
-        const action = row.dataset.keybindingRow as
-          | KeyBindingAction
-          | undefined;
-        if (!action) return;
-        const def = KEY_BINDING_DEFINITIONS.find((d) => d.action === action);
-        row.classList.toggle(
-          "hidden",
-          Boolean(def?.devOnly && !this.preferences.devTools),
-        );
-      });
     this.window
       .querySelectorAll<HTMLButtonElement>("[data-keybinding-action]")
       .forEach((btn) => {
@@ -1384,7 +1335,7 @@ export class CharacterModal {
         if (!action) return;
         btn.textContent =
           this.listeningForKey === action
-            ? "Press a key…"
+            ? "Press a key (click to cancel)"
             : keyCodeToLabel(this.preferences.keyBindings[action] ?? "");
         btn.classList.toggle("listening", this.listeningForKey === action);
       });
@@ -1419,6 +1370,14 @@ export class CharacterModal {
 
   public setPreferences(prefs: UserPreferences): void {
     this.preferences = { ...prefs, keyBindings: { ...prefs.keyBindings } };
+    this.window
+      .querySelectorAll<HTMLElement>(".char-inv-slot")
+      .forEach((slot) => {
+        const index = Number(slot.dataset.index);
+        const label = slot.querySelector<HTMLElement>(".char-inv-key");
+        if (label && index < INVENTORY_BAR_SIZE)
+          label.textContent = slotBindingLabel(index);
+      });
     if (this._isOpen && this._currentTab === "settings")
       this.syncSettingsControls();
     if (

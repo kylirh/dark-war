@@ -1,3 +1,4 @@
+import { matchesBinding } from "./preferences";
 type ResizeEdge =
   | "top"
   | "right"
@@ -118,11 +119,19 @@ export class RetroWindowChrome {
 
   private attachKeyboardShortcuts(): void {
     document.addEventListener("keydown", (event) => {
-      if (!document.body.classList.contains("is-fullscreen")) return;
-      if (event.key !== "Escape") return;
-
+      if (
+        Array.from(
+          document.querySelectorAll(".imb-keybinding-button.listening"),
+        ).some((button) => button.getClientRects().length > 0)
+      )
+        return;
+      if (event.defaultPrevented || !matchesBinding(event, "fullscreen"))
+        return;
       event.preventDefault();
-      window.native?.toggleFullscreen?.();
+      if (window.native?.toggleFullscreen)
+        void window.native.toggleFullscreen();
+      else if (document.fullscreenElement) void document.exitFullscreen();
+      else void document.documentElement.requestFullscreen();
     });
   }
 

@@ -1,3 +1,4 @@
+import { matchesBinding } from "./preferences";
 /**
  * Accessible, non-pausing composer for short player speech and thoughts.
  */
@@ -49,7 +50,7 @@ export class CalloutComposer {
 
     const hint = document.createElement("span");
     hint.className = "world-callout-composer__hint";
-    hint.textContent = "Enter to send · Esc to cancel";
+    hint.textContent = "Confirm to send · Back / Cancel to close";
 
     this.liveRegion = document.createElement("span");
     this.liveRegion.className = "sr-only";
@@ -75,9 +76,14 @@ export class CalloutComposer {
     });
     this.element.addEventListener("keydown", (event: KeyboardEvent) => {
       event.stopPropagation();
-      if (event.key === "Escape") {
+      if (matchesBinding(event, "gameMenu")) {
         event.preventDefault();
         this.close();
+      } else if (matchesBinding(event, "confirm")) {
+        event.preventDefault();
+        this.element.requestSubmit();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
       }
     });
     this.element.addEventListener("keyup", (event: KeyboardEvent) => {

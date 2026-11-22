@@ -68,7 +68,6 @@ describe("preferences", () => {
         musicVolume: 0.2,
         theme: "light",
         zoom: 2,
-        devTools: true,
         keyBindings: fullBindings,
       };
       localStorageMock["darkwar-preferences"] = JSON.stringify(savedPrefs);
@@ -161,10 +160,8 @@ describe("preferences", () => {
       expect(loadPreferences().theme).toBe("light");
     });
 
-    it("requires devTools to be exactly true", () => {
-      expect(load({ devTools: true }).devTools).toBe(true);
-      expect(load({ devTools: "true" }).devTools).toBe(false);
-      expect(load({ devTools: 1 }).devTools).toBe(false);
+    it("drops obsolete development preferences", () => {
+      expect(load({ devTools: true })).not.toHaveProperty("devTools");
     });
   });
 
@@ -188,17 +185,12 @@ describe("preferences", () => {
       expect(prefs.keyBindings.moveDown).toBe(DEFAULT_KEY_BINDINGS.moveDown);
     });
 
-    it("drops bindings for actions absent from KEY_BINDING_DEFINITIONS", () => {
-      // normalizeKeyBindings iterates KEY_BINDING_DEFINITIONS, which no longer
-      // lists weapon1-4 (inventory slot keys took over weapon selection). A
-      // stored weapon binding is therefore discarded, not honored. Pinning this
-      // so the omission stays deliberate rather than looking like a lost edit.
+    it("honors hotbar bindings and ignores obsolete weapon actions", () => {
       localStorageMock["darkwar-preferences"] = JSON.stringify({
-        keyBindings: { weapon1: "KeyZ" },
+        keyBindings: { slot1: "KeyZ", weapon1: "KeyY" },
       });
-      expect(loadPreferences().keyBindings.weapon1).toBe(
-        DEFAULT_KEY_BINDINGS.weapon1,
-      );
+      expect(loadPreferences().keyBindings.slot1).toBe("KeyZ");
+      expect(loadPreferences().keyBindings).not.toHaveProperty("weapon1");
     });
 
     it("returns a fresh bindings object rather than aliasing the defaults", () => {

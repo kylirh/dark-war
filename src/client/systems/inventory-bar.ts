@@ -1,10 +1,15 @@
+import {
+  slotBindingLabel,
+  KeyBindingAction,
+  keyCodeToLabel,
+  UserPreferences,
+} from "./preferences";
 import { INVENTORY_BAR_SIZE, ItemType, Player } from "../../engine/types";
 import { SPRITE_COORDS, SPRITE_SIZE } from "../../engine/config/sprites";
 import { isPlaceableItem } from "../../engine/content/block-defs";
 import {
   getSlotActions,
   getSlotDisplayCount,
-  getSlotKeyLabel,
   getSlotLabel,
 } from "../../engine/utils/inventory";
 import { escapeHtml } from "./html-escape";
@@ -48,6 +53,17 @@ export class InventoryBar {
     this.loadSpriteSheet();
   }
 
+  /** Refresh hotbar hints after a binding change. */
+  public setPreferences(preferences: UserPreferences): void {
+    this.slots.forEach((slot, index) => {
+      const label = slot.querySelector<HTMLElement>(".inv-slot-key");
+      if (label)
+        label.textContent = keyCodeToLabel(
+          preferences.keyBindings[`slot${index + 1}` as KeyBindingAction],
+        );
+    });
+  }
+
   private buildContainer(): HTMLElement {
     const bar = document.createElement("div");
     bar.id = "inventory-bar";
@@ -78,7 +94,7 @@ export class InventoryBar {
 
     const keyLabel = document.createElement("span");
     keyLabel.className = "inv-slot-key";
-    keyLabel.textContent = getSlotKeyLabel(index);
+    keyLabel.textContent = slotBindingLabel(index);
 
     const icon = document.createElement("canvas");
     icon.className = "inv-slot-icon";
