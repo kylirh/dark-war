@@ -1,3 +1,4 @@
+import { matchesBinding } from "./preferences";
 /**
  * Skippable single-player story intro shown before starting a new game.
  */
@@ -108,25 +109,29 @@ export class IntroStory {
   private isDisposed = false;
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === "Escape") {
+    if (matchesBinding(event, "gameMenu")) {
       event.preventDefault();
       event.stopPropagation();
       this.complete();
       return;
     }
 
-    if (
-      event.key === "ArrowRight" ||
-      ((event.key === "Enter" || event.key === " ") &&
-        !(document.activeElement instanceof HTMLButtonElement))
-    ) {
+    if (matchesBinding(event, "confirm")) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (document.activeElement instanceof HTMLButtonElement)
+        document.activeElement.click();
+      else this.next();
+      return;
+    }
+    if (matchesBinding(event, "menuRight")) {
       event.preventDefault();
       event.stopPropagation();
       this.next();
       return;
     }
 
-    if (event.key === "ArrowLeft") {
+    if (matchesBinding(event, "menuLeft")) {
       event.preventDefault();
       event.stopPropagation();
       this.previous();

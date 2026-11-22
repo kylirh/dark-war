@@ -269,13 +269,14 @@ files without coordination. Before starting:
 
 ### Handoff ledger
 
-| Milestones  | Branch/owner | Scope                                                           | Status | Notes                                              |
-| ----------- | ------------ | --------------------------------------------------------------- | ------ | -------------------------------------------------- |
-| M0–M8       | `main`       | Complete terrain/world foundation program                       | done   | Tests, docs, and authoring sources                 |
-| Product     | `main`       | Speech, living-world, browser, and gameplay work                | done   | Integrated and reviewed through 2026-09-30         |
-| Maintenance | `main`       | November repository audit and branch cleanup                    | done   | See dated repository audit                         |
-| Reliability | `main`       | Issues #22/#21: shared safe landings and transition regressions | done   | Offline saves and authoritative WebSocket coverage |
-| Next        | unassigned   | Ordinary game content and product expansion                     | open   | Build on the completed foundations                 |
+| Milestones  | Branch/owner | Scope                                                                | Status | Notes                                                       |
+| ----------- | ------------ | -------------------------------------------------------------------- | ------ | ----------------------------------------------------------- |
+| M0–M8       | `main`       | Complete terrain/world foundation program                            | done   | Tests, docs, and authoring sources                          |
+| Product     | `main`       | Speech, living-world, browser, and gameplay work                     | done   | Integrated and reviewed through 2026-09-30                  |
+| Maintenance | `main`       | November repository audit and branch cleanup                         | done   | See dated repository audit                                  |
+| Reliability | `main`       | Issues #22/#21: shared safe landings and transition regressions      | done   | Offline saves and authoritative WebSocket coverage          |
+| Controls    | `main`       | Complete keyboard bindings and extensible slash development commands | done   | Client/server type checks, full suite, build, browser smoke |
+| Next        | unassigned   | Ordinary game content and product expansion                          | open   | Build on the completed foundations                          |
 
 ## Repository maintenance — 2026-11-21
 
@@ -302,3 +303,18 @@ exact vertical landings with connected excavation, continuous stacked-hole
 falls, destination impact damage, and persisted quadratic fall distance.
 Status: COMPLETE; seeded generation, save/load, offline shaft, authoritative
 multiplayer, and destination-death regression tests pass. Protocol version 16.
+
+## Controls and development commands — 2026-11-21
+
+Every game keyboard action is represented in the settings binding list, including
+menu/dialogue controls, modifier chords, all hotbar slots, terrain shaping, and
+command prompt controls. Conflicts swap bindings; text editing and OS controls
+stay native. Development toggles and their preference gate are removed from both
+settings surfaces. The slash prompt owns world input, reports parser/argument
+errors, generates help/completion from a command registry, and supports bounded
+history. God mode retains multiplayer authority; fog reveal is offline-only.
+The console command opens Electron tools, and frame profiling reports bounded
+interval samples. The README documents defaults, commands, and reading signs.
+Validation: full suite (1,061 Vitest + 12 tooling tests), client/server type checks,
+client/server build, and browser smoke of commands, errors, history, settings,
+and remapped prompt/cancel keys. Native Electron console IPC is unchanged.

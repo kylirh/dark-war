@@ -2,23 +2,53 @@
  * Persistent user preferences for settings and keybindings.
  */
 
-export type KeyBindingAction =
-  | "moveUp"
-  | "moveLeft"
-  | "moveDown"
-  | "moveRight"
-  | "interact"
-  | "speak"
-  | "pickup"
-  | "reload"
-  | "toggleCTDM"
-  | "toggleMatterManipulator"
-  | "weapon1"
-  | "weapon2"
-  | "weapon3"
-  | "weapon4"
-  | "toggleGodMode"
-  | "toggleFOV";
+const BINDINGS = [
+  ["moveUp", "Move Up", "KeyW"],
+  ["moveLeft", "Move Left", "KeyA"],
+  ["moveDown", "Move Down", "KeyS"],
+  ["moveRight", "Move Right", "KeyD"],
+  ["interact", "Interact / Read Sign (facing direction)", "KeyO"],
+  ["speak", "Speak", "KeyT"],
+  ["think", "Think", "Shift+KeyT"],
+  ["pickup", "Pick Up", "KeyG"],
+  ["reload", "Reload", "KeyR"],
+  ["rest", "Rest / Stop Resting", "KeyH"],
+  ["toggleCTDM", "Toggle CTDM", "KeyC"],
+  ["toggleMatterManipulator", "Matter Manipulator", "KeyF"],
+  ["lowerTerrain", "Lower Terrain", "BracketLeft"],
+  ["raiseTerrain", "Raise Terrain", "BracketRight"],
+  ["inventory", "Inventory", "KeyE"],
+  ["gameMenu", "Game Menu / Back / Cancel", "Escape"],
+  ["save", "Save Game", "Mod+KeyS"],
+  ["load", "Load Game", "Mod+KeyO"],
+  ["newGame", "New Game", "Mod+KeyN"],
+  ["commandPrompt", "Development Command Prompt", "Slash"],
+  ["completeCommand", "Complete Command Name", "Tab"],
+  ["inventoryTab", "Inventory Tab", "Alt+Digit1"],
+  ["settingsTab", "Settings Tab", "Alt+Digit2"],
+  ["gameTab", "Game Tab", "Alt+Digit3"],
+  ["menuUp", "Menu / Dialogue Up", "ArrowUp"],
+  ["menuDown", "Menu / Dialogue Down", "ArrowDown"],
+  ["menuLeft", "Menu / Story Previous", "ArrowLeft"],
+  ["menuRight", "Menu / Story Next", "ArrowRight"],
+  ["confirm", "Confirm / Send / Continue", "Enter"],
+  ["deleteSave", "Delete Selected Save", "Delete"],
+  ["fullscreen", "Toggle Full Screen", "F11"],
+  ["slot1", "Hotbar Slot 1 / Dialogue Choice 1", "Digit1"],
+  ["slot2", "Hotbar Slot 2 / Dialogue Choice 2", "Digit2"],
+  ["slot3", "Hotbar Slot 3 / Dialogue Choice 3", "Digit3"],
+  ["slot4", "Hotbar Slot 4 / Dialogue Choice 4", "Digit4"],
+  ["slot5", "Hotbar Slot 5 / Dialogue Choice 5", "Digit5"],
+  ["slot6", "Hotbar Slot 6 / Dialogue Choice 6", "Digit6"],
+  ["slot7", "Hotbar Slot 7 / Dialogue Choice 7", "Digit7"],
+  ["slot8", "Hotbar Slot 8 / Dialogue Choice 8", "Digit8"],
+  ["slot9", "Hotbar Slot 9 / Dialogue Choice 9", "Digit9"],
+  ["slot10", "Hotbar Slot 10", "Digit0"],
+  ["slot11", "Hotbar Slot 11", "Minus"],
+  ["slot12", "Hotbar Slot 12", "Equal"],
+] as const;
+
+export type KeyBindingAction = (typeof BINDINGS)[number][0];
 
 type ThemeMode = "dark" | "light";
 
@@ -39,7 +69,6 @@ export function quantizeVolumePercent(value: number): number {
 export interface KeyBindingDefinition {
   action: KeyBindingAction;
   label: string;
-  devOnly?: boolean;
 }
 
 export interface UserPreferences {
@@ -47,55 +76,25 @@ export interface UserPreferences {
   musicVolume: number;
   theme: ThemeMode;
   zoom: number;
-  devTools: boolean;
   keyBindings: Record<KeyBindingAction, string>;
 }
 
 const PREFERENCES_KEY = "darkwar-preferences";
 const LEGACY_THEME_KEY = "darkwar-ui-theme";
 
-export const KEY_BINDING_DEFINITIONS: KeyBindingDefinition[] = [
-  { action: "moveUp", label: "Move Up" },
-  { action: "moveLeft", label: "Move Left" },
-  { action: "moveDown", label: "Move Down" },
-  { action: "moveRight", label: "Move Right" },
-  { action: "interact", label: "Open Doors" },
-  { action: "speak", label: "Speak / Think" },
-  { action: "pickup", label: "Pickup" },
-  { action: "reload", label: "Reload" },
-  { action: "toggleCTDM", label: "Toggle CTDM" },
-  { action: "toggleMatterManipulator", label: "Matter Manipulator" },
-  // weapon1-4 intentionally omitted: inventory slot keys (1-9, 0, -, =)
-  // now handle weapon selection through the inventory bar.
-  { action: "toggleGodMode", label: "God Mode", devOnly: true },
-  { action: "toggleFOV", label: "Toggle FOV", devOnly: true },
-];
+export const KEY_BINDING_DEFINITIONS: KeyBindingDefinition[] = BINDINGS.map(
+  ([action, label]) => ({ action, label }),
+);
 
-export const DEFAULT_KEY_BINDINGS: Record<KeyBindingAction, string> = {
-  moveUp: "KeyW",
-  moveLeft: "KeyA",
-  moveDown: "KeyS",
-  moveRight: "KeyD",
-  interact: "KeyO",
-  speak: "KeyT",
-  pickup: "KeyG",
-  reload: "KeyR",
-  toggleCTDM: "KeyC",
-  toggleMatterManipulator: "KeyF",
-  weapon1: "Digit1",
-  weapon2: "Digit2",
-  weapon3: "Digit3",
-  weapon4: "Digit4",
-  toggleGodMode: "KeyM",
-  toggleFOV: "KeyV",
-};
+export const DEFAULT_KEY_BINDINGS = Object.fromEntries(
+  BINDINGS.map(([action, , key]) => [action, key]),
+) as Record<KeyBindingAction, string>;
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
   sfxVolume: 0.5,
   musicVolume: 0.3,
   theme: "dark",
   zoom: 1,
-  devTools: false,
   keyBindings: DEFAULT_KEY_BINDINGS,
 };
 
@@ -149,7 +148,6 @@ export function loadPreferences(): UserPreferences {
         ) / 100,
       theme: normalizeTheme(parsed.theme ?? legacyTheme),
       zoom: normalizeZoom(parsed.zoom),
-      devTools: parsed.devTools === true,
       keyBindings: normalizeKeyBindings(parsed.keyBindings),
     };
   } catch {
@@ -167,6 +165,18 @@ export function savePreferences(preferences: UserPreferences): void {
 }
 
 export function keyCodeToLabel(code: string): string {
+  if (code.includes("+"))
+    return code.split("+").map(keyCodeToLabel).join(" + ");
+  if (code === "Mod") return "Ctrl / Cmd";
+  const punctuation: Record<string, string> = {
+    Slash: "/",
+    Backslash: "\\",
+    BracketLeft: "[",
+    BracketRight: "]",
+    Minus: "-",
+    Equal: "=",
+  };
+  if (punctuation[code]) return punctuation[code];
   if (code.startsWith("Key")) return code.slice(3);
   if (code.startsWith("Digit")) return code.slice(5);
   if (code.startsWith("Numpad")) return `Numpad ${code.slice(6)}`;
@@ -176,4 +186,34 @@ export function keyCodeToLabel(code: string): string {
   if (code === "ArrowLeft") return "Left Arrow";
   if (code === "ArrowRight") return "Right Arrow";
   return code.replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
+/** Encode a physical key with modifiers; Ctrl and Command share portable Mod. */
+export function bindingFromEvent(event: KeyboardEvent): string | null {
+  if (!event.code || /^(Shift|Control|Alt|Meta)(Left|Right)$/.test(event.code))
+    return null;
+  return [
+    event.ctrlKey || event.metaKey ? "Mod" : "",
+    event.altKey ? "Alt" : "",
+    event.shiftKey ? "Shift" : "",
+    event.code,
+  ]
+    .filter(Boolean)
+    .join("+");
+}
+
+/** Match exactly, so typing Ctrl+S never also moves the player down. */
+export function matchesBinding(
+  event: KeyboardEvent,
+  action: KeyBindingAction,
+  preferences: UserPreferences = loadPreferences(),
+): boolean {
+  return bindingFromEvent(event) === preferences.keyBindings[action];
+}
+
+/** Current physical hotbar binding, shared by inventory labels and dialogue hints. */
+export function slotBindingLabel(index: number): string {
+  return keyCodeToLabel(
+    loadPreferences().keyBindings[`slot${index + 1}` as KeyBindingAction] ?? "",
+  );
 }

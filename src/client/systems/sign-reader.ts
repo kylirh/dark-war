@@ -1,3 +1,4 @@
+import { matchesBinding } from "./preferences";
 /** Accessible reader panel for server-authoritative environmental signs. */
 
 import { SignView } from "../../engine/types";
@@ -43,7 +44,7 @@ export class SignReader {
 
     const hint = document.createElement("p");
     hint.className = "sign-reader-hint";
-    hint.textContent = "Press Escape or close to continue";
+    hint.textContent = "Use Back / Cancel, Confirm, or Close to continue";
 
     this.closeButton = document.createElement("button");
     this.closeButton.type = "button";
@@ -101,10 +102,10 @@ export class SignReader {
     if (this.root.hidden) return;
 
     event.stopImmediatePropagation();
-    if (event.key === "Escape" || event.key === "Enter" || event.key === " ") {
+    if (matchesBinding(event, "gameMenu") || matchesBinding(event, "confirm")) {
       event.preventDefault();
       if (
-        event.key === "Escape" ||
+        matchesBinding(event, "gameMenu") ||
         document.activeElement !== this.closeButton
       ) {
         this.handlers?.onClose();

@@ -184,24 +184,54 @@ dark-war/
 
 ## Controls
 
-All movement and action keys are configurable in **Settings** from the pause menu.
+Every game keyboard action is configurable in **Settings → Keyboard Bindings**,
+including menu/dialogue navigation, all 12 hotbar slots, modifier shortcuts,
+speech/thought, terrain editing, and the development prompt. Click a binding and
+press the new key or chord; click it again to cancel. Conflicting bindings swap.
+Ctrl and Command share the portable “Ctrl / Cmd” modifier. Standard text editing,
+Tab focus navigation, native button activation, and OS shortcuts remain native.
 
-| Key                        | Action                                                     |
-| -------------------------- | ---------------------------------------------------------- |
-| **WASD**                   | Move in 8 directions                                       |
-| **Mouse**                  | Aim weapon                                                 |
-| **Left Click**             | Use current weapon (melee / shoot / throw / place)         |
-| **Right Click**            | Click-to-move (walk to tile; click stairs to use them)     |
-| **Mouse Wheel** or **1–4** | Cycle weapons                                              |
-| **G**                      | Pick up nearby items                                       |
-| **R**                      | Reload active weapon (uses the matching ammo / power cell) |
-| **O**                      | Open / close door in movement direction                    |
-| **C**                      | Toggle CTDM (time dilation device)                         |
-| **Escape**                 | Pause menu / cancel auto-move                              |
+| Default                     | Action                                                            |
+| --------------------------- | ----------------------------------------------------------------- |
+| WASD                        | Move in eight directions                                          |
+| Mouse / left click          | Aim / use selected equipment                                      |
+| Right click                 | Walk to a tile; use stairs                                        |
+| Mouse wheel                 | Cycle inventory slots                                             |
+| 1–9, 0, -, =                | Select hotbar slots 1–12                                          |
+| O                           | Interact with doors, characters, or signs in the facing direction |
+| G / R / H                   | Pick up / reload / toggle rest                                    |
+| T / Shift+T                 | Speak / think                                                     |
+| C / F                       | Toggle CTDM / Matter Manipulator                                  |
+| [ / ]                       | Lower / raise terrain with the Matter Manipulator                 |
+| E / Escape                  | Inventory / game menu or back/cancel                              |
+| Alt+1 / Alt+2 / Alt+3       | Inventory / settings / game tabs while the panel is open          |
+| Ctrl/Cmd+S / O / N          | Save / load / new game                                            |
+| Arrow keys / Enter / Delete | Navigate menus and dialogue / confirm / delete selected save      |
+| F11                         | Toggle full screen                                                |
+| /                           | Open development commands                                         |
 
-**Stairs**: Right-click a staircase to auto-navigate to it and descend or ascend. You can also walk directly onto a staircase tile.
+**Reading signs:** Stand beside the sign, face it by moving toward it, then press
+Interact (`O` by default). The sign reader shows its title and text. Use the
+configured Back/Cancel or Confirm key, or click Close, to return. Interact also
+starts conversations with adjacent characters. There is no separate Look key.
 
-**Dev tools** (enable in Settings): `V` toggles FOV visualization, `M` toggles god mode.
+**Stairs:** Right-click a staircase to auto-navigate and use it, or walk onto it.
+
+**Development commands:** Press `/`, type a command, and confirm (Enter by default).
+The prompt owns keyboard and mouse world actions while open; the world continues
+running. Use `/help` or `/help command` for usage. Menu Up/Down recall history;
+Complete Command Name (Tab by default) completes a unique command name.
+Invalid commands and arguments show feedback without changing game state.
+
+- `/godmode [on|off|toggle]` — invulnerability; server-authoritative online.
+- `/fog [on|off|toggle]` — fog of war; `off` reveals the level (offline only).
+- `/debug [on|off|toggle]` — diagnostic logging.
+- `/console [open|close]` — Electron developer tools; browser builds explain how to open browser tools.
+- `/profile <start|stop|status>` — bounded frame-interval sampling, mean/p95 milliseconds and average FPS. Close the prompt to play during capture; use the developer console for CPU profiling.
+- `/transitions [toggle]` — terrain transition comparison, in `npm run dev:terrain` only.
+
+Development modes are session controls, separate from settings. God mode and fog
+commands default to toggle; debug defaults to toggle; console defaults to open.
 
 ## Technologies
 

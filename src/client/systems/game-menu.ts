@@ -11,6 +11,8 @@ import {
   quantizeVolumePercent,
   UserPreferences,
   keyCodeToLabel,
+  bindingFromEvent,
+  matchesBinding,
 } from "./preferences";
 import { Sound } from "./sound";
 import { LobbyPlayer } from "../../net/multiplayer-client";
@@ -71,8 +73,6 @@ interface GameMenuOptions {
   onSave?: () => void;
   onLoad?: () => void;
   onQuit?: () => void;
-  onToggleFOV?: () => void;
-  onToggleGodMode?: () => void;
   // Multiplayer
   onMultiplayerHost?: (gameName: string, playerName: string) => void;
   onMultiplayerJoin?: (ip: string, port: number, playerName: string) => void;
@@ -268,15 +268,6 @@ export class GameMenu {
                 <button class="imb-theme-option" data-zoom-value="3" type="button">3X</button>
               </div>
             </div>
-            <label class="imb-checkbox-row">
-              <input class="imb-checkbox-input" id="dev-tools-toggle" type="checkbox" />
-              <span class="imb-checkbox-box" aria-hidden="true"></span>
-              <span>Dev Tools</span>
-            </label>
-            <div class="imb-dev-tools-panel hidden" data-dev-tools-panel>
-              <button class="imb-btn" data-dev-action="god-mode" type="button">Toggle God Mode</button>
-              <button class="imb-btn" data-dev-action="fov" type="button">Toggle FOV</button>
-            </div>
             <button class="imb-btn" data-open-keybindings type="button">Keyboard Bindings</button>
           </div>
         </div>
@@ -291,7 +282,7 @@ export class GameMenu {
             ${KEY_BINDING_DEFINITIONS.map(
               (definition) => `
               <div
-                class="imb-keybinding-row${definition.devOnly ? " dev-only" : ""}"
+                class="imb-keybinding-row"
                 data-keybinding-row="${definition.action}"
               >
                 <span>${definition.label}</span>
@@ -407,7 +398,7 @@ export class GameMenu {
     this.attachSoundControls();
     this.attachThemeControls();
     this.attachZoomControls();
-    this.attachDevToolsControls();
+    this.attachSettingsNavigation();
     this.attachKeybindingControls();
     this.attachPauseMenuControls();
     this.attachMultiplayerControls();
@@ -482,16 +473,7 @@ export class GameMenu {
       });
   }
 
-  private attachDevToolsControls(): void {
-    document
-      .getElementById("dev-tools-toggle")
-      ?.addEventListener("change", (event) => {
-        this.updatePreferences({
-          devTools: (event.target as HTMLInputElement).checked,
-        });
-        this.syncSettingsControls();
-      });
-
+  private attachSettingsNavigation(): void {
     document
       .querySelector("[data-open-keybindings]")
       ?.addEventListener("click", () => {
@@ -502,18 +484,6 @@ export class GameMenu {
       .querySelector("[data-settings-back]")
       ?.addEventListener("click", () => {
         this.setPauseMenuView("main");
-      });
-
-    document
-      .querySelector("[data-dev-action='god-mode']")
-      ?.addEventListener("click", () => {
-        this.options.onToggleGodMode?.();
-      });
-
-    document
-      .querySelector("[data-dev-action='fov']")
-      ?.addEventListener("click", () => {
-        this.options.onToggleFOV?.();
       });
   }
 
@@ -535,7 +505,8 @@ export class GameMenu {
       button.addEventListener("click", () => {
         const action = (button as HTMLElement).dataset.keybindingAction;
         if (this.isKeyBindingAction(action)) {
-          this.listeningForKey = action;
+          this.listeningForKey =
+            this.listeningForKey === action ? null : action;
           this.syncKeybindingControls();
         }
       });
@@ -931,11 +902,12 @@ export class GameMenu {
   // ── Key handling ─────────────────────────────────────────────────────────────────
 
   private handleKeyDown(event: KeyboardEvent): void {
+    if (event.defaultPrevented) return;
     if (this.isPauseMenuOpen()) {
       if (this.handlePauseMenuKeyDown(event)) return;
     }
 
-    if (event.key !== "Escape") return;
+    if (!matchesBinding(event, "gameMenu", this.preferences)) return;
 
     const openModals = Array.from(this.modals.values()).filter((m) =>
       m.isOpen(),
@@ -956,18 +928,33 @@ export class GameMenu {
   private handlePauseMenuKeyDown(event: KeyboardEvent): boolean {
     if (this.listeningForKey) {
       event.preventDefault();
-      if (event.key === "Escape") {
-        this.listeningForKey = null;
-        this.syncKeybindingControls();
-        return true;
-      }
-      this.assignKeyBinding(this.listeningForKey, event.code);
+      const binding = bindingFromEvent(event);
+      if (!binding) return true;
+      this.assignKeyBinding(this.listeningForKey, binding);
       this.listeningForKey = null;
       this.syncKeybindingControls();
       return true;
     }
 
-    const key = event.key.toLowerCase();
+    if (
+      event.target instanceof HTMLElement &&
+      (event.target.matches("input, textarea, select") ||
+        event.target.isContentEditable) &&
+      !matchesBinding(event, "gameMenu", this.preferences)
+    )
+      return false;
+    for (const [action, callback] of [
+      ["save", this.options.allowSaveLoad ? this.options.onSave : undefined],
+      ["load", this.options.allowSaveLoad ? this.options.onLoad : undefined],
+      ["newGame", this.options.onNewGame],
+    ] as const) {
+      if (matchesBinding(event, action, this.preferences)) {
+        event.preventDefault();
+        if (!event.repeat) callback?.();
+        return true;
+      }
+    }
+
     const isMultiplayerView =
       this.pauseMenuView === "multiplayer" ||
       this.pauseMenuView === "host-game" ||
@@ -976,7 +963,7 @@ export class GameMenu {
       this.pauseMenuView === "lobby";
 
     if (this.pauseMenuView !== "main") {
-      if (key === "escape") {
+      if (matchesBinding(event, "gameMenu", this.preferences)) {
         event.preventDefault();
         if (this.pauseMenuView === "keybindings")
           this.setPauseMenuView("settings");
@@ -1002,8 +989,12 @@ export class GameMenu {
       return false;
     }
 
-    const isPreviousKey = key === "arrowup" || key === "w" || key === "a";
-    const isNextKey = key === "arrowdown" || key === "s" || key === "d";
+    const isPreviousKey =
+      matchesBinding(event, "menuUp", this.preferences) ||
+      matchesBinding(event, "menuLeft", this.preferences);
+    const isNextKey =
+      matchesBinding(event, "menuDown", this.preferences) ||
+      matchesBinding(event, "menuRight", this.preferences);
 
     if (isPreviousKey || isNextKey) {
       event.preventDefault();
@@ -1011,13 +1002,13 @@ export class GameMenu {
       return true;
     }
 
-    if (key === "enter") {
+    if (matchesBinding(event, "confirm", this.preferences)) {
       event.preventDefault();
       this.activatePauseMenuSelection();
       return true;
     }
 
-    if (key === "escape") {
+    if (matchesBinding(event, "gameMenu", this.preferences)) {
       event.preventDefault();
       if (this.pauseMenuMessage) {
         this.pauseMenuMessage = null;
@@ -1241,36 +1232,9 @@ export class GameMenu {
         button.classList.toggle("selected", isSelected);
         button.setAttribute("aria-pressed", String(isSelected));
       });
-
-    const devToolsToggle = document.getElementById(
-      "dev-tools-toggle",
-    ) as HTMLInputElement | null;
-    if (devToolsToggle) devToolsToggle.checked = this.preferences.devTools;
-
-    document.querySelectorAll<HTMLElement>(".dev-only").forEach((el) => {
-      el.classList.toggle("hidden", !this.preferences.devTools);
-    });
-    document
-      .querySelectorAll<HTMLElement>("[data-dev-tools-panel]")
-      .forEach((el) => {
-        el.classList.toggle("hidden", !this.preferences.devTools);
-      });
   }
 
   private syncKeybindingControls(): void {
-    document
-      .querySelectorAll<HTMLElement>("[data-keybinding-row]")
-      .forEach((row) => {
-        const action = row.dataset.keybindingRow;
-        const definition = KEY_BINDING_DEFINITIONS.find(
-          (c) => c.action === action,
-        );
-        row.classList.toggle(
-          "hidden",
-          Boolean(definition?.devOnly && !this.preferences.devTools),
-        );
-      });
-
     document
       .querySelectorAll<HTMLButtonElement>("[data-keybinding-action]")
       .forEach((button) => {
@@ -1278,7 +1242,7 @@ export class GameMenu {
         if (!this.isKeyBindingAction(action)) return;
         button.textContent =
           this.listeningForKey === action
-            ? "Press a key..."
+            ? "Press a key (click to cancel)"
             : keyCodeToLabel(this.preferences.keyBindings[action]);
         button.classList.toggle("listening", this.listeningForKey === action);
       });
