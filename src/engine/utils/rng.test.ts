@@ -18,6 +18,29 @@ describe("RandomNumberGenerator", () => {
     expect(seqA).not.toEqual(seqB);
   });
 
+  // SFC32 seeds only its first state word, so without a warm-up the opening
+  // draws of a fresh generator carry almost none of the seed: every seed in a
+  // contiguous run returned the identical first value. Callers that take one or
+  // two draws from a per-key generator depend on this.
+  it("varies its very first draw across nearby seeds", () => {
+    for (const index of [0, 1, 2]) {
+      const values = new Set<number>();
+      for (let seed = 0; seed < 1000; seed++) {
+        const rng = new RandomNumberGenerator(seed);
+        for (let skip = 0; skip < index; skip++) rng.int(1000);
+        values.add(rng.int(1000));
+      }
+      expect(values.size).toBeGreaterThan(100);
+    }
+  });
+
+  it("differs from a neighbouring seed on the first draw alone", () => {
+    const first = (seed: number): number =>
+      new RandomNumberGenerator(seed).int(1000);
+    expect(first(1)).not.toBe(first(2));
+    expect(first(1000)).not.toBe(first(1001));
+  });
+
   it("reseed resets the stream to match a fresh instance", () => {
     const a = new RandomNumberGenerator(7);
     a.float();

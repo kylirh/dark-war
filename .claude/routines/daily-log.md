@@ -1691,3 +1691,79 @@ three and pinned the contract where it actually lives.
    deletion-capable tool.
 6. **`delete_branch_on_merge` is working.** #469's head branch was gone from
    origin immediately after the squash merge.
+
+## 2026-11-22
+
+**Merged:** nothing. Zero open pull requests at the start of the run — the
+inventory was genuinely empty, not filtered. A human ran a full repository audit
+on 2026-11-21 (`docs/reviews/2026-11-21-repository-audit.md`), integrated 15 of
+the 23 then-open pull requests, closed the other 8, and pruned every branch:
+`git ls-remote --heads origin` returns `main` alone. Phase 1 had nothing to
+triage and no branch to delete.
+
+**Closed:** nothing.
+
+**Found in main:** one real defect, in `RandomNumberGenerator`. The 24-hour
+window was unusually large — the audit landed ten days of reviewed work plus
+`#483`, `#484`, `#485` and a direct push of farming and room persistence, 113
+files and ~6.7k insertions.
+
+`stairBoundaryFor` (new in `#484`) seeds a generator per boundary and takes its
+first two draws as the stair anchor. SFC32 as written here seeds only state word
+`a`; `b`/`c`/`d` are fixed constants and there was no warm-up, so the first
+output is `(seed + b + d) | 0` — a step function of the seed that changes only
+every `2^32/n` seeds. Measured on main: **draws 0, 1 and 2 of a fresh generator
+return one single distinct value across seeds 0..999**, and depth-1 anchors
+collapsed to **one cell for seeds 0..199** and to **y = 83 for all 2000 real
+world seeds** sampled from `RNG.int(0x40000000)`. Every world put a floor's
+stairwell in the same place. Fixed at the root with the standard 12-draw sfc32
+warm-up: the same measurements become 633 distinct first draws and 197 distinct
+anchor cells, and the whole suite stays green.
+
+**For next time:**
+
+1. **Mutation testing is what found everything this run.** Reading the diff
+   produced three plausible defects that all evaporated under checking. Deleting
+   a guard and re-running the suite produced the real one. Use it — this
+   codebase's tests are strong enough that a surviving mutant means something.
+2. **Draws 0-2 of a seeded generator were the dead zone, 3+ were fine.** That is
+   why nothing else broke and why no existing test caught it: `generateDungeon`
+   takes thousands of draws, so layouts always varied (12 distinct floor counts
+   over 12 contiguous seeds). Only `stairBoundaryFor`, taking exactly two, sat
+   entirely inside the dead zone. Look for other seed-derive-then-one-draw
+   callers; `deterministic-roll.ts` is the obvious candidate to audit next.
+3. **The parity offset in `stairBoundaryFor` was not doing what its comment
+   claims — and now it is.** "Alternating x parity prevents adjacent floors'
+   up/down anchors coinciding": with the broken RNG, removing `+ (depth % 2)`
+   caused zero collisions across 160,000 (seed, depth) pairs, because x was a
+   function of depth, not seed. With the warm-up in place, dropping it fails the
+   new distinctness test. The comment is now accurate; do not re-flag it.
+4. **Believe: `prepareFallLanding` returning false is unreachable today.** It
+   rejects only the border ring, and `applyWallDamageAt` refuses that same ring
+   (`walls.ts:43`) and only ever converts `TileType.FLOOR`, which outside-world
+   ground never is. I built the repro and `setStateTile(state, 0, 36, HOLE)` on
+   outside grass does not even take. The `descendLevel` fall path does not clear
+   `descendTarget` on that early return, which would retry and regenerate a
+   dungeon every tick — but it cannot be reached, so it was left alone. Do not
+   "fix" it without first showing a reachable hole on a plane border.
+5. **Three guards that landed this window are still uncovered on purpose or by
+   necessity.** Now covered: the HARVEST action validator, `canActorAct`'s
+   `fallDistance` gate, and every `loadRoomCheckpoint` rejection branch (that
+   file had no test at all). Still uncovered: the server's twin gates in
+   `applyVelocity`/`applyAction`. A stable mid-fall state only exists when a
+   migration fails, which needs a contrived unreachable world, and racing a
+   velocity message into one 50 ms tick is flaky. The existing shaft test in
+   `server/world-transitions.test.ts` already proves falls progress without
+   input. Left alone deliberately.
+6. **`fallDistance` gates acting but is not serialized by name** — it rides along
+   in the player snapshot (`server/world-transitions.test.ts:292` reads it off
+   the wire), so this is fine today. Worth remembering before anyone switches to
+   field-by-field player serialization.
+7. **Noted, not fixed, for a human:** `RoomSession.resetRoomState` reuses the
+   checkpoint's `worldSeed`, so "New Game" in a restored room regenerates the
+   same world and immediately overwrites the old checkpoint — a product call.
+   `saveRoomCheckpoint` runs `JSON.stringify` + `writeFileSync` over every
+   world's full layer arrays on the tick thread every 2 s once any plot exists.
+   `removePlayer` now deliberately retains `exploredByPlayer` and
+   `playerSocialFacts` for return visits, so both grow for the server's lifetime.
+   None is a measured regression; all three are worth a decision.
